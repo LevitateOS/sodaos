@@ -24,11 +24,36 @@ const MAX_ISSUES = 1;
 const PLANNING_CALLS = 12;
 const PLAN_TIMEOUT_MS = 20 * 60 * 1000;
 
-type Phase = 'describe' | 'explore' | 'decide' | 'answers' | 'raise' | 'plan' | 'poll' | 'check' | 'accept' | 'build' | 'app' | 'improve';
-const PHASES: Phase[] = ['describe', 'explore', 'decide', 'answers', 'raise', 'plan', 'poll', 'check', 'accept', 'build', 'app', 'improve'];
+type Phase =
+  | 'describe'
+  | 'explore'
+  | 'decide'
+  | 'answers'
+  | 'raise'
+  | 'plan'
+  | 'poll'
+  | 'check'
+  | 'accept'
+  | 'build'
+  | 'app'
+  | 'improve';
+const PHASES: Phase[] = [
+  'describe',
+  'explore',
+  'decide',
+  'answers',
+  'raise',
+  'plan',
+  'poll',
+  'check',
+  'accept',
+  'build',
+  'app',
+  'improve',
+];
 
 function args() {
-  const out: {resume?: string; out?: string; phase?: string} = {};
+  const out: {resume?: string | undefined; out?: string | undefined; phase?: string | undefined} = {};
   const argv = Bun.argv.slice(2);
   for (let i = 0; i < argv.length; i++) {
     if (argv[i] === '--resume') out.resume = argv[++i];
@@ -37,7 +62,8 @@ function args() {
     else throw new Error(`unknown arg ${argv[i]}`);
   }
   if (out.resume) assert.match(out.resume, /^d[0-9a-f]{24}$/, 'resume must be a request id');
-  if (out.phase && out.phase !== 'all' && !(PHASES as string[]).includes(out.phase)) throw new Error(`unknown phase ${out.phase}`);
+  if (out.phase && out.phase !== 'all' && !(PHASES as string[]).includes(out.phase))
+    throw new Error(`unknown phase ${out.phase}`);
   return out;
 }
 
@@ -58,7 +84,11 @@ async function openE2E(profile: string, allowWrite: (method: string, path: strin
   const {chromium} = await import('playwright');
   const exe: string = chromium.executablePath();
   const wrapper = `${runHome}/chromium-${profile}`;
-  await writeFile(wrapper, `#!/bin/sh\nexec ${exe} --host-resolver-rules="MAP forge.northstar.soda.test ${VM_IP}" "$@"\n`, {mode: 0o700});
+  await writeFile(
+    wrapper,
+    `#!/bin/sh\nexec ${exe} --host-resolver-rules="MAP forge.northstar.soda.test ${VM_IP}" "$@"\n`,
+    {mode: 0o700}
+  );
   const b = await launchNativeBrowser(
     {executablePath: () => wrapper, connectOverCDP: chromium.connectOverCDP.bind(chromium)} as never,
     dir,
@@ -71,7 +101,8 @@ async function openE2E(profile: string, allowWrite: (method: string, path: strin
     const req = route.request();
     const url = new URL(req.url());
     const method = req.method();
-    if (!guard.armed && method === 'POST' && url.origin === ORIGIN && url.pathname === '/user/login') return route.continue();
+    if (!guard.armed && method === 'POST' && url.origin === ORIGIN && url.pathname === '/user/login')
+      return route.continue();
     if (['GET', 'HEAD', 'OPTIONS'].includes(method)) return route.continue();
     if (guard.armed && url.origin === ORIGIN && allowWrite(method, url.pathname)) {
       allowed.push(`${method} ${url.pathname}`);
@@ -116,7 +147,10 @@ async function visibleText(page: Page, chars = 6000): Promise<string> {
 
 async function phaseDescribe(page: Page, out: string, resume?: string): Promise<string> {
   if (resume) {
-    await page.goto(`${ORIGIN}/-/native/pages/soda/spaces/api/`.replace(/\/-\/native\/pages\/soda\/spaces\/api\/$/, '') + `/workspace/requests/${resume}`);
+    await page.goto(
+      `${ORIGIN}/-/native/pages/soda/spaces/api/`.replace(/\/-\/native\/pages\/soda\/spaces\/api\/$/, '') +
+        `/workspace/requests/${resume}`
+    );
     // The mount above is indirect; navigate via known workspace route instead.
     await page.goto(`${ORIGIN}/workspace/requests/${resume}`);
     await nativeSpacesMount(page);
@@ -170,7 +204,11 @@ async function phaseExplore(page: Page, out: string, intent: string): Promise<vo
   await spaces.getByRole('button', {name: 'Explore ideas', exact: true}).click();
   const done = await exploring;
   const text = await visibleText(page, 3000);
-  assert.equal(done.status(), 201, `Explore: POST explore must return 201, got ${done.status()} (page: ${text.slice(0, 300)})`);
+  assert.equal(
+    done.status(),
+    201,
+    `Explore: POST explore must return 201, got ${done.status()} (page: ${text.slice(0, 300)})`
+  );
   await spaces.getByRole('heading', {name: 'Review your product direction'}).waitFor({timeout: 60000});
   await shot(page, `${out}/explore-proposal.png`);
 }
@@ -198,7 +236,7 @@ async function phaseDecide(page: Page, out: string): Promise<void> {
   for (let i = 0; i < (await challenges.count()); i++) {
     const article = challenges.nth(i);
     if (!((await article.textContent()) ?? '').includes('Answered:')) {
-      pending.push('Q: ' + (((await article.locator('p').first().textContent()) ?? '').slice(0, 160)));
+      pending.push('Q: ' + ((await article.locator('p').first().textContent()) ?? '').slice(0, 160));
     }
   }
   await shot(page, `${out}/decide-questions.png`);
@@ -228,7 +266,8 @@ async function phaseDecide(page: Page, out: string): Promise<void> {
         {timeout: 120000}
       );
       const explored = page.waitForResponse(
-        (r) => r.url().includes('/api/factory/intents/') && r.url().endsWith('/explore') && r.request().method() === 'POST',
+        (r) =>
+          r.url().includes('/api/factory/intents/') && r.url().endsWith('/explore') && r.request().method() === 'POST',
         {timeout: 300000}
       );
       await spaces.getByRole('button', {name: 'Update proposal'}).click();
@@ -263,7 +302,10 @@ async function phaseDecide(page: Page, out: string): Promise<void> {
     await shot(page, `${out}/decide-allowance-raised.png`);
     const objective = spaces.getByLabel('Desired outcome', {exact: true});
     const before = await objective.inputValue();
-    assert(!before.includes('First action and success'), 'Decide: objective suffix already applied, refusing to double-apply');
+    assert(
+      !before.includes('First action and success'),
+      'Decide: objective suffix already applied, refusing to double-apply'
+    );
     const grown = before + OBJECTIVE_SUFFIX;
     assert(Buffer.byteLength(grown) < 4000, 'Decide: grown objective must stay under 4000 bytes (UI-24)');
     await objective.fill(grown);
@@ -272,7 +314,8 @@ async function phaseDecide(page: Page, out: string): Promise<void> {
       {timeout: 120000}
     );
     const explored = page.waitForResponse(
-      (r) => r.url().includes('/api/factory/intents/') && r.url().endsWith('/explore') && r.request().method() === 'POST',
+      (r) =>
+        r.url().includes('/api/factory/intents/') && r.url().endsWith('/explore') && r.request().method() === 'POST',
       {timeout: 300000}
     );
     await spaces.getByRole('button', {name: 'Update proposal'}).click();
@@ -352,7 +395,10 @@ async function phaseBind(page: Page, out: string): Promise<string | null> {
     error?: {code?: string; message?: string};
     revision_id?: string;
   };
-  await writeFile(`${out}/plan-admission.json`, JSON.stringify({status: planReply.status(), revision, body: planBody}, null, 2));
+  await writeFile(
+    `${out}/plan-admission.json`,
+    JSON.stringify({status: planReply.status(), revision, body: planBody}, null, 2)
+  );
   assert(
     [201, 202].includes(planReply.status()),
     `Plan: admission must be 201/202, got ${planReply.status()} (${planBody.error?.code ?? 'no code'}: ${(planBody.error?.message ?? 'no message').slice(0, 300)})`
@@ -424,7 +470,14 @@ async function phasePlan(page: Page, out: string, intent: string, revision: stri
     assert.equal(plan.revision, want, 'Plan: refresh must report the bound revision');
     if (plan.state !== 'pending') {
       await shot(page, `${out}/plan-${plan.state}.png`);
-      await writeFile(`${out}/plan.json`, JSON.stringify({intent, revision, state: plan.state, startedUnixMS: started, endedUnixMS: Date.now(), plan}, null, 2));
+      await writeFile(
+        `${out}/plan.json`,
+        JSON.stringify(
+          {intent, revision, state: plan.state, startedUnixMS: started, endedUnixMS: Date.now(), plan},
+          null,
+          2
+        )
+      );
       assert.equal(plan.state, 'completed', `Plan: planning ended in state "${plan.state}", not completed`);
       return;
     }
@@ -445,14 +498,15 @@ async function phaseAppUse(page: Page, out: string): Promise<void> {
         if (/open app/i.test(a.textContent || '')) links.push((a as HTMLAnchorElement).href);
       }
       iframes += root.querySelectorAll('iframe').length;
-      for (const el of Array.from(root.querySelectorAll('*'))) if ((el as Element).shadowRoot) scan((el as Element).shadowRoot as ShadowRoot);
+      for (const el of Array.from(root.querySelectorAll('*')))
+        if ((el as Element).shadowRoot) scan((el as Element).shadowRoot as ShadowRoot);
     };
     scan(document);
     return {links, iframes, url: location.href};
   });
   await writeFile(`${out}/app-discovery.json`, JSON.stringify(found, null, 2));
   assert(found.links.length > 0, 'App: no "Open app" link on the Forge side; cannot reach the app at its own address');
-  const href = found.links[0];
+  const href = found.links[0] ?? '';
   const appOrigin = new URL(href).origin;
   assert(
     appOrigin !== new URL(page.url()).origin,
@@ -506,12 +560,16 @@ async function phaseBuildFollow(page: Page, out: string, intent: string): Promis
         const t = (d.textContent || '').replace(/\s+/g, ' ').slice(0, 2000);
         if (/muse|harness|model|contributor|assignment|run/i.test(t)) parts.push(t);
       }
-      for (const el of Array.from(root.querySelectorAll('*'))) if ((el as Element).shadowRoot) scan((el as Element).shadowRoot as ShadowRoot);
+      for (const el of Array.from(root.querySelectorAll('*')))
+        if ((el as Element).shadowRoot) scan((el as Element).shadowRoot as ShadowRoot);
     };
     scan(document);
     return parts.join('\n---\n');
   });
-  await writeFile(`${out}/build-provenance.txt`, `started=${new Date(started).toISOString()}\n${details.slice(0, 4000)}\n`);
+  await writeFile(
+    `${out}/build-provenance.txt`,
+    `started=${new Date(started).toISOString()}\n${details.slice(0, 4000)}\n`
+  );
   assertMuseProvenance(details, 'Build');
 }
 
@@ -537,7 +595,8 @@ async function phaseAccept(page: Page, out: string, _intent: string): Promise<vo
     {timeout: 120000}
   );
   const generated = page.waitForResponse(
-    (r) => r.url().includes('/api/factory/intents/') && r.url().endsWith('/generate') && r.request().method() === 'POST',
+    (r) =>
+      r.url().includes('/api/factory/intents/') && r.url().endsWith('/generate') && r.request().method() === 'POST',
     {timeout: 180000}
   );
   await spaces.getByRole('button', {name: 'Accept and build', exact: true}).click();
@@ -565,7 +624,13 @@ async function main() {
     if (method === 'POST' && /\/api\/factory\/intents\/[0-9a-f]+\/generate$/.test(p)) return true;
     return false;
   };
-  const s = await openE2E(`founder-${stamp.slice(9)}`.slice(0, 24).replace(/[^a-z0-9-]/gi, '').toLowerCase() || 'founder-e2e', allowWrite);
+  const s = await openE2E(
+    `founder-${stamp.slice(9)}`
+      .slice(0, 24)
+      .replace(/[^a-z0-9-]/gi, '')
+      .toLowerCase() || 'founder-e2e',
+    allowWrite
+  );
   const report: Record<string, unknown> = {dir, resume: resume ?? null, started: new Date().toISOString()};
   try {
     let intent = resume ?? '';
