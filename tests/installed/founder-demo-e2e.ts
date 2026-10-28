@@ -21,7 +21,6 @@ const REPOSITORY = '1';
 const REPOSITORY_SLUG = 'maya/northstar-equipment';
 const OBJECTIVE = `Replace our equipment-request spreadsheet with a small app inside Soda Forge. Employees submit a request for a laptop, monitor or other equipment, with a reason and a needed-by date. Their manager approves or rejects it with a comment. Operations sees approved requests and marks them ordered, then delivered. Employees see the status of their own requests only.`;
 const MAX_ISSUES = 1;
-const PLANNING_CALLS = 12;
 const PLAN_TIMEOUT_MS = 20 * 60 * 1000;
 
 type Phase =
@@ -29,7 +28,6 @@ type Phase =
   | 'explore'
   | 'decide'
   | 'answers'
-  | 'raise'
   | 'plan'
   | 'poll'
   | 'check'
@@ -42,7 +40,6 @@ const PHASES: Phase[] = [
   'explore',
   'decide',
   'answers',
-  'raise',
   'plan',
   'poll',
   'check',
@@ -179,7 +176,6 @@ async function phaseDescribe(page: Page, out: string, resume?: string): Promise<
   assert(Buffer.byteLength(OBJECTIVE) < 4000, 'Describe: request must stay under 4000 bytes (UI-24)');
   await spaces.locator('details.bounds > summary').first().click();
   await spaces.getByLabel('Maximum work items', {exact: true}).fill(String(MAX_ISSUES));
-  await spaces.getByLabel('Planning calls', {exact: true}).fill(String(PLANNING_CALLS));
   await shot(page, `${out}/describe-typed.png`);
   const saving = page.waitForResponse(
     (r) => r.url().endsWith('/api/factory/intents') && r.request().method() === 'POST',
@@ -289,17 +285,11 @@ async function phaseDecide(page: Page, out: string): Promise<void> {
   }
   // Post-fix path: the correction stands but no questions render and the
   // request is still unbound (the pre-fix deadlock state). Answer the
-  // material question in the Desired outcome itself, raise the allowance to
-  // the approved 20, and re-explore under the fixed producer.
+  // material question in the Desired outcome itself and re-explore under
+  // the fixed producer.
   const questionsNow = spaces.locator('section[aria-label="Questions needing your answer"] article');
   const chooseNow = spaces.getByRole('button', {name: 'Choose repository'});
   if ((await questionsNow.count()) === 0 && (await chooseNow.count()) > 0 && !(await chooseNow.first().isEnabled())) {
-    await spaces.locator('details.bounds > summary').first().click();
-    const calls = spaces.getByLabel('Planning calls', {exact: true});
-    await calls.fill('20');
-    await spaces.getByRole('button', {name: 'Update proposal'}).click();
-    await page.waitForTimeout(2000);
-    await shot(page, `${out}/decide-allowance-raised.png`);
     const objective = spaces.getByLabel('Desired outcome', {exact: true});
     const before = await objective.inputValue();
     assert(
@@ -407,25 +397,6 @@ async function phaseBind(page: Page, out: string): Promise<string | null> {
   return revision;
 }
 
-async function phaseRaise(page: Page, out: string, amount: number): Promise<void> {
-  const spaces = await spacesContent(page);
-  await spaces.getByRole('heading', {name: 'Review your product direction'}).waitFor({timeout: 60000});
-  await spaces.locator('details.bounds > summary').first().click();
-  const calls = spaces.getByLabel('Planning calls', {exact: true});
-  const before = await calls.inputValue();
-  if (before === String(amount)) {
-    await shot(page, `${out}/decide-allowance-already.png`);
-    return;
-  }
-  await calls.fill(String(amount));
-  const saving = page.waitForResponse(
-    (r) => r.url().endsWith('/api/factory/intents') && r.request().method() === 'POST',
-    {timeout: 120000}
-  );
-  await spaces.getByRole('button', {name: 'Update proposal'}).click();
-  assert.equal((await saving).status(), 201, `Raise: allowance save must return 201`);
-  await shot(page, `${out}/decide-allowance-raised.png`);
-}
 
 async function phaseStartPlan(page: Page, out: string): Promise<void> {
   const spaces = await spacesContent(page);
@@ -617,7 +588,6 @@ async function main() {
   const only = phase ?? 'all';
   const allowWrite = (method: string, p: string) => {
     if (method === 'POST' && /\/api\/factory\/intents$/.test(p)) return true;
-    if (method === 'POST' && /\/api\/factory\/intent-allowances$/.test(p)) return true;
     if (method === 'POST' && /\/api\/factory\/intents\/[0-9a-f]+\/explore$/.test(p)) return true;
     if (method === 'POST' && /\/api\/factory\/intents\/[0-9a-f]+\/plan$/.test(p)) return true;
     if (method === 'POST' && /\/api\/factory\/intents\/[0-9a-f]+\/plan\/review$/.test(p)) return true;
@@ -648,7 +618,6 @@ async function main() {
     if (only === 'all' || only === 'explore') await phaseExplore(s.page, dir, intent);
     if (only === 'all' || only === 'decide') await phaseDecide(s.page, dir);
     if (only === 'all' || only === 'answers') await phaseAnswerQuestions(s.page, dir);
-    if (only === 'all' || only === 'raise') await phaseRaise(s.page, dir, 24);
     let revision: string | null = null;
     if (only === 'all' || only === 'plan') {
       revision = await phaseBind(s.page, dir);
