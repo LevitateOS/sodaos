@@ -83,67 +83,12 @@ describes how eligible accepted issues proceed under standing authority. The
 [operator reference](../reference/factory.md) documents the existing command
 interface.
 
-## Explicit release maintenance
+## Host updates
 
-Use this workflow only for a source-to-target pair with its exact native
-qualification receipt. A first-install release or a prospective `UpgradeFrom`
-declaration alone cannot authorize it. The
-[release contract](../architecture/release.md#host-update-ownership) owns this
-qualification boundary.
-
-Qualification covers the installed source release's maintenance command and the
-target release's boot reconciliation together. Use that installed command for
-the qualified transition. Substituting a newer maintenance binary cannot qualify
-an earlier source release.
-
-For a qualified pair, use appliance root to download the complete selected GitHub
-release into a root-owned directory that other users cannot write. The existing
-`gh release download TAG --repo LevitateOS/sodaos --dir DIRECTORY` obtains its
-assets together. The rootfs contains the host and its Project support helper.
-Application images are separate pinned registry inputs, and Fountain acquires
-packages from the release catalog. Maintenance verifies and caches both source
-and target content before activation, selecting optional Tailnet content only
-when its saved intent is enabled. There is no separate helper installation to
-assemble. Maintenance authenticates the selected assets against that same GitHub
-release and reads its exact source-to-target receipt from the authenticated
-promotion summary. The target must be immutable and promoted; a local receipt
-file cannot supply qualification.
-
-Run `/usr/libexec/soda/soda-project-maintain release --release-dir DIRECTORY --check`
-to inspect every enrolled running or stopped Project, verify the candidate and
-report active or uncertain managed work. This extracts and temporarily mounts
-the rootfs and checks locally retained image/package content; it does not acquire
-missing images, replace Project support or stage/activate the host. Let existing
-work finish; the command never ends a terminal to proceed.
-Then run the same command without `--check`. It closes managed admission, records
-the fixed release and container set, locks the native staged deployment before
-replacing support, verifies all retained roots, and requests native activation and
-reboot. Stop/Start, terminal Open and image import never perform this operation.
-
-Admission stays closed across interruption and reboot. The boot reconciliation
-unit verifies the actual booted release, retained helpers and selected future
-Project image before reopening it. Its bounded systemd retries allow the operator
-socket to become ready during boot. They reconcile the same operation without
-selecting another release or repeating activation. If blocked, inspect the root-only
-`/var/lib/soda/project-maintenance/operation.json` and the reconciliation unit's
-journal. `release --recover` re-admits the recorded target and inspects actual
-boundaries before continuing; it can restage the exact locked deployment if an
-interrupted reboot removed it. It cannot silently select another release or
-container. Never delete a record to force admission.
-
-`release --rollback` restores the recorded previous native deployment and Project
-support together. It requires unchanged container identities, retained source
-bytes and empty, readable managed state again. Incompatible or uncertain state
-leaves admission closed; it is never deleted or replaced with an old database.
-Manual rpm-ostree rollback and ordinary upstream update activation are outside
-this coordinated workflow. Native FCOS ownership and Zincati remain in place.
-
-Release operators use explicit `--qualification-public` mode to exercise the
-exact authenticated immutable prerelease before its native receipt exists.
-Its output is unqualified until protected observations pass promotion checks.
-The separate `--qualification-fixture` path admits a development candidate and
-cannot qualify a production release. Neither mode is an ordinary recovery option.
-See the [release workflow](../development/release.md).
+There is no separate release-maintenance command. Upgrade an appliance by
+reinstalling from new media after a backup, or through the native Fedora CoreOS
+image update. See [host update ownership](../architecture/release.md#host-update-ownership)
+and [Updates and fallback](../public/50-Operate/70-updates-and-fallback.md).
 
 ## Explicit factory enrollment
 

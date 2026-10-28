@@ -19,7 +19,7 @@ packages and restricted host operations. See the
 
 Retained-Project transitions follow the
 [release maintenance contract](../architecture/release.md#host-update-ownership)
-and [operator procedure](../guides/operator-setup.md#explicit-release-maintenance).
+and [operator procedure](../guides/operator-setup.md#host-updates).
 Each source-to-target pair requires its own native qualification receipt.
 
 ## Pipeline map

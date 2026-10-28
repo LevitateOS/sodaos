@@ -103,7 +103,6 @@ already-supported interim guidance. Each remains part of its existing task:
 | `native-files-client` | [D05 — Check access and retained results](../../public/30-Projects-and-development/70-canlang-development.md#check-access-and-retained-results) | HB08/P29: maintained authenticated upload, finalization, attachment and readback example. |
 | `canlang-publisher-inputs` | [D05 — Assemble an application bundle](../../public/30-Projects-and-development/70-canlang-development.md#assemble-an-application-bundle) | HB07/P29: supported descriptor generation and matching environment preparation. |
 | `canlang-image-build` | [D05 — Export a prepared application image](../../public/30-Projects-and-development/70-canlang-development.md#export-a-prepared-application-image) | HB07/P27–P29: matched runtime/tools acquisition and application image build recipe. |
-| `release-content-preparation` | [O05 — Apply a qualified appliance release](../../public/50-Operate/70-updates-and-fallback.md#apply-a-qualified-appliance-release) | HB14/R45: preparation of locally required release content before preflight. |
 | `offline-forgejo-invocation` | [O08 — Reconcile a native Forgejo mutation](../../public/50-Operate/80-recovery.md#reconcile-a-native-forgejo-mutation) | HB14/R04: complete packaged offline invocation with the retained deployment's mappings. |
 
 Keep implementation tasks, absent walkthrough fixtures and unexecuted live

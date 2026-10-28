@@ -1,43 +1,14 @@
 # Recover an interrupted operation
 
-Identify which operation was interrupted and preserve its record and observed state. Route Factory runs, host releases, Project maintenance and data restoration to their distinct recovery procedures.
+Identify which operation was interrupted and preserve its record and observed state. Route Factory runs, host updates, Project maintenance and data restoration to their distinct recovery procedures.
 
-First identify whether the interruption affected one Factory run, a host/release operation, a Project maintenance action or data itself. Each has a different owner and recovery boundary; preserving the original record and current state is essential when the effect is uncertain.
+First identify whether the interruption affected one Factory run, a host update, a Project maintenance action or data itself. Each has a different owner and recovery boundary; preserving the original record and current state is essential when the effect is uncertain.
 
-## Recover a Factory run or release
+## Recover a Factory run or host update
 
 For a Factory run or provider lease, use [Factory intervention](../20-Factory/80-factory-intervention.md). Do not apply host recovery commands to a run.
 
-For an interrupted release transition, inspect the recorded operation and reconciliation service journal, then resume or roll back only through the exact recorded release procedure in [Updates and fallback](70-updates-and-fallback.md).
-
-When the recorded core transition has completed and reconciliation then exits with status 75, extension readiness needs attention. A later readiness check can also return 75 without an active transition, so verify the booted target separately. Resolve the extension problem and restart the reconciliation service using [Verify and reconcile the result](70-updates-and-fallback.md#verify-and-reconcile-the-result); do not use `release --recover` as its readiness retry.
-
-### Resume the recorded appliance transition
-
-Use this procedure for an unfinished transition with an active operation record. Use the appliance root session and installed maintenance helper. Preserve the root-only operation record at `/var/lib/soda/project-maintenance/operation.json`, the protected release directory and all retained containers. Inspect the current boot and operation journal first:
-
-```sh
-sudo rpm-ostree status
-sudo journalctl -b -u soda-project-release-reconcile.service --no-pager -n 100
-```
-
-Compare the recorded source/target and container identities with the actual state. Let active work finish; managed admission stays closed while recovery is unresolved. To resume that same recorded target, run:
-
-```sh
-sudo /usr/libexec/soda/soda-project-maintain release --recover
-```
-
-Recovery uses the saved release directory and rechecks the original boundaries; it may restage the exact locked deployment. It does not select a new target. Verify the booted release, retained Project helpers and extension readiness through [Updates and fallback](70-updates-and-fallback.md#verify-and-reconcile-the-result) before reopening work.
-
-### Restore the recorded host and support pair
-
-Use rollback only when the original containers still match, retained source bytes are available, managed state is readable and idle, and the recorded extension intent still matches. As appliance root, run:
-
-```sh
-sudo /usr/libexec/soda/soda-project-maintain release --rollback
-```
-
-The operation restores its recorded previous native deployment and Project support together. Refusal or uncertainty leaves admission closed; preserve that state and the diagnostic output. Do not substitute a manual host rollback, delete the record or restore an older Soda database to bypass the check. Successful software rollback does not reverse newer application or database writes. Verify the booted pair and extension readiness through [Updates and fallback](70-updates-and-fallback.md#verify-and-reconcile-the-result).
+For an interrupted host update, inspect the booted deployment with `sudo rpm-ostree status`. Use the native Fedora CoreOS rollback or reinstall from the release media as described in [Updates and fallback](70-updates-and-fallback.md). Neither restores database contents or newer application data; use [Backups](50-backups-and-restoration.md) for that.
 
 ## Reconcile a native Forgejo mutation
 

@@ -1,7 +1,7 @@
 # soda-project-maintain
 
-`soda-project-maintain` provides explicit `muse`, `canlang`, `factory-mcp`, `terminal-support`
-and `release` operations.
+`soda-project-maintain` provides explicit `muse`, `canlang`, `factory-mcp` and `terminal-support`
+operations.
 Muse installs packaged public tools and restores the launch interface.
 Terminal support repairs one admitted helper in an idle retained root.
 It operates on the project's retained container and requires appliance root.
@@ -23,14 +23,8 @@ sudo /usr/libexec/soda/soda-project-maintain terminal-support --project p0123456
 for an unqualified development repair. Normal repair consumes the complete installed
 release's bundled input and metadata. Neither operation upgrades the host.
 
-`release --release-dir DIRECTORY [--check]` consumes one complete downloaded
-GitHub release. Normal admission requires its exact native qualification receipt.
-`release --recover` resumes the recorded release; `release --rollback` restores
-the recorded host/support pair with idle-state checks. The internal
-`release-reconcile` boot action verifies the active pair and retires its recorded
-recovery copies before reopening admission. See the
-[operator procedure](../../docs/guides/operator-setup.md#explicit-release-maintenance)
-for effects and recovery and the [qualification boundary](../../docs/architecture/release.md#host-update-ownership).
+Host upgrades are a reinstall or the plain bootc image update; see
+[host update ownership](../../docs/architecture/release.md#host-update-ownership).
 
 Terminal repair includes running and stopped Rocky 10.2 roots with empty managed
 terminal/factory state. A stopped Project remains stopped: native namespace access
@@ -165,8 +159,7 @@ Only the installed tools and their four command symlinks are changed. Project
 accounts, checkouts, credentials, files and volumes remain in the same root.
 Canlang preview/example state is outside the tool installation and is not
 reset or copied by maintenance. Startup does not run this installation; a
-release upgrade or retained Project tooling refresh is an explicit operator
-action. Local package/workflow checks do not qualify this maintenance on an
+retained Project tooling refresh is an explicit operator action. Local package/workflow checks do not qualify this maintenance on an
 installed appliance or a production application image.
 
 Returns `0` on completion and `1` with a prefixed stderr diagnostic on failure.
@@ -177,15 +170,3 @@ See [Project OS maintenance](../../docs/reference/project-os.md#same-root-mainte
 [Muse subscription access](../../docs/reference/project-os.md#muse-subscription-access),
 and [credentials](../../docs/reference/credentials.md#normal-muse-command).
 
-
-Release maintenance freezes Fountain intent and source/target component pins in
-its format-2 journal. It prefetches both selected sides before mutation and uses
-Fountain’s offline package command after stopping the service. Recovery and
-rollback retain installation identities and generations; disabled optional
-packages are excluded from acquisition.
-
-Exit status `75` from release reconciliation means the core committed while
-extension readiness remains failed or unknown. The command retains the completed
-journal and never automatically rolls back or rewrites desired enablement. The
-reconcile service leaves this result for inspection; explicitly restarting it
-performs a fresh bounded readiness check even when no operation marker remains.

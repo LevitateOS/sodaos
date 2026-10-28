@@ -24,47 +24,6 @@ pub(crate) fn run(program: &str, args: &[&str], deadline: Instant) -> Result<Vec
     wait_output(child, deadline)
 }
 
-/// Group launch with a post-spawn observation hook. The importer owns
-/// Podman children; every return path retires its whole group, including
-/// leader exit: success never releases custody while an owned descendant
-/// may still execute. The hook runs after
-/// the child is spawned in its own group and before the wait loop, so the
-/// caller can persist acquisition custody (pgid plus leader identity)
-/// while the child handle is still owned: the pid cannot be reused until
-/// it is reaped, so the recorded group identity stays pinned.
-pub(crate) fn run_group_observed(
-    program: &str,
-    args: &[&str],
-    deadline: Instant,
-    observed: impl FnOnce(i32) -> Result<(), String>,
-) -> Result<Vec<u8>, String> {
-    use std::os::unix::process::CommandExt;
-    let mut child = Command::new(program)
-        .args(args)
-        .stdin(Stdio::null())
-        .stdout(Stdio::piped())
-        .stderr(Stdio::null())
-        .process_group(0)
-        .spawn()
-        .map_err(|_| "project maintenance command failed")?;
-    let group = child.id() as i32;
-    if let Err(hook) = observed(group) {
-        // Owned cleanup on launch-persistence failure: the child is still
-        // unreaped, so the group id is pinned and safe to signal. The
-        // failed persistence fences recovery through the acquired custody
-        // left on disk; the child itself is never dropped live and unowned.
-        // The shared settle path bounds the cleanup: no unbounded wait on
-        // the running child. Cleanup uncertainty surfaces distinctly
-        // while staying an error; otherwise the original hook failure
-        // is preserved as failure, never success.
-        match settle_owned_child(&mut child, Some(group), deadline) {
-            Err(e) if e == UNCERTAIN_CLEANUP => return Err(e),
-            _ => return Err(hook),
-        }
-    }
-    wait_output_owned(child, deadline, Some(group))
-}
-
 /// wait_exit_unreaped reports whether one owned child has exited without
 /// reaping it: `waitid` with `WNOWAIT` leaves the zombie anchor in place,
 /// so the pid cannot be reused while it is still owned. A reaped pid pins

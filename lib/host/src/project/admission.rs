@@ -51,9 +51,7 @@ fn lock(directory: &Path, exclusive: bool, owner: u32) -> Result<AdmissionGuard,
 fn admit_at(directory: &Path, project: Option<&str>, owner: u32) -> Result<AdmissionGuard, String> {
     let guard = lock(directory, false, owner)?;
     // Unknown directory entries/metadata failures are blockers, never proof of absence.
-    for name in
-        std::iter::once("operation.json".to_string()).chain(project.map(|id| format!("{id}.json")))
-    {
+    if let Some(name) = project.map(|id| format!("{id}.json")) {
         match std::fs::symlink_metadata(directory.join(name)) {
             Err(e) if e.kind() == std::io::ErrorKind::NotFound => {}
             Ok(_) => return Err(MAINTENANCE.to_string()),

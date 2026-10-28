@@ -119,80 +119,19 @@ authority, key-usage and signature-algorithm policy remain with the installer.
 
 ## Host update ownership
 
-The following CoreOS update contract applies to appliance installations. The
+The following applies to appliance installations. The
 [Docker runtime](#docker-runtime) has a separate deployment lifecycle.
 
-The appliance follows Fedora CoreOS update mechanics (rpm-ostree / Zincati-aligned
-operation). Soda does not invent a parallel host updater for ordinary maintenance.
-First-install evidence does not qualify an upgrade or recovery path. Those paths
-need their own evidence before being offered as supported release operations.
-
-An optional `UpgradeFrom` declares one prospective source release before the
-candidate is built. It is not qualification. Stage publishes the unchanged target
-assets without an upgrade receipt. A supported transition additionally requires
-the typed upgrade receipt in the authenticated promotion summary, produced after
-the native transition, interrupted recovery and stopped-Project observations exist.
-The receipt is retained locally as `upgrade-qualification.json`; it is not an
-immutable release attachment. This external receipt
-binds source release and support digest to the exact target payload, host manifest,
-Project image, support digest, public rootfs and deployable OSTree commit, with
-hashes of the native observation files. It changes no baked host bytes.
+The appliance follows Fedora CoreOS update mechanics (rpm-ostree, Zincati).
+Soda has no parallel host updater: upgrade by reinstalling from new media after a
+[backup](../public/50-Operate/50-backups-and-restoration.md), or through the
+plain native image update. Retained Project tooling is refreshed separately with
+[`soda-project-maintain`](../../cmd/soda-project-maintain/README.md).
 
 The public rootfs contains the host and an OSTree repository inside its EROFS
 root. Application OCI bodies are acquired separately from the Payload v4 pins
-into ordinary Podman storage. Explicit maintenance consumes the selected
-GitHub release's rootfs and metadata together; users do not assemble helpers.
-Native `ostree pull-local` and locked deployment retain FCOS activation ownership.
-Import includes the digest-named container blob references required by rpm-ostree
-to resolve the deployment's image metadata. Mutable image pointers from the media
-repository are not imported over the appliance's existing pointers.
-Before finalization, the workflow rechecks the exact staged commit, serial and
-lock, then binds rpm-ostree's native base identity: the container manifest digest
-for an imported container commit, otherwise the base OSTree commit. This rule also
-applies when that container commit came from the public rootfs repository.
-Media records `DeploymentCommit` from that rootfs's actual deployment separately
-from `AssemblerImportCommit`; an assembler import identity cannot select a host
-deployment. Explicit release qualification admits the authenticated immutable
-prerelease before its upgrade receipt exists, retaining exact asset and native
-source checks and making no supported-upgrade claim. Development qualification
-has its separate candidate fixture path and cannot qualify production. Normal
-upgrade admission requires a promoted release and its exact bound receipt from
-the authenticated promotion summary; local receipt files cannot substitute.
-
-The explicit `release` maintenance operation closes admission before applying
-support or releasing the native finalization lock. It fixes all enrolled container identities, includes
-stopped roots, refuses active or uncertain work, and retains a durable operation
-record across interruption and reboot. Boot reconciliation checks actual host,
-Project and future-image identities before reopening admission; that additional
-readback is not the pre-activation safeguard. Explicit rollback restores both the
-retained native deployment and its support, requiring empty managed state again.
-
-The format-2 operation journal freezes both Payload v4 bindings and Fountain's
-consistent source snapshot. Required packages and desired-enabled optional
-packages select source and target image/package prefetch; disabled Tailnet adds
-no acquisition. The updater holds the existing maintenance directory's exclusive
-lock while caching both sides, checking retained rollback content, replacing
-Project support and preparing exact cached packages through Fountain's stopped,
-network-disabled UID1000 CLI. Fountain remains the only package installer and
-requested-state writer. Recovery uses the saved snapshot and offline cache;
-rollback refuses a changed installation UUID, generation or desired value.
-
-Core finalization verifies active package bindings and unchanged intent, retires
-the operation marker, and releases the exclusive lock before asking Fountain to
-reconcile optional effects. Exit status 75 means the core committed but extension
-readiness is failed or unknown. It preserves last-operation evidence and does
-not roll back, restore the marker or overwrite a newer administrator decision.
-Restarting reconciliation without a pending marker still checks current extension
-readiness. Only prepared public inputs receive a container-readable SELinux label;
-private maintenance journals retain their metadata-only service boundary.
-
-
-These controls apply to this explicit workflow. They do not intercept arbitrary
-root use of rpm-ostree, upstream Zincati deployments or manual rollback. Zincati
-remains enabled and native FCOS owns deployment and activation. The integrated
-release-pair journey must pass before a transition is offered as supported. See
-[operator maintenance](../guides/operator-setup.md#explicit-release-maintenance) and the independent
-[Project repair contract](../reference/project-os.md#terminal-support).
+into ordinary Podman storage. Media records `DeploymentCommit` from that rootfs's
+actual deployment separately from `AssemblerImportCommit`.
 
 ## Architectures
 
