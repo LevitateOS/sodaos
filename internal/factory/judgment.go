@@ -7,7 +7,6 @@ import (
 	"errors"
 	"math"
 	"sort"
-	"strconv"
 	"strings"
 )
 
@@ -26,20 +25,9 @@ type PriorityCandidate struct {
 	GateRevision        int64          `json:"gate_revision"`
 	PlannedMinutes      int            `json:"planned_minutes"`
 	PromptDigest        string         `json:"prompt_digest"`
-	// Only accepted non-code candidates carry these observed bindings. Code
-	// candidates keep their existing representation and retained fingerprints.
-	Phase   string            `json:"phase,omitempty"`
-	Role    string            `json:"role,omitempty"`
-	Subject *ExecutionSubject `json:"subject,omitempty"`
-	Impact  string            `json:"impact,omitempty"`
-	Risk    string            `json:"risk,omitempty"`
-	Effort  string            `json:"effort,omitempty"`
-}
-
-func (c PriorityCandidate) NonCodeIssueWork() bool {
-	return c.Subject != nil && c.Acceptance.Repository == c.Control.Repository &&
-		c.Acceptance.IssueIndex == strconv.FormatInt(c.Control.Issue, 10) && c.Acceptance.ID == c.Control.Acceptance &&
-		NonCodeIssueWork(c.Phase, c.Role, *c.Subject, c.Control.Issue, c.Acceptance.ID)
+	Impact              string         `json:"impact,omitempty"`
+	Risk                string         `json:"risk,omitempty"`
+	Effort              string         `json:"effort,omitempty"`
 }
 
 const PriorityRubric = "Choose the eligible issue whose next execution best advances its accepted objective. Prefer evidenced prerequisite leverage and material user impact, then reduce evidenced delivery risk and effort. Use only provided facts; missing impact, risk and effort are unknown, not zero. Queue age breaks equivalent preferences. Eligibility, acceptance, authority, spending and launch are decided by code, never by this preference."

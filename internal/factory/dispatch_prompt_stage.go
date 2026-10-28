@@ -9,12 +9,6 @@ import (
 )
 
 func promptStage(in PromptInputs) string {
-	if in.Phase == project.ExecutionMaintainLibrary {
-		return "library maintenance"
-	}
-	if in.Phase == project.ExecutionResearch {
-		return "research"
-	}
 	if in.Role == project.RoleReviewer {
 		return "review"
 	}
@@ -50,8 +44,7 @@ func validatePromptRole(in PromptInputs) error {
 		return errors.New("invalid prompt role or approved base")
 	}
 	if in.PublicationAssignment == "" {
-		roleAllowed := in.Role == project.RoleCoder || (in.Role == project.RoleReviewer && (in.Phase == project.ExecutionMaintainLibrary || in.Phase == project.ExecutionResearch))
-		if !roleAllowed || in.BaseCommit != "" || in.CheckAssessment != nil ||
+		if in.Role != project.RoleCoder || in.BaseCommit != "" || in.CheckAssessment != nil ||
 			in.TypedReview != nil || in.TypedClear != nil {
 			return errors.New("initial coding prompt carries child evidence")
 		}

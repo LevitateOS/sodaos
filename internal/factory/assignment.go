@@ -12,7 +12,6 @@ import (
 	"encoding/hex"
 	"errors"
 	"strconv"
-	"strings"
 
 	"github.com/levitateos/sodaos/internal/project"
 )
@@ -69,15 +68,6 @@ const (
 	// SubjectDeliveryRepair names one failed verification's repair cycle
 	// (D16). It accepts only the repair phase and the coder role.
 	SubjectDeliveryRepair = "delivery_repair"
-	// SubjectResearch names one research inquiry on a native issue (R10.2).
-	// Research and independent report review use the reviewer account;
-	// neither carries a code candidate.
-	SubjectResearch = "research"
-	// SubjectCollection names one library collection for maintenance
-	// (R10.2). It accepts only the maintain_library phase and the
-	// reviewer role, carries no issue authority and addresses the
-	// collection, not a native issue.
-	SubjectCollection = "collection"
 )
 
 // IssueSubject binds one native issue attempt to the acceptance decision
@@ -106,35 +96,13 @@ type CompletionSubject struct {
 	InventoryDigest string `json:"inventory_digest"`
 }
 
-// ResearchSubject binds one research inquiry to the native issue that
-// asked it, the acceptance decision that authorized it and the declared
-// source refs the run may read. Repo-only inquiry leaves Sources empty.
-type ResearchSubject struct {
-	Issue      int64    `json:"issue,string"`
-	Acceptance string   `json:"acceptance"`
-	Sources    []string `json:"sources,omitempty"`
-}
-
-// MaxResearchSources bounds the declared source refs on one research
-// subject: an initial allowlist, not a research corpus limit.
-const MaxResearchSources = 8
-
-// CollectionSubject binds one library maintenance root to the collection
-// it maintains. It carries no issue authority: the collection, not a
-// native issue, is the work item.
-type CollectionSubject struct {
-	CollectionID string `json:"collection_id"`
-}
-
 // ExecutionSubject is the canonical admitted work item: a native issue, a
 // pre-issue intent draft, a D13 verified completion, a D15 stall, a D16
-// delivery, a D16 delivery repair, an R10.2 research inquiry or an R10.2
-// library collection. Subject keys are
+// delivery or a D16 delivery repair. Subject keys are
 // `issue:<repository>:<issue>`, `intent:<intent_id>`,
 // `completion:<completion_id>`, `stall:<stall_id>`,
 // `delivery:<delivery_id>`,
-// `delivery_repair:<delivery_id>:<failed_run>`,
-// `research:<repository>:<issue>` and `collection:<collection_id>`.
+// `delivery_repair:<delivery_id>:<failed_run>`.
 type ExecutionSubject struct {
 	Issue          *IssueSubject          `json:"issue,omitempty"`
 	Intent         *IntentSubject         `json:"intent,omitempty"`
@@ -142,8 +110,6 @@ type ExecutionSubject struct {
 	Stall          *StallSubject          `json:"stall,omitempty"`
 	Delivery       *DeliverySubject       `json:"delivery,omitempty"`
 	DeliveryRepair *DeliveryRepairSubject `json:"delivery_repair,omitempty"`
-	Research       *ResearchSubject       `json:"research,omitempty"`
-	Collection     *CollectionSubject     `json:"collection,omitempty"`
 	Kind           string                 `json:"kind"`
 }
 
@@ -167,17 +133,11 @@ func (s ExecutionSubject) SubjectKey(repository int64) string {
 	if s.Kind == SubjectDeliveryRepair && s.DeliveryRepair != nil {
 		return DeliveryRepairKey(s.DeliveryRepair.DeliveryID, s.DeliveryRepair.FailedVerificationRunID)
 	}
-	if s.Kind == SubjectResearch && s.Research != nil {
-		return "research:" + strconv.FormatInt(repository, 10) + ":" + strconv.FormatInt(s.Research.Issue, 10)
-	}
-	if s.Kind == SubjectCollection && s.Collection != nil {
-		return "collection:" + s.Collection.CollectionID
-	}
 	return ""
 }
 
 // ValidCollectionID reports whether id names a library collection:
-// lowercase plan-key shape so collection grants match exactly.
+// lowercase plan-key shape so sponsorship collection grants match exactly.
 func ValidCollectionID(id string) bool { return ValidPlanKey(id) }
 
 func (s ExecutionSubject) Validate() error {
@@ -194,49 +154,14 @@ func (s ExecutionSubject) Validate() error {
 		return checkDeliverySubject(s)
 	case SubjectDeliveryRepair:
 		return checkDeliveryRepairSubject(s)
-	case SubjectResearch:
-		return checkResearchSubject(s)
-	case SubjectCollection:
-		return checkCollectionSubject(s)
 	default:
 		return errors.New("unknown execution subject kind")
 	}
 }
 
-func checkResearchSubject(s ExecutionSubject) error {
-	if s.Research == nil || s.Issue != nil || s.Intent != nil || s.Completion != nil ||
-		s.Stall != nil || s.Delivery != nil || s.DeliveryRepair != nil || s.Collection != nil {
-		return errors.New("research subject needs exactly its research payload")
-	}
-	if s.Research.Issue <= 0 || !project.ValidDecisionID(s.Research.Acceptance) {
-		return errors.New("invalid research subject issue")
-	}
-	if len(s.Research.Sources) > MaxResearchSources {
-		return errors.New("research subject declares too many sources")
-	}
-	for _, source := range s.Research.Sources {
-		if source == "" || len(source) > 128 || strings.ContainsRune(source, 0) {
-			return errors.New("invalid research source ref")
-		}
-	}
-	return nil
-}
-
-func checkCollectionSubject(s ExecutionSubject) error {
-	if s.Collection == nil || s.Issue != nil || s.Intent != nil || s.Completion != nil ||
-		s.Stall != nil || s.Delivery != nil || s.DeliveryRepair != nil || s.Research != nil {
-		return errors.New("collection subject needs exactly its collection payload")
-	}
-	if !ValidCollectionID(s.Collection.CollectionID) {
-		return errors.New("invalid collection subject identity")
-	}
-	return nil
-}
-
 func checkIssueSubject(s ExecutionSubject) error {
 	if s.Issue == nil || s.Intent != nil || s.Completion != nil ||
-		s.Stall != nil || s.Delivery != nil || s.DeliveryRepair != nil ||
-		s.Research != nil || s.Collection != nil {
+		s.Stall != nil || s.Delivery != nil || s.DeliveryRepair != nil {
 		return errors.New("issue subject needs exactly its issue payload")
 	}
 	if s.Issue.Issue <= 0 || !project.ValidDecisionID(s.Issue.Acceptance) {
@@ -247,8 +172,7 @@ func checkIssueSubject(s ExecutionSubject) error {
 
 func checkIntentSubject(s ExecutionSubject) error {
 	if s.Intent == nil || s.Issue != nil || s.Completion != nil ||
-		s.Stall != nil || s.Delivery != nil || s.DeliveryRepair != nil ||
-		s.Research != nil || s.Collection != nil {
+		s.Stall != nil || s.Delivery != nil || s.DeliveryRepair != nil {
 		return errors.New("intent subject needs exactly its intent payload")
 	}
 	if !project.ValidDecisionID(s.Intent.IntentID) || !project.ValidDecisionID(s.Intent.RevisionID) {
@@ -262,8 +186,7 @@ func checkIntentSubject(s ExecutionSubject) error {
 
 func checkCompletionSubject(s ExecutionSubject) error {
 	if s.Completion == nil || s.Issue != nil || s.Intent != nil ||
-		s.Stall != nil || s.Delivery != nil || s.DeliveryRepair != nil ||
-		s.Research != nil || s.Collection != nil {
+		s.Stall != nil || s.Delivery != nil || s.DeliveryRepair != nil {
 		return errors.New("completion subject needs exactly its completion payload")
 	}
 	if !ValidID(s.Completion.CompletionID) || !ValidID(s.Completion.CycleID) {
@@ -277,8 +200,7 @@ func checkCompletionSubject(s ExecutionSubject) error {
 
 func checkStallSubject(s ExecutionSubject) error {
 	if s.Stall == nil || s.Issue != nil || s.Intent != nil ||
-		s.Completion != nil || s.Delivery != nil || s.DeliveryRepair != nil ||
-		s.Research != nil || s.Collection != nil {
+		s.Completion != nil || s.Delivery != nil || s.DeliveryRepair != nil {
 		return errors.New("stall subject needs exactly its stall payload")
 	}
 	return s.Stall.Validate()
@@ -286,8 +208,7 @@ func checkStallSubject(s ExecutionSubject) error {
 
 func checkDeliverySubject(s ExecutionSubject) error {
 	if s.Delivery == nil || s.Issue != nil || s.Intent != nil ||
-		s.Completion != nil || s.Stall != nil || s.DeliveryRepair != nil ||
-		s.Research != nil || s.Collection != nil {
+		s.Completion != nil || s.Stall != nil || s.DeliveryRepair != nil {
 		return errors.New("delivery subject needs exactly its delivery payload")
 	}
 	return s.Delivery.Validate()
@@ -295,8 +216,7 @@ func checkDeliverySubject(s ExecutionSubject) error {
 
 func checkDeliveryRepairSubject(s ExecutionSubject) error {
 	if s.DeliveryRepair == nil || s.Issue != nil || s.Intent != nil ||
-		s.Completion != nil || s.Stall != nil || s.Delivery != nil ||
-		s.Research != nil || s.Collection != nil {
+		s.Completion != nil || s.Stall != nil || s.Delivery != nil {
 		return errors.New("delivery repair subject needs exactly its delivery repair payload")
 	}
 	return s.DeliveryRepair.Validate()
@@ -408,9 +328,6 @@ func checkSubjectKindScope(a Assignment) error {
 }
 
 func checkIssueAssignmentScope(a Assignment) error {
-	if a.Phase == project.ExecutionMaintainLibrary && (a.ParentAssignment != "" || a.AttemptRoot != a.ID || a.PublicationAssignment != "") {
-		return errors.New("library maintenance is an issue-scoped root without publication")
-	}
 	if a.Repository <= 0 || a.Issue <= 0 || a.Issue != a.Subject.Issue.Issue {
 		return errors.New("issue assignment does not match its subject")
 	}
@@ -547,14 +464,8 @@ func (a Assignment) Validate() error {
 }
 
 func checkAssignmentPublication(a Assignment) error {
-	if a.Phase == project.ExecutionMaintainLibrary {
-		if a.PublicationAssignment != "" {
-			return errors.New("library maintenance carries no publication")
-		}
-		return nil
-	}
 	switch a.Subject.Kind {
-	case SubjectCompletion, SubjectStall, SubjectDelivery, SubjectDeliveryRepair, SubjectResearch, SubjectCollection:
+	case SubjectCompletion, SubjectStall, SubjectDelivery, SubjectDeliveryRepair:
 		if a.PublicationAssignment != "" {
 			return errors.New("non-issue cycle carries no publication")
 		}

@@ -3,7 +3,6 @@ package api
 import (
 	"context"
 	"database/sql"
-	"encoding/base64"
 	"encoding/json"
 	"io"
 	"net/http"
@@ -251,56 +250,6 @@ func (f *fakeCatalogSink) ReadRepairObservation(_ context.Context, cap factory.M
 	return factory.RepairObservationPage{ID: id, Tool: record.tool, InputDigest: cap.ScopeDigest(), PayloadHash: record.hash, Offset: offset, TotalBytes: len(record.payload), Encoding: "utf8-json-fragment", Content: string(record.payload[offset:]), Complete: true}, nil
 }
 
-// TestFactoryBoundMCPResearcherDiscoveryAndRefusal proves the R30.1
-// role interface for the researcher: discovery advertises the shared
-// reads plus finish_research, hides builder-only finishes, and a direct
-// call to a foreign finish refuses instead of executing.
-func TestFactoryBoundMCPResearcherDiscoveryAndRefusal(t *testing.T) {
-	ctx := context.Background()
-	sink := newFakeCatalogSink()
-	sink.capability.Profile = factory.MCPProfileResearcher
-	sink.capability.Subject = "research:7:7"
-	assignment := sink.assignments[sink.capability.AssignmentID]
-	assignment.Phase = string(factory.MCPPhaseOf(factory.MCPProfileResearcher))
-	sink.assignments[assignment.ID] = assignment
-	key := []byte(strings.Repeat("k", 32))
-	secret, err := factory.DeriveMCPCapabilitySecret(key, sink.capability)
-	if err != nil {
-		t.Fatal(err)
-	}
-	srv := httptest.NewServer(factoryBoundCatalogHandler(FactoryMCPDeps{Capabilities: sink, Submissions: sink, Assignments: sink}, key))
-	defer srv.Close()
-	client := mcp.NewClient(&mcp.Implementation{Name: "bound-researcher-test"}, nil)
-	session, err := client.Connect(ctx, &mcp.StreamableClientTransport{Endpoint: srv.URL + FactoryMCPRoute, HTTPClient: &http.Client{Transport: workerMCPTransport{sink.capability.ID, secret}}}, nil)
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer session.Close()
-	list, err := session.ListTools(ctx, nil)
-	if err != nil {
-		t.Fatal(err)
-	}
-	seen := map[string]bool{}
-	for _, tool := range list.Tools {
-		seen[tool.Name] = true
-		if !factory.MCPToolAdmitted(sink.capability.Profile, factory.MCPTool(tool.Name)) {
-			t.Fatalf("foreign tool advertised: %s", tool.Name)
-		}
-	}
-	for _, want := range []string{"factory.context", "factory.search_library", "factory.finish_incomplete", string(factory.MCPToolFinishResearch), string(factory.MCPToolResearchScope), string(factory.MCPToolRecordResearch)} {
-		if !seen[want] {
-			t.Fatalf("researcher catalog missing %s: %v", want, seen)
-		}
-	}
-	if seen[string(factory.MCPToolFinishImplement)] || seen[string(factory.MCPToolVerificationScope)] || seen[string(factory.MCPToolRecordJourneyResult)] {
-		t.Fatalf("foreign work controls advertised to researcher: %v", seen)
-	}
-	result, err := session.CallTool(ctx, &mcp.CallToolParams{Name: string(factory.MCPToolFinishImplement), Arguments: map[string]any{"submission_id": strings.Repeat("d", 32), "payload": map[string]any{"source_commit": strings.Repeat("c", 40)}}})
-	if !catalogRefused(result, err) {
-		t.Fatal("researcher reached a foreign finish")
-	}
-}
-
 func TestFactoryBoundMCPRejectsForeignSecret(t *testing.T) {
 	sink := newFakeCatalogSink()
 	handler := factoryBoundCatalogHandler(FactoryMCPDeps{Capabilities: sink, Submissions: sink, Assignments: sink}, []byte(strings.Repeat("k", 32)))
@@ -339,10 +288,10 @@ func TestFactoryBoundCurrentContextUsesRecordedScopeAndState(t *testing.T) {
 	defer db.Close()
 	cap := fakeCatalogCapability()
 	cap.ID, cap.RunID, cap.AssignmentID = factory.NewID(), factory.NewID(), factory.NewID()
-	cap.Profile, cap.Subject, cap.State = factory.MCPProfileResearcher, "research:7:42", factory.MCPCapabilityStaged
+	cap.Profile, cap.Subject, cap.State = factory.MCPProfileArchitect, "issue:7:42", factory.MCPCapabilityStaged
 	cap.SourceDigest, cap.AcceptedRevision = strings.Repeat("a", 40), "3"
 	prepID := "f" + strings.Repeat("2", 24)
-	a := factory.Assignment{ID: cap.AssignmentID, AttemptRoot: cap.AssignmentID, Repository: cap.Repository, ProjectID: cap.Project, ActorID: 7, Issue: 42, Role: project.RoleReviewer, Phase: project.ExecutionResearch, Preparation: prepID, Run: cap.RunID, Stage: factory.AssignmentAssigned, Revision: 1, NativeRev: 3, SourceCommit: cap.SourceDigest, Prompt: []byte("private prompt never projected"), Subject: factory.ExecutionSubject{Kind: factory.SubjectResearch, Research: &factory.ResearchSubject{Issue: 42, Acceptance: "d" + strings.Repeat("2", 24), Sources: []string{"accepted-source"}}}}
+	a := factory.Assignment{ID: cap.AssignmentID, AttemptRoot: cap.AssignmentID, Repository: cap.Repository, ProjectID: cap.Project, ActorID: 7, Issue: 42, Role: project.RoleCoder, Phase: project.ExecutionInvestigate, Preparation: prepID, Run: cap.RunID, Stage: factory.AssignmentAssigned, Revision: 1, NativeRev: 3, SourceCommit: cap.SourceDigest, Prompt: []byte("private prompt never projected"), Subject: factory.ExecutionSubject{Kind: factory.SubjectIssue, Issue: &factory.IssueSubject{Issue: 42, Acceptance: "d" + strings.Repeat("2", 24)}}}
 	if err := st.UpsertUser(ctx, store.User{ID: 7, Login: "current-worker"}); err != nil {
 		t.Fatal(err)
 	}
@@ -357,16 +306,13 @@ func TestFactoryBoundCurrentContextUsesRecordedScopeAndState(t *testing.T) {
 	}
 	raw, _ := json.Marshal(a)
 	write(`INSERT INTO factory_assignments(id,repository,issue,run,stage,revision,data) VALUES($1,7,42,$2,'assigned',1,$3)`, a.ID, cap.RunID, string(raw))
-	prep := project.StoredPreparation{Preparation: project.Preparation{ID: prepID, Project: cap.Project, Role: project.RoleReviewer, SetupDigest: cap.PreparationDigest}}
+	prep := project.StoredPreparation{Preparation: project.Preparation{ID: prepID, Project: cap.Project, Role: project.RoleCoder, SetupDigest: cap.PreparationDigest}}
 	raw, _ = json.Marshal(prep)
-	write(`INSERT INTO project_preparations(id,project_id,role,revision,requirements,approval,data) VALUES($1,$2,$3,1,'','',$4)`, prepID, cap.Project, project.RoleReviewer, string(raw))
+	write(`INSERT INTO project_preparations(id,project_id,role,revision,requirements,approval,data) VALUES($1,$2,$3,1,'','',$4)`, prepID, cap.Project, project.RoleCoder, string(raw))
 	write(`INSERT INTO factory_dispatch(repository,revision,open,data) VALUES(7,1,true,'{}')`)
-	run := factory.Run{ID: cap.RunID, ProjectID: cap.Project, Role: project.RoleReviewer, InputSHA: cap.SourceDigest}
+	run := factory.Run{ID: cap.RunID, ProjectID: cap.Project, Role: project.RoleCoder, InputSHA: cap.SourceDigest}
 	raw, _ = json.Marshal(run)
 	write(`INSERT INTO factory_runs(id,active,settled,data) VALUES($1,true,false,$2)`, cap.RunID, string(raw))
-	log := factory.ResearchLog{Questions: []string{"Does the retained source support this requirement?"}, Findings: []factory.ResearchRecordFinding{{Question: 0, Finding: "Recorded supported observation", Evidence: []string{"accepted-source"}}}, Records: 1}
-	raw, _ = json.Marshal(log)
-	write(`INSERT INTO factory_research_records(assignment,repository,data) VALUES($1,7,$2)`, a.ID, string(raw))
 	if err := st.StageMCPCapability(ctx, cap); err != nil {
 		t.Fatal(err)
 	}
@@ -417,193 +363,6 @@ func TestFactoryBoundCurrentContextUsesRecordedScopeAndState(t *testing.T) {
 			t.Fatal(err)
 		}
 		return value
-	}
-	before := counts()
-	for i := 0; i < 2; i++ {
-		result, err := session.CallTool(ctx, &mcp.CallToolParams{Name: "factory.context", Arguments: map[string]any{}})
-		if catalogRefused(result, err) {
-			t.Fatal("typed current context refused", err)
-		}
-		text := catalogText(t, result)
-		if strings.Contains(text, "private prompt") {
-			t.Fatal("current projection exposed excluded material")
-		}
-		var body struct {
-			Current factory.CurrentContext `json:"current"`
-		}
-		if err := json.Unmarshal([]byte(text), &body); err != nil {
-			t.Fatal(err)
-		}
-		current := body.Current
-		projected, _ := json.Marshal(current)
-		if strings.Contains(string(projected), "actor_id") {
-			t.Fatal("typed current projection exposed actor identity")
-		}
-		if current.Version != "context-current-v1" || current.Binding.AcceptedRevision != "3" || current.Role.Research == nil || len(current.Role.Research.Questions) != 1 || !current.Role.Research.Questions[0].Answered {
-			t.Fatal("required research facts missing from held context", text)
-		}
-		if current.Run == nil || !current.Run.Active || current.Run.Settled || current.Run.ObservedState != "not_wired" || current.Allowance != nil || current.Evidence.Availability != "incomplete" {
-			t.Fatal("unknown allowance or unobserved run became confirmed", text)
-		}
-	}
-	if counts() != before {
-		t.Fatal("read context wrote or spent")
-	}
-	batch := factory.ResearchRecord{Experiments: []string{}}
-	for i := 0; i < 32; i++ {
-		batch.Experiments = append(batch.Experiments, strings.Repeat("😀", 400))
-	}
-	batchJSON, _ := json.Marshal(batch)
-	decoded, err := factory.DecodeResearchRecord(factory.MCPToolRecordResearch, batchJSON)
-	if err != nil {
-		t.Fatal(err)
-	}
-	large, err := factory.AppendResearchRecord(log, decoded)
-	if err != nil {
-		t.Fatal(err)
-	}
-	largeJSON, _ := json.Marshal(large)
-	write(`UPDATE factory_research_records SET data=$1 WHERE assignment=$2`, string(largeJSON), a.ID)
-	readPage := func(cursor string) currentContextPage {
-		t.Helper()
-		args := map[string]any{}
-		if cursor != "" {
-			args["payload"] = map[string]any{"cursor": cursor}
-		}
-		result, err := session.CallTool(ctx, &mcp.CallToolParams{Name: "factory.context", Arguments: args})
-		if catalogRefused(result, err) {
-			t.Fatal("context continuation refused", err)
-		}
-		var response struct {
-			Page currentContextPage `json:"current_role_page"`
-		}
-		if err := json.Unmarshal([]byte(catalogText(t, result)), &response); err != nil {
-			t.Fatal(err)
-		}
-		encoded, _ := json.Marshal(response.Page)
-		if len(encoded) > factory.MCPMaxPageBytes || len(response.Page.Records) > factory.MCPMaxPageRefs || !response.Page.PageComplete {
-			t.Fatal("context page exceeds its bounds or is incomplete")
-		}
-		return response.Page
-	}
-	firstPage := readPage("")
-	if firstPage.CollectionComplete || firstPage.NextCursor == "" {
-		t.Fatal("oversize required input appeared as a complete first page")
-	}
-	page, fragments, nextPart := firstPage, "", 0
-	for pages := 0; ; pages++ {
-		if pages >= maxContextPages {
-			t.Fatal("required context exceeded its finite page count")
-		}
-		for _, record := range page.Records {
-			if record.Field != "research" {
-				continue
-			}
-			if record.Part != nextPart || record.Encoding != "json-fragment" {
-				t.Fatal("required context mixed or reordered fragments")
-			}
-			fragments += record.Content
-			nextPart++
-		}
-		if page.CollectionComplete {
-			break
-		}
-		if page.NextCursor == "" {
-			t.Fatal("missing required context continuation")
-		}
-		page = readPage(page.NextCursor)
-	}
-	var complete factory.ResearchScopeView
-	if json.Unmarshal([]byte(fragments), &complete) != nil || len(complete.Experiments) != 32 || complete.Experiments[31] != batch.Experiments[31] {
-		t.Fatal("required current pages lost exact UTF-8 source content")
-	}
-	refuseCursor := func(cursor string) {
-		t.Helper()
-		result, err := session.CallTool(ctx, &mcp.CallToolParams{Name: "factory.context", Arguments: map[string]any{"payload": map[string]any{"cursor": cursor}}})
-		if !catalogRefused(result, err) {
-			t.Fatal("modified, stale or expired context cursor was accepted")
-		}
-	}
-	payload, signature, _ := strings.Cut(firstPage.NextCursor, ".")
-	positionJSON, _ := base64.RawURLEncoding.DecodeString(payload)
-	var position currentContextCursor
-	_ = json.Unmarshal(positionJSON, &position)
-	position.Offset++
-	positionJSON, _ = json.Marshal(position)
-	refuseCursor(base64.RawURLEncoding.EncodeToString(positionJSON) + "." + signature)
-	large.Experiments[0] += " changed"
-	raw, _ = json.Marshal(large)
-	write(`UPDATE factory_research_records SET data=$1 WHERE assignment=$2`, string(raw), a.ID)
-	refuseCursor(firstPage.NextCursor)
-	write(`UPDATE factory_research_records SET data=$1 WHERE assignment=$2`, string(largeJSON), a.ID)
-	clock.Add(6 * 60)
-	refuseCursor(firstPage.NextCursor)
-	clock.Add(-6 * 60)
-	if counts() != before {
-		t.Fatal("context paging or refusal spent or wrote a submission")
-	}
-	// Held required context refuses a new work identity while preserving
-	// recovery of a previously admitted action and an honest blocked finish.
-	workPayload := map[string]any{"experiments": []string{"Retained experiment before this context hold"}}
-	workID := factory.NewID()
-	workArgs := map[string]any{"submission_id": workID, "payload": workPayload}
-	result, err := session.CallTool(ctx, &mcp.CallToolParams{Name: string(factory.MCPToolRecordResearch), Arguments: workArgs})
-	if !catalogRefused(result, err) || counts() != before {
-		t.Fatal("held context admitted new work or wrote a refusal row")
-	}
-	workJSON, _ := json.Marshal(workPayload)
-	raw, _ = json.Marshal(log)
-	write(`UPDATE factory_research_records SET data=$1 WHERE assignment=$2`, string(raw), a.ID)
-	retained := factory.MCPSubmission{AssignmentID: a.ID, SubmissionID: workID, CapabilityID: active.ID, Tool: factory.MCPToolRecordResearch, PayloadHash: factory.MCPInputDigest(workJSON), Payload: workJSON}
-	if _, err = st.RecordMCPSubmission(ctx, retained, factory.MCPReceipt{SubmissionID: workID, Tool: retained.Tool, State: factory.MCPReceiptRecorded, InputDigest: retained.PayloadHash}); err != nil {
-		t.Fatal(err)
-	}
-	afterRetained := counts()
-	result, err = session.CallTool(ctx, &mcp.CallToolParams{Name: string(factory.MCPToolRecordResearch), Arguments: workArgs})
-	if catalogRefused(result, err) || counts() != afterRetained {
-		t.Fatal("context hold prevented exact immutable work replay or duplicated it")
-	}
-	result, err = session.CallTool(ctx, &mcp.CallToolParams{Name: string(factory.MCPToolReceipt), Arguments: map[string]any{"submission_id": workID}})
-	if catalogRefused(result, err) {
-		t.Fatal("context hold prevented receipt recovery")
-	}
-	questionState := map[string]any{"fact": "retained"}
-	questionArgs := map[string]any{"state": questionState, "instructions": "A new question during this hold"}
-	beforeQuestion := counts()
-	result, err = session.CallTool(ctx, &mcp.CallToolParams{Name: string(factory.MCPToolSystemOneNoul), Arguments: questionArgs})
-	if !catalogRefused(result, err) || provider.count() != 0 || counts() != beforeQuestion {
-		t.Fatal("held context funded or dispatched a new worker consultation")
-	}
-	questionArgs["instructions"] = "Previously admitted question"
-	questionSnapshot, err := factory.SystemOneWorkerSnapshot(active.ID, factory.MCPToolSystemOneNoul, questionState, questionArgs["instructions"], nil)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if reserved, err := st.ReservePriorityJudgment(ctx, questionSnapshot, 1); err != nil || !reserved {
-		t.Fatal("cannot seed retained paid action", err)
-	}
-	if err := st.RecordPriorityJudgment(ctx, factory.PriorityReceipt{Snapshot: questionSnapshot, Outcome: systemOneAnswerOutcome, Answer: map[string]any{"answer": map[string]any{"noul": 0.8}}, CreatedUnix: time.Now().Unix()}); err != nil {
-		t.Fatal(err)
-	}
-	beforeQuestion = counts()
-	result, err = session.CallTool(ctx, &mcp.CallToolParams{Name: string(factory.MCPToolSystemOneNoul), Arguments: questionArgs})
-	if catalogRefused(result, err) || provider.count() != 0 || counts() != beforeQuestion {
-		t.Fatal("held context prevented retained paid-answer replay or funded it again")
-	}
-	blockedArgs := map[string]any{"submission_id": factory.NewID(), "payload": map[string]any{"outcome": "blocked", "cause": "missing_required_context", "evidence_refs": []string{"accepted-source"}, "affected_task_ids": []string{}, "requested_resolution": "Reconcile the approved accepted source before retry."}}
-	result, err = session.CallTool(ctx, &mcp.CallToolParams{Name: string(factory.MCPToolFinishIncomplete), Arguments: blockedArgs})
-	if catalogRefused(result, err) {
-		t.Fatal("context hold prevented an honest incomplete finish", err)
-	}
-	foreign := active
-	foreign.Subject = "research:7:99"
-	if _, err := st.FactoryCurrentContext(ctx, foreign, time.Now()); err == nil {
-		t.Fatal("foreign subject read current context")
-	}
-	write(`UPDATE factory_mcp_capabilities SET state='revoked' WHERE id=$1`, active.ID)
-	result, err = session.CallTool(ctx, &mcp.CallToolParams{Name: "factory.context", Arguments: map[string]any{}})
-	if !catalogRefused(result, err) {
-		t.Fatal("revoked capability read required context")
 	}
 	// The actual approved assertion bytes must survive the authenticated
 	// Test Pilot evidence and paged current-context transports. A receipt alone
@@ -682,7 +441,7 @@ func TestFactoryBoundCurrentContextUsesRecordedScopeAndState(t *testing.T) {
 		return digest
 	}
 	beforeVerificationState := verificationReadState()
-	result, err = pilotSession.CallTool(ctx, &mcp.CallToolParams{Name: string(factory.MCPToolVerificationEvidence), Arguments: map[string]any{}})
+	result, err := pilotSession.CallTool(ctx, &mcp.CallToolParams{Name: string(factory.MCPToolVerificationEvidence), Arguments: map[string]any{}})
 	if catalogRefused(result, err) {
 		t.Fatal("approved verification evidence refused", err)
 	}

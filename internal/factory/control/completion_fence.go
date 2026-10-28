@@ -45,15 +45,14 @@ func dispatchFenced(ctx context.Context, deps DispatchDeps, repository int64) (b
 	return fenced, nil
 }
 
-// splitFencedCandidates excludes code candidates of fenced repositories.
-// Exact accepted reviewer inquiry/maintenance subjects remain eligible;
-// other candidates wait with reassessment_pending. Remaining candidates elect through
+// splitFencedCandidates excludes candidates of fenced repositories: they
+// wait with reassessment_pending. Remaining candidates elect through
 // the tournament, so one fenced repository never stalls global
 // scheduling. Observation already happened upstream and continues:
 // this split only governs selection and admission.
 func splitFencedCandidates(candidates []factory.PriorityCandidate, fenced map[int64]bool) (open []factory.PriorityCandidate, waits []DispatchWait) {
 	for _, candidate := range candidates {
-		if fenced[candidate.Control.Repository] && !candidate.NonCodeIssueWork() {
+		if fenced[candidate.Control.Repository] {
 			waits = append(waits, DispatchWait{Repository: candidate.Control.Repository, Issue: candidate.Control.Issue, Reason: WaitReassessmentPending, Detail: "completion fence holds new admissions until the reassessment decision releases"})
 			continue
 		}

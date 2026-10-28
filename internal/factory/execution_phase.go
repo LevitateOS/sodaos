@@ -15,8 +15,7 @@ import (
 )
 
 // PhaseRole returns the single factory account role admitted for phase.
-// Review, verification, library maintenance and research use the reviewer
-// account; other phases use coder, including reassess and repair.
+// Review and verification use the reviewer account; other phases use coder, including reassess and repair.
 // Semantic profiles remain phase-bound. Do not infer phase from role.
 func PhaseRole(phase string) (string, error) {
 	switch phase {
@@ -24,7 +23,7 @@ func PhaseRole(phase string) (string, error) {
 		project.ExecutionImplement, project.ExecutionCorrect,
 		project.ExecutionReassess, project.ExecutionRepair:
 		return project.RoleCoder, nil
-	case project.ExecutionReview, project.ExecutionVerify, project.ExecutionMaintainLibrary, project.ExecutionResearch:
+	case project.ExecutionReview, project.ExecutionVerify:
 		return project.RoleReviewer, nil
 	default:
 		return "", errors.New("unknown execution phase")
@@ -35,23 +34,6 @@ func PhaseRole(phase string) (string, error) {
 func ValidPhaseRole(phase, role string) bool {
 	want, err := PhaseRole(phase)
 	return err == nil && want == role
-}
-
-// NonCodeIssueWork identifies only the accepted inquiry/maintenance route.
-// It grants no authority: packet admission still checks the current acceptance,
-// source, preparation and spending. Unknown or mixed subjects remain fenced.
-func NonCodeIssueWork(phase, role string, subject ExecutionSubject, issue int64, acceptance string) bool {
-	if role != project.RoleReviewer || issue <= 0 || !project.ValidDecisionID(acceptance) || subject.Validate() != nil {
-		return false
-	}
-	switch phase {
-	case project.ExecutionResearch:
-		return subject.Kind == SubjectResearch && subject.Research != nil && subject.Research.Issue == issue && subject.Research.Acceptance == acceptance
-	case project.ExecutionMaintainLibrary:
-		return subject.Kind == SubjectIssue && subject.Issue != nil && subject.Issue.Issue == issue && subject.Issue.Acceptance == acceptance
-	default:
-		return false
-	}
 }
 
 // SubjectKindAllowed reports whether a subject kind may enter phase. Intent
@@ -68,21 +50,11 @@ func SubjectKindAllowed(kind, phase string) bool {
 	case SubjectIssue:
 		switch phase {
 		case project.ExecutionInvestigate, project.ExecutionImplement,
-			project.ExecutionReview, project.ExecutionCorrect, project.ExecutionMaintainLibrary:
+			project.ExecutionReview, project.ExecutionCorrect:
 			return true
 		default:
 			return false
 		}
-	case SubjectResearch:
-		// Research assesses on its own subject (R32.13 records) and
-		// admits independent Inspector review of its report (R34.3):
-		// no candidate, tuple or code carrier crosses either path.
-		return phase == project.ExecutionResearch || phase == project.ExecutionReview
-	case SubjectCollection:
-		// Collection maintenance admits Library Admin work and
-		// independent Inspector review of its content and decisions
-		// (R34.3): no candidate, tuple or code carrier crosses over.
-		return phase == project.ExecutionMaintainLibrary || phase == project.ExecutionReview
 	case SubjectCompletion:
 		return phase == project.ExecutionReassess
 	case SubjectStall, SubjectDeliveryRepair:

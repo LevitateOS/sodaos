@@ -82,8 +82,6 @@ type CurrentRoleContext struct {
 	Strategy       *CurrentStrategyContext       `json:"strategy,omitempty"`
 	Repair         *CurrentRepairContext         `json:"repair,omitempty"`
 	DeliveryRepair *CurrentDeliveryRepairContext `json:"delivery_repair,omitempty"`
-	Library        *CurrentLibraryContext        `json:"library,omitempty"`
-	Research       *ResearchScopeView            `json:"research,omitempty"`
 	Delivery       *DeliverySubject              `json:"delivery,omitempty"`
 	Acceptance     *CurrentAcceptanceContext     `json:"acceptance,omitempty"`
 }

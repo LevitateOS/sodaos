@@ -250,10 +250,6 @@ func recordPersona(profile factory.MCPProfile) string {
 		return "Strategist"
 	case factory.MCPProfileTestPilot:
 		return "Test Pilot"
-	case factory.MCPProfileLibraryAdmin:
-		return "Library Admin"
-	case factory.MCPProfileResearcher:
-		return "Researcher"
 	default:
 		return ""
 	}
@@ -346,7 +342,7 @@ func feedResultPayload(raw []byte) *factory.FeedPayload {
 		payload.Implementation = &factory.FeedImplementation{
 			Candidate: out.Implementation.Candidate, DiagnosticRefs: feedStrings(out.Implementation.DiagnosticRefs),
 		}
-	case out.Review != nil || out.Clear != nil || out.Assessment != nil:
+	case out.Review != nil || out.Clear != nil:
 		feedReviewCyclePayload(payload, out)
 	case out.Correction != nil:
 		payload.Correction = feedCorrectionPayload(out.Correction)
@@ -507,18 +503,6 @@ func feedReviewCyclePayload(payload *factory.FeedPayload, out *factory.PhaseOutp
 		clear.Assessments, clear.AssessmentsTotal = feedAssessments(out.Clear.Assessments)
 		review.CycleID = out.Clear.CycleID
 		review.Clear = clear
-	}
-	if out.Assessment != nil {
-		review.NewFindings, review.NewFindingsTotal = feedFindings(out.Assessment.Findings)
-		review.Assessments, review.AssessmentsTotal = feedAssessments(out.Assessment.Assessments)
-		if out.Assessment.Clear {
-			review.Verdict = "assessment-clear"
-		} else {
-			review.Verdict = "assessment-findings"
-		}
-		if review.Summary == "" {
-			review.Summary = "Assessed " + out.Assessment.Deliverable.Kind + " " + out.Assessment.Deliverable.ID
-		}
 	}
 }
 

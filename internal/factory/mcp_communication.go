@@ -11,8 +11,10 @@ import (
 
 // Communications remain reports by their admitted worker. Persisting one does
 // not adopt a suggestion, verify evidence, finish work or mutate the library.
-const MCPMaxCommunications = 128
-const MCPMaxCommunicationBytes = 8192
+const (
+	MCPMaxCommunications     = 128
+	MCPMaxCommunicationBytes = 8192
+)
 
 var MCPCommunicationTools = []MCPTool{MCPToolAsk, MCPToolAnswer, MCPToolReply, MCPToolFlag, MCPToolLearned, MCPToolSuggest, MCPToolPartial, MCPToolBlocked, MCPToolStuck, MCPToolRecordDecision}
 
@@ -33,17 +35,15 @@ func MCPIsCommunication(tool MCPTool) bool {
 // FeedCommunication carries content only. Attribution, repository, issue, run,
 // assignment and time come from the authenticated capability and stored work.
 type FeedCommunication struct {
-	IntentSource    *FeedIntentSource    `json:"intent_source,omitempty"`
-	PlanSource      *FeedPlanSource      `json:"plan_source,omitempty"`
-	PlanningSource  *FeedPlanningSource  `json:"planning_source,omitempty"`
-	Commits         []FeedCommit         `json:"commits,omitempty"`
-	Source          *FeedSourceExcerpt   `json:"source,omitempty"`
-	LibraryItemID   string               `json:"library_item_id,omitempty"`
-	LibraryRevision int64                `json:"library_revision,omitempty"`
-	LibraryItems    []LibraryRef         `json:"library_items,omitempty"`
-	AffectedRefs    []LibraryAffectedRef `json:"affected_refs,omitempty"`
-	Artifacts       []FeedArtifact       `json:"artifacts,omitempty"`
-	QuestionState   string               `json:"question_state,omitempty"`
+	IntentSource    *FeedIntentSource   `json:"intent_source,omitempty"`
+	PlanSource      *FeedPlanSource     `json:"plan_source,omitempty"`
+	PlanningSource  *FeedPlanningSource `json:"planning_source,omitempty"`
+	Commits         []FeedCommit        `json:"commits,omitempty"`
+	Source          *FeedSourceExcerpt  `json:"source,omitempty"`
+	LibraryItemID   string              `json:"library_item_id,omitempty"`
+	LibraryRevision int64               `json:"library_revision,omitempty"`
+	Artifacts       []FeedArtifact      `json:"artifacts,omitempty"`
+	QuestionState   string              `json:"question_state,omitempty"`
 	// Disposition and DispositionReason are server-assigned from the
 	// recorded disposition beside the post; worker payloads carrying
 	// them refuse like question_state.

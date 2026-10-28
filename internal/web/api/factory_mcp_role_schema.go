@@ -90,12 +90,6 @@ func rolePayloadSchema(tool factory.MCPTool) *jsonschema.Schema {
 		set("manifest_digest", serverFilled, text)
 		set("output_digest", "Digest of the observed task output.", text)
 		set("native_child_ref", "Builder: observed child identity. Fixer: omit because correction runs in the bound parent.", text)
-	case factory.MCPToolFinishResearch:
-		set("questions", "The declared research questions this report answers.", strings)
-		set("conclusion", "The useful outcome of the inquiry.", text)
-		set("findings", "Answerable findings with their source refs.", strings)
-		set("evidence", "Source refs actually inspected.", strings)
-		set("uncertainty", "The open remainder the inquiry could not resolve.", text)
 	case factory.MCPToolRequestHandoff:
 		set("predecessor_task", "Approved predecessor task ID.", text)
 		set("successor_task", "Approved dependent task ID; this must already be an edge in the admitted plan.", text)

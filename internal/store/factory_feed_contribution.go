@@ -86,7 +86,7 @@ func (s *Store) ContributionSources(ctx context.Context) ([]string, error) {
  AND COALESCE((a.data->>'finished_unix')::bigint,(a.data->>'created_unix')::bigint,0)>$1
  AND EXISTS(SELECT 1 FROM factory_mcp_capabilities c JOIN factory_assignments e ON e.id=c.assignment AND e.run=c.run
  JOIN factory_runs r ON r.id=c.run WHERE c.repository=a.repository AND c.state='active' AND c.deadline>$2
- AND c.profile=ANY($3) AND c.profile<>CASE a.data->>'phase' WHEN 'decompose' THEN 'product_lead' WHEN 'investigate' THEN 'architect' WHEN 'implement' THEN 'builder' WHEN 'review' THEN 'inspector' WHEN 'correct' THEN 'fixer' WHEN 'verify' THEN 'test_pilot' WHEN 'research' THEN 'researcher' WHEN 'maintain_library' THEN 'library_admin' WHEN 'reassess' THEN 'strategist' WHEN 'repair' THEN 'strategist' ELSE '' END AND `+recordScopeSQL+`<>'' AND e.stage='assigned' AND r.active AND NOT r.settled)
+ AND c.profile=ANY($3) AND c.profile<>CASE a.data->>'phase' WHEN 'decompose' THEN 'product_lead' WHEN 'investigate' THEN 'architect' WHEN 'implement' THEN 'builder' WHEN 'review' THEN 'inspector' WHEN 'correct' THEN 'fixer' WHEN 'verify' THEN 'test_pilot' WHEN 'reassess' THEN 'strategist' WHEN 'repair' THEN 'strategist' ELSE '' END AND `+recordScopeSQL+`<>'' AND e.stage='assigned' AND r.active AND NOT r.settled)
  AND NOT EXISTS(SELECT 1 FROM factory_reassessments rs WHERE rs.cycle=a.data->'result'->'phase_result'->'output'->'reassessment'->>'cycle_id' AND rs.state='superseded')
  AND NOT EXISTS(SELECT 1 FROM factory_feed_comments r WHERE r.author='factory' AND r.repository=a.repository
  AND r.idempotency='invite:'||a.id||':'||a.revision::text)

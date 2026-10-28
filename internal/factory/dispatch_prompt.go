@@ -157,8 +157,7 @@ func admitPromptScope(in PromptInputs) error {
 // phases: one prompt answers one evidence source.
 func admitPromptPhase(in PromptInputs) error {
 	if in.Phase != project.ExecutionInvestigate && in.Phase != project.ExecutionImplement &&
-		in.Phase != project.ExecutionReview && in.Phase != project.ExecutionCorrect && in.Phase != project.ExecutionMaintainLibrary &&
-		in.Phase != project.ExecutionResearch {
+		in.Phase != project.ExecutionReview && in.Phase != project.ExecutionCorrect {
 		return errors.New("invalid dispatch prompt phase")
 	}
 	return nil
@@ -341,16 +340,6 @@ func writePromptHeader(b *strings.Builder, in PromptInputs) {
 // role-specific task directive.
 func writePromptPolicy(b *strings.Builder, in PromptInputs) {
 	b.WriteString("\n## Controller policy\n\n")
-	if in.Phase == project.ExecutionMaintainLibrary {
-		b.WriteString("Maintain this project's knowledge and decision library using your bound Factory MCP tools. Inspect exact item revisions and sources, preserve attribution and decision authority, and use the dedicated edit, remove, restore, consolidate, split, relationship and supersession operations. The repository checkout is context only: do not modify source, Git issues, grants, product acceptance or publication. Begin with factory.begin_library_maintenance and finish through factory.finish_library_maintenance; report blockers through the shared communication tools.\n")
-		b.WriteString("Recorded active-time limit: " + strconv.Itoa(in.AttemptLimits.ActiveMinutes) + " minutes. The accepted objective and selected sources below define the authorized maintenance scope.\n")
-		return
-	}
-	if in.Phase == project.ExecutionResearch {
-		b.WriteString("Permitted actions: read the prepared checkout, granted sources and library records to answer the declared inquiry; report questions, findings with evidence refs, the useful conclusion and open uncertainty. Do not modify or publish anything, change grants, select another provider or model, or expose credentials. The checkout is context only: research produces no candidate, plan or publication.\n")
-		b.WriteString("Recorded active-time limit: " + strconv.Itoa(in.AttemptLimits.ActiveMinutes) + " minutes. Answer only the accepted inquiry and disclose evidence you could not inspect.\n")
-		return
-	}
 	if in.Role == project.RoleReviewer {
 		b.WriteString("Permitted actions: inspect the exact candidate and its diff against the verified base in the separate prepared reviewer checkout; run relevant checks; report concrete findings. Do not modify or publish the candidate, merge pull requests, change grants, select another provider or model, or expose credentials. The coding conversation and its claimed approval are not review evidence.\n")
 	} else {
@@ -395,10 +384,6 @@ func writePromptObjective(b *strings.Builder, in PromptInputs) {
 // completion reminder.
 func writePromptReport(b *strings.Builder, in PromptInputs) {
 	b.WriteString("\n## Report\n\n")
-	if in.Phase == project.ExecutionResearch {
-		b.WriteString(ResearchReportGuidance)
-		return
-	}
 	if in.Role == project.RoleReviewer {
 		if in.Phase == project.ExecutionReview {
 			writePromptMCPReviewContract(b)

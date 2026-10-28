@@ -182,8 +182,7 @@ func launchDispatchPlan(ctx context.Context, deps DispatchDeps, occupancy *passO
 		report.Waits = append(report.Waits, DispatchWait{Repository: repository, Issue: issue, Reason: wait.Reason, Detail: wait.Detail})
 		return
 	}
-	nonCode := factory.NonCodeIssueWork(plan.phase, plan.prep.Preparation.Role, plan.subject, issue, plan.acceptance.ID)
-	if !nonCode && deps.PlanCurrent != nil && !deps.PlanCurrent(ctx, control) {
+	if deps.PlanCurrent != nil && !deps.PlanCurrent(ctx, control) {
 		report.Waits = append(report.Waits, DispatchWait{Repository: repository, Issue: issue, Reason: "plan_not_current", Detail: "implementation planning must refresh against current outputs"})
 		return
 	}
@@ -199,7 +198,7 @@ func launchDispatchPlan(ctx context.Context, deps DispatchDeps, occupancy *passO
 	// observation and probes continue; only admission waits. Retry and
 	// automatic advancement funnel through the same packet gate below,
 	// which refuses authoritatively through ErrCompletionFenced.
-	if !nonCode && checkDispatchFence(ctx, deps, repository, issue, report) {
+	if checkDispatchFence(ctx, deps, repository, issue, report) {
 		return
 	}
 	executeFreshAttempt(ctx, deps, occupancy, plan, repository, issue, report, retry)
@@ -279,8 +278,7 @@ func planAttempt(ctx context.Context, deps DispatchDeps, occupancy *passOccupanc
 // boundaries.
 func admitAttemptLineage(plan *attemptPlan, lineage attemptLineage, role string, recordedPrompt bool, issue int64, head string) (*planWait, *planWait) {
 	if lineage.phase != project.ExecutionInvestigate && lineage.phase != project.ExecutionImplement &&
-		lineage.phase != project.ExecutionReview && lineage.phase != project.ExecutionCorrect &&
-		lineage.phase != project.ExecutionMaintainLibrary && lineage.phase != project.ExecutionResearch {
+		lineage.phase != project.ExecutionReview && lineage.phase != project.ExecutionCorrect {
 		return nil, waitFor("phase_not_admitted", "execution phase enters through its owning boundary")
 	}
 	if !factory.ValidPhaseRole(lineage.phase, role) {
@@ -290,9 +288,6 @@ func admitAttemptLineage(plan *attemptPlan, lineage attemptLineage, role string,
 		return nil, failed
 	}
 	plan.subject = factory.ExecutionSubject{Kind: factory.SubjectIssue, Issue: &factory.IssueSubject{Issue: issue, Acceptance: head}}
-	if lineage.phase == project.ExecutionResearch {
-		plan.subject = factory.ExecutionSubject{Kind: factory.SubjectResearch, Research: &factory.ResearchSubject{Issue: issue, Acceptance: head}}
-	}
 	if !factory.SubjectKindAllowed(plan.subject.Kind, lineage.phase) {
 		return nil, waitFor("phase_not_admitted", "execution subject cannot enter its phase")
 	}
@@ -301,7 +296,7 @@ func admitAttemptLineage(plan *attemptPlan, lineage attemptLineage, role string,
 
 func admitAttemptParent(lineage attemptLineage, recordedPrompt bool) *planWait {
 	if lineage.parent == "" {
-		if lineage.phase != project.ExecutionInvestigate && lineage.phase != project.ExecutionMaintainLibrary && lineage.phase != project.ExecutionResearch {
+		if lineage.phase != project.ExecutionInvestigate {
 			return waitFor("phase_not_admitted", "only investigation opens a phased attempt root")
 		}
 		return nil
@@ -310,13 +305,6 @@ func admitAttemptParent(lineage attemptLineage, recordedPrompt bool) *planWait {
 	case project.ExecutionImplement:
 		if !recordedPrompt && lineage.advancePlan == nil {
 			return waitFor("phase_not_admitted", "only a planned implementation advances under its parent")
-		}
-	case project.ExecutionResearch:
-		// Research never advances under a code parent: the only
-		// non-root research restage is a recorded retry replaying
-		// its exact assignment.
-		if !recordedPrompt {
-			return waitFor("phase_not_admitted", "research advances only as a recorded restage")
 		}
 	case project.ExecutionReview, project.ExecutionCorrect:
 		// Publication children never rebuild prompts: the caller
@@ -402,9 +390,6 @@ func prepareAttemptInputs(ctx context.Context, deps DispatchDeps, occupancy *pas
 }
 
 func confirmAttemptPreparation(ctx context.Context, deps DispatchDeps, plan *attemptPlan, role string, recordedPrompt bool, retryID string) *planWait {
-	if plan.phase == project.ExecutionMaintainLibrary {
-		return nil
-	}
 	if retryID != "" {
 		if deps.PrepareRetry == nil {
 			return waitFor(WaitPreparation, "fresh retry preparation is unavailable")
@@ -670,7 +655,7 @@ var promptFenceGuard = strings.NewReplacer("```"+factory.ResultFence, "``` "+fac
 // stay within the admitted phase bound; anything larger waits instead of
 // truncating requirements.
 func renderPhasedDispatchPrompt(prompt []byte, phase string, plan *factory.InvestigationPlan) ([]byte, error) {
-	if phase != project.ExecutionInvestigate && phase != project.ExecutionImplement && phase != project.ExecutionMaintainLibrary && phase != project.ExecutionResearch {
+	if phase != project.ExecutionInvestigate && phase != project.ExecutionImplement {
 		return nil, errors.New("phased prompt needs an admitted dispatcher phase")
 	}
 	if plan != nil && phase != project.ExecutionImplement {
@@ -738,12 +723,6 @@ func renderRecordedPlan(plan *factory.InvestigationPlan) ([]byte, error) {
 // candidate commit. Planning finishes without a commit or PR and can never
 // publish.
 func phasedReportContract(phase string) string {
-	if phase == project.ExecutionMaintainLibrary {
-		return phasedReportMarker + factory.LibraryReadGuidance + "Use factory.library_inventory and factory.read_library_item to inspect exact revisions. Apply authorized maintenance through the dedicated tools, then call factory.finish_library_maintenance with title, summary, completed and remaining work. That durable MCP receipt closes the assignment. Do not edit source, publish code or change issue/product policy. If blocked, use factory.finish_incomplete.\n"
-	}
-	if phase == project.ExecutionResearch {
-		return phasedReportMarker + factory.LibraryReadGuidance + factory.ResearchReportGuidance
-	}
 	var b strings.Builder
 	b.WriteString(phasedReportMarker)
 	b.WriteString(factory.LibraryReadGuidance)
