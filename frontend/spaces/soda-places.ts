@@ -42,7 +42,7 @@ export const PLACES_TRACK: 1 | 2 =
  * no link opens a place whose composer is not mounted yet (install A). Flip to
  * true in install B, when the repository entry hosts the composer.
  */
-export const REQUESTS_IN_REPOSITORY = false;
+export const REQUESTS_IN_REPOSITORY = true;
 
 /** Repository SodaOS settings sections, in place-bar order. */
 export const settingsSections = ['environment', 'access', 'network', 'factory'] as const;
