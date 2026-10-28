@@ -258,7 +258,7 @@ func TestExploreVerdictsTargetGeneratedResultIdeas(t *testing.T) {
 }
 
 // scriptedExploreChooser answers each explore judgment leg without a
-// provider: incremental design, default assumption handling, the shared
+// provider: incremental design, the shared
 // review walkthrough, and an outcome_gap consistency verdict at 0.73.
 type scriptedExploreChooser struct {
 	calls          int
@@ -271,8 +271,6 @@ func (c *scriptedExploreChooser) Select(_ context.Context, _ any, _ string, choi
 	switch {
 	case choices["complete_first"] != nil:
 		selected, confidence = "incremental", 0.9
-	case choices["apply_default"] != nil:
-		selected, confidence = "apply_default", 0.9
 	case choices["consistent"] != nil:
 		selected, confidence = "outcome_gap", 0.73
 		c.sawConsistency = true
@@ -343,7 +341,7 @@ func TestExploreDerivedProposalBoundsRefuseBeforeFurtherJudgments(t *testing.T) 
 		t.Fatalf("repeat explore consulted again: calls=%d", chooser.calls)
 	}
 
-	// The same round fits after raising max_issues: all four judgments
+	// The same round fits after raising max_issues: the remaining judgments
 	// run and the outcome_gap verdict at 0.73 persists with its review.
 	const wideID = "d205205205205205205205205"
 	if code, body := call(http.MethodPost, "/api/factory/intents", draft(wideID, narrowID, 64)); code != http.StatusCreated {
@@ -353,7 +351,7 @@ func TestExploreDerivedProposalBoundsRefuseBeforeFurtherJudgments(t *testing.T) 
 	if code != http.StatusCreated {
 		t.Fatalf("fitting explore status=%d body=%s", code, body)
 	}
-	if chooser.calls != 5 || !chooser.sawConsistency {
+	if chooser.calls != 4 || !chooser.sawConsistency {
 		t.Fatalf("fitting round calls=%d consistency=%v", chooser.calls, chooser.sawConsistency)
 	}
 	var responded exploreResponse
