@@ -13,7 +13,7 @@ import (
 
 func factoryFixture(t *testing.T) (*Store, time.Time) {
 	t.Helper()
-	s, _ := postgresFixture(t, nil)
+	s, _ := postgresFixture(t)
 	return s, time.Date(2026, 9, 26, 0, 0, 0, 0, time.UTC)
 }
 

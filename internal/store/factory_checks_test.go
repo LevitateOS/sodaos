@@ -37,7 +37,7 @@ func checkAssessmentFixture() factory.CheckAssessment {
 }
 
 func TestRecordCheckAssessmentRoundTrip(t *testing.T) {
-	s, _ := postgresFixture(t, nil)
+	s, _ := postgresFixture(t)
 	ctx := context.Background()
 	if _, err := s.CheckAssessment(ctx, 7, 3); !errors.Is(err, ErrNotFound) {
 		t.Fatalf("absent assessment: %v", err)
@@ -77,7 +77,7 @@ func TestRecordCheckAssessmentRoundTrip(t *testing.T) {
 }
 
 func TestRecordCheckAssessmentRejectsMalformed(t *testing.T) {
-	s, _ := postgresFixture(t, nil)
+	s, _ := postgresFixture(t)
 	ctx := context.Background()
 	bad := checkAssessmentFixture()
 	bad.Verdict = "maybe"

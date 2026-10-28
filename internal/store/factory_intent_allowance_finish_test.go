@@ -181,7 +181,7 @@ func finishIntentRoot(t *testing.T, a factory.Assignment, now time.Time, outcome
 
 func TestIntentTerminalFinishSettledCheckpointsNoReadiness(t *testing.T) {
 	ctx := context.Background()
-	db, _ := postgresFixture(t, nil)
+	db, _ := postgresFixture(t)
 	now := time.Now().UTC()
 	a := intentFinishRootFixture(t, now, 7, "d111111111111111111111111", "d222222222222222222222222", 7)
 	insertIntentFinishRootRow(t, ctx, db, a)
@@ -219,7 +219,7 @@ func TestIntentTerminalFinishSettledCheckpointsNoReadiness(t *testing.T) {
 
 func TestIntentTerminalFinishUnsettledKeepsClock(t *testing.T) {
 	ctx := context.Background()
-	db, _ := postgresFixture(t, nil)
+	db, _ := postgresFixture(t)
 	now := time.Now().UTC()
 	a := intentFinishRootFixture(t, now, 7, "d111111111111111111111111", "d222222222222222222222222", 7)
 	insertIntentFinishRootRow(t, ctx, db, a)
@@ -254,7 +254,7 @@ func TestIntentTerminalFinishUnsettledKeepsClock(t *testing.T) {
 
 func TestIntentFinishRefusesMissingAllowance(t *testing.T) {
 	ctx := context.Background()
-	db, _ := postgresFixture(t, nil)
+	db, _ := postgresFixture(t)
 	now := time.Now().UTC()
 	a := intentFinishRootFixture(t, now, 7, "d111111111111111111111111", "d222222222222222222222222", 7)
 	insertIntentFinishRootRow(t, ctx, db, a)
@@ -271,7 +271,7 @@ func TestIntentFinishRefusesMissingAllowance(t *testing.T) {
 
 func TestIntentAttemptAllowanceTypedRead(t *testing.T) {
 	ctx := context.Background()
-	db, _ := postgresFixture(t, nil)
+	db, _ := postgresFixture(t)
 	now := time.Now().UTC()
 	a := intentFinishRootFixture(t, now, 7, "d111111111111111111111111", "d222222222222222222222222", 7)
 	insertIntentFinishRootRow(t, ctx, db, a)

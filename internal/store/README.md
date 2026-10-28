@@ -20,7 +20,7 @@ credentials and binding configuration; none are copied into these records.
 The dashboard loads the DSN from its restricted `database_dsn_file` and uses:
 
 ```go
-db, err := store.OpenDashboard(dsn)
+db, err := store.Open(dsn)
 ```
 
 Handle the error before using `db` and call `db.Close()` when its owner shuts

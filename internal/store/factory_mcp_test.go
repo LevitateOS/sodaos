@@ -103,7 +103,7 @@ func testMCPRecordedReceipt(submission factory.MCPSubmission) factory.MCPReceipt
 // returns it, so author/role/subject attribution never assumes one
 // capability per assignment.
 func TestFactoryMCPSubmissionRecordsAuthorizingCapability(t *testing.T) {
-	db, _ := postgresFixture(t, nil)
+	db, _ := postgresFixture(t)
 	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
 	defer cancel()
 	capability := activateMCPCapability(t, ctx, db, testMCPCapabilityRow())
@@ -137,7 +137,7 @@ func TestFactoryMCPSubmissionRecordsAuthorizingCapability(t *testing.T) {
 // against a finished assignment refuse, while exact replay of a
 // submission recorded before the finish still returns its receipt.
 func TestFactoryMCPSubmissionRefusesFinishedAssignment(t *testing.T) {
-	db, _ := postgresFixture(t, nil)
+	db, _ := postgresFixture(t)
 	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
 	defer cancel()
 	seedAssignment := func(id, stage string) {
@@ -174,7 +174,7 @@ func TestFactoryMCPSubmissionRefusesFinishedAssignment(t *testing.T) {
 }
 
 func TestFactoryMCPTransactions(t *testing.T) {
-	db, _ := postgresFixture(t, nil)
+	db, _ := postgresFixture(t)
 	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
 	defer cancel()
 	for _, stmt := range []string{
@@ -305,7 +305,7 @@ func TestFactoryMCPTransactions(t *testing.T) {
 // goroutines force the race; every assertion is a schedule-free
 // final-state invariant, so no timing assumption can pass it.
 func TestFactoryMCPSubmissionConcurrentFreeze(t *testing.T) {
-	db, _ := postgresFixture(t, nil)
+	db, _ := postgresFixture(t)
 	for _, stmt := range []string{
 		FactoryMCPCapabilitiesDDL, FactoryMCPCapabilityDeleteTrigger,
 		FactoryMCPSubmissionsDDL, FactoryMCPSubmissionTriggers,
@@ -535,7 +535,7 @@ func TestFactoryMCPSubmissionConcurrentFreeze(t *testing.T) {
 // new rows, while already-recorded receipts stay readable through
 // the separate MCPReceipt route without granting new authority.
 func TestFactoryMCPSubmissionExpiryAtInsert(t *testing.T) {
-	db, _ := postgresFixture(t, nil)
+	db, _ := postgresFixture(t)
 	for _, stmt := range []string{
 		FactoryMCPCapabilitiesDDL, FactoryMCPCapabilityDeleteTrigger,
 		FactoryMCPSubmissionsDDL, FactoryMCPSubmissionTriggers,
@@ -741,7 +741,7 @@ func TestFactoryMCPSubmissionExpiryAtInsert(t *testing.T) {
 // bytes beside a non-terminal row, and an assignment with no
 // terminal reports false.
 func TestTerminalMCPSubmissionRead(t *testing.T) {
-	db, _ := postgresFixture(t, nil)
+	db, _ := postgresFixture(t)
 	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
 	defer cancel()
 	for _, stmt := range []string{
@@ -786,7 +786,7 @@ func TestTerminalMCPSubmissionRead(t *testing.T) {
 // answers never marks them incorporated. Missing receipts and posts
 // refuse explicitly instead of returning empty success.
 func TestEvidenceStatusReceiptReadsExplicitWithoutSideEffects(t *testing.T) {
-	db, _ := postgresFixture(t, nil)
+	db, _ := postgresFixture(t)
 	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
 	defer cancel()
 	capability := activateMCPCapability(t, ctx, db, testMCPCapabilityRow())

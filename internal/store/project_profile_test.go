@@ -8,7 +8,7 @@ import (
 )
 
 func TestProjectWithoutCreationProfileAndImmutableCreation(t *testing.T) {
-	s, _ := postgresFixture(t, nil)
+	s, _ := postgresFixture(t)
 	if err := s.UpsertUser(t.Context(), User{ID: 1, Login: "soda-tester", Name: "Synthetic account"}); err != nil {
 		t.Fatal(err)
 	}

@@ -95,7 +95,7 @@ func (s *stubBroker) CloseExecution(ctx context.Context, kind, id string) error 
 
 func coordinatorFixture(t *testing.T, host HostFactory, broker BrokerExecution) *Coordinator {
 	t.Helper()
-	db, _ := postgresFixture(t, nil)
+	db, _ := postgresFixture(t)
 	if host == nil {
 		host = &stubHost{stop: func(project.FactoryStop) (project.FactoryState, error) {
 			return project.FactoryState{}, errors.New("unexpected host call")
@@ -423,7 +423,7 @@ func settledStopBroker() *stubBroker {
 
 func TestRestartedStopReportsEstablishedOutcome(t *testing.T) {
 	ctx := context.Background()
-	db, dsn := postgresFixture(t, nil)
+	db, dsn := postgresFixture(t)
 	c := NewCoordinator(db, &stubHost{}, &stubBroker{})
 	r := recordRun(t, c, nil)
 	cmd := stopCommand(r.ID)
@@ -451,7 +451,7 @@ func TestRestartedStopReportsEstablishedOutcome(t *testing.T) {
 
 func TestRestartedStopPreservesUncertainty(t *testing.T) {
 	ctx := context.Background()
-	db, dsn := postgresFixture(t, nil)
+	db, dsn := postgresFixture(t)
 	c := NewCoordinator(db, &stubHost{}, &stubBroker{})
 	r := recordRun(t, c, nil)
 	cmd := stopCommand(r.ID)
@@ -485,7 +485,7 @@ func TestRestartedStopPreservesUncertainty(t *testing.T) {
 
 func TestRestartedReconcileReportsSettledRuns(t *testing.T) {
 	ctx := context.Background()
-	db, dsn := postgresFixture(t, nil)
+	db, dsn := postgresFixture(t)
 	c := NewCoordinator(db, &stubHost{}, &stubBroker{})
 	r := recordRun(t, c, nil)
 	cmd := factory.Command{ID: factory.NewID(), Type: factory.CommandReconcile, Principal: "os-uid:0", Digest: factory.CommandDigest(factory.CommandReconcile, "")}

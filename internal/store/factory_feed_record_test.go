@@ -65,7 +65,7 @@ func insertFeedIntegration(t *testing.T, db *sql.DB, assignment, publication str
 
 func TestFeedRecordDetailsEnrichesPhasesAndIntegration(t *testing.T) {
 	ctx := context.Background()
-	s, dsn := postgresFixture(t, nil)
+	s, dsn := postgresFixture(t)
 	raw := journeySQL(t, dsn)
 	acceptance := "d" + strings.Repeat("a", 24)
 	candidate := strings.Repeat("c", 40)
@@ -170,9 +170,11 @@ func feedPayloadOf(t *testing.T, result factory.AssignmentResult) *factory.FeedP
 func TestFeedResultPayloadPerPhase(t *testing.T) {
 	key := strings.Repeat("a", 32)
 	candidate := strings.Repeat("c", 40)
-	finding := factory.Finding{Key: key, Severity: "major", Defect: "cross-team read",
+	finding := factory.Finding{
+		Key: key, Severity: "major", Defect: "cross-team read",
 		Evidence: "repro steps", RequiredOutcome: "deny other teams", FixKind: "code", Actionable: true,
-		Location: &factory.FindingLocation{Path: "api.go", Side: "new", Line: 12}}
+		Location: &factory.FindingLocation{Path: "api.go", Side: "new", Line: 12},
+	}
 	phase := func(output *factory.PhaseOutput) factory.AssignmentResult {
 		return factory.AssignmentResult{PhaseResult: &factory.PhaseResult{Output: output}}
 	}
@@ -217,8 +219,10 @@ func TestFeedResultPayloadPerPhase(t *testing.T) {
 
 	payload = feedPayloadOf(t, phase(&factory.PhaseOutput{Reassessment: &factory.ReassessmentReport{
 		Summary: "one change", RetainedIssueIndexes: []int64{3},
-		IntentChanges: []factory.ReassessmentIntentChange{{IntentID: "intent", Reason: "cycle",
-			Tasks: []factory.IntentTask{{Key: "t1", Objective: "break cycle", DependsOn: []string{"t0"}}}}},
+		IntentChanges: []factory.ReassessmentIntentChange{{
+			IntentID: "intent", Reason: "cycle",
+			Tasks: []factory.IntentTask{{Key: "t1", Objective: "break cycle", DependsOn: []string{"t0"}}},
+		}},
 		Attention: []factory.ReassessmentAttentionEntry{{IssueIndex: 9, Reason: "waiting"}},
 		Coverage:  []factory.ReassessmentCoverage{{IntentID: "intent", OutcomeID: "out", TaskKeys: []string{"t1"}}},
 	}}))
@@ -231,7 +235,8 @@ func TestFeedResultPayloadPerPhase(t *testing.T) {
 	payload = feedPayloadOf(t, phase(&factory.PhaseOutput{Verification: &factory.AppVerificationReport{
 		DeliveryID: strings.Repeat("d", 32), Outcome: "failed",
 		CheckReceipts: []factory.VerificationCheckReceipt{
-			{CheckID: "k1", Outcome: "passed"}, {CheckID: "k2", Outcome: "failed"}},
+			{CheckID: "k1", Outcome: "passed"}, {CheckID: "k2", Outcome: "failed"},
+		},
 		Failures: []factory.CheckFailure{{CheckRef: "k2", Detail: "boom"}},
 		Coverage: []factory.ReassessmentCoverage{{IntentID: "intent", OutcomeID: "out"}},
 	}}))
@@ -258,7 +263,7 @@ func TestFeedResultPayloadPerPhase(t *testing.T) {
 
 func TestFeedRecordDetailsTaskStates(t *testing.T) {
 	ctx := context.Background()
-	s, dsn := postgresFixture(t, nil)
+	s, dsn := postgresFixture(t)
 	raw := journeySQL(t, dsn)
 	acceptance := "d" + strings.Repeat("a", 24)
 	impl := journeyAssignment(strings.Repeat("6", 32), strings.Repeat("6", 32), acceptance, 7, 3, true)
@@ -267,8 +272,10 @@ func TestFeedRecordDetailsTaskStates(t *testing.T) {
 	impl.Result = &factory.AssignmentResult{
 		AssignmentID: impl.ID, RunID: strings.Repeat("a", 32), Phase: "implement",
 		Status: "completed", RecordedUnix: 1700000600,
-		PhaseResult: &factory.PhaseResult{Phase: "implement", Status: "completed", Version: factory.PhaseResultVersion,
-			Output: &factory.PhaseOutput{Implementation: &factory.ImplementationReceipt{Candidate: strings.Repeat("c", 40)}}},
+		PhaseResult: &factory.PhaseResult{
+			Phase: "implement", Status: "completed", Version: factory.PhaseResultVersion,
+			Output: &factory.PhaseOutput{Implementation: &factory.ImplementationReceipt{Candidate: strings.Repeat("c", 40)}},
+		},
 	}
 	insertJourneyAssignment(t, raw, impl, factory.AssignmentFinished, 1)
 	planID := strings.Repeat("8", 32)

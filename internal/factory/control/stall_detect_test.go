@@ -308,7 +308,7 @@ func stallSeedControl(t *testing.T, db *store.Store, repo, issue int64, readines
 // (SODA_PG_*) skips when absent.
 func TestStallWaitClassificationPG(t *testing.T) {
 	ctx := context.Background()
-	db, _ := postgresFixture(t, nil)
+	db, _ := postgresFixture(t)
 	coord := &Coordinator{Store: db}
 	const repo = 18
 	stallSeedControl(t, db, repo, 1, factory.ReadinessBlocked,
@@ -365,7 +365,7 @@ func TestStallWaitClassificationPG(t *testing.T) {
 // ready work resumes selection instead.
 func TestStallDiscoveryPG(t *testing.T) {
 	ctx := context.Background()
-	db, _ := postgresFixture(t, nil)
+	db, _ := postgresFixture(t)
 	coord := &Coordinator{Store: db}
 	const repo = 19
 	stallSeedControl(t, db, repo, 1, factory.ReadinessBlocked,
@@ -414,7 +414,7 @@ func TestStallDiscoveryPG(t *testing.T) {
 // incomplete, and classification binds no episode from it.
 func TestExceededCycleWalkFailsClosedToIncomplete(t *testing.T) {
 	ctx := context.Background()
-	db, _ := postgresFixture(t, nil)
+	db, _ := postgresFixture(t)
 	coord := &Coordinator{Store: db}
 	const repo = 41
 	decisionID := func(tag string) string {
@@ -472,7 +472,7 @@ func TestExceededCycleWalkFailsClosedToIncomplete(t *testing.T) {
 // occurrence carries a head; a recorded endpoint head waits quietly.
 func TestPendingPrereqNeedsItsOwnEndpointHead(t *testing.T) {
 	ctx := context.Background()
-	db, _ := postgresFixture(t, nil)
+	db, _ := postgresFixture(t)
 	coord := &Coordinator{Store: db}
 	const repo = 42
 	headless := stallControl(repo, 1, factory.ReadinessBlocked, factory.BlockerCodePending,
@@ -533,7 +533,7 @@ func TestPendingPrereqNeedsItsOwnEndpointHead(t *testing.T) {
 // clear an earlier missing producer.
 func TestMixedPrereqsPreserveMissingProducer(t *testing.T) {
 	ctx := context.Background()
-	db, _ := postgresFixture(t, nil)
+	db, _ := postgresFixture(t)
 	coord := &Coordinator{Store: db}
 	const repo = 43
 	endpoint := factory.Acceptance{

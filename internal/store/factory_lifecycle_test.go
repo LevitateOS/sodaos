@@ -11,7 +11,7 @@ import (
 
 func takeoverStore(t *testing.T) *Store {
 	t.Helper()
-	s, _ := postgresFixture(t, nil)
+	s, _ := postgresFixture(t)
 	if err := s.UpsertUser(context.Background(), User{ID: 1, Login: "alice", Name: "alice"}); err != nil {
 		t.Fatal(err)
 	}

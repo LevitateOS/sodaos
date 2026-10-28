@@ -33,7 +33,7 @@ func TestPriorityReceiptsForIssueValidation(t *testing.T) {
 }
 
 func TestPriorityReceiptsForIssuePages(t *testing.T) {
-	s, _ := postgresFixture(t, nil)
+	s, _ := postgresFixture(t)
 	ctx := context.Background()
 	save := func(snapshot string, created int64, candidates ...factory.PriorityCandidate) {
 		t.Helper()

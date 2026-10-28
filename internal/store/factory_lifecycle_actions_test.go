@@ -13,7 +13,7 @@ func testLifecycleAction() factory.LifecycleAction {
 }
 
 func TestRecordActionReplaysIdentical(t *testing.T) {
-	s, _ := postgresFixture(t, nil)
+	s, _ := postgresFixture(t)
 	ctx := context.Background()
 	a := testLifecycleAction()
 	if _, err := s.RecordAction(ctx, a); err != nil {
@@ -38,7 +38,7 @@ func TestRecordActionReplaysIdentical(t *testing.T) {
 }
 
 func TestUnsettledLifecycleActions(t *testing.T) {
-	s, _ := postgresFixture(t, nil)
+	s, _ := postgresFixture(t)
 	ctx := context.Background()
 	issue := testLifecycleAction()
 	pending := issue
@@ -93,7 +93,7 @@ func TestUnsettledLifecycleActions(t *testing.T) {
 }
 
 func TestUpdateActionFencesSameAttemptResults(t *testing.T) {
-	s, _ := postgresFixture(t, nil)
+	s, _ := postgresFixture(t)
 	ctx := context.Background()
 	a := testLifecycleAction()
 	a.ID = "act-fence-1"
@@ -129,7 +129,7 @@ func TestUpdateActionFencesSameAttemptResults(t *testing.T) {
 }
 
 func TestUpdateActionFencesAttempts(t *testing.T) {
-	s, _ := postgresFixture(t, nil)
+	s, _ := postgresFixture(t)
 	ctx := context.Background()
 	a := testLifecycleAction()
 	a.ID = "act-store-2"
@@ -158,7 +158,7 @@ func TestUpdateActionFencesAttempts(t *testing.T) {
 }
 
 func TestListActionsBounded(t *testing.T) {
-	s, _ := postgresFixture(t, nil)
+	s, _ := postgresFixture(t)
 	ctx := context.Background()
 	for _, id := range []string{"act-list-1", "act-list-2"} {
 		a := testLifecycleAction()
@@ -178,7 +178,7 @@ func TestListActionsBounded(t *testing.T) {
 }
 
 func TestSaveConfigGatesOnCapability(t *testing.T) {
-	s, _ := postgresFixture(t, nil)
+	s, _ := postgresFixture(t)
 	ctx := context.Background()
 	c := factory.LifecycleConfig{Event: factory.LifecycleEventIssueCreated, Revision: 0, Enabled: true, ActorID: 7, RepositoryID: 9, LabelID: 3}
 	if _, err := s.SaveConfig(ctx, c); !errors.Is(err, ErrCapabilityUnproved) {

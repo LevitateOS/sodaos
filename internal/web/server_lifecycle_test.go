@@ -50,7 +50,7 @@ func serveCapabilityBackground(t *testing.T, installation string) string {
 }
 
 func TestRefreshLifecycleCapabilitiesRegistersThenClears(t *testing.T) {
-	db := postgresFixture(t, nil)
+	db := postgresFixture(t)
 	ctx := context.Background()
 	socket := serveCapabilityBackground(t, "install-1")
 	background := forgejo.NewServiceBackground(socket, uint32(os.Getuid()), "")

@@ -12,7 +12,7 @@ import (
 
 func TestFeedRepliesIncludeOtherAuthorsAndPageWithoutCrossingSources(t *testing.T) {
 	ctx := context.Background()
-	s, _ := postgresFixture(t, nil)
+	s, _ := postgresFixture(t)
 	parent := saveTestComment(t, s, 7, "42", "parent", "parent")
 	for i := 0; i < 23; i++ {
 		_, _, err := s.SaveFeedComment(ctx, factory.CommentRequest{Repository: 7, Body: "reply", ReplyTo: parent, IdempotencyKey: fmt.Sprint(i)}, "43", "Another person", 1729000001)
@@ -68,7 +68,7 @@ func saveTestComment(t *testing.T, s *Store, repository int64, author, body, key
 }
 
 func TestFeedbackQueueDoesNotReplayHistoricalIssueMappings(t *testing.T) {
-	s, _ := postgresFixture(t, nil)
+	s, _ := postgresFixture(t)
 	ctx := context.Background()
 	id := saveTestComment(t, s, 7, "42", "existing work", "old-feedback")
 	if err := s.RecordCommentIntake(ctx, id, 0); err != nil {
@@ -100,7 +100,7 @@ func TestFeedbackQueueDoesNotReplayHistoricalIssueMappings(t *testing.T) {
 
 func TestFeedCommentSaveReplaysIdempotencyKey(t *testing.T) {
 	ctx := context.Background()
-	s, _ := postgresFixture(t, nil)
+	s, _ := postgresFixture(t)
 	first := saveTestComment(t, s, 7, "42", "please fix the login redirect", "key-1")
 	again, revision, err := s.SaveFeedComment(ctx, factory.CommentRequest{
 		Repository: 7, Body: "a different body", IdempotencyKey: "key-1",
@@ -127,7 +127,7 @@ func TestFeedCommentSaveReplaysIdempotencyKey(t *testing.T) {
 
 func TestFeedCommentEditDeleteRevoke(t *testing.T) {
 	ctx := context.Background()
-	s, _ := postgresFixture(t, nil)
+	s, _ := postgresFixture(t)
 	id := saveTestComment(t, s, 7, "42", "original", "key-1")
 	if err := s.RecordCommentIntake(ctx, id, 0); err != nil {
 		t.Fatal(err)
@@ -196,7 +196,7 @@ func TestFeedCommentEditDeleteRevoke(t *testing.T) {
 
 func TestCommentPipelineAdvanceIsCAS(t *testing.T) {
 	ctx := context.Background()
-	s, _ := postgresFixture(t, nil)
+	s, _ := postgresFixture(t)
 	id := saveTestComment(t, s, 7, "42", "route me", "key-1")
 	if err := s.RecordCommentIntake(ctx, id, 0); err != nil {
 		t.Fatal(err)
@@ -234,7 +234,7 @@ func TestCommentPipelineAdvanceIsCAS(t *testing.T) {
 
 func TestCommentDraftBindsSourceRevision(t *testing.T) {
 	ctx := context.Background()
-	s, _ := postgresFixture(t, nil)
+	s, _ := postgresFixture(t)
 	id := saveTestComment(t, s, 7, "42", "needs work", "key-1")
 	if err := s.RecordCommentIntake(ctx, id, 0); err != nil {
 		t.Fatal(err)
@@ -263,7 +263,7 @@ func TestCommentDraftBindsSourceRevision(t *testing.T) {
 
 func TestSubscribedFeedMergesPostsNewestFirst(t *testing.T) {
 	ctx := context.Background()
-	s, dsn := postgresFixture(t, nil)
+	s, dsn := postgresFixture(t)
 	raw := journeySQL(t, dsn)
 	acceptance := "d" + strings.Repeat("a", 24)
 	insertJourneyAssignment(t, raw, journeyAssignment(strings.Repeat("1", 32), strings.Repeat("1", 32), acceptance, 7, 3, true), "assigned", 1)
@@ -319,7 +319,7 @@ func TestSubscribedFeedMergesPostsNewestFirst(t *testing.T) {
 
 func TestReserveCommentJudgmentIsIdempotent(t *testing.T) {
 	ctx := context.Background()
-	s, _ := postgresFixture(t, nil)
+	s, _ := postgresFixture(t)
 	id := saveTestComment(t, s, 7, "42", "route me", "key-1")
 	funded, err := s.ReserveCommentJudgment(ctx, id, 0)
 	if err != nil || !funded {
@@ -364,7 +364,7 @@ func insertTestAssignmentRow(t *testing.T, s *Store, ctx context.Context, reposi
 // snapshot reads back on the saved comment.
 func TestCommentSourceResolutionAndRoundTrip(t *testing.T) {
 	ctx := context.Background()
-	s, _ := postgresFixture(t, nil)
+	s, _ := postgresFixture(t)
 	recordID := insertTestAssignmentRow(t, s, ctx, 7, 55)
 
 	source, err := s.ResolveCommentSource(ctx, 7, factory.CommentSourceRecord, recordID)
@@ -420,7 +420,7 @@ func TestCommentSourceResolutionAndRoundTrip(t *testing.T) {
 // issue inside their repository only.
 func TestPendingCommentPipelinesAndCandidates(t *testing.T) {
 	ctx := context.Background()
-	s, _ := postgresFixture(t, nil)
+	s, _ := postgresFixture(t)
 	id := saveTestComment(t, s, 7, "42", "route me", "key-1")
 	if err := s.RecordCommentIntake(ctx, id, 0); err != nil {
 		t.Fatal(err)
@@ -522,7 +522,7 @@ func TestPostStatusShowsExhaustionWithoutDiscardingConfirmedIssue(t *testing.T) 
 
 func TestRetryFeedCommentPreservesPostAndReconcilesUncertainEffect(t *testing.T) {
 	ctx := context.Background()
-	s, _ := postgresFixture(t, nil)
+	s, _ := postgresFixture(t)
 	id := saveTestComment(t, s, 7, "42", "Original request", "retry-1")
 	if err := s.RecordCommentIntake(ctx, id, 0); err != nil {
 		t.Fatal(err)
@@ -673,7 +673,7 @@ func TestRetryFeedCommentPreservesPostAndReconcilesUncertainEffect(t *testing.T)
 
 func TestPendingCommentRequestsRotatePastWaitingWork(t *testing.T) {
 	ctx := context.Background()
-	s, _ := postgresFixture(t, nil)
+	s, _ := postgresFixture(t)
 	first := saveTestComment(t, s, 7, "42", "Waiting", "fair-1")
 	second := saveTestComment(t, s, 7, "42", "Ready", "fair-2")
 	for _, id := range []string{first, second} {
@@ -695,7 +695,7 @@ func TestPendingCommentRequestsRotatePastWaitingWork(t *testing.T) {
 }
 
 func TestCommentProductReviewKeepsCanonicalScopeAndOwner(t *testing.T) {
-	s, _ := postgresFixture(t, nil)
+	s, _ := postgresFixture(t)
 	ctx := context.Background()
 	idea := factory.ProductIdea{ID: "d888888888888888888888888", Description: "Track requests", Consequence: "Requests persist", Decision: "accept", Source: "requested", Provenance: "human", Actor: 42}
 	accepted := factory.IntentRevision{ID: "d111111111111111111111111", Intent: "d000000000000000000000000", Owner: 42, Repository: 7, Objective: "Track equipment requests", State: "accepted", MaxIssues: 10, CreatedUnix: 1, Ideas: []factory.ProductIdea{idea}, Tasks: []factory.IntentTask{{Key: "d999999999999999999999999", Objective: "Record requests", Outcomes: []string{"Requests persist"}, IdeaIDs: []string{idea.ID}}}}
@@ -852,7 +852,7 @@ func TestCommentProductReviewKeepsCanonicalScopeAndOwner(t *testing.T) {
 }
 
 func TestCommentProductLineageAdoptedWorkAndVerification(t *testing.T) {
-	s, _ := postgresFixture(t, nil)
+	s, _ := postgresFixture(t)
 	ctx := context.Background()
 	idea := factory.ProductIdea{ID: "d888888888888888888888888", Description: "Track requests", Consequence: "Requests persist", Decision: "accept", Source: "requested", Provenance: "human", Actor: 42}
 	accepted := factory.IntentRevision{ID: "d111111111111111111111111", Intent: "d000000000000000000000000", Owner: 42, Repository: 7, Objective: "Track equipment requests", State: "accepted", MaxIssues: 10, CreatedUnix: 1, Ideas: []factory.ProductIdea{idea}, Tasks: []factory.IntentTask{{Key: "d999999999999999999999999", Objective: "Record requests", Outcomes: []string{"Requests persist"}, IdeaIDs: []string{idea.ID}}}}
@@ -1067,7 +1067,7 @@ func TestCommentProductLineageAdoptedWorkAndVerification(t *testing.T) {
 }
 
 func TestCommentProductLineageKeepsCompletedWorkWhenScopePartial(t *testing.T) {
-	s, _ := postgresFixture(t, nil)
+	s, _ := postgresFixture(t)
 	ctx := context.Background()
 	idea := factory.ProductIdea{ID: "d888888888888888888888888", Description: "Track requests", Consequence: "Requests persist", Decision: "accept", Source: "requested", Provenance: "human", Actor: 42}
 	accepted := factory.IntentRevision{ID: "d111111111111111111111111", Intent: "d000000000000000000000000", Owner: 42, Repository: 7, Objective: "Track equipment requests", State: "accepted", MaxIssues: 10, CreatedUnix: 1, Ideas: []factory.ProductIdea{idea}, Tasks: []factory.IntentTask{{Key: "d999999999999999999999999", Objective: "Record requests", Outcomes: []string{"Requests persist"}, IdeaIDs: []string{idea.ID}}}}
@@ -1160,7 +1160,7 @@ func TestCommentProductLineageKeepsCompletedWorkWhenScopePartial(t *testing.T) {
 }
 
 func TestCommentProductLineageShowsPendingMatchingTask(t *testing.T) {
-	s, _ := postgresFixture(t, nil)
+	s, _ := postgresFixture(t)
 	ctx := context.Background()
 	idea := factory.ProductIdea{ID: "d888888888888888888888888", Description: "Track requests", Consequence: "Requests persist", Decision: "accept", Source: "requested", Provenance: "human", Actor: 42}
 	accepted := factory.IntentRevision{ID: "d111111111111111111111111", Intent: "d000000000000000000000000", Owner: 42, Repository: 7, Objective: "Track equipment requests", State: "accepted", MaxIssues: 10, CreatedUnix: 1, Ideas: []factory.ProductIdea{idea}, Tasks: []factory.IntentTask{{Key: "d999999999999999999999999", Objective: "Record requests", Outcomes: []string{"Requests persist"}, IdeaIDs: []string{idea.ID}}}}
@@ -1255,7 +1255,7 @@ func TestCommentProductLineageShowsPendingMatchingTask(t *testing.T) {
 }
 
 func TestCommentProductLineageShowsMixedMatchingTasks(t *testing.T) {
-	s, _ := postgresFixture(t, nil)
+	s, _ := postgresFixture(t)
 	ctx := context.Background()
 	idea := factory.ProductIdea{ID: "d888888888888888888888888", Description: "Track requests", Consequence: "Requests persist", Decision: "accept", Source: "requested", Provenance: "human", Actor: 42}
 	accepted := factory.IntentRevision{ID: "d111111111111111111111111", Intent: "d000000000000000000000000", Owner: 42, Repository: 7, Objective: "Track equipment requests", State: "accepted", MaxIssues: 10, CreatedUnix: 1, Ideas: []factory.ProductIdea{idea}, Tasks: []factory.IntentTask{{Key: "d999999999999999999999999", Objective: "Record requests", Outcomes: []string{"Requests persist"}, IdeaIDs: []string{idea.ID}}}}

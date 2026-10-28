@@ -39,16 +39,14 @@ func TestFixtureDSN() (dsn string, ok bool) {
 }
 
 // OpenEphemeral creates a uniquely-named database on the given server and
-// opens a Store on it for one test. key selects the encrypted production
-// entrypoint; nil opens without identity credentials. The returned cleanup
-// closes the store and drops the database. Tests resolve the server URL
-// through TestFixtureDSN and skip when it is absent.
+// opens a Store on it for one test. The returned cleanup closes the store
+// and drops the database. Tests resolve the server URL through
+// TestFixtureDSN and skip when it is absent.
 //
 // The database is cloned from a per-process migrated template instead of
 // running the full DDL per test; any template failure falls back to the
-// plain create path. The template holds schema only, so encrypted and
-// plain entrypoints share it safely.
-func OpenEphemeral(ctx context.Context, superDSN string, key []byte) (s *Store, dsn string, cleanup func(), err error) {
+// plain create path.
+func OpenEphemeral(ctx context.Context, superDSN string) (s *Store, dsn string, cleanup func(), err error) {
 	dsn, drop, err := createClonedDatabase(ctx, superDSN)
 	if err != nil {
 		dsn, drop, err = createEphemeralDatabase(ctx, superDSN)
@@ -56,11 +54,7 @@ func OpenEphemeral(ctx context.Context, superDSN string, key []byte) (s *Store, 
 	if err != nil {
 		return nil, "", nil, err
 	}
-	if key == nil {
-		s, err = Open(dsn)
-	} else {
-		s, err = OpenEncrypted(dsn, key)
-	}
+	s, err = Open(dsn)
 	if err != nil {
 		drop()
 		return nil, "", nil, err

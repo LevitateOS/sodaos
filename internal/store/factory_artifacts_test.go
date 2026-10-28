@@ -5,12 +5,13 @@ import (
 	"context"
 	"encoding/base64"
 	"encoding/json"
-	"github.com/levitateos/sodaos/internal/factory"
 	"testing"
+
+	"github.com/levitateos/sodaos/internal/factory"
 )
 
 func TestFactoryArtifactChunksPublishOnlyWhenComplete(t *testing.T) {
-	s, _ := postgresFixture(t, nil)
+	s, _ := postgresFixture(t)
 	ctx := context.Background()
 	cap := activateMCPCapability(t, ctx, s, testMCPCapabilityRow())
 	upload := factory.NewID()

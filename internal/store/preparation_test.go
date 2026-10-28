@@ -18,7 +18,7 @@ const (
 
 func prepTestStore(t *testing.T) (*Store, context.Context) {
 	t.Helper()
-	s, _ := postgresFixture(t, nil)
+	s, _ := postgresFixture(t)
 	ctx := context.Background()
 	if err := s.UpsertUser(ctx, User{ID: 3, Login: "soda-tester"}); err != nil {
 		t.Fatal(err)

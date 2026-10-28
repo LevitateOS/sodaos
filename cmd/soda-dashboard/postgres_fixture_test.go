@@ -15,7 +15,7 @@ func postgresFixture(t *testing.T) *store.Store {
 	if !ok {
 		t.Skip("SODA_PG_* fixture unavailable")
 	}
-	s, _, cleanup, err := store.OpenEphemeral(context.Background(), admin, nil)
+	s, _, cleanup, err := store.OpenEphemeral(context.Background(), admin)
 	if err != nil {
 		t.Fatal(err)
 	}

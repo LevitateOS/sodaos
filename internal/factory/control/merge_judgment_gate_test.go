@@ -66,7 +66,7 @@ func gateTestBinding(t *testing.T, m factory.Merge) factory.MergeAuthorization {
 // authorization instead of submitting; the wait names the missing
 // judgment honestly.
 func TestMergeAuthorizationGateClosesUnboundSubmits(t *testing.T) {
-	db, _ := postgresFixture(t, nil)
+	db, _ := postgresFixture(t)
 	m := gateTestMergeRow(t, db)
 	if err := mergeAuthorizationGate(m, factory.Publication{}); err == nil {
 		t.Fatal("unbound row passed its authorization gate")
@@ -83,7 +83,7 @@ func TestMergeAuthorizationGateClosesUnboundSubmits(t *testing.T) {
 // re-authorization behind fresh review and judgment instead of merging
 // another candidate.
 func TestMergeAuthorizationGateRefusesStaleTuple(t *testing.T) {
-	db, _ := postgresFixture(t, nil)
+	db, _ := postgresFixture(t)
 	m := gateTestMergeRow(t, db)
 	m.Authorization = gateTestBinding(t, m)
 	if err := mergeAuthorizationGate(m, factory.Publication{}); err != nil {
@@ -115,7 +115,7 @@ func TestMergeAuthorizationGateRefusesStaleTuple(t *testing.T) {
 // invalid acceptance never admits a submit. A review_again decision or
 // unconfirmed resolutions hold the row instead of merging.
 func TestMergeAuthorizationGateEnforcesDecisionFreshness(t *testing.T) {
-	db, _ := postgresFixture(t, nil)
+	db, _ := postgresFixture(t)
 	m := gateTestMergeRow(t, db)
 	m.Authorization = gateTestBinding(t, m)
 	answer, err := reviewDeliveryAnswer(m.Authorization.Generation.Fingerprint)
@@ -237,7 +237,7 @@ func TestAuthorizeMergeBindsFirstGeneration(t *testing.T) {
 // confirmed cancel is what a future replacement must prove.
 func TestWithdrawUnboundRowCancelsWithoutGate(t *testing.T) {
 	ctx := context.Background()
-	db, _ := postgresFixture(t, nil)
+	db, _ := postgresFixture(t)
 	m := gateTestMergeRow(t, db)
 	coord := &Coordinator{Store: db}
 	report := &MergeReport{Merged: []MergeLink{}}
@@ -309,7 +309,7 @@ func TestAdoptCommittedMergeAfterLostReplyWithoutRewrite(t *testing.T) {
 // never enters the authorization gate.
 func TestCompleteMergeWaitsForClosureVerification(t *testing.T) {
 	ctx := context.Background()
-	db, _ := postgresFixture(t, nil)
+	db, _ := postgresFixture(t)
 	m := gateTestMergeRow(t, db)
 	operationID := factory.MergeOperationID(m.PublicationID, 1)
 	m.Operation = factory.MergeOperation{

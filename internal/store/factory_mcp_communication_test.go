@@ -12,7 +12,7 @@ import (
 )
 
 func TestMCPInvitedContributionUsesCurrentSourceOnce(t *testing.T) {
-	s, dsn := postgresFixture(t, nil)
+	s, dsn := postgresFixture(t)
 	ctx := t.Context()
 	cap := testMCPCapabilityRow()
 	assignment := journeyAssignment(cap.AssignmentID, strings.Repeat("1", 32), "d"+strings.Repeat("a", 24), cap.Repository, 42, true)
@@ -171,7 +171,7 @@ func TestMCPInvitedContributionUsesCurrentSourceOnce(t *testing.T) {
 }
 
 func TestMCPDiscussionProjectsOversizedConsultationWithoutLosingStoredInput(t *testing.T) {
-	s, _ := postgresFixture(t, nil)
+	s, _ := postgresFixture(t)
 	ctx := t.Context()
 	cap := activateMCPCapability(t, ctx, s, testMCPCapabilityRow())
 	// Actual assignment owns both the recorded call and its visible thread.
@@ -196,7 +196,7 @@ func TestMCPDiscussionProjectsOversizedConsultationWithoutLosingStoredInput(t *t
 }
 
 func TestMCPCommunicationPersistsFeedAndReplay(t *testing.T) {
-	s, dsn := postgresFixture(t, nil)
+	s, dsn := postgresFixture(t)
 	ctx := context.Background()
 	cap := testMCPCapabilityRow()
 	assignment := journeyAssignment(cap.AssignmentID, strings.Repeat("1", 32), "d"+strings.Repeat("a", 24), cap.Repository, 42, true)
@@ -275,7 +275,7 @@ func TestMCPCommunicationPersistsFeedAndReplay(t *testing.T) {
 }
 
 func TestMCPCommunicationBoundPreservesFinish(t *testing.T) {
-	s, _ := postgresFixture(t, nil)
+	s, _ := postgresFixture(t)
 	ctx := context.Background()
 	cap := activateMCPCapability(t, ctx, s, testMCPCapabilityRow())
 	payload := []byte(`{"title":"Progress","summary":"Working on the assigned task.","remaining":["Finish the task"]}`)
@@ -299,7 +299,7 @@ func TestMCPCommunicationBoundPreservesFinish(t *testing.T) {
 }
 
 func TestMCPCommunicationEveryOutlet(t *testing.T) {
-	s, _ := postgresFixture(t, nil)
+	s, _ := postgresFixture(t)
 	ctx := context.Background()
 	cap := activateMCPCapability(t, ctx, s, testMCPCapabilityRow())
 	question := ""
@@ -344,7 +344,7 @@ func TestMCPCommunicationEveryOutlet(t *testing.T) {
 }
 
 func TestMCPFinishComponentUsesCanonicalRecord(t *testing.T) {
-	s, dsn := postgresFixture(t, nil)
+	s, dsn := postgresFixture(t)
 	ctx := context.Background()
 	cap := testMCPCapabilityRow()
 	a := journeyAssignment(cap.AssignmentID, strings.Repeat("1", 32), "d"+strings.Repeat("a", 24), 7, 42, true)
@@ -381,7 +381,7 @@ func TestMCPFinishComponentUsesCanonicalRecord(t *testing.T) {
 // immutable posts; and recording partial, suggest or answer finishes
 // nothing and grants no readiness.
 func TestPostResolutionDispositionPersistsAndExposes(t *testing.T) {
-	s, dsn := postgresFixture(t, nil)
+	s, dsn := postgresFixture(t)
 	ctx := context.Background()
 	cap := testMCPCapabilityRow()
 	assignment := journeyAssignment(cap.AssignmentID, strings.Repeat("1", 32), "d"+strings.Repeat("a", 24), cap.Repository, 42, true)
@@ -477,7 +477,7 @@ func TestPostResolutionDispositionPersistsAndExposes(t *testing.T) {
 // thread, and never loops on receipts, consultations or replies. A second
 // record proves the evaluated no-invitation gate without manufacturing work.
 func TestMCPInvitedContributionOnAssignmentRecord(t *testing.T) {
-	s, dsn := postgresFixture(t, nil)
+	s, dsn := postgresFixture(t)
 	ctx := t.Context()
 	now := time.Now().Unix()
 	db := journeySQL(t, dsn)
@@ -629,8 +629,10 @@ func TestMCPInvitedContributionOnAssignmentRecord(t *testing.T) {
 		t.Fatal("record invitation widened through descendants")
 	}
 	consultSnapshot := strings.Repeat("c", 64)
-	consult := SystemOneConsultation{Repository: eligible.Repository, Role: eligible.Profile,
-		FeedConsultation: factory.FeedConsultation{Snapshot: consultSnapshot, Assignment: eligible.AssignmentID, Tool: string(factory.MCPToolSystemOneChoice), Kind: "choice", State: "Which guard applies?", Instructions: "Pick the guard."}}
+	consult := SystemOneConsultation{
+		Repository: eligible.Repository, Role: eligible.Profile,
+		FeedConsultation: factory.FeedConsultation{Snapshot: consultSnapshot, Assignment: eligible.AssignmentID, Tool: string(factory.MCPToolSystemOneChoice), Kind: "choice", State: "Which guard applies?", Instructions: "Pick the guard."},
+	}
 	if err := s.RecordConsultationRequest(ctx, consult); err != nil {
 		t.Fatal(err)
 	}
@@ -702,7 +704,7 @@ func TestMCPInvitedContributionOnAssignmentRecord(t *testing.T) {
 // after the original is edited or deleted it refuses with no new comment
 // and no consumption.
 func TestMCPPostInvitationDirectRefusesStaleSource(t *testing.T) {
-	s, dsn := postgresFixture(t, nil)
+	s, dsn := postgresFixture(t)
 	ctx := t.Context()
 	cap := testMCPCapabilityRow()
 	assignment := journeyAssignment(cap.AssignmentID, strings.Repeat("1", 32), "d"+strings.Repeat("a", 24), cap.Repository, 42, true)
@@ -832,7 +834,7 @@ func TestMCPPostInvitationDirectRefusesStaleSource(t *testing.T) {
 // finished stage. After the original is edited (revision bump) it refuses
 // with no new comment and no consumption.
 func TestMCPRecordInvitationDirectRefusesStaleRevision(t *testing.T) {
-	s, dsn := postgresFixture(t, nil)
+	s, dsn := postgresFixture(t)
 	ctx := t.Context()
 	now := time.Now().Unix()
 	db := journeySQL(t, dsn)
@@ -912,7 +914,7 @@ func TestMCPRecordInvitationDirectRefusesStaleRevision(t *testing.T) {
 // refusal leaves no new comment, no receipt and no consumed invitation.
 // The worker's own discussion (no invitation) still succeeds.
 func TestMCPInvitationAtomicityHoldsSourceThroughReply(t *testing.T) {
-	s, dsn := postgresFixture(t, nil)
+	s, dsn := postgresFixture(t)
 	ctx := t.Context()
 	cap := testMCPCapabilityRow()
 	assignment := journeyAssignment(cap.AssignmentID, strings.Repeat("1", 32), "d"+strings.Repeat("a", 24), cap.Repository, 42, true)

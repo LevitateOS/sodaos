@@ -60,7 +60,7 @@ func TestFactoryLiveMCPNativeTasksBoundToObservedRun(t *testing.T) {
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), 90*time.Second)
 	defer cancel()
-	st, dsn, cleanup, err := store.OpenEphemeral(ctx, admin, nil)
+	st, dsn, cleanup, err := store.OpenEphemeral(ctx, admin)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -389,7 +389,7 @@ func TestFactoryLiveTypeSafeMCPConsultationConversation(t *testing.T) {
 		t.Skip("SODA_LIVE_TYPESAFE_KEY_FILE opt-in unavailable")
 	}
 	info, err := os.Lstat(keyPath)
-	if err != nil || !strings.HasPrefix(filepath.Clean(keyPath), "/home/") || !info.Mode().IsRegular() || info.Mode().Perm() != 0600 || info.Size() == 0 {
+	if err != nil || !strings.HasPrefix(filepath.Clean(keyPath), "/home/") || !info.Mode().IsRegular() || info.Mode().Perm() != 0o600 || info.Size() == 0 {
 		t.Fatal("live TypeSafe integration requires a private regular 0600 keyfile under /home")
 	}
 	wire := &liveMCPTypeSafeTransport{}
@@ -404,7 +404,7 @@ func exerciseFactoryLiveMCP(t *testing.T, wire *liveMCPTypeSafeTransport) {
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), 90*time.Second)
 	defer cancel()
-	st, dsn, cleanup, err := store.OpenEphemeral(ctx, admin, nil)
+	st, dsn, cleanup, err := store.OpenEphemeral(ctx, admin)
 	if err != nil {
 		t.Fatal(err)
 	}

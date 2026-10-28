@@ -32,7 +32,7 @@ func (h *standingHost) InspectPreparation(ctx context.Context, in project.Prepar
 
 func standingFixture(t *testing.T) (*Coordinator, project.Prepare, *standingHost) {
 	t.Helper()
-	db, _ := postgresFixture(t, nil)
+	db, _ := postgresFixture(t)
 	host := &standingHost{}
 	c := &Coordinator{Store: db, Host: host}
 	grantProject(t, c, "p"+strings.Repeat("a", 24))

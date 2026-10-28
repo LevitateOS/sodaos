@@ -25,8 +25,7 @@ var ErrCommandConflict = errors.New("command identity reused for different conte
 var ErrLastKeyConfirmationRequired = errors.New("final saved key removal requires confirmation")
 
 type Store struct {
-	db     *sql.DB
-	grants *grantCipher
+	db *sql.DB
 }
 type User struct {
 	ID          int64
@@ -64,35 +63,24 @@ func sameJSONDocument(ctx context.Context, t *sql.Tx, stored, fresh []byte) (boo
 // schema in an empty database and refusing anything else. dsn is a
 // PostgreSQL connection URL; callers read it from a restricted secret
 // file, never from configuration text.
-func Open(dsn string) (*Store, error) { return open(dsn, nil) }
-
-// OpenEncrypted is reserved for isolated Go credential fixtures; the production
-// identity broker owns its key through its separate Rust store.
-func OpenEncrypted(dsn string, key []byte) (*Store, error) {
-	cipher, err := newGrantCipher(key)
+func Open(dsn string) (*Store, error) {
+	if strings.TrimSpace(dsn) == "" {
+		return nil, errors.New("postgres connection string is required")
+	}
+	db, err := sql.Open("pgx", dsn)
 	if err != nil {
 		return nil, err
 	}
-	return open(dsn, cipher)
+	return configureStore(db)
 }
 
-// OpenDashboard opens the dashboard's shared metadata store without granting
-// it authority over the identity broker's credential-encryption key.
-func OpenDashboard(dsn string) (*Store, error) { return openWithKeyCheck(dsn, nil, false) }
-
-func configureStore(db *sql.DB, cipher *grantCipher, checkKey bool) (*Store, error) {
+func configureStore(db *sql.DB) (*Store, error) {
 	// Concurrent dispatch passes admit through separate connections;
 	// the pool stays small because the appliance serves one backend.
 	db.SetMaxOpenConns(16)
 	db.SetMaxIdleConns(4)
-	s := &Store{db: db, grants: cipher}
-	var err error
-	if checkKey {
-		err = s.checkGrantKey(context.Background())
-	}
-	if err == nil {
-		err = initializeSchema(context.Background(), db)
-	}
+	s := &Store{db: db}
+	err := initializeSchema(context.Background(), db)
 	if err == nil {
 		err = initializeLibrarySchema(context.Background(), db)
 	}
@@ -114,29 +102,11 @@ func configureStore(db *sql.DB, cipher *grantCipher, checkKey bool) (*Store, err
 	if err == nil {
 		err = initializeDeliveryRepairSchema(context.Background(), db)
 	}
-	if err == nil && cipher != nil {
-		err = s.initializeGrantKey(context.Background())
-	}
 	if err != nil {
 		db.Close()
 		return nil, err
 	}
 	return s, nil
-}
-
-func open(dsn string, cipher *grantCipher) (*Store, error) {
-	return openWithKeyCheck(dsn, cipher, true)
-}
-
-func openWithKeyCheck(dsn string, cipher *grantCipher, checkKey bool) (*Store, error) {
-	if strings.TrimSpace(dsn) == "" {
-		return nil, errors.New("postgres connection string is required")
-	}
-	db, err := sql.Open("pgx", dsn)
-	if err != nil {
-		return nil, err
-	}
-	return configureStore(db, cipher, checkKey)
 }
 
 func (s *Store) Close() error { return s.db.Close() }

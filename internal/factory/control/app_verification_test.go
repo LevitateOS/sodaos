@@ -21,7 +21,7 @@ func (r *appVerificationReads) ReadDispatchInputs(_ context.Context, _, _ string
 }
 
 func TestApplicationVerificationRequiresApprovedNativeCheck(t *testing.T) {
-	db, dsn := postgresFixture(t, nil)
+	db, dsn := postgresFixture(t)
 	ctx := context.Background()
 	fx := dispatchSeed(t, db)
 	idea := factory.ProductIdea{ID: phasedDecisionID(31), Description: "A starter can save a task", Consequence: "Tasks persist", Decision: "accept", Source: "requested", Provenance: "human", Actor: 7}
@@ -61,8 +61,10 @@ func TestApplicationVerificationRequiresApprovedNativeCheck(t *testing.T) {
 	a.Subject.Delivery = &factory.DeliverySubject{DeliveryID: strings.Repeat("7", 32), IntentID: revision.Intent, AcceptedRevision: revision.ID, ScopeDigest: revision.Digest(), SourceCommit: fx.tip, PreparationDigest: factory.DeliveryPreparationDigest(p), VerificationManifestDigest: manifest.Digest()}
 	zero := 0
 	state := project.PrepareState{ID: p.ID, Project: p.Project, Role: p.Role, SourceCommit: p.SourceCommit, SetupDigest: p.SetupDigest, Phase: project.PrepareReady, Ready: true, CheckExit: &zero, Output: "task storage passed"}
-	report := factory.AppVerificationReport{DeliveryID: a.Subject.Delivery.DeliveryID, InputDigest: strings.Repeat("9", 64), Outcome: factory.AppVerificationVerified,
-		CheckReceipts: []factory.VerificationCheckReceipt{{CheckID: factory.ApprovedAppCheckID, Outcome: factory.CheckReceiptPassed, ArtifactDigest: factory.MCPInputDigest([]byte(state.Output)), LogExcerpt: "task storage passed"}}, Coverage: []factory.ReassessmentCoverage{{IntentID: revision.Intent, OutcomeID: idea.ID, TaskKeys: []string{nativeTask.Key, secondTask.Key}, DeliveredAcceptanceIDs: []string{binding.AcceptanceID, secondBinding.AcceptanceID}}}}
+	report := factory.AppVerificationReport{
+		DeliveryID: a.Subject.Delivery.DeliveryID, InputDigest: strings.Repeat("9", 64), Outcome: factory.AppVerificationVerified,
+		CheckReceipts: []factory.VerificationCheckReceipt{{CheckID: factory.ApprovedAppCheckID, Outcome: factory.CheckReceiptPassed, ArtifactDigest: factory.MCPInputDigest([]byte(state.Output)), LogExcerpt: "task storage passed"}}, Coverage: []factory.ReassessmentCoverage{{IntentID: revision.Intent, OutcomeID: idea.ID, TaskKeys: []string{nativeTask.Key, secondTask.Key}, DeliveredAcceptanceIDs: []string{binding.AcceptanceID, secondBinding.AcceptanceID}}},
+	}
 	a.Stage, a.Outcome, a.Reason, a.FinishedUnix = factory.AssignmentFinished, factory.Succeeded, factory.AssignReasonReported, time.Now().Unix()
 	a.Result = &factory.AssignmentResult{AssignmentID: a.ID, RunID: a.Run, Phase: project.ExecutionVerify, Status: "completed", Summary: "Application checks passed", Reported: true, RecordedUnix: time.Now().Unix(), PhaseResult: &factory.PhaseResult{Version: 2, Phase: project.ExecutionVerify, Status: "completed", Summary: "Application checks passed", Output: &factory.PhaseOutput{Verification: &report}}}
 	if err := a.Validate(); err != nil {
@@ -331,8 +333,10 @@ func TestApplicationVerificationRequiresApprovedNativeCheck(t *testing.T) {
 	legacyDeclined := factory.ProductIdea{ID: phasedDecisionID(43), Description: "Delete tasks automatically", Consequence: "Old tasks vanish", Decision: "decline", Source: "requested", Provenance: "human", Actor: 7}
 	legacyTask := factory.IntentTask{Key: phasedDecisionID(44), Objective: "Implement task storage", Outcomes: []string{"Tasks persist"}, IdeaIDs: []string{legacyAccept.ID}}
 	legacyCheck := factory.IntentTask{Key: phasedDecisionID(45), Objective: "Confirm task renaming", Outcomes: []string{"Titles stay current"}, IdeaIDs: []string{legacyEdit.ID}}
-	legacy := factory.IntentRevision{ID: phasedDecisionID(46), Intent: phasedDecisionID(47), Owner: 7, Repository: 7, Objective: "Task app", State: "accepted", MaxIssues: 10, CreatedUnix: 1,
-		Ideas: []factory.ProductIdea{legacyAccept, legacyEdit, legacyPending, legacyDeclined}, Tasks: []factory.IntentTask{legacyTask, legacyCheck}}
+	legacy := factory.IntentRevision{
+		ID: phasedDecisionID(46), Intent: phasedDecisionID(47), Owner: 7, Repository: 7, Objective: "Task app", State: "accepted", MaxIssues: 10, CreatedUnix: 1,
+		Ideas: []factory.ProductIdea{legacyAccept, legacyEdit, legacyPending, legacyDeclined}, Tasks: []factory.IntentTask{legacyTask, legacyCheck},
+	}
 	if err := db.SaveIntentRevision(ctx, legacy); err != nil {
 		t.Fatal(err)
 	}
@@ -439,12 +443,14 @@ func TestApplicationVerificationRequiresApprovedNativeCheck(t *testing.T) {
 	// Terminal finish-reference validation refuses bad references while the
 	// delivery is still assigned, before any adoption: a malformed ref and
 	// an unknown but well-formed ref admit nothing.
-	legacyFinishReport := factory.AppVerificationReport{DeliveryID: legacySubject.Delivery.DeliveryID, InputDigest: legacyCap.ScopeDigest(), Outcome: factory.AppVerificationVerified,
+	legacyFinishReport := factory.AppVerificationReport{
+		DeliveryID: legacySubject.Delivery.DeliveryID, InputDigest: legacyCap.ScopeDigest(), Outcome: factory.AppVerificationVerified,
 		CheckReceipts: []factory.VerificationCheckReceipt{{CheckID: factory.ApprovedAppCheckID, Outcome: factory.CheckReceiptPassed, ArtifactDigest: factory.MCPInputDigest([]byte(state.Output)), LogExcerpt: "task storage passed"}},
 		Coverage: []factory.ReassessmentCoverage{
 			{IntentID: legacy.Intent, OutcomeID: legacyAccept.ID, TaskKeys: []string{legacyTask.Key}, DeliveredAcceptanceIDs: []string{legacyBinding.AcceptanceID}},
 			{IntentID: legacy.Intent, OutcomeID: legacyEdit.ID, TaskKeys: []string{legacyCheck.Key}, DeliveredAcceptanceIDs: []string{legacySecond.AcceptanceID}},
-		}}
+		},
+	}
 	for name, ref := range map[string]string{"malformed journey reference": "journey:invalid", "unknown journey observation": "journey:" + factory.NewID()} {
 		bad := legacyFinishReport
 		bad.EvidenceRefs = []string{ref}

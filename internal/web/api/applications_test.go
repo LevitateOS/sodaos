@@ -36,7 +36,7 @@ func applicationHTTPFixture(t *testing.T) *applicationBoundary {
 	if !ok {
 		t.Skip("SODA_PG_* fixture unavailable")
 	}
-	db, _, cleanup, err := store.OpenEphemeral(context.Background(), admin, nil)
+	db, _, cleanup, err := store.OpenEphemeral(context.Background(), admin)
 	if err != nil {
 		t.Fatal(err)
 	}

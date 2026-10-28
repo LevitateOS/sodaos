@@ -31,7 +31,7 @@ func inventoryFixture(t *testing.T) (*Server, string) {
 	if !ok {
 		t.Skip("SODA_PG_* fixture unavailable")
 	}
-	db, dsn, cleanup, err := store.OpenEphemeral(context.Background(), admin, nil)
+	db, dsn, cleanup, err := store.OpenEphemeral(context.Background(), admin)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -75,9 +75,11 @@ func readSpacesPath(t *testing.T, s *Server, path string, callback func(extensio
 }
 
 func inventoryRun(at time.Time, projectID string) factory.Run {
-	return factory.Run{ID: factory.NewID(), ProjectID: projectID, Role: "coder",
+	return factory.Run{
+		ID: factory.NewID(), ProjectID: projectID, Role: "coder",
 		InputSHA: strings.Repeat("a", 40), Started: at, Deadline: at.Add(time.Hour),
-		Image: "sha256:" + strings.Repeat("d", 64), Harness: "codex-0.157.1", Model: "test-model"}
+		Image: "sha256:" + strings.Repeat("d", 64), Harness: "codex-0.157.1", Model: "test-model",
+	}
 }
 
 func recordInventoryRun(t *testing.T, s *Server, r factory.Run, settled bool) {

@@ -26,7 +26,7 @@ func TestAdmitMCPSubmissionReplayEndToEnd(t *testing.T) {
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), 90*time.Second)
 	defer cancel()
-	s, _, cleanup, err := store.OpenEphemeral(ctx, admin, nil)
+	s, _, cleanup, err := store.OpenEphemeral(ctx, admin)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -183,7 +183,7 @@ func TestAdmitMCPSubmissionExpiryEndToEnd(t *testing.T) {
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), 90*time.Second)
 	defer cancel()
-	s, _, cleanup, err := store.OpenEphemeral(ctx, admin, nil)
+	s, _, cleanup, err := store.OpenEphemeral(ctx, admin)
 	if err != nil {
 		t.Fatal(err)
 	}

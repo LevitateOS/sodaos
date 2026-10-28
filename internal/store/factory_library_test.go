@@ -14,7 +14,7 @@ import (
 )
 
 func TestLibraryMCPMaintenanceAndDiscovery(t *testing.T) {
-	s, _ := postgresFixture(t, nil)
+	s, _ := postgresFixture(t)
 	ctx := context.Background()
 	worker := activateMCPCapability(t, ctx, s, testMCPCapabilityRow())
 	submit := func(cap factory.MCPCapability, tool factory.MCPTool, payload any) (factory.MCPReceipt, error) {
@@ -123,7 +123,7 @@ func TestLibraryMCPMaintenanceAndDiscovery(t *testing.T) {
 }
 
 func TestLibraryDecisionAuthorityAndCreationAtomicity(t *testing.T) {
-	s, _ := postgresFixture(t, nil)
+	s, _ := postgresFixture(t)
 	ctx := context.Background()
 	cap := activateMCPCapability(t, ctx, s, testMCPCapabilityRow())
 	decision := func(choice string) factory.LibraryItem {
@@ -167,7 +167,7 @@ func TestLibraryDecisionAuthorityAndCreationAtomicity(t *testing.T) {
 // choice made by an authorized owner; the revision actor always stays
 // the logging worker either way.
 func TestRecordDecisionSeparatesOwnerFromLogger(t *testing.T) {
-	s, _ := postgresFixture(t, nil)
+	s, _ := postgresFixture(t)
 	ctx := context.Background()
 	worker := activateMCPCapability(t, ctx, s, testMCPCapabilityRow())
 	record := func(payload map[string]any) (factory.LibraryItem, factory.LibraryRevision, error) {
@@ -240,7 +240,7 @@ func TestRecordDecisionSeparatesOwnerFromLogger(t *testing.T) {
 // entry contested without touching its body, and a later amendment
 // restores observed. One identity spans work, feed and retrieval.
 func TestLearnedAmendAndChallengeCAS(t *testing.T) {
-	s, _ := postgresFixture(t, nil)
+	s, _ := postgresFixture(t)
 	ctx := context.Background()
 	worker := activateMCPCapability(t, ctx, s, testMCPCapabilityRow())
 	submit := func(tool factory.MCPTool, payload map[string]any) (factory.MCPReceipt, error) {
@@ -325,7 +325,7 @@ func TestLearnedAmendAndChallengeCAS(t *testing.T) {
 // removed target. Stale inputs refuse instead of returning a silently
 // partial page.
 func TestLibraryInventoryReadsReferencesAndCompleteness(t *testing.T) {
-	s, _ := postgresFixture(t, nil)
+	s, _ := postgresFixture(t)
 	ctx := context.Background()
 	worker := activateMCPCapability(t, ctx, s, testMCPCapabilityRow())
 	admin := testMCPCapabilityRow()
@@ -439,7 +439,7 @@ func TestLibraryInventoryReadsReferencesAndCompleteness(t *testing.T) {
 // receipt naming the removed revision for recovery; restore brings the
 // same decision back with its authority intact and a full history.
 func TestLibraryDecisionEditRemoveRestore(t *testing.T) {
-	s, _ := postgresFixture(t, nil)
+	s, _ := postgresFixture(t)
 	ctx := context.Background()
 	worker := activateMCPCapability(t, ctx, s, testMCPCapabilityRow())
 	admin := testMCPCapabilityRow()
@@ -525,7 +525,7 @@ func mustMarshal(t *testing.T, v any) []byte {
 // maintenance finish durably posts its confirmed operations plus
 // unresolved cases on the feed.
 func TestLibraryConsolidateSplitFinishAtomicity(t *testing.T) {
-	s, _ := postgresFixture(t, nil)
+	s, _ := postgresFixture(t)
 	ctx := context.Background()
 	worker := activateMCPCapability(t, ctx, s, testMCPCapabilityRow())
 	admin := testMCPCapabilityRow()
@@ -619,7 +619,7 @@ func researchPromptSHA() string {
 // questions, empty batches and non-researcher recorders refuse; a
 // foreign assignment serves no scope.
 func TestResearchRecordsAndScopeCoverage(t *testing.T) {
-	s, _ := postgresFixture(t, nil)
+	s, _ := postgresFixture(t)
 	ctx := context.Background()
 	assignmentID, runID := factory.NewID(), factory.NewID()
 	acceptance := "d" + strings.Repeat("a", 24)
@@ -731,7 +731,7 @@ func TestResearchRecordsAndScopeCoverage(t *testing.T) {
 // entries stay out of ordinary search; another repository sees
 // nothing; read carries the attributed history.
 func TestLibraryWorkerRetrievalSurfacesConflictAndSupersession(t *testing.T) {
-	s, _ := postgresFixture(t, nil)
+	s, _ := postgresFixture(t)
 	ctx := context.Background()
 	worker := activateMCPCapability(t, ctx, s, testMCPCapabilityRow())
 	admin := testMCPCapabilityRow()
@@ -830,7 +830,7 @@ func TestLibraryWorkerRetrievalSurfacesConflictAndSupersession(t *testing.T) {
 // its revision (not just the first), and carries the affected
 // references other items hold toward the changed items.
 func TestLibraryMaintenancePostCarriesMappingsAndAffectedRefs(t *testing.T) {
-	s, _ := postgresFixture(t, nil)
+	s, _ := postgresFixture(t)
 	ctx := context.Background()
 	worker := activateMCPCapability(t, ctx, s, testMCPCapabilityRow())
 	admin := testMCPCapabilityRow()

@@ -14,7 +14,7 @@ import (
 // assignments with a recorded terminal proposal list, non-terminal
 // traffic never lists, and an advanced receipt drops off the list.
 func TestRecordedTerminalMCPAssignments(t *testing.T) {
-	db, _ := postgresFixture(t, nil)
+	db, _ := postgresFixture(t)
 	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
 	defer cancel()
 	for _, stmt := range []string{

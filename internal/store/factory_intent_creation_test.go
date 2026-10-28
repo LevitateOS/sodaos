@@ -14,7 +14,7 @@ import (
 // history reads. It uses only the existing Store fixture and domain shapes;
 // installed browser/API journeys stay separate Q08 evidence.
 func TestIntentCreationSliceDraftAcceptReadBack(t *testing.T) {
-	s, _ := postgresFixture(t, nil)
+	s, _ := postgresFixture(t)
 	ctx := context.Background()
 	d := factory.Department{ID: "d777777777777777777777777", Owner: 1, Name: "Operations", Description: "Coordinate requests"}
 	if err := s.CreateDepartment(ctx, d); err != nil {

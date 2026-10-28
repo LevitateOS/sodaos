@@ -9,7 +9,7 @@ import (
 
 func TestFeedSubscriptionRoundTrip(t *testing.T) {
 	ctx := context.Background()
-	s, _ := postgresFixture(t, nil)
+	s, _ := postgresFixture(t)
 	sub, revision, err := s.FeedSubscription(ctx, "reader-1")
 	if err != nil || revision != 0 || len(sub.Repositories) != 0 {
 		t.Fatalf("missing subscription = %+v %d %v", sub, revision, err)

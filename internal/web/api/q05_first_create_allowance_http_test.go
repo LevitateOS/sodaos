@@ -288,7 +288,7 @@ func q05MuxFull(t *testing.T, keyFile string) (*API, *store.Store, string, func(
 	if !ok {
 		t.Skip("SODA_PG_* fixture unavailable")
 	}
-	s, dsn, cleanup, err := store.OpenEphemeral(context.Background(), admin, nil)
+	s, dsn, cleanup, err := store.OpenEphemeral(context.Background(), admin)
 	if err != nil {
 		t.Fatal(err)
 	}

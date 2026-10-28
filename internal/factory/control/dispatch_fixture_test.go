@@ -177,7 +177,7 @@ type dispatchFixture struct {
 
 func dispatchTestDB(t *testing.T) (*store.Store, string) {
 	t.Helper()
-	db, dsn := postgresFixture(t, nil)
+	db, dsn := postgresFixture(t)
 	return db, dsn
 }
 

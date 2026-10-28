@@ -4,16 +4,16 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
-
-	"github.com/levitateos/sodaos/internal/factory"
-	"github.com/levitateos/sodaos/internal/store"
-	"github.com/modelcontextprotocol/go-sdk/mcp"
 	"net/http"
 	"net/http/httptest"
 	"strings"
 	"sync"
 	"testing"
 	"time"
+
+	"github.com/levitateos/sodaos/internal/factory"
+	"github.com/levitateos/sodaos/internal/store"
+	"github.com/modelcontextprotocol/go-sdk/mcp"
 )
 
 type fakeSystemOne struct {
@@ -75,6 +75,7 @@ func (f *fakeSystemOne) Evaluate(ctx context.Context, k string, state, instructi
 		return map[string]any{"answer": map[string]any{"score": 1.0}, "model": "fixture"}, nil
 	}
 }
+
 func TestBoundGenericSystemOneTools(t *testing.T) {
 	ctx := context.Background()
 	sink := newFakeCatalogSink()
@@ -171,7 +172,7 @@ func TestBoundSystemOneConsultationFundsThroughRealJournal(t *testing.T) {
 	if !ok {
 		t.Skip("SODA_PG fixture unavailable")
 	}
-	st, dsn, cleanup, err := store.OpenEphemeral(ctx, admin, nil)
+	st, dsn, cleanup, err := store.OpenEphemeral(ctx, admin)
 	if err != nil {
 		t.Fatal(err)
 	}

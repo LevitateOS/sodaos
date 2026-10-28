@@ -11,7 +11,7 @@ import (
 
 func TestSubscribedFeedWindowsAcrossRepositories(t *testing.T) {
 	ctx := context.Background()
-	s, dsn := postgresFixture(t, nil)
+	s, dsn := postgresFixture(t)
 	raw := journeySQL(t, dsn)
 	acceptance := "d" + strings.Repeat("a", 24)
 	// Insertion order differs from repository grouping: the feed must
@@ -60,7 +60,7 @@ func TestSubscribedFeedWindowsAcrossRepositories(t *testing.T) {
 
 func TestSubscribedFeedContinuationUnderInsert(t *testing.T) {
 	ctx := context.Background()
-	s, dsn := postgresFixture(t, nil)
+	s, dsn := postgresFixture(t)
 	raw := journeySQL(t, dsn)
 	acceptance := "d" + strings.Repeat("a", 24)
 	insertJourneyAssignment(t, raw, journeyAssignment(strings.Repeat("1", 32), strings.Repeat("1", 32), acceptance, 7, 3, true), "assigned", 1)
@@ -86,7 +86,7 @@ func TestSubscribedFeedContinuationUnderInsert(t *testing.T) {
 
 func TestSubscribedFeedSubscriptionScopeAndUnsubscribe(t *testing.T) {
 	ctx := context.Background()
-	s, dsn := postgresFixture(t, nil)
+	s, dsn := postgresFixture(t)
 	raw := journeySQL(t, dsn)
 	acceptance := "d" + strings.Repeat("a", 24)
 	insertJourneyAssignment(t, raw, journeyAssignment(strings.Repeat("1", 32), strings.Repeat("1", 32), acceptance, 7, 3, true), "assigned", 1)
@@ -120,7 +120,7 @@ func TestSubscribedFeedSubscriptionScopeAndUnsubscribe(t *testing.T) {
 
 func TestSubscribedFeedAdoptedDraftPredecessorStaysCurrent(t *testing.T) {
 	ctx := context.Background()
-	s, dsn := postgresFixture(t, nil)
+	s, dsn := postgresFixture(t)
 	raw := journeySQL(t, dsn)
 
 	intent := "d" + strings.Repeat("2", 24)
@@ -226,7 +226,7 @@ func TestSubscribedFeedAdoptedDraftPredecessorStaysCurrent(t *testing.T) {
 
 func TestFeedSubscriptionRestartPersistence(t *testing.T) {
 	ctx := context.Background()
-	_, dsn := postgresFixture(t, nil)
+	_, dsn := postgresFixture(t)
 	first, err := Open(dsn)
 	if err != nil {
 		t.Fatal(err)
@@ -250,7 +250,7 @@ func TestFeedSubscriptionRestartPersistence(t *testing.T) {
 
 func TestSubscribedFeedMilestonesRecordTheirOwnOrder(t *testing.T) {
 	ctx := context.Background()
-	s, dsn := postgresFixture(t, nil)
+	s, dsn := postgresFixture(t)
 	raw := journeySQL(t, dsn)
 	acceptance := "d" + strings.Repeat("a", 24)
 
@@ -296,7 +296,8 @@ func TestSubscribedFeedMilestonesRecordTheirOwnOrder(t *testing.T) {
 		Input: factory.DeliveryFingerprintInput{PublicationID: publication},
 		Decision: factory.DeliveryDecision{Effective: factory.DeliveryEffectiveReady, Answer: factory.DeliveryAnswer{
 			Selected: factory.DeliveryReadyToMerge, Probability: 0.9, Confidence: 0.8, Model: "jev",
-			Probabilities: map[string]float64{factory.DeliveryReadyToMerge: 0.9, factory.DeliveryReviewAgain: 0.1}}},
+			Probabilities: map[string]float64{factory.DeliveryReadyToMerge: 0.9, factory.DeliveryReviewAgain: 0.1},
+		}},
 	})
 	prioritySnap := strings.Repeat("cd", 32)
 	insertJudgment(prioritySnap, factory.PriorityReceipt{
@@ -305,8 +306,10 @@ func TestSubscribedFeedMilestonesRecordTheirOwnOrder(t *testing.T) {
 			{ID: "cand-a", Objective: "ship it", Control: factory.IssueControl{Repository: 7, Issue: 3}},
 			{ID: "cand-b", Objective: "later", Control: factory.IssueControl{Repository: 7, Issue: 4}},
 		},
-		Calls: []factory.PriorityCall{{Answer: factory.PriorityAnswer{Selected: "cand-a", Confidence: 0.7, Model: "jev",
-			Probabilities: map[string]float64{"cand-a": 0.6, "cand-b": 0.4}}}},
+		Calls: []factory.PriorityCall{{Answer: factory.PriorityAnswer{
+			Selected: "cand-a", Confidence: 0.7, Model: "jev",
+			Probabilities: map[string]float64{"cand-a": 0.6, "cand-b": 0.4},
+		}}},
 	})
 	// A selection is visible even before dispatch; non-issue judgments
 	// do not acquire a repository scope from their option labels.

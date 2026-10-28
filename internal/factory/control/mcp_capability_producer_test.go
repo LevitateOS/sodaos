@@ -27,7 +27,7 @@ func producerTestDB(t *testing.T) *store.Store {
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), 90*time.Second)
 	defer cancel()
-	db, _, cleanup, err := store.OpenEphemeral(ctx, admin, nil)
+	db, _, cleanup, err := store.OpenEphemeral(ctx, admin)
 	if err != nil {
 		t.Fatal(err)
 	}

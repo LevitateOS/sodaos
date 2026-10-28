@@ -124,7 +124,7 @@ func openDashboard(path string) (*web.Server, *store.Store, error) {
 	if err != nil {
 		return nil, nil, err
 	}
-	database, err := store.OpenDashboard(dsn)
+	database, err := store.Open(dsn)
 	if err != nil {
 		return nil, nil, err
 	}

@@ -9,7 +9,7 @@ import (
 )
 
 func TestOpenCreatesOnlyTheCurrentSchema(t *testing.T) {
-	s, _ := postgresFixture(t, nil)
+	s, _ := postgresFixture(t)
 	ctx := context.Background()
 	var version, count int
 	if err := s.db.QueryRowContext(ctx, `SELECT count(*),max(version) FROM schema_version`).Scan(&count, &version); err != nil || count != 1 || version != SchemaVersion() {

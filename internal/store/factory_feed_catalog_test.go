@@ -13,7 +13,7 @@ import (
 // presentation, not just catalog metadata. Terminal cards retain assignment
 // lifecycle truth; controller and library mutation cards use their own owners.
 func TestEveryWorkerFeedComponentHasDurableToolPath(t *testing.T) {
-	s, dsn := postgresFixture(t, nil)
+	s, dsn := postgresFixture(t)
 	ctx := context.Background()
 	sqlDB := journeySQL(t, dsn)
 	count := 0

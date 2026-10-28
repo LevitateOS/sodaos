@@ -5,11 +5,12 @@ import (
 	"database/sql"
 	"encoding/json"
 	"errors"
-	sdk "forgejo.org/extension-sdk"
 	"strings"
 	"testing"
 	"time"
 	"unicode/utf8"
+
+	sdk "forgejo.org/extension-sdk"
 
 	"github.com/levitateos/sodaos/internal/factory"
 	"github.com/levitateos/sodaos/internal/identity"
@@ -25,7 +26,7 @@ import (
 // launched work skips detection entirely.
 func TestServeStallRoundAdmitsBoundedEpisode(t *testing.T) {
 	ctx := context.Background()
-	db, _ := postgresFixture(t, nil)
+	db, _ := postgresFixture(t)
 	coord := &Coordinator{Store: db}
 	const repo = 44
 	grantID := "d1000000000000000000000000000044"
@@ -1210,7 +1211,7 @@ func stallRepairGraphMode(t *testing.T, mode string) {
 // sibling repository that still holds ready work.
 func TestServeStallRoundGenerationReuseAndIsolation(t *testing.T) {
 	ctx := context.Background()
-	db, _ := postgresFixture(t, nil)
+	db, _ := postgresFixture(t)
 	coord := &Coordinator{Store: db}
 	const stalled, ready = 61, 62
 	grantID := "d1000000000000000000000000000061"

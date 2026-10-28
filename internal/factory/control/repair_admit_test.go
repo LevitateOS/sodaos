@@ -17,7 +17,7 @@ import (
 // spending; any other classification admits nothing.
 func TestAdmitStallEpisodeRunAdmitsOneBoundCharge(t *testing.T) {
 	ctx := context.Background()
-	db, _ := postgresFixture(t, nil)
+	db, _ := postgresFixture(t)
 	coord := &Coordinator{Store: db}
 	const repo = 21
 	grantID := "d1000000000000000000000000000001"
@@ -98,7 +98,7 @@ func TestAdmitStallEpisodeRunAdmitsOneBoundCharge(t *testing.T) {
 // stall result with a broken episode fails closed.
 func TestAdmitStallEpisodeRunRefusesWithoutStall(t *testing.T) {
 	ctx := context.Background()
-	db, _ := postgresFixture(t, nil)
+	db, _ := postgresFixture(t)
 	now := time.Now().UTC()
 	for _, result := range []StallRepositoryResult{
 		{Repository: 21, Kind: StallRepositoryReady},
@@ -125,7 +125,7 @@ func TestAdmitStallEpisodeRunRefusesWithoutStall(t *testing.T) {
 // cannot spend, even with a fully valid event shape.
 func TestAdmitStallEpisodeRunRefusesFutureGeneration(t *testing.T) {
 	ctx := context.Background()
-	db, _ := postgresFixture(t, nil)
+	db, _ := postgresFixture(t)
 	ahead := StallRepositoryResult{
 		Repository: 21, Kind: StallRepositoryStall, Investigate: true,
 		Event: &factory.StallEvent{

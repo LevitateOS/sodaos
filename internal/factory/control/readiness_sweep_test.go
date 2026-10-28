@@ -40,7 +40,7 @@ func TestFindPrereqCycle(t *testing.T) {
 }
 
 func TestFindPrereqCycleExceedsBound(t *testing.T) {
-	db, dsn := postgresFixture(t, nil)
+	db, dsn := postgresFixture(t)
 	c := NewCoordinator(db, nil, nil)
 	fixtureDB, err := sql.Open("pgx", dsn)
 	if err != nil {
@@ -69,7 +69,7 @@ func TestFindPrereqCycleExceedsBound(t *testing.T) {
 
 func TestAcceptanceHeadMutationBehindSavedCursorRestartsDelivery(t *testing.T) {
 	ctx := context.Background()
-	db, dsn := postgresFixture(t, nil)
+	db, dsn := postgresFixture(t)
 	c := NewCoordinator(db, nil, nil)
 	// These in-memory boundaries model native evidence and revision checks;
 	// this test makes no provider or installed-native claim.

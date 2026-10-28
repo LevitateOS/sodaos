@@ -13,7 +13,7 @@ import (
 
 func TestMemberAccessHoldRestoreAndExplicitRejoin(t *testing.T) {
 	ctx := t.Context()
-	s, dsn := postgresFixture(t, nil)
+	s, dsn := postgresFixture(t)
 	for _, u := range []User{{ID: 1, Login: "alice"}, {ID: 2, Login: "bob"}} {
 		if err := s.UpsertUser(ctx, u); err != nil {
 			t.Fatal(err)
@@ -93,7 +93,7 @@ func TestMemberAccessHoldRestoreAndExplicitRejoin(t *testing.T) {
 
 func TestMembersListingIsBounded(t *testing.T) {
 	ctx := context.Background()
-	s, _ := postgresFixture(t, nil)
+	s, _ := postgresFixture(t)
 	if err := s.UpsertUser(ctx, User{ID: 1, Login: "member-000"}); err != nil {
 		t.Fatal(err)
 	}
@@ -120,7 +120,7 @@ func TestMembersListingIsBounded(t *testing.T) {
 
 func TestPersistenceAndMembership(t *testing.T) {
 	ctx := context.Background()
-	s, dsn := postgresFixture(t, nil)
+	s, dsn := postgresFixture(t)
 	if err := s.UpsertUser(ctx, User{ID: 1, Login: "alice"}); err != nil {
 		t.Fatal(err)
 	}

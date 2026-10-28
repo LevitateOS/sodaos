@@ -174,7 +174,7 @@ func driveTestStore(t *testing.T) (*store.Store, context.Context) {
 	if !ok {
 		t.Skip("SODA_PG_* fixture unavailable")
 	}
-	s, _, cleanup, err := store.OpenEphemeral(context.Background(), admin, nil)
+	s, _, cleanup, err := store.OpenEphemeral(context.Background(), admin)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -614,7 +614,7 @@ func TestRecordInvitationThreadReachesOriginalAssignment(t *testing.T) {
 		t.Skip("SODA_PG_* fixture unavailable")
 	}
 	ctx := context.Background()
-	s, dsn, cleanup, err := store.OpenEphemeral(ctx, admin, nil)
+	s, dsn, cleanup, err := store.OpenEphemeral(ctx, admin)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -638,8 +638,8 @@ func TestRecordInvitationThreadReachesOriginalAssignment(t *testing.T) {
 		ID: capability.AssignmentID, AttemptRoot: capability.AssignmentID,
 		PublicationAssignment: capability.AssignmentID, ProjectID: capability.Project,
 		Role: "reviewer", Acceptance: "d" + strings.Repeat("a", 24),
-		Preparation:  "f" + strings.Repeat("b", 24),
-		Run:          capability.RunID, RunHistory: []string{capability.RunID},
+		Preparation: "f" + strings.Repeat("b", 24),
+		Run:         capability.RunID, RunHistory: []string{capability.RunID},
 		Repository: 7, Issue: 42, CreatedUnix: now,
 		AcceptedContext: &factory.AcceptedContext{Title: "Equipment approval policy", Body: "Implement protected manager and Finance approvals without self-approval."},
 	}
@@ -669,7 +669,7 @@ func TestRecordInvitationThreadReachesOriginalAssignment(t *testing.T) {
 		ID: sourceID, AttemptRoot: sourceID, PublicationAssignment: sourceID, ProjectID: capability.Project,
 		Role: "coder", Phase: "implement", Acceptance: "d" + strings.Repeat("a", 24),
 		Preparation: "f" + strings.Repeat("b", 24),
-		Run: "run-" + sourceID[:8], RunHistory: []string{"run-" + sourceID[:8]},
+		Run:         "run-" + sourceID[:8], RunHistory: []string{"run-" + sourceID[:8]},
 		Repository: 7, Issue: 42, CreatedUnix: now, FinishedUnix: now,
 	}
 	result := factory.ResultSynthesized(sourceID, source.Run, "succeeded", "Implemented the delivery guard without self-approval; candidate abc123.", now)

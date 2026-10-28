@@ -12,13 +12,13 @@ import (
 // credentials. It returns the store and its connection URL, so close/reopen
 // tests can reconnect to the same database. Tests skip when the A10
 // disposable fixture environment is absent.
-func postgresFixture(t *testing.T, key []byte) (*store.Store, string) {
+func postgresFixture(t *testing.T) (*store.Store, string) {
 	t.Helper()
 	admin, ok := store.TestFixtureDSN()
 	if !ok {
 		t.Skip("SODA_PG_* fixture unavailable")
 	}
-	s, dsn, cleanup, err := store.OpenEphemeral(context.Background(), admin, key)
+	s, dsn, cleanup, err := store.OpenEphemeral(context.Background(), admin)
 	if err != nil {
 		t.Fatal(err)
 	}

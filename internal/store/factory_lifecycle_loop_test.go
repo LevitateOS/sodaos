@@ -53,7 +53,7 @@ func loopAction(id string) factory.LifecycleAction {
 // scripted native transport. Real native effects are proved by the
 // Fountain round-trip tests; no execution-provider call is required.
 func TestLifecycleJournalLoop(t *testing.T) {
-	s, _ := postgresFixture(t, nil)
+	s, _ := postgresFixture(t)
 	ctx := context.Background()
 
 	committed := func(intent extensions.OperationIntent) (extensions.OperationRecord, error) {

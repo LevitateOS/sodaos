@@ -151,7 +151,7 @@ func TestPlanRevisionImmutableSurvivesConflict(t *testing.T) {
 // T11 (FW07 scope): head pointers move only under CAS; a stale move fails
 // while a replay that already reached the target succeeds.
 func TestAdvancePlanHeadCAS(t *testing.T) {
-	s, dsn := postgresFixture(t, nil)
+	s, dsn := postgresFixture(t)
 	ctx := context.Background()
 	root := strings.Repeat("a", 32)
 	first := planRevisionFixture(root, strings.Repeat("b", 32), 0, "Investigate, plan, then implement behind checks.")
@@ -245,7 +245,7 @@ func TestReplacePlanHeadAtomic(t *testing.T) {
 // T11 (FW07 scope): task receipts persist under CAS revision with the
 // admitted lifecycle; restarts observe receipts instead of redoing work.
 func TestPlanTaskReceiptLifecycle(t *testing.T) {
-	s, dsn := postgresFixture(t, nil)
+	s, dsn := postgresFixture(t)
 	ctx := context.Background()
 	root := strings.Repeat("a", 32)
 	plan := planRevisionFixture(root, strings.Repeat("b", 32), 0, "Investigate, plan, then implement behind checks.")
@@ -347,7 +347,7 @@ func TestPlanTaskReceiptLifecycle(t *testing.T) {
 // A journal cursor is carried by its affected task receipts. A later invalid
 // transition must roll back every earlier transition in that same native page.
 func TestPlanTaskReceiptPageAtomicity(t *testing.T) {
-	s, _ := postgresFixture(t, nil)
+	s, _ := postgresFixture(t)
 	ctx := context.Background()
 	root := strings.Repeat("a", 32)
 	plan := planRevisionFixture(root, strings.Repeat("b", 32), 0, "Implement behind checks.")

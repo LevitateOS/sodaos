@@ -260,7 +260,7 @@ func journeyMux(t *testing.T, fake *journeyAcceptanceSource) (*journeyHTTPFixtur
 	if !ok {
 		t.Skip("SODA_PG_* fixture unavailable")
 	}
-	s, dsn, cleanup, err := store.OpenEphemeral(context.Background(), admin, nil)
+	s, dsn, cleanup, err := store.OpenEphemeral(context.Background(), admin)
 	if err != nil {
 		t.Fatal(err)
 	}

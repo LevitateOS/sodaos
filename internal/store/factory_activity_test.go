@@ -12,7 +12,7 @@ import (
 )
 
 func TestActivitySettingsIndependentAtomicRevision(t *testing.T) {
-	s, _ := postgresFixture(t, nil)
+	s, _ := postgresFixture(t)
 	ctx := context.Background()
 	defaults, revision, err := s.ActivitySettings(ctx, 7)
 	if err != nil || revision != 0 || defaults != factory.DefaultActivitySettings() {
@@ -112,7 +112,7 @@ func TestRepositoryActivityCarriesObservation(t *testing.T) {
 }
 
 func TestActivityReportsOnlyCommittedPublishedAndConfirmedClosure(t *testing.T) {
-	s, _ := postgresFixture(t, nil)
+	s, _ := postgresFixture(t)
 	ctx := context.Background()
 	save := func(table, id string, v any) {
 		t.Helper()
@@ -163,7 +163,7 @@ func TestActivityReportsOnlyCommittedPublishedAndConfirmedClosure(t *testing.T) 
 }
 
 func TestActivityCreatedIssuesDeduplicateAndKeepNewestSixty(t *testing.T) {
-	s, _ := postgresFixture(t, nil)
+	s, _ := postgresFixture(t)
 	ctx := context.Background()
 	if _, err := s.db.ExecContext(ctx, `INSERT INTO factory_intent_heads(id,owner_id,revision) VALUES('intent',1,'r1')`); err != nil {
 		t.Fatal(err)

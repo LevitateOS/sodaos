@@ -22,7 +22,7 @@ import (
 // through the PostgreSQL finish/receipt transaction. Changed or omitted keys
 // fence rather than silently dropping dispositions through the legacy mapper.
 func TestSettleCorrectionTerminalPGDrive(t *testing.T) {
-	db, dsn := postgresFixture(t, nil)
+	db, dsn := postgresFixture(t)
 	ctx, cancel := context.WithTimeout(context.Background(), 90*time.Second)
 	defer cancel()
 	sqlDB, err := sql.Open("pgx", dsn)
@@ -144,7 +144,7 @@ func TestSettleCorrectionTerminalPGDrive(t *testing.T) {
 // the assignment typed and advances its receipt recorded→accepted,
 // and a second drive settles nothing more.
 func TestSettleMCPTerminalsPGDrive(t *testing.T) {
-	db, dsn := postgresFixture(t, nil)
+	db, dsn := postgresFixture(t)
 	ctx, cancel := context.WithTimeout(context.Background(), 90*time.Second)
 	defer cancel()
 
@@ -227,7 +227,7 @@ func TestSettleMCPTerminalsPGDrive(t *testing.T) {
 // the tool is a verify finish with full carriers or a reassessment
 // finish naming a repair report.
 func TestSettleVerifyRepairWrongSubjectFencedPGDrive(t *testing.T) {
-	db, dsn := postgresFixture(t, nil)
+	db, dsn := postgresFixture(t)
 	ctx, cancel := context.WithTimeout(context.Background(), 90*time.Second)
 	defer cancel()
 
@@ -389,7 +389,7 @@ func TestSettleVerifyRepairWrongSubjectFencedPGDrive(t *testing.T) {
 }
 
 func TestSettleResearchTerminalPGDrive(t *testing.T) {
-	db, dsn := postgresFixture(t, nil)
+	db, dsn := postgresFixture(t)
 	ctx, cancel := context.WithTimeout(context.Background(), 90*time.Second)
 	defer cancel()
 
@@ -548,7 +548,7 @@ func TestSettleResearchTerminalPGDrive(t *testing.T) {
 // report recorded intact, while a finish citing an unknown digest
 // fences blocked with its proposal preserved for inspection.
 func TestSettleVerifyArtifactRefsResolvedPGDrive(t *testing.T) {
-	db, dsn := postgresFixture(t, nil)
+	db, dsn := postgresFixture(t)
 	ctx, cancel := context.WithTimeout(context.Background(), 90*time.Second)
 	defer cancel()
 	sqlDB, err := sql.Open("pgx", dsn)
@@ -952,7 +952,7 @@ func TestSettleProductPlanFinishArgsPGDrive(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	db, dsn := postgresFixture(t, nil)
+	db, dsn := postgresFixture(t)
 	ctx, cancel := context.WithTimeout(context.Background(), 90*time.Second)
 	defer cancel()
 	sqlDB, err := sql.Open("pgx", dsn)
@@ -1096,7 +1096,7 @@ func TestSettleProductPlanFinishArgsPGDrive(t *testing.T) {
 // the wrong subject fences blocked. The seed assignment validates,
 // proving the review-phase matrix admits non-code subjects.
 func TestSettleNonCodeAssessmentPGDrive(t *testing.T) {
-	db, dsn := postgresFixture(t, nil)
+	db, dsn := postgresFixture(t)
 	ctx, cancel := context.WithTimeout(context.Background(), 90*time.Second)
 	defer cancel()
 	sqlDB, err := sql.Open("pgx", dsn)
@@ -1317,7 +1317,7 @@ func seedResearchTerminalPGDrive(t *testing.T, ctx context.Context, db *store.St
 // still-assigned work. A second pass refuses the same way, so the
 // recorded terminal stays retryable.
 func TestSettleMissingAllowanceKeepsReceiptRecordedPGDrive(t *testing.T) {
-	db, dsn := postgresFixture(t, nil)
+	db, dsn := postgresFixture(t)
 	ctx, cancel := context.WithTimeout(context.Background(), 90*time.Second)
 	defer cancel()
 	sqlDB, err := sql.Open("pgx", dsn)
@@ -1358,7 +1358,7 @@ func TestSettleMissingAllowanceKeepsReceiptRecordedPGDrive(t *testing.T) {
 // exactly once — exactly one reports settled, the assignment ends
 // finished, and the receipt still advances recorded→accepted.
 func TestSettleConcurrentFinishSettlesAcceptedPGDrive(t *testing.T) {
-	db, dsn := postgresFixture(t, nil)
+	db, dsn := postgresFixture(t)
 	ctx, cancel := context.WithTimeout(context.Background(), 90*time.Second)
 	defer cancel()
 	sqlDB, err := sql.Open("pgx", dsn)
@@ -1442,7 +1442,7 @@ func (s *finishRacingSettleStore) FinishAssignment(ctx context.Context, a factor
 // settler must re-read the terminal row and advance the receipt
 // recorded→accepted.
 func TestSettleFinishedRowRereadAcceptsPGDrive(t *testing.T) {
-	db, dsn := postgresFixture(t, nil)
+	db, dsn := postgresFixture(t)
 	ctx, cancel := context.WithTimeout(context.Background(), 90*time.Second)
 	defer cancel()
 	sqlDB, err := sql.Open("pgx", dsn)

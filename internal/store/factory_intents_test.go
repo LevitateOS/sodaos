@@ -10,7 +10,7 @@ import (
 )
 
 func TestIntentRepositoryBindingSurvivesNonAcceptedHeads(t *testing.T) {
-	s, _ := postgresFixture(t, nil)
+	s, _ := postgresFixture(t)
 	ctx := context.Background()
 	idea := factory.ProductIdea{ID: "d888888888888888888888888", Description: "Track", Consequence: "Visibility", Decision: "accept", Source: "requested", Provenance: "human", Actor: 1}
 	task := factory.IntentTask{Key: "d999999999999999999999999", Objective: "Entry", Outcomes: []string{"Capture"}, IdeaIDs: []string{idea.ID}}
@@ -98,7 +98,7 @@ func TestIntentRepositoryBindingSurvivesNonAcceptedHeads(t *testing.T) {
 }
 
 func TestIntentRevisionCASAndPrivacy(t *testing.T) {
-	s, _ := postgresFixture(t, nil)
+	s, _ := postgresFixture(t)
 	ctx := context.Background()
 	d := factory.Department{ID: "d111111111111111111111111", Owner: 1, Name: "Operations", Description: "Coordinate requests"}
 	if err := s.CreateDepartment(ctx, d); err != nil {
@@ -135,7 +135,7 @@ func TestIntentRevisionCASAndPrivacy(t *testing.T) {
 }
 
 func TestListIntentRevisionsIsOwnerPrivateAndBounded(t *testing.T) {
-	s, _ := postgresFixture(t, nil)
+	s, _ := postgresFixture(t)
 	ctx := context.Background()
 	a := factory.IntentRevision{ID: "d111111111111111111111111", Intent: "d222222222222222222222222", Owner: 1, Objective: "First", State: "draft", MaxIssues: 10, CreatedUnix: 1}
 	b := factory.IntentRevision{ID: "d333333333333333333333333", Intent: "d444444444444444444444444", Owner: 1, Objective: "Second", State: "draft", MaxIssues: 10, CreatedUnix: 1}
@@ -160,7 +160,7 @@ func TestListIntentRevisionsIsOwnerPrivateAndBounded(t *testing.T) {
 }
 
 func TestIntentHistoryAndRepositoryIdentity(t *testing.T) {
-	s, _ := postgresFixture(t, nil)
+	s, _ := postgresFixture(t)
 	ctx := context.Background()
 	a := factory.IntentRevision{ID: "d111111111111111111111111", Intent: "d222222222222222222222222", Owner: 1, Objective: "Tracker", State: "draft", MaxIssues: 10, CreatedUnix: 1}
 	if err := s.SaveIntentRevision(ctx, a); err != nil {
@@ -190,7 +190,7 @@ func TestIntentHistoryAndRepositoryIdentity(t *testing.T) {
 }
 
 func TestPriorityReservationDeduplicatesWithoutLifetimeLimit(t *testing.T) {
-	s, _ := postgresFixture(t, nil)
+	s, _ := postgresFixture(t)
 	ctx := context.Background()
 	a := "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
 	b := "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
@@ -212,7 +212,7 @@ func TestPriorityReservationDeduplicatesWithoutLifetimeLimit(t *testing.T) {
 // a full-inventory 18-call tournament reservation succeeds while 19
 // still refuses.
 func TestPriorityReservationFullTournamentBound(t *testing.T) {
-	s, _ := postgresFixture(t, nil)
+	s, _ := postgresFixture(t)
 	ctx := context.Background()
 	full := "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
 	if ok, err := s.ReservePriorityJudgment(ctx, full, 18); err != nil || !ok {

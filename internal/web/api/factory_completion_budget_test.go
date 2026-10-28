@@ -93,7 +93,7 @@ func TestCompletionDriveServingCallsAndResume(t *testing.T) {
 	if !ok {
 		t.Skip("SODA_PG fixture unavailable")
 	}
-	db, dsn, cleanup, err := store.OpenEphemeral(ctx, admin, nil)
+	db, dsn, cleanup, err := store.OpenEphemeral(ctx, admin)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -220,7 +220,7 @@ func TestCompletionDriveContinueReleaseResumesAcrossPasses(t *testing.T) {
 	if !ok {
 		t.Skip("SODA_PG fixture unavailable")
 	}
-	db, dsn, cleanup, err := store.OpenEphemeral(ctx, admin, nil)
+	db, dsn, cleanup, err := store.OpenEphemeral(ctx, admin)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -422,7 +422,7 @@ func TestCompletionDriveRefusesStaleContinueRelease(t *testing.T) {
 	if !ok {
 		t.Skip("SODA_PG fixture unavailable")
 	}
-	db, dsn, cleanup, err := store.OpenEphemeral(ctx, admin, nil)
+	db, dsn, cleanup, err := store.OpenEphemeral(ctx, admin)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -549,7 +549,7 @@ func TestCompletionDriveCompletes48AcrossTwoPasses(t *testing.T) {
 	if !ok {
 		t.Skip("SODA_PG fixture unavailable")
 	}
-	db, dsn, cleanup, err := store.OpenEphemeral(ctx, admin, nil)
+	db, dsn, cleanup, err := store.OpenEphemeral(ctx, admin)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -654,7 +654,7 @@ func TestCompletionDriveDefersOnTipChangeDuringCapturePair(t *testing.T) {
 	if !ok {
 		t.Skip("SODA_PG fixture unavailable")
 	}
-	db, dsn, cleanup, err := store.OpenEphemeral(ctx, admin, nil)
+	db, dsn, cleanup, err := store.OpenEphemeral(ctx, admin)
 	if err != nil {
 		t.Fatal(err)
 	}

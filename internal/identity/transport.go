@@ -14,9 +14,3 @@ type Request struct {
 	Binding     *Binding        `json:"binding,omitempty"`
 	Credential  []byte          `json:"credential,omitempty"`
 }
-
-// DeliveryWire exists only on the runtime socket; never on the admin socket.
-type DeliveryWire struct {
-	Lease      Lease  `json:"lease"`
-	Credential []byte `json:"credential"`
-}

@@ -84,7 +84,7 @@ func TestFactoryFeedPreparationDependencyAndPauseProducers(t *testing.T) {
 }
 
 func TestFactoryFeedEventRollbackAndScope(t *testing.T) {
-	s, _ := postgresFixture(t, nil)
+	s, _ := postgresFixture(t)
 	ctx := context.Background()
 	write := func(repository int64, commit bool) {
 		tx, err := s.db.BeginTx(ctx, nil)

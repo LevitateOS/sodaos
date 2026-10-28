@@ -11,7 +11,7 @@ import (
 
 func inventoryFixture(t *testing.T) (*Store, context.Context) {
 	t.Helper()
-	s, _ := postgresFixture(t, nil)
+	s, _ := postgresFixture(t)
 	return s, context.Background()
 }
 

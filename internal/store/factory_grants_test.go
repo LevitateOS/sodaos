@@ -17,7 +17,7 @@ func grantTestTime() time.Time { return time.Date(2026, 10, 1, 0, 0, 0, 0, time.
 
 func grantStoreFixture(t *testing.T) *Store {
 	t.Helper()
-	db, _ := postgresFixture(t, nil)
+	db, _ := postgresFixture(t)
 	return db
 }
 

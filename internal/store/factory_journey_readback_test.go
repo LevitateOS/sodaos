@@ -100,7 +100,7 @@ func TestJourneyReassignmentCyclesScopesPerIssue(t *testing.T) {
 	if !ok {
 		t.Skip("SODA_PG_* fixture unavailable")
 	}
-	s, dsn, cleanup, err := OpenEphemeral(ctx, admin, nil)
+	s, dsn, cleanup, err := OpenEphemeral(ctx, admin)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -160,7 +160,7 @@ func TestJourneyReassignmentCyclesRefuseCorruptRows(t *testing.T) {
 	if !ok {
 		t.Skip("SODA_PG_* fixture unavailable")
 	}
-	s, dsn, cleanup, err := OpenEphemeral(ctx, admin, nil)
+	s, dsn, cleanup, err := OpenEphemeral(ctx, admin)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -185,7 +185,7 @@ func TestLatestPhaseAttemptsSelectedRoot(t *testing.T) {
 	if !ok {
 		t.Skip("SODA_PG_* fixture unavailable")
 	}
-	s, dsn, cleanup, err := OpenEphemeral(ctx, admin, nil)
+	s, dsn, cleanup, err := OpenEphemeral(ctx, admin)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -264,7 +264,7 @@ func TestLatestPhaseAttemptsScopeValidation(t *testing.T) {
 	if !ok {
 		t.Skip("SODA_PG_* fixture unavailable")
 	}
-	s, _, cleanup, err := OpenEphemeral(ctx, admin, nil)
+	s, _, cleanup, err := OpenEphemeral(ctx, admin)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -297,7 +297,7 @@ func TestLatestPhaseAttemptsRefuseCorruptRows(t *testing.T) {
 	if !ok {
 		t.Skip("SODA_PG_* fixture unavailable")
 	}
-	s, dsn, cleanup, err := OpenEphemeral(ctx, admin, nil)
+	s, dsn, cleanup, err := OpenEphemeral(ctx, admin)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -324,7 +324,7 @@ func TestLatestPhaseAttemptsTruncationSignal(t *testing.T) {
 	if !ok {
 		t.Skip("SODA_PG_* fixture unavailable")
 	}
-	s, dsn, cleanup, err := OpenEphemeral(ctx, admin, nil)
+	s, dsn, cleanup, err := OpenEphemeral(ctx, admin)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -356,7 +356,7 @@ func TestLatestIssueAttemptBindsNewestRow(t *testing.T) {
 	if !ok {
 		t.Skip("SODA_PG_* fixture unavailable")
 	}
-	s, dsn, cleanup, err := OpenEphemeral(ctx, admin, nil)
+	s, dsn, cleanup, err := OpenEphemeral(ctx, admin)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -395,7 +395,7 @@ func TestJourneyAdoptionsScopePerIssue(t *testing.T) {
 	if !ok {
 		t.Skip("SODA_PG_* fixture unavailable")
 	}
-	s, _, cleanup, err := OpenEphemeral(ctx, admin, nil)
+	s, _, cleanup, err := OpenEphemeral(ctx, admin)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -443,7 +443,7 @@ func TestDeliveryJudgmentsForPublicationScope(t *testing.T) {
 	if !ok {
 		t.Skip("SODA_PG_* fixture unavailable")
 	}
-	s, dsn, cleanup, err := OpenEphemeral(ctx, admin, nil)
+	s, dsn, cleanup, err := OpenEphemeral(ctx, admin)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -540,7 +540,7 @@ func TestJourneyUnchangedRebindYieldsTwoBindingsOneDelivered(t *testing.T) {
 	if !ok {
 		t.Skip("SODA_PG_* fixture unavailable")
 	}
-	s, dsn, cleanup, err := OpenEphemeral(ctx, admin, nil)
+	s, dsn, cleanup, err := OpenEphemeral(ctx, admin)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -667,7 +667,7 @@ func TestJourneyVerifiedAppCanonicalIdentity(t *testing.T) {
 	if !ok {
 		t.Skip("SODA_PG_* fixture unavailable")
 	}
-	s, dsn, cleanup, err := OpenEphemeral(ctx, admin, nil)
+	s, dsn, cleanup, err := OpenEphemeral(ctx, admin)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -694,7 +694,7 @@ func TestJourneyVerifiedAppRefusesWrongAssignment(t *testing.T) {
 	if !ok {
 		t.Skip("SODA_PG_* fixture unavailable")
 	}
-	s, dsn, cleanup, err := OpenEphemeral(ctx, admin, nil)
+	s, dsn, cleanup, err := OpenEphemeral(ctx, admin)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -721,7 +721,7 @@ func TestJourneyVerifiedAppRefusesWrongScope(t *testing.T) {
 	if !ok {
 		t.Skip("SODA_PG_* fixture unavailable")
 	}
-	s, dsn, cleanup, err := OpenEphemeral(ctx, admin, nil)
+	s, dsn, cleanup, err := OpenEphemeral(ctx, admin)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -771,7 +771,7 @@ func TestJourneyVerifiedAppRefusesManifestMismatch(t *testing.T) {
 	if !ok {
 		t.Skip("SODA_PG_* fixture unavailable")
 	}
-	s, dsn, cleanup, err := OpenEphemeral(ctx, admin, nil)
+	s, dsn, cleanup, err := OpenEphemeral(ctx, admin)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -810,7 +810,7 @@ func TestJourneyVerifiedAppRefusesNonVerifiedResult(t *testing.T) {
 	if !ok {
 		t.Skip("SODA_PG_* fixture unavailable")
 	}
-	s, dsn, cleanup, err := OpenEphemeral(ctx, admin, nil)
+	s, dsn, cleanup, err := OpenEphemeral(ctx, admin)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -851,7 +851,7 @@ func TestJourneyVerifiedAppRefusesMissingF10(t *testing.T) {
 	if !ok {
 		t.Skip("SODA_PG_* fixture unavailable")
 	}
-	s, dsn, cleanup, err := OpenEphemeral(ctx, admin, nil)
+	s, dsn, cleanup, err := OpenEphemeral(ctx, admin)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -877,7 +877,7 @@ func TestJourneyVerifiedAppIgnoresUnrelatedNewerVerification(t *testing.T) {
 	if !ok {
 		t.Skip("SODA_PG_* fixture unavailable")
 	}
-	s, dsn, cleanup, err := OpenEphemeral(ctx, admin, nil)
+	s, dsn, cleanup, err := OpenEphemeral(ctx, admin)
 	if err != nil {
 		t.Fatal(err)
 	}

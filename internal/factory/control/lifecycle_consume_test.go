@@ -92,7 +92,7 @@ func TestConsumeLifecycleEvent(t *testing.T) {
 	ctx := context.Background()
 
 	t.Run("disabledSkips", func(t *testing.T) {
-		s, _ := postgresFixture(t, nil)
+		s, _ := postgresFixture(t)
 		ex := &consumeFakeExecutor{actor: 7, revision: 1, submit: func(factory.LifecycleWork) (factory.OperationOutcome, error) {
 			return consumeOutcome(factory.OpEffectCommitted, ""), nil
 		}}
@@ -105,7 +105,7 @@ func TestConsumeLifecycleEvent(t *testing.T) {
 	})
 
 	t.Run("unprovedSkips", func(t *testing.T) {
-		s, _ := postgresFixture(t, nil)
+		s, _ := postgresFixture(t)
 		cfg := factory.LifecycleConfig{Event: factory.LifecycleEventIssueCreated, Enabled: false, ActorID: 7, RepositoryID: 9}
 		if _, err := s.SaveConfig(ctx, cfg); err != nil {
 			t.Fatalf("config: %v", err)
@@ -122,7 +122,7 @@ func TestConsumeLifecycleEvent(t *testing.T) {
 	})
 
 	t.Run("separateRolesSubmit", func(t *testing.T) {
-		s, _ := postgresFixture(t, nil)
+		s, _ := postgresFixture(t)
 		enableConsumeConfig(t, s, factory.LifecycleEventIssueCreated, nil)
 		ex := &consumeFakeExecutor{actor: 7, revision: 1, submit: func(factory.LifecycleWork) (factory.OperationOutcome, error) {
 			return consumeOutcome(factory.OpEffectCommitted, ""), nil
@@ -145,7 +145,7 @@ func TestConsumeLifecycleEvent(t *testing.T) {
 	})
 
 	t.Run("unavailableExecutorJournalsUncertain", func(t *testing.T) {
-		s, _ := postgresFixture(t, nil)
+		s, _ := postgresFixture(t)
 		enableConsumeConfig(t, s, factory.LifecycleEventIssueCreated, nil)
 		in := consumeIssueInput()
 		if err := ConsumeLifecycleEvent(ctx, s, nil, in); !errors.Is(err, ErrLifecycleExecutorUnavailable) {
@@ -178,7 +178,7 @@ func TestConsumeLifecycleEvent(t *testing.T) {
 	})
 
 	t.Run("delivered", func(t *testing.T) {
-		s, _ := postgresFixture(t, nil)
+		s, _ := postgresFixture(t)
 		enableConsumeConfig(t, s, factory.LifecycleEventIssueCreated, nil)
 		ex := &consumeFakeExecutor{actor: 7, revision: 4, submit: func(factory.LifecycleWork) (factory.OperationOutcome, error) {
 			return consumeOutcome(factory.OpEffectCommitted, ""), nil
@@ -209,7 +209,7 @@ func TestConsumeLifecycleEvent(t *testing.T) {
 	})
 
 	t.Run("failedRetriesOnceOnLaterTick", func(t *testing.T) {
-		s, _ := postgresFixture(t, nil)
+		s, _ := postgresFixture(t)
 		enableConsumeConfig(t, s, factory.LifecycleEventPRCreated, nil)
 		calls := 0
 		ex := &consumeFakeExecutor{actor: 7, revision: 1, submit: func(factory.LifecycleWork) (factory.OperationOutcome, error) {
@@ -246,7 +246,7 @@ func TestConsumeLifecycleEvent(t *testing.T) {
 	})
 
 	t.Run("deniedStops", func(t *testing.T) {
-		s, _ := postgresFixture(t, nil)
+		s, _ := postgresFixture(t)
 		enableConsumeConfig(t, s, factory.LifecycleEventIssueCreated, nil)
 		calls := 0
 		ex := &consumeFakeExecutor{actor: 7, revision: 1, submit: func(factory.LifecycleWork) (factory.OperationOutcome, error) {
@@ -271,7 +271,7 @@ func TestConsumeLifecycleEvent(t *testing.T) {
 	})
 
 	t.Run("noteResolvesTarget", func(t *testing.T) {
-		s, _ := postgresFixture(t, nil)
+		s, _ := postgresFixture(t)
 		enableConsumeConfig(t, s, factory.LifecycleEventVerifiedMerge, nil)
 		ex := &consumeFakeExecutor{actor: 7, revision: 2, target: 77, submit: func(factory.LifecycleWork) (factory.OperationOutcome, error) {
 			return consumeOutcome(factory.OpEffectCommitted, ""), nil
@@ -299,7 +299,7 @@ func TestConsumeOwnerHelpers(t *testing.T) {
 	ctx := context.Background()
 
 	t.Run("generatedIssuesSkipReused", func(t *testing.T) {
-		s, _ := postgresFixture(t, nil)
+		s, _ := postgresFixture(t)
 		enableConsumeConfig(t, s, factory.LifecycleEventIssueCreated, nil)
 		ex := &consumeFakeExecutor{actor: 7, revision: 1, submit: func(factory.LifecycleWork) (factory.OperationOutcome, error) {
 			return consumeOutcome(factory.OpEffectCommitted, ""), nil
@@ -338,7 +338,7 @@ func TestConsumeOwnerHelpers(t *testing.T) {
 	})
 
 	t.Run("publishedPR", func(t *testing.T) {
-		s, _ := postgresFixture(t, nil)
+		s, _ := postgresFixture(t)
 		enableConsumeConfig(t, s, factory.LifecycleEventPRCreated, nil)
 		ex := &consumeFakeExecutor{actor: 7, revision: 1, submit: func(factory.LifecycleWork) (factory.OperationOutcome, error) {
 			return consumeOutcome(factory.OpEffectCommitted, ""), nil
@@ -371,7 +371,7 @@ func TestConsumeOwnerHelpers(t *testing.T) {
 	})
 
 	t.Run("verifiedMerge", func(t *testing.T) {
-		s, _ := postgresFixture(t, nil)
+		s, _ := postgresFixture(t)
 		enableConsumeConfig(t, s, factory.LifecycleEventVerifiedMerge, nil)
 		ex := &consumeFakeExecutor{actor: 7, revision: 1, target: 55, submit: func(factory.LifecycleWork) (factory.OperationOutcome, error) {
 			return consumeOutcome(factory.OpEffectCommitted, ""), nil
@@ -406,7 +406,7 @@ func TestConsumeOwnerHelpers(t *testing.T) {
 // shares the durable journal, simulating restart or a later tick.
 func TestReconcileAfterRestart(t *testing.T) {
 	ctx := context.Background()
-	s, _ := postgresFixture(t, nil)
+	s, _ := postgresFixture(t)
 	enableConsumeConfig(t, s, factory.LifecycleEventIssueCreated, nil)
 	in := consumeIssueInput()
 
@@ -453,7 +453,7 @@ func TestReconcileAfterRestart(t *testing.T) {
 // completions.
 func TestReconcileUnsettledDrain(t *testing.T) {
 	ctx := context.Background()
-	s, _ := postgresFixture(t, nil)
+	s, _ := postgresFixture(t)
 	enableConsumeConfig(t, s, factory.LifecycleEventIssueCreated, nil)
 
 	pending := factory.LifecycleAction{ID: "lifecycle:issue_created:rev-9:task-z", Event: factory.LifecycleEventIssueCreated, Action: factory.LifecycleActionIssueLabelAssignee, ActorID: 7, RepositoryID: 9, IssueID: 50, TargetID: 500, LabelID: 3, AuthRevision: "rev-9"}

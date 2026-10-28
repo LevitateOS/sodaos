@@ -8,7 +8,7 @@ import (
 
 func TestReadSchemaVersionAndOpenObserve(t *testing.T) {
 	ctx := context.Background()
-	s, dsn := postgresFixture(t, nil)
+	s, dsn := postgresFixture(t)
 	if err := s.UpsertUser(ctx, User{ID: 1, Login: "soda-tester"}); err != nil {
 		t.Fatal(err)
 	}

@@ -23,7 +23,7 @@ func TestRepositoryIntentAllowancesValidation(t *testing.T) {
 }
 
 func TestRepositoryIntentAllowancesListsBoundIntents(t *testing.T) {
-	s, _ := postgresFixture(t, nil)
+	s, _ := postgresFixture(t)
 	ctx := context.Background()
 	save := func(intent, revision string, owner int64, repository string) {
 		t.Helper()

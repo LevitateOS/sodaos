@@ -11,7 +11,7 @@ import (
 )
 
 func TestIntentGenerationDeliveredMustChainPriorBindings(t *testing.T) {
-	s, _ := postgresFixture(t, nil)
+	s, _ := postgresFixture(t)
 	ctx := context.Background()
 	task := factory.IntentTask{Key: "d444444444444444444444444", Objective: "Build request form", Outcomes: []string{"Submit a request"}, IdeaIDs: []string{"d333333333333333333333333"}}
 	first := factory.IntentRevision{ID: "d111111111111111111111111", Intent: "d222222222222222222222222", Owner: 1, Repository: 42, Objective: "Build a request form", State: "accepted", MaxIssues: 4, CreatedUnix: 1, Ideas: []factory.ProductIdea{{ID: "d333333333333333333333333", Description: "Request form", Consequence: "Requests are recorded", Decision: "accept", Source: "requested", Provenance: "human", Actor: 1}}, Tasks: []factory.IntentTask{task}}
@@ -53,7 +53,7 @@ func TestIntentGenerationDeliveredMustChainPriorBindings(t *testing.T) {
 }
 
 func TestIntentGenerationPinsParentBeforeEffects(t *testing.T) {
-	s, _ := postgresFixture(t, nil)
+	s, _ := postgresFixture(t)
 	ctx := context.Background()
 	r := factory.IntentRevision{ID: "d111111111111111111111111", Intent: "d222222222222222222222222", Owner: 1, Repository: 42, Objective: "Build a request form", State: "accepted", MaxIssues: 4, PlanningCalls: 2, CreatedUnix: 1, Ideas: []factory.ProductIdea{{ID: "d333333333333333333333333", Description: "Request form", Consequence: "Requests are recorded", Decision: "accept", Source: "requested", Provenance: "human", Actor: 1}}, Tasks: []factory.IntentTask{{Key: "d444444444444444444444444", Objective: "Build request form", Outcomes: []string{"Submit a request"}, IdeaIDs: []string{"d333333333333333333333333"}}}}
 	if err := s.SaveIntentRevision(ctx, r); err != nil {
@@ -106,7 +106,7 @@ func TestIntentGenerationPinsParentBeforeEffects(t *testing.T) {
 }
 
 func TestSupersededAcceptanceInvalidatesPlanningWithoutRetarget(t *testing.T) {
-	s, _ := postgresFixture(t, nil)
+	s, _ := postgresFixture(t)
 	ctx := context.Background()
 	r := factory.IntentRevision{ID: "d111111111111111111111111", Intent: "d222222222222222222222222", Owner: 1, Repository: 42, Objective: "Build a request form", State: "accepted", MaxIssues: 4, CreatedUnix: 1, Ideas: []factory.ProductIdea{{ID: "d333333333333333333333333", Description: "Request form", Consequence: "Requests are recorded", Decision: "accept", Source: "requested", Provenance: "human", Actor: 1}}, Tasks: []factory.IntentTask{{Key: "d444444444444444444444444", Objective: "Build request form", Outcomes: []string{"Submit a request"}, IdeaIDs: []string{"d333333333333333333333333"}}}}
 	if err := s.SaveIntentRevision(ctx, r); err != nil {
@@ -133,7 +133,7 @@ func TestSupersededAcceptanceInvalidatesPlanningWithoutRetarget(t *testing.T) {
 }
 
 func TestIntentPlanningUsesIndependentAllowance(t *testing.T) {
-	s, _ := postgresFixture(t, nil)
+	s, _ := postgresFixture(t)
 	ctx := context.Background()
 	r := factory.IntentRevision{ID: "d111111111111111111111111", Intent: "d222222222222222222222222", Owner: 1, Objective: "Track requests", State: "draft", MaxIssues: 4, PlanningCalls: 100, CreatedUnix: 1}
 	if err := s.SaveIntentRevision(ctx, r); err != nil {
@@ -169,7 +169,7 @@ func TestIntentPlanningUsesIndependentAllowance(t *testing.T) {
 }
 
 func TestIntentPlanningAllowsIndependentIntents(t *testing.T) {
-	s, _ := postgresFixture(t, nil)
+	s, _ := postgresFixture(t)
 	ctx := context.Background()
 	for i, intent := range []string{"d222222222222222222222222", "d444444444444444444444444"} {
 		r := factory.IntentRevision{ID: []string{"d111111111111111111111111", "d333333333333333333333333"}[i], Intent: intent, Owner: 1, Objective: "Track requests", State: "draft", MaxIssues: 4, CreatedUnix: 1}

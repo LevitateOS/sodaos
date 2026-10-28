@@ -68,7 +68,7 @@ func approvalProjectAccessHost(s *Server, calls *int, administrator *bool, statu
 
 func factoryEncryptedServer(t *testing.T) *Server {
 	t.Helper()
-	db := postgresFixture(t, bytes.Repeat([]byte{4}, 32))
+	db := postgresFixture(t)
 	for i, login := range []string{"alice", "bob"} {
 		if err := db.UpsertUser(context.Background(), store.User{ID: int64(i + 1), Login: login, Name: login}); err != nil {
 			t.Fatal(err)

@@ -12,13 +12,13 @@ import (
 // the test finishes. Tests skip when the A10 disposable fixture
 // environment (SODA_PG_HOST, SODA_PG_PORT, SODA_PG_SUPER_PASSWORD_FILE,
 // as printed by soda-pg-fixture start) is absent.
-func postgresFixture(t *testing.T, key []byte) (*Store, string) {
+func postgresFixture(t *testing.T) (*Store, string) {
 	t.Helper()
 	admin, ok := TestFixtureDSN()
 	if !ok {
 		t.Skip("SODA_PG_* fixture unavailable")
 	}
-	s, dsn, cleanup, err := OpenEphemeral(context.Background(), admin, key)
+	s, dsn, cleanup, err := OpenEphemeral(context.Background(), admin)
 	if err != nil {
 		t.Fatal(err)
 	}

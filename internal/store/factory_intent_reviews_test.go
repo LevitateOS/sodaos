@@ -48,7 +48,7 @@ func mustHead(t *testing.T, s *Store, ctx context.Context, intent string, owner 
 }
 
 func TestSaveIntentReviewAtomicallyAndRead(t *testing.T) {
-	s, _ := postgresFixture(t, nil)
+	s, _ := postgresFixture(t)
 	ctx := context.Background()
 	const intent, basis, result = "d000000000000000000000000", "d111111111111111111111111", "d222222222222222222222222"
 	if err := s.SaveIntentRevision(ctx, reviewFixtureRevision(basis, intent, "")); err != nil {
@@ -71,7 +71,7 @@ func TestSaveIntentReviewAtomicallyAndRead(t *testing.T) {
 }
 
 func TestSaveIntentReviewExactReplay(t *testing.T) {
-	s, _ := postgresFixture(t, nil)
+	s, _ := postgresFixture(t)
 	ctx := context.Background()
 	const intent, basis, result = "d010000000000000000000000", "d111111111111111111111112", "d222222222222222222222223"
 	if err := s.SaveIntentRevision(ctx, reviewFixtureRevision(basis, intent, "")); err != nil {
@@ -92,7 +92,7 @@ func TestSaveIntentReviewExactReplay(t *testing.T) {
 }
 
 func TestSaveIntentReviewConflictRefuses(t *testing.T) {
-	s, _ := postgresFixture(t, nil)
+	s, _ := postgresFixture(t)
 	ctx := context.Background()
 	const intent, basis, result = "d020000000000000000000000", "d111111111111111111111113", "d222222222222222222222224"
 	if err := s.SaveIntentRevision(ctx, reviewFixtureRevision(basis, intent, "")); err != nil {
@@ -120,7 +120,7 @@ func TestSaveIntentReviewConflictRefuses(t *testing.T) {
 }
 
 func TestSaveIntentReviewStaleRefusesWithoutPartial(t *testing.T) {
-	s, _ := postgresFixture(t, nil)
+	s, _ := postgresFixture(t)
 	ctx := context.Background()
 	const intent, basis, rival, result = "d030000000000000000000000", "d111111111111111111111114", "d444444444444444444444444", "d222222222222222222222225"
 	if err := s.SaveIntentRevision(ctx, reviewFixtureRevision(basis, intent, "")); err != nil {
@@ -146,7 +146,7 @@ func TestSaveIntentReviewStaleRefusesWithoutPartial(t *testing.T) {
 }
 
 func TestSaveIntentReviewRejectsMisbound(t *testing.T) {
-	s, _ := postgresFixture(t, nil)
+	s, _ := postgresFixture(t)
 	ctx := context.Background()
 	const intent, basis, result = "d040000000000000000000000", "d111111111111111111111115", "d222222222222222222222226"
 	if err := s.SaveIntentRevision(ctx, reviewFixtureRevision(basis, intent, "")); err != nil {
@@ -165,7 +165,7 @@ func TestSaveIntentReviewRejectsMisbound(t *testing.T) {
 // fail after the revision write and proves the whole save rolls back:
 // the head stays and no revision row survives.
 func TestSaveIntentReviewInsertFailureRollsBack(t *testing.T) {
-	s, _ := postgresFixture(t, nil)
+	s, _ := postgresFixture(t)
 	ctx := context.Background()
 	const intent, basis, result = "d060000000000000000000000", "d111111111111111111111117", "d222222222222222222222228"
 	if err := s.SaveIntentRevision(ctx, reviewFixtureRevision(basis, intent, "")); err != nil {
@@ -187,7 +187,7 @@ func TestSaveIntentReviewInsertFailureRollsBack(t *testing.T) {
 }
 
 func TestIntentReviewPrivacy(t *testing.T) {
-	s, _ := postgresFixture(t, nil)
+	s, _ := postgresFixture(t)
 	ctx := context.Background()
 	const intent, basis, result = "d050000000000000000000000", "d111111111111111111111116", "d222222222222222222222227"
 	if err := s.SaveIntentRevision(ctx, reviewFixtureRevision(basis, intent, "")); err != nil {

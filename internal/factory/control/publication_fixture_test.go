@@ -18,7 +18,7 @@ import (
 // publicationTestDB exercises the production schema without fixture DDL.
 func publicationTestDB(t *testing.T) (*store.Store, string) {
 	t.Helper()
-	db, dsn := postgresFixture(t, nil)
+	db, dsn := postgresFixture(t)
 	return db, dsn
 }
 

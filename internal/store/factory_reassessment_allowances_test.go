@@ -202,7 +202,7 @@ func storedAssignmentStage(t *testing.T, ctx context.Context, db *Store, id stri
 
 func TestReassessmentAllowanceTypedRootInsertRead(t *testing.T) {
 	ctx := context.Background()
-	db, _ := postgresFixture(t, nil)
+	db, _ := postgresFixture(t)
 	now := time.Now().UTC()
 	a := reassessmentRootFixture(t, now, 7, factory.NewID(), factory.NewID(), strings.Repeat("d", 64))
 	insertReassessmentRootRow(t, ctx, db, a)
@@ -236,7 +236,7 @@ func TestReassessmentAllowanceTypedRootInsertRead(t *testing.T) {
 
 func TestReassessmentSameRootReplayNoRefill(t *testing.T) {
 	ctx := context.Background()
-	db, _ := postgresFixture(t, nil)
+	db, _ := postgresFixture(t)
 	now := time.Now().UTC()
 	a := reassessmentRootFixture(t, now, 7, factory.NewID(), factory.NewID(), strings.Repeat("d", 64))
 	insertReassessmentRootRow(t, ctx, db, a)
@@ -285,7 +285,7 @@ func TestReassessmentSameRootReplayNoRefill(t *testing.T) {
 
 func TestReassessmentTwoCyclesDistinct(t *testing.T) {
 	ctx := context.Background()
-	db, _ := postgresFixture(t, nil)
+	db, _ := postgresFixture(t)
 	now := time.Now().UTC()
 	first := reassessmentRootFixture(t, now, 7, factory.NewID(), factory.NewID(), strings.Repeat("d", 64))
 	second := reassessmentRootFixture(t, now, 7, first.Subject.Completion.CompletionID, factory.NewID(), strings.Repeat("d", 64))
@@ -307,7 +307,7 @@ func TestReassessmentTwoCyclesDistinct(t *testing.T) {
 
 func TestReassessmentMismatchRefuses(t *testing.T) {
 	ctx := context.Background()
-	db, _ := postgresFixture(t, nil)
+	db, _ := postgresFixture(t)
 	now := time.Now().UTC()
 	a := reassessmentRootFixture(t, now, 7, factory.NewID(), factory.NewID(), strings.Repeat("d", 64))
 	insertReassessmentRootRow(t, ctx, db, a)
@@ -364,7 +364,7 @@ func TestReassessmentMismatchRefuses(t *testing.T) {
 
 func TestReassessmentMalformedInputsRefuse(t *testing.T) {
 	ctx := context.Background()
-	db, _ := postgresFixture(t, nil)
+	db, _ := postgresFixture(t)
 	now := time.Now().UTC()
 	a := reassessmentRootFixture(t, now, 7, factory.NewID(), factory.NewID(), strings.Repeat("d", 64))
 	subject := reassessmentSubjectOf(a)
@@ -502,7 +502,7 @@ func TestReassessmentLifecyclePreservesConsumption(t *testing.T) {
 
 func TestReassessmentScopeImmutableOnCAS(t *testing.T) {
 	ctx := context.Background()
-	db, _ := postgresFixture(t, nil)
+	db, _ := postgresFixture(t)
 	now := time.Now().UTC()
 	a := reassessmentRootFixture(t, now, 7, factory.NewID(), factory.NewID(), strings.Repeat("d", 64))
 	insertReassessmentRootRow(t, ctx, db, a)
@@ -572,7 +572,7 @@ func readReassessmentCurrent(t *testing.T, ctx context.Context, db *Store, a fac
 // no fresh revision may refill clock or erase charges.
 func TestReassessmentStaleSnapshotSaveRefuses(t *testing.T) {
 	ctx := context.Background()
-	db, _ := postgresFixture(t, nil)
+	db, _ := postgresFixture(t)
 	now := time.Now().UTC()
 	a := reassessmentRootFixture(t, now, 7, factory.NewID(), factory.NewID(), strings.Repeat("d", 64))
 	insertReassessmentRootRow(t, ctx, db, a)
@@ -725,7 +725,7 @@ func TestReassessmentPositiveIssueAllowanceRegression(t *testing.T) {
 // so consumed time checkpoints exactly and the root closes.
 func TestReassessmentTerminalFinishSettledCheckpointsNoReadiness(t *testing.T) {
 	ctx := context.Background()
-	db, _ := postgresFixture(t, nil)
+	db, _ := postgresFixture(t)
 	now := time.Now().UTC()
 	a := reassessmentRootFixture(t, now, 7, factory.NewID(), factory.NewID(), strings.Repeat("d", 64))
 	insertReassessmentRootRow(t, ctx, db, a)
@@ -770,7 +770,7 @@ func TestReassessmentTerminalFinishSettledCheckpointsNoReadiness(t *testing.T) {
 // the checkpoint does not move.
 func TestReassessmentTerminalFinishUnsettledKeepsClock(t *testing.T) {
 	ctx := context.Background()
-	db, _ := postgresFixture(t, nil)
+	db, _ := postgresFixture(t)
 	now := time.Now().UTC()
 	a := reassessmentRootFixture(t, now, 7, factory.NewID(), factory.NewID(), strings.Repeat("d", 64))
 	insertReassessmentRootRow(t, ctx, db, a)
@@ -811,7 +811,7 @@ func TestReassessmentTerminalFinishUnsettledKeepsClock(t *testing.T) {
 // consulted latest(repository, 0) and silently skipped the older root.
 func TestReassessmentTransitionAddressesOlderCycle(t *testing.T) {
 	ctx := context.Background()
-	db, _ := postgresFixture(t, nil)
+	db, _ := postgresFixture(t)
 	now := time.Now().UTC()
 	completion := factory.NewID()
 	older := reassessmentRootFixture(t, now, 7, completion, factory.NewID(), strings.Repeat("d", 64))
@@ -872,7 +872,7 @@ func TestReassessmentTransitionAddressesOlderCycle(t *testing.T) {
 // roll the assignment back to assigned.
 func TestReassessmentTerminalFinishNeedsTypedAllowance(t *testing.T) {
 	ctx := context.Background()
-	db, _ := postgresFixture(t, nil)
+	db, _ := postgresFixture(t)
 	now := time.Now().UTC()
 	// Missing: recorded root and settled run, but no typed allowance row.
 	missing := reassessmentRootFixture(t, now, 7, factory.NewID(), factory.NewID(), strings.Repeat("d", 64))
@@ -920,7 +920,7 @@ func TestReassessmentTerminalFinishNeedsTypedAllowance(t *testing.T) {
 // other-cycle root in the same repository stays unchanged.
 func TestReassessmentLateSettlementStopsClock(t *testing.T) {
 	ctx := context.Background()
-	db, _ := postgresFixture(t, nil)
+	db, _ := postgresFixture(t)
 	now := time.Now().UTC()
 	completion := factory.NewID()
 	original := reassessmentRootFixture(t, now, 7, completion, factory.NewID(), strings.Repeat("d", 64))
@@ -989,7 +989,7 @@ func TestReassessmentLateSettlementStopsClock(t *testing.T) {
 // freeze forever and charge stopped time.
 func TestReassessmentCancelledLateSettlementFreezesClock(t *testing.T) {
 	ctx := context.Background()
-	db, _ := postgresFixture(t, nil)
+	db, _ := postgresFixture(t)
 	now := time.Now().UTC()
 	completion := factory.NewID()
 	original := reassessmentRootFixture(t, now, 7, completion, factory.NewID(), strings.Repeat("d", 64))
@@ -1061,7 +1061,7 @@ func TestReassessmentCancelledLateSettlementFreezesClock(t *testing.T) {
 // finish row that may never come would charge stopped time forever.
 func TestReassessmentClosedAssignedLateSettlementFreezesClock(t *testing.T) {
 	ctx := context.Background()
-	db, _ := postgresFixture(t, nil)
+	db, _ := postgresFixture(t)
 	now := time.Now().UTC()
 	completion := factory.NewID()
 	original := reassessmentRootFixture(t, now, 7, completion, factory.NewID(), strings.Repeat("d", 64))

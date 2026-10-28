@@ -21,12 +21,12 @@ func TestEphemeralTemplateCloneIsolation(t *testing.T) {
 	if !ok {
 		t.Skip("SODA_PG_* fixture unavailable")
 	}
-	first, _, cleanupFirst, err := OpenEphemeral(ctx, admin, nil)
+	first, _, cleanupFirst, err := OpenEphemeral(ctx, admin)
 	if err != nil {
 		t.Fatal(err)
 	}
 	defer cleanupFirst()
-	second, _, cleanupSecond, err := OpenEphemeral(ctx, admin, nil)
+	second, _, cleanupSecond, err := OpenEphemeral(ctx, admin)
 	if err != nil {
 		t.Fatal(err)
 	}

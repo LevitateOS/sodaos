@@ -83,10 +83,6 @@ func decodeResponse(body io.Reader, out any) error {
 	return nil
 }
 
-func (c *Client) ReconcileLease(ctx context.Context, id string) error {
-	return c.call(ctx, "/reconcile-lease", identity.Request{ID: id}, nil)
-}
-
 func (c *Client) Connections(ctx context.Context, owner int64) ([]identity.Connection, error) {
 	var out []identity.Connection
 	err := c.call(ctx, "/connections", identity.Request{OwnerID: owner}, &out)
@@ -149,26 +145,6 @@ func (c *Client) EndLease(ctx context.Context, owner int64, id string) error {
 
 func (c *Client) Revoke(ctx context.Context, owner int64, id string) error {
 	return c.call(ctx, "/revoke", identity.Request{OwnerID: owner, ID: id}, nil)
-}
-
-func (c *Client) Acquire(ctx context.Context, in identity.AcquireRequest) (identity.Lease, error) {
-	var out identity.Lease
-	err := c.call(ctx, "/acquire", identity.Request{Acquire: &in}, &out)
-	return out, err
-}
-
-func (c *Client) Register(ctx context.Context, id string, b identity.Binding) (identity.Delivery, error) {
-	var out identity.DeliveryWire
-	err := c.call(ctx, "/register", identity.Request{ID: id, Binding: &b}, &out)
-	return identity.Delivery(out), err
-}
-
-func (c *Client) Return(ctx context.Context, id string, b identity.Binding, data []byte) error {
-	return c.call(ctx, "/return", identity.Request{ID: id, Binding: &b, Credential: data}, nil)
-}
-
-func (c *Client) Reject(ctx context.Context, id string, b identity.Binding) error {
-	return c.call(ctx, "/reject", identity.Request{ID: id, Binding: &b}, nil)
 }
 
 func (c *Client) GetExecution(ctx context.Context, kind, executionID string) (identity.Execution, error) {

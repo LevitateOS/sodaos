@@ -56,7 +56,7 @@ func TestEnrichFeedRecordsFillsRecordContent(t *testing.T) {
 		t.Skip("SODA_PG_* fixture unavailable")
 	}
 	ctx := context.Background()
-	st, dsn, cleanup, err := store.OpenEphemeral(ctx, admin, nil)
+	st, dsn, cleanup, err := store.OpenEphemeral(ctx, admin)
 	if err != nil {
 		t.Fatal(err)
 	}

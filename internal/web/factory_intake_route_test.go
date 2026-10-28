@@ -28,7 +28,7 @@ func (s intakeRouteSource) ReadAcceptanceEvidence(context.Context, string, strin
 func intakeRouteServer(t *testing.T, secret string) (*Server, func()) {
 	t.Helper()
 	dir := t.TempDir()
-	db := postgresFixture(t, nil)
+	db := postgresFixture(t)
 	c := config.Config{
 		Listen: "127.0.0.1:8080", ForgejoURL: "https://forgejo.test/",
 		ForgejoInternalURL: "http://127.0.0.1:3000",

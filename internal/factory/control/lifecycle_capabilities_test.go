@@ -39,7 +39,7 @@ func lifecycleTestConfig(event string, revision int64, enabled bool) factory.Lif
 // unattributable handshake closes new admission until a verified refresh
 // recovers it; saved configuration and journal history survive.
 func TestReconcileLifecycleCapabilities(t *testing.T) {
-	db, _ := postgresFixture(t, nil)
+	db, _ := postgresFixture(t)
 	ctx := context.Background()
 	issue := factory.LifecycleEventKind(factory.LifecycleEventIssueCreated)
 
@@ -122,7 +122,7 @@ func TestReconcileLifecycleCapabilities(t *testing.T) {
 // TestReconcileReplacements covers successful refreshes that change the
 // verified answer: lost kinds, new generations and new installations.
 func TestReconcileReplacements(t *testing.T) {
-	db, _ := postgresFixture(t, nil)
+	db, _ := postgresFixture(t)
 	ctx := context.Background()
 	issue := factory.LifecycleEventKind(factory.LifecycleEventIssueCreated)
 

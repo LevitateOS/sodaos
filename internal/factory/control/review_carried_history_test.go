@@ -237,8 +237,10 @@ func carriedReviewer(t *testing.T, id, root, head, cycleID string, report *facto
 		Run: runID, RunHistory: []string{runID}, Attempts: 1,
 		Stage: factory.AssignmentFinished, Outcome: factory.Succeeded,
 		Reason: factory.AssignReasonReported, FinishedUnix: 1700000001,
-		Subject: factory.ExecutionSubject{Kind: factory.SubjectIssue,
-			Issue: &factory.IssueSubject{Issue: 9, Acceptance: "d" + strings.Repeat("a", 24)}},
+		Subject: factory.ExecutionSubject{
+			Kind:  factory.SubjectIssue,
+			Issue: &factory.IssueSubject{Issue: 9, Acceptance: "d" + strings.Repeat("a", 24)},
+		},
 		PublicationAssignment: strings.Repeat("9", 32), ParentAssignment: strings.Repeat("9", 32),
 		ProjectID: "p" + strings.Repeat("1", 24), CreatedUnix: 1700000000,
 		Acceptance: "d" + strings.Repeat("a", 24), Preparation: "f" + strings.Repeat("b", 24),
@@ -248,11 +250,15 @@ func carriedReviewer(t *testing.T, id, root, head, cycleID string, report *facto
 		NativeRev:  1,
 		ActorID:    1,
 		Repository: 7, Issue: 9,
-		Result: &factory.AssignmentResult{Status: "completed", Reported: true, Summary: "review recorded",
+		Result: &factory.AssignmentResult{
+			Status: "completed", Reported: true, Summary: "review recorded",
 			Phase:        project.ExecutionReview,
 			AssignmentID: id, RunID: runID, RecordedUnix: 1700000000,
-			PhaseResult: &factory.PhaseResult{Version: 2, Phase: project.ExecutionReview,
-				Status: "completed", Summary: "review recorded", Output: &factory.PhaseOutput{Review: report}}},
+			PhaseResult: &factory.PhaseResult{
+				Version: 2, Phase: project.ExecutionReview,
+				Status: "completed", Summary: "review recorded", Output: &factory.PhaseOutput{Review: report},
+			},
+		},
 	}
 }
 
@@ -318,8 +324,10 @@ func carriedStoreOwner(t *testing.T, s *store.Store, dsn string) {
 		PublicationAssignment: strings.Repeat("9", 32),
 		Run:                   strings.Repeat("e", 32), RunHistory: []string{strings.Repeat("e", 32)}, Attempts: 1,
 		Stage: factory.AssignmentAssigned,
-		Subject: factory.ExecutionSubject{Kind: factory.SubjectIssue,
-			Issue: &factory.IssueSubject{Issue: 9, Acceptance: acceptance}},
+		Subject: factory.ExecutionSubject{
+			Kind:  factory.SubjectIssue,
+			Issue: &factory.IssueSubject{Issue: 9, Acceptance: acceptance},
+		},
 		ProjectID: "p" + strings.Repeat("1", 24), CreatedUnix: 1700000000,
 		Acceptance: acceptance, Preparation: "f" + strings.Repeat("b", 24),
 		Harness: "codex-1.2.3", HarnessVers: "1.2.3", Model: "muse-spark-1.3-contributor",
@@ -353,7 +361,7 @@ func carriedEphemeral(t *testing.T) (*store.Store, string) {
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), 90*time.Second)
 	defer cancel()
-	s, dsn, cleanup, err := store.OpenEphemeral(ctx, admin, nil)
+	s, dsn, cleanup, err := store.OpenEphemeral(ctx, admin)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -412,10 +420,12 @@ func TestCarriedHistoryKeepsUnresolvedAcrossHeadChange(t *testing.T) {
 	prior := carriedCycle(pubID, root, oldHead, base, oldReviewer, 1)
 	current := carriedCycle(pubID, root, newHead, base, newReviewer, 2)
 	carriedStoreAssignment(t, s, dsn, carriedReviewer(t, oldReviewer, root, oldHead, prior.ID,
-		&factory.ReviewCycleReport{CycleID: prior.ID, NewFindings: []factory.Finding{finding},
+		&factory.ReviewCycleReport{
+			CycleID: prior.ID, NewFindings: []factory.Finding{finding},
 			Assessments: []factory.FindingAssessment{
 				{Key: key, Status: factory.FindingStillOpen, Evidence: "fix not yet attempted"},
-			}}))
+			},
+		}))
 	carriedStoreReviewRun(t, s, dsn, carriedReviewRunID(oldReviewer), oldHead, oldReviewer, factory.Succeeded, nil)
 	carriedStoreOwner(t, s, dsn)
 	p := carriedPublication(pubID, newHead, base)
@@ -441,9 +451,13 @@ func TestCarriedHistoryKeepsUnresolvedAcrossHeadChange(t *testing.T) {
 	assignment := factory.Assignment{
 		ID: current.ReviewerAssignment, Role: project.RoleReviewer, SourceCommit: newHead,
 		Phase: project.ExecutionReview,
-		Result: &factory.AssignmentResult{Status: "completed", Reported: true, Summary: "clear recorded",
-			PhaseResult: &factory.PhaseResult{Version: 2, Phase: project.ExecutionReview,
-				Status: "completed", Output: &factory.PhaseOutput{Clear: clear}}},
+		Result: &factory.AssignmentResult{
+			Status: "completed", Reported: true, Summary: "clear recorded",
+			PhaseResult: &factory.PhaseResult{
+				Version: 2, Phase: project.ExecutionReview,
+				Status: "completed", Output: &factory.PhaseOutput{Clear: clear},
+			},
+		},
 	}
 	resolved, err := resolveAssignmentVerdict(assignment)
 	if err != nil {
@@ -467,9 +481,11 @@ func TestCarriedHistoryCrossHeadReadsAndRetires(t *testing.T) {
 	prior := carriedCycle(pubID, root, oldHead, base, oldReviewer, 1)
 	current := carriedCycle(pubID, root, newHead, base, newReviewer, 2)
 	report := func(assessments []factory.FindingAssessment) *factory.ReviewCycleReport {
-		return &factory.ReviewCycleReport{CycleID: prior.ID,
+		return &factory.ReviewCycleReport{
+			CycleID:     prior.ID,
 			NewFindings: []factory.Finding{carriedFinding(key, "line 7 lacks a check")},
-			Assessments: assessments}
+			Assessments: assessments,
+		}
 	}
 	coord := &Coordinator{Store: s}
 	p := carriedPublication(pubID, newHead, base)
@@ -502,11 +518,13 @@ func TestCarriedHistoryCrossHeadReadsAndRetires(t *testing.T) {
 	rediscoverReviewer := strings.Repeat("b", 32)
 	mid := carriedCycle(pubID, root, newHead, base, rediscoverReviewer, 2)
 	carriedStoreAssignment(t, s, dsn, carriedReviewer(t, rediscoverReviewer, root, newHead, mid.ID,
-		&factory.ReviewCycleReport{CycleID: mid.ID,
+		&factory.ReviewCycleReport{
+			CycleID:     mid.ID,
 			NewFindings: []factory.Finding{carriedFinding(key, "line 7 lacks a check")},
 			Assessments: []factory.FindingAssessment{
 				{Key: key, Status: factory.FindingStillOpen, Evidence: "regressed on the new head"},
-			}}))
+			},
+		}))
 	carriedStoreReviewRun(t, s, dsn, carriedReviewRunID(rediscoverReviewer), newHead, rediscoverReviewer, factory.Succeeded, nil)
 	p3 := carriedPublication(pubID, newHead, base)
 	current3 := carriedCycle(pubID, root, newHead, base, newReviewer, 3)
@@ -536,21 +554,25 @@ func TestCarriedHistoryOmittedCoverageHoldsIncomplete(t *testing.T) {
 	current := carriedCycle(pubID, root, newHead, base, newReviewer, 3)
 	both := []factory.Finding{carriedFinding(keyA, "first defect"), carriedFinding(keyB, "second defect")}
 	carriedStoreAssignment(t, s, dsn, carriedReviewer(t, oldReviewer, root, oldHead, prior.ID,
-		&factory.ReviewCycleReport{CycleID: prior.ID, NewFindings: both,
+		&factory.ReviewCycleReport{
+			CycleID: prior.ID, NewFindings: both,
 			Assessments: []factory.FindingAssessment{
 				{Key: keyA, Status: factory.FindingStillOpen, Evidence: "still open"},
 				{Key: keyB, Status: factory.FindingStillOpen, Evidence: "still open"},
-			}}))
+			},
+		}))
 	// Round 2 verifies A but omits required B while introducing C: the
 	// canonical report validator must refuse before any merge or
 	// retirement, so no round-3 clear can build on a partial set.
 	carriedStoreAssignment(t, s, dsn, carriedReviewer(t, round2Reviewer, root, oldHead, round2.ID,
-		&factory.ReviewCycleReport{CycleID: round2.ID,
+		&factory.ReviewCycleReport{
+			CycleID:     round2.ID,
 			NewFindings: []factory.Finding{carriedFinding(keyC, "third defect")},
 			Assessments: []factory.FindingAssessment{
 				{Key: keyA, Status: factory.FindingVerified, Evidence: "fixed and checked"},
 				{Key: keyC, Status: factory.FindingStillOpen, Evidence: "just found"},
-			}}))
+			},
+		}))
 	carriedStoreReviewRun(t, s, dsn, carriedReviewRunID(oldReviewer), oldHead, oldReviewer, factory.Succeeded, nil)
 	carriedStoreOwner(t, s, dsn)
 	carriedStoreReviewRun(t, s, dsn, carriedReviewRunID(round2Reviewer), oldHead, round2Reviewer, factory.Succeeded, nil)
@@ -580,11 +602,13 @@ func TestCarriedHistoryUnfinishedFailedWrongSubjectHoldIncomplete(t *testing.T) 
 		prior := carriedCycle(pubID, root, oldHead, base, id, 1)
 		current := carriedCycle(pubID, root, newHead, base, strings.Repeat("8", 32), 2)
 		a := carriedReviewer(t, id, root, oldHead, prior.ID,
-			&factory.ReviewCycleReport{CycleID: prior.ID,
+			&factory.ReviewCycleReport{
+				CycleID:     prior.ID,
 				NewFindings: []factory.Finding{carriedFinding(key, "line 7 lacks a check")},
 				Assessments: []factory.FindingAssessment{
 					{Key: key, Status: factory.FindingVerified, Evidence: "checked"},
-				}})
+				},
+			})
 		mutate(&a)
 		carriedStoreAssignment(t, s, dsn, a)
 		p.ReviewCycles = []factory.ReviewCycle{prior, current}
@@ -596,8 +620,7 @@ func TestCarriedHistoryUnfinishedFailedWrongSubjectHoldIncomplete(t *testing.T) 
 		mutate func(*factory.Assignment)
 	}{
 		"unfinished": {strings.Repeat("c", 32), func(a *factory.Assignment) {
-			a.Stage, a.Outcome, a.Reason, a.Result, a.FinishedUnix =
-				factory.AssignmentAssigned, factory.Outcome(""), "", nil, 0
+			a.Stage, a.Outcome, a.Reason, a.Result, a.FinishedUnix = factory.AssignmentAssigned, factory.Outcome(""), "", nil, 0
 		}},
 		"failed": {strings.Repeat("d", 32), func(a *factory.Assignment) {
 			a.Outcome, a.Reason = factory.Failed, factory.AssignReasonRunFailed
@@ -639,10 +662,12 @@ func TestCarriedHistoryMissingCrossHeadHoldsIncomplete(t *testing.T) {
 	}
 	stranger := strings.Repeat("e", 32)
 	carriedStoreAssignment(t, s, dsn, carriedReviewer(t, stranger, root, oldHead, prior.ID,
-		&factory.ReviewCycleReport{CycleID: prior.ID,
+		&factory.ReviewCycleReport{
+			CycleID: prior.ID,
 			Assessments: []factory.FindingAssessment{
 				{Key: strings.Repeat("f", 32), Status: factory.FindingVerified, Evidence: "checked nowhere"},
-			}}))
+			},
+		}))
 	carriedStoreReviewRun(t, s, dsn, carriedReviewRunID(stranger), oldHead, stranger, factory.Succeeded, nil)
 	carriedStoreOwner(t, s, dsn)
 	p2 := carriedPublication(pubID, newHead, base)
@@ -667,11 +692,13 @@ func TestCarriedHistoryMissingOrUnsuccessfulRunHoldsIncomplete(t *testing.T) {
 		prior := carriedCycle(pubID, root, oldHead, base, strings.Repeat("7", 32), 1)
 		current := carriedCycle(pubID, root, newHead, base, strings.Repeat("8", 32), 2)
 		carriedStoreAssignment(t, s, dsn, carriedReviewer(t, strings.Repeat("7", 32), root, oldHead, prior.ID,
-			&factory.ReviewCycleReport{CycleID: prior.ID,
+			&factory.ReviewCycleReport{
+				CycleID:     prior.ID,
 				NewFindings: []factory.Finding{carriedFinding(key, "line 7 lacks a check")},
 				Assessments: []factory.FindingAssessment{
 					{Key: key, Status: factory.FindingStillOpen, Evidence: "not yet fixed"},
-				}}))
+				},
+			}))
 		p := carriedPublication(pubID, newHead, base)
 		p.ReviewCycles = []factory.ReviewCycle{prior, current}
 		return s, dsn, p, current

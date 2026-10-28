@@ -24,7 +24,7 @@ func (f roundTrip) RoundTrip(r *http.Request) (*http.Response, error) { return f
 
 func apiTestServer(t *testing.T) *Server {
 	t.Helper()
-	db := postgresFixture(t, nil)
+	db := postgresFixture(t)
 	for i, login := range []string{"alice", "bob"} {
 		id := int64(i + 1)
 		if err := db.UpsertUser(context.Background(), store.User{ID: id, Login: login, Name: login}); err != nil {

@@ -112,12 +112,6 @@ type Lease struct {
 	Binding       *Binding  `json:"binding,omitempty"`
 }
 
-// Delivery is a trusted-process result and must never enter browser responses.
-type Delivery struct {
-	Lease      Lease
-	Credential []byte
-}
-
 type Enrollment struct {
 	ProviderID      string      `json:"provider_id"`
 	ID              string      `json:"id"`

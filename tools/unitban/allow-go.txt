@@ -80,7 +80,6 @@ internal/forgejo/publish_test.go
 internal/forgejo/review_test.go
 internal/host/application_test.go
 internal/host/terminal_support_test.go
-internal/identity/client/broker_compat_test.go
 internal/identity/client/client_test.go
 internal/store/application_schema_test.go
 internal/store/applications_test.go
@@ -145,8 +144,6 @@ internal/store/factory_review_journals_test.go
 internal/store/factory_review_role_test.go
 internal/store/factory_test.go
 internal/store/factory_views_test.go
-internal/store/grants_test.go
-internal/store/identity_test.go
 internal/store/issue_acceptances_test.go
 internal/store/issue_controls_test.go
 internal/store/observe_test.go

@@ -21,7 +21,7 @@ func TestOpenRefusesIncompleteApplicationSchema(t *testing.T) {
 		{"revision_delete_guard", `DROP TRIGGER application_revision_immutable_delete ON application_revisions`, `SELECT count(*) FROM information_schema.triggers WHERE trigger_name='application_revision_immutable_delete' AND event_object_table='application_revisions'`},
 	} {
 		t.Run(test.name, func(t *testing.T) {
-			s, dsn := postgresFixture(t, nil)
+			s, dsn := postgresFixture(t)
 			ctx := context.Background()
 			if _, err := s.db.ExecContext(ctx, test.damage); err != nil {
 				t.Fatal(err)
@@ -50,7 +50,7 @@ func TestOpenRefusesIncompleteApplicationSchema(t *testing.T) {
 // agree: a fresh database carries exactly one version row matching
 // SchemaVersion, and the renewals journal the renewal path writes to.
 func TestSchemaSeedMatchesVersionConstant(t *testing.T) {
-	s, _ := postgresFixture(t, nil)
+	s, _ := postgresFixture(t)
 	ctx := context.Background()
 	var version int
 	if err := s.db.QueryRowContext(ctx, `SELECT version FROM schema_version`).Scan(&version); err != nil {
@@ -76,7 +76,7 @@ func TestOpenRefusesForeignSchemaVersion(t *testing.T) {
 		foreign int
 	}{{"older", 68}, {"newer", 70}} {
 		t.Run(test.name, func(t *testing.T) {
-			s, dsn := postgresFixture(t, nil)
+			s, dsn := postgresFixture(t)
 			ctx := context.Background()
 			if _, err := s.db.ExecContext(ctx, `UPDATE schema_version SET version=$1`, test.foreign); err != nil {
 				t.Fatal(err)
@@ -107,7 +107,7 @@ func TestOpenRefusesForeignSchemaVersion(t *testing.T) {
 // expired setup, and a second open is a clean no-op. Only isolated
 // copies are ever degraded here; the live database is never touched.
 func TestOpenMigratesRetained68To69(t *testing.T) {
-	s, dsn := postgresFixture(t, nil)
+	s, dsn := postgresFixture(t)
 	ctx := context.Background()
 	setup := application.SetupRecord{
 		ID:              "a" + strings.Repeat("6", 24),
@@ -176,7 +176,7 @@ func TestOpenMigratesRetained68To69(t *testing.T) {
 // Only isolated copies are ever degraded here; the live database is never
 // touched.
 func TestConcurrentOpensMigrateRetained68Once(t *testing.T) {
-	s, dsn := postgresFixture(t, nil)
+	s, dsn := postgresFixture(t)
 	ctx := context.Background()
 	setup := application.SetupRecord{
 		ID:              "a" + strings.Repeat("8", 24),
@@ -249,7 +249,7 @@ func TestConcurrentOpensMigrateRetained68Once(t *testing.T) {
 // CREATE fails with a genuine duplicate-table error — the exact shape of a
 // cross-process lost upgrade race.
 func TestLostUpgradeRaceRereadAcceptsCommitted69(t *testing.T) {
-	s, dsn := postgresFixture(t, nil)
+	s, dsn := postgresFixture(t)
 	ctx := context.Background()
 	if _, err := s.db.ExecContext(ctx, `DROP TABLE application_setup_renewals`); err != nil {
 		t.Fatal(err)
@@ -296,7 +296,7 @@ func TestLostUpgradeRaceRereadAcceptsCommitted69(t *testing.T) {
 // conflicting object holding the journal name, the CREATE TABLE fails
 // inside the open transaction and the retained rows and marker survive.
 func TestFailedMigrationLeaves68Intact(t *testing.T) {
-	s, dsn := postgresFixture(t, nil)
+	s, dsn := postgresFixture(t)
 	ctx := context.Background()
 	setup := application.SetupRecord{
 		ID:              "a" + strings.Repeat("7", 24),

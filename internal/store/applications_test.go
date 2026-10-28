@@ -17,7 +17,7 @@ func applicationFixture() application.Record {
 }
 
 func TestApplicationRestorePreservesIdentityAndDurablePendingState(t *testing.T) {
-	s, dsn := postgresFixture(t, nil)
+	s, dsn := postgresFixture(t)
 	ctx := context.Background()
 	record := applicationFixture()
 	if err := s.CreateApplication(ctx, record); err != nil {
@@ -104,7 +104,7 @@ func TestApplicationRestorePreservesIdentityAndDurablePendingState(t *testing.T)
 }
 
 func TestApplicationProjectAssociationNeedsTheApplicationAdministrator(t *testing.T) {
-	s, _ := postgresFixture(t, nil)
+	s, _ := postgresFixture(t)
 	ctx := context.Background()
 	record := applicationFixture()
 	if err := s.CreateApplication(ctx, record); err != nil {
@@ -126,7 +126,7 @@ func TestApplicationProjectAssociationNeedsTheApplicationAdministrator(t *testin
 }
 
 func TestApplicationPersistenceAndAdministration(t *testing.T) {
-	s, dsn := postgresFixture(t, nil)
+	s, dsn := postgresFixture(t)
 	ctx := context.Background()
 	r := applicationFixture()
 	if err := s.CreateApplication(ctx, r); err != nil {
@@ -173,7 +173,7 @@ func TestApplicationPersistenceAndAdministration(t *testing.T) {
 }
 
 func TestApplicationReplacementCASAndHistory(t *testing.T) {
-	s, _ := postgresFixture(t, nil)
+	s, _ := postgresFixture(t)
 	ctx := context.Background()
 	r := applicationFixture()
 	if err := s.CreateApplication(ctx, r); err != nil {
@@ -241,7 +241,7 @@ func setupRenewalFixture(tag string, port int, expiresAt int64) application.Setu
 }
 
 func TestApplicationSetupRenewalPreservesReservation(t *testing.T) {
-	s, _ := postgresFixture(t, nil)
+	s, _ := postgresFixture(t)
 	ctx := context.Background()
 	now := time.Now().Unix()
 
@@ -319,7 +319,7 @@ func TestApplicationSetupRenewalPreservesReservation(t *testing.T) {
 }
 
 func TestApplicationEndpointAndDataIsolation(t *testing.T) {
-	s, _ := postgresFixture(t, nil)
+	s, _ := postgresFixture(t)
 	ctx := context.Background()
 	r := applicationFixture()
 	if err := s.CreateApplication(ctx, r); err != nil {

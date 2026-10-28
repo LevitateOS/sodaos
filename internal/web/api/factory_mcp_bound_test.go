@@ -331,7 +331,7 @@ func TestFactoryBoundCurrentContextUsesRecordedScopeAndState(t *testing.T) {
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), 45*time.Second)
 	defer cancel()
-	st, dsn, cleanup, err := store.OpenEphemeral(ctx, admin, nil)
+	st, dsn, cleanup, err := store.OpenEphemeral(ctx, admin)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -629,10 +629,12 @@ func TestFactoryBoundCurrentContextUsesRecordedScopeAndState(t *testing.T) {
 	manifestJSON, _ := json.Marshal(manifest)
 	approvedCheck := "#!/bin/sh\n" + factory.ApprovedAppCheckPrefix + string(manifestJSON) + "\ncan test --artifact checked.can-artifact.json\n"
 	assertions := strings.Repeat("expect saved.title == requested.title // retained UTF-8: ✓\n", 100)
-	verificationEvidence = factory.CurrentVerificationEvidence{Manifest: manifest, ManifestDigest: manifest.Digest(), PreparationDigest: strings.Repeat("b", 64), SourceCommit: a.SourceCommit,
+	verificationEvidence = factory.CurrentVerificationEvidence{
+		Manifest: manifest, ManifestDigest: manifest.Digest(), PreparationDigest: strings.Repeat("b", 64), SourceCommit: a.SourceCommit,
 		Receipt:         factory.VerificationCheckReceipt{CheckID: factory.ApprovedAppCheckID, Outcome: factory.CheckReceiptPassed, ArtifactDigest: factory.MCPInputDigest([]byte("private native output")), LogExcerpt: "Native approved application check passed"},
 		ApprovedContext: factory.NewApprovedVerificationContext(project.FactoryPreparationContext{Project: cap.Project, ID: "f" + strings.Repeat("3", 24), Role: project.RoleReviewer, SourceCommit: a.SourceCommit, ApprovedBase: a.SourceCommit, DiffBase: a.SourceCommit, Candidate: a.SourceCommit, Setup: []byte("#!/bin/sh\ncan check app.can\n"), Check: []byte(approvedCheck), Files: []project.FactoryContextFile{{Path: "app.can", Content: []byte(assertions)}}}),
-		State:           project.PrepareState{Output: "private native output"}}
+		State:           project.PrepareState{Output: "private native output"},
+	}
 	pilot := a
 	pilot.ID, pilot.Run = factory.NewID(), factory.NewID()
 	pilot.AttemptRoot, pilot.PublicationAssignment = pilot.ID, ""
@@ -975,8 +977,10 @@ func TestFactoryBoundCurrentContextUsesRecordedScopeAndState(t *testing.T) {
 	legacyDeclined := factory.ProductIdea{ID: "d" + strings.Repeat("e", 24), Description: "Delete tasks automatically", Consequence: "Old tasks vanish", Decision: "decline", Source: "requested", Provenance: "human", Actor: 7}
 	legacyTask := factory.IntentTask{Key: "d" + strings.Repeat("f", 24), Objective: "Persist tasks", Outcomes: []string{"The saved title persists"}, IdeaIDs: []string{legacyAccept.ID}}
 	legacyCheck := factory.IntentTask{Key: "d" + strings.Repeat("0", 24), Objective: "Read back saved titles", Outcomes: []string{"The saved title is visible"}, IdeaIDs: []string{legacyEdit.ID}}
-	legacyAccepted := factory.IntentRevision{ID: "d" + strings.Repeat("1", 24), Intent: "d" + strings.Repeat("2", 24), Owner: 7, Repository: 7, Objective: "Task app", State: "accepted", MaxIssues: 2, CreatedUnix: 1,
-		Ideas: []factory.ProductIdea{legacyAccept, legacyEdit, legacyPending, legacyDeclined}, Tasks: []factory.IntentTask{legacyTask, legacyCheck}}
+	legacyAccepted := factory.IntentRevision{
+		ID: "d" + strings.Repeat("1", 24), Intent: "d" + strings.Repeat("2", 24), Owner: 7, Repository: 7, Objective: "Task app", State: "accepted", MaxIssues: 2, CreatedUnix: 1,
+		Ideas: []factory.ProductIdea{legacyAccept, legacyEdit, legacyPending, legacyDeclined}, Tasks: []factory.IntentTask{legacyTask, legacyCheck},
+	}
 	if err := st.SaveIntentRevision(ctx, legacyAccepted); err != nil {
 		t.Fatal(err)
 	}
