@@ -5,24 +5,8 @@ use crate::sha256;
 
 use super::{
     err_denied, now_unix, AcquireRequest, Binding, Delivery, Lease, Service, TerminalStart,
-    IDENTITY_LAUNCH_PATH, KIND_FACTORY, KIND_TERMINAL, PROVIDER_CODEX, PROVIDER_MUSE,
-    SCOPE_MUSE_PROJECT,
+    KIND_TERMINAL, PROVIDER_CODEX,
 };
-
-/// `validIdentityRequest` over pre-parsed request fields.
-pub fn valid_identity_request(
-    method: &str,
-    raw_query: &str,
-    force_query: bool,
-    raw_path: &str,
-    origin_count: usize,
-) -> bool {
-    method == "POST"
-        && raw_query.is_empty()
-        && !force_query
-        && raw_path.is_empty()
-        && origin_count == 0
-}
 
 /// Broker custody surface the identity routes need.
 pub trait IdentityBroker {
@@ -107,37 +91,6 @@ pub fn identity_launch<B: IdentityBroker, E: Executor>(
         return Err(err);
     }
     Ok(delivery.lease)
-}
-
-/// `Daemon.identityOperation` dispatch target.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum IdentityRoute {
-    Launch,
-    Factory,
-    Muse,
-    Terminal,
-}
-
-/// Classify one identity operation: launch path, factory kind, live
-/// muse-project binding, or plain terminal operation.
-pub fn identity_route(path: &str, lease: &Lease, muse_available: bool) -> IdentityRoute {
-    if path == IDENTITY_LAUNCH_PATH {
-        return IdentityRoute::Launch;
-    }
-    if lease.kind == KIND_FACTORY {
-        return IdentityRoute::Factory;
-    }
-    let muse_bound = lease.provider_id == PROVIDER_MUSE
-        && lease
-            .binding
-            .as_ref()
-            .map(|b| b.scope == SCOPE_MUSE_PROJECT)
-            .unwrap_or(false);
-    if muse_bound && muse_available {
-        IdentityRoute::Muse
-    } else {
-        IdentityRoute::Terminal
-    }
 }
 
 /// Operation word carried after `/identity/` (`validate`, `stop`, ...).

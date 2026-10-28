@@ -150,17 +150,6 @@ impl<W: Write + AsRawFd, R: Read + AsRawFd> Connection<W, R> {
         self.notify("initialized", deadline)
     }
 
-    pub fn start_session(
-        &mut self,
-        command_id: &str,
-        workspace: &str,
-        model: &str,
-        deadline: Instant,
-        observe: &mut impl FnMut(Notice) -> Result<(), Error>,
-    ) -> Result<SessionSnapshot, Error> {
-        self.start_session_config(command_id, workspace, model, None, deadline, observe)
-    }
-
     /// The fixed root-staged Factory relay joins the existing session. No
     /// caller supplied executable, network endpoint or credential is accepted.
     /// The per-run staged settings.json is the single authoritative Factory
@@ -186,7 +175,7 @@ impl<W: Write + AsRawFd, R: Read + AsRawFd> Connection<W, R> {
         // session/start proceeds regardless of the recorded sessionMcp
         // grant. A relay the daemon cannot start fails at the daemon with
         // its structured reason, which the caller propagates unchanged.
-        self.start_session_config(command_id, workspace, model, None, deadline, observe)
+        self.start_session_config(command_id, workspace, model, deadline, observe)
     }
 
     fn start_session_config(
@@ -194,7 +183,6 @@ impl<W: Write + AsRawFd, R: Read + AsRawFd> Connection<W, R> {
         command_id: &str,
         workspace: &str,
         model: &str,
-        config: Option<Value>,
         deadline: Instant,
         observe: &mut impl FnMut(Notice) -> Result<(), Error>,
     ) -> Result<SessionSnapshot, Error> {
@@ -212,9 +200,6 @@ impl<W: Write + AsRawFd, R: Read + AsRawFd> Connection<W, R> {
             "providerId":"meta","approvalMode":"allowAll"});
         if !model.is_empty() {
             params["modelId"] = model.into();
-        }
-        if let Some(config) = config {
-            params["config"] = config;
         }
         let result = self.call("session/start", params, deadline, observe)?;
         let native = result
@@ -277,20 +262,6 @@ impl<W: Write + AsRawFd, R: Read + AsRawFd> Connection<W, R> {
         Ok(result)
     }
 
-    pub fn log_streams(
-        &mut self,
-        id: &str,
-        deadline: Instant,
-        observe: &mut impl FnMut(Notice) -> Result<(), Error>,
-    ) -> Result<Vec<Value>, Error> {
-        let result = self.call("log/streams", json!({"sessionId":id}), deadline, observe)?;
-        let streams = result["streams"]
-            .as_array()
-            .filter(|rows| rows.len() <= 256)
-            .ok_or(Error::Invalid("native log streams"))?;
-        Ok(streams.clone())
-    }
-
     pub fn log_page(
         &mut self,
         id: &str,
@@ -304,32 +275,6 @@ impl<W: Write + AsRawFd, R: Read + AsRawFd> Connection<W, R> {
             params["from"] = after.clone();
         }
         self.call("log/page", params, deadline, observe)
-    }
-
-    pub fn read_session(
-        &mut self,
-        deadline: Instant,
-        observe: &mut impl FnMut(Notice) -> Result<(), Error>,
-    ) -> Result<SessionSnapshot, Error> {
-        let id = self
-            .session
-            .clone()
-            .ok_or(Error::Invalid("native session absent"))?;
-        let result = self.call(
-            "session/read",
-            json!({"sessionId":id,"excludeItems":true}),
-            deadline,
-            observe,
-        )?;
-        let state = snapshot(
-            result
-                .get("session")
-                .ok_or(Error::Invalid("native session reply"))?,
-        )?;
-        if state.id != id {
-            return Err(Error::Invalid("native session binding"));
-        }
-        Ok(state)
     }
 
     pub fn start_turn(

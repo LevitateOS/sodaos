@@ -37,7 +37,6 @@ mod artifacts;
 mod candidate;
 mod checkpoint;
 pub(crate) use checkpoint::PrivateState;
-mod confirmation;
 mod deadline;
 mod events;
 mod execution_state;
@@ -55,7 +54,6 @@ mod run;
 mod state;
 mod stop;
 mod task_events;
-mod tasks;
 mod verification;
 mod verification_execution;
 pub use verification::{
@@ -66,14 +64,6 @@ pub use verification::{
 pub use self::candidate::CANDIDATE_INSPECT_SCRIPT;
 pub use self::checkpoint::{
     CheckpointCheckResult, FactoryTaskCheckpoint, FactoryTaskCheckpointState,
-};
-pub use self::confirmation::{
-    confirm_factory_candidate_inspect, confirm_factory_export, confirm_factory_harness,
-    confirm_factory_inspect, confirm_factory_launch, confirm_factory_output, confirm_factory_stop,
-    confirm_factory_takeover, confirm_factory_task_events, confirm_hold_preparation,
-    confirm_inspect_preparation, confirm_prepare, confirm_prepare_candidate,
-    confirm_stop_preparation, factory_candidate_status_error, factory_export_status_error,
-    factory_not_found_status, factory_output_status_error,
 };
 pub use self::events::{
     task_event_terminal_type, valid_task_event_type, valid_task_key, EventJournal,
@@ -96,17 +86,16 @@ pub use self::run::{
     execution_manifest_required, factory_run_paths, factory_unit_name, max_prompt_for_phase,
     takeover_destination, takeover_source, valid_execution_phase, valid_factory_phase,
     valid_factory_run_id, valid_harness_family, valid_harness_version, FactoryError, FactoryLaunch,
-    FactoryMCPBinding, FactoryRun, DEFAULT_TASK_CHILDREN, ERR_RUN_NOT_FOUND, ERR_RUN_STALE,
-    EXECUTION_CORRECT, EXECUTION_DECOMPOSE, EXECUTION_IMPLEMENT, EXECUTION_INVESTIGATE,
-    EXECUTION_REASSESS, EXECUTION_REPAIR, EXECUTION_REVIEW, EXECUTION_TERMINAL, EXECUTION_VERIFY,
-    FACTORY_APPROVED, FACTORY_COMPLETED, FACTORY_FAILED, FACTORY_HARNESS_CODEX,
-    FACTORY_HARNESS_MUSE, FACTORY_RUNNING, FACTORY_STATE_ROOT, FACTORY_STOPPED, FACTORY_UNCERTAIN,
-    IDENTITY_FACTORY, MAX_EXECUTION_MANIFEST, MAX_FACTORY_EXPORT_BUNDLE, MAX_FACTORY_OUTPUT,
+    FactoryMCPBinding, FactoryRun, DEFAULT_TASK_CHILDREN, EXECUTION_CORRECT, EXECUTION_DECOMPOSE,
+    EXECUTION_IMPLEMENT, EXECUTION_INVESTIGATE, EXECUTION_REASSESS, EXECUTION_REPAIR,
+    EXECUTION_REVIEW, EXECUTION_TERMINAL, EXECUTION_VERIFY, FACTORY_APPROVED, FACTORY_COMPLETED,
+    FACTORY_FAILED, FACTORY_HARNESS_CODEX, FACTORY_HARNESS_MUSE, FACTORY_RUNNING,
+    FACTORY_STATE_ROOT, FACTORY_STOPPED, FACTORY_UNCERTAIN, IDENTITY_FACTORY,
+    MAX_EXECUTION_MANIFEST, MAX_FACTORY_EXPORT_BUNDLE, MAX_FACTORY_OUTPUT,
     MAX_FACTORY_OUTPUT_OFFSET, MAX_FACTORY_OUTPUT_READ, MAX_FACTORY_OUTPUT_WINDOW,
     MAX_FACTORY_PROMPT, MAX_REASSESS_PROMPT, MAX_TASK_CHILDREN, MIN_TASK_CHILDREN,
 };
 pub use self::state::{FactoryHarnessPin, FactoryState, OutputSlice};
-pub use self::tasks::TaskRunner;
 
 // ---------- supervised-boundary seams ----------
 

@@ -20,9 +20,9 @@ pub use self::profile::{decode_profile, Create, Profile};
 pub const ROCKY_HEADLESS: &str = "rocky-headless";
 
 // Exact `unicode.Cc` / `unicode.Cf` ranges from the pinned Go toolchain
-// (go1.26.7), used by the OS-release name check.
-const GO_CC: &[(u32, u32)] = &[(0x0, 0x1F), (0x7F, 0x9F)];
-const GO_CF: &[(u32, u32)] = &[
+// (go1.26.7), used by the OS-release and terminal name checks.
+pub(crate) const GO_CC: &[(u32, u32)] = &[(0x0, 0x1F), (0x7F, 0x9F)];
+pub(crate) const GO_CF: &[(u32, u32)] = &[
     (0xAD, 0xAD),
     (0x600, 0x605),
     (0x61C, 0x61C),
@@ -46,7 +46,7 @@ const GO_CF: &[(u32, u32)] = &[
     (0xE0020, 0xE007F),
 ];
 
-fn in_ranges(table: &[(u32, u32)], c: char) -> bool {
+pub(crate) fn in_ranges(table: &[(u32, u32)], c: char) -> bool {
     let v = c as u32;
     table.iter().any(|&(lo, hi)| v >= lo && v <= hi)
 }

@@ -74,9 +74,7 @@ pub struct ProviderSnapshot {
 pub fn fresh_provider_snapshot() -> Result<ProviderSnapshot, String> {
     // Shared fresh authority: read, refresh when the check is due, gate. An
     // indefinitely old `Current` performs the upstream check here instead of
-    // launching stale bytes; `Unknown` or known-newer fails closed. This
-    // reuses the same due-check path `expected_muse_identity` uses — no
-    // third selection gate is invented.
+    // launching stale bytes; `Unknown` or known-newer fails closed.
     let first = fresh_selection().map_err(map_store_error)?;
     let root = soda_provider_tools::config::store_root();
     let (executable, token) = soda_provider_tools::resolve::resolve_pinned(
@@ -176,46 +174,6 @@ pub fn release_provider_ref(provider_digest: &str, ref_token: &str) {
     let _ = soda_provider_tools::resolve::release(&token);
 }
 
-/// Expected `(version, sha256)` for one NEW Muse execution, captured as ONE
-/// coherent admitted identity: both halves come from the same selection
-/// snapshot, and the selected bundle is verified before anything is
-/// returned. No reference is pinned here: the guest bytes are verified
-/// inside the container per execution, and old-run recovery re-resolves the
-/// exact retained digest (fail closed) through [`retained_muse_executable`].
-pub fn expected_muse_identity(
-    configured_version: &str,
-    configured_sha256: &str,
-) -> Result<(String, String), String> {
-    if !configured_sha256.is_empty() {
-        if configured_version.is_empty() {
-            return Err(terminal::err_denied());
-        }
-        return Ok((
-            configured_version.to_string(),
-            configured_sha256.to_string(),
-        ));
-    }
-    if !configured_version.is_empty() {
-        // A version without a digest cannot identify exact bytes; this is a
-        // misconfiguration, never a reason to fall back to a stale pin.
-        return Err(terminal::err_denied());
-    }
-    // ONE snapshot: digest and version are paired here, never re-read.
-    let selection = fresh_selection().map_err(map_store_error)?;
-    let digest = selection.release.digest.clone();
-    let version = selection.release.version.clone();
-    // Fail closed when the selected bundle no longer verifies, matching the
-    // gate the shared resolver applies before returning an executable.
-    let root = soda_provider_tools::config::store_root();
-    soda_provider_tools::store::verify_bundle(&root, soda_provider_tools::Provider::Muse, &digest)
-        .map_err(|_| terminal::err_denied())?;
-    debug_assert_eq!(
-        bundle_digest(&root, &selection.executable(&root)).as_deref(),
-        Some(digest.as_str())
-    );
-    Ok((version, digest))
-}
-
 /// Exact retained executable for EXISTING work by bundle digest (T00
 /// `resolve_existing`). Fails closed when that bundle is no longer
 /// admitted; callers must not fall back to the current selection here.
@@ -225,28 +183,6 @@ pub fn retained_muse_executable(digest: &str) -> Result<PathBuf, String> {
     }
     soda_provider_tools::resolve::resolve_existing(soda_provider_tools::Provider::Muse, digest)
         .map_err(|_| terminal::err_denied())
-}
-
-/// Bundle digest for an admitted executable
-/// `<root>/bundles/muse/<digest>/...`. Returns `None` when the path is not
-/// inside the configured store layout, mirroring the broker's binding so a
-/// non-store path is never mistaken for an admitted bundle.
-fn bundle_digest(root: &std::path::Path, exe: &std::path::Path) -> Option<String> {
-    let rel = exe.strip_prefix(root).ok()?;
-    let mut parts = rel.components();
-    let bundles = parts.next()?.as_os_str().to_str()?;
-    let name = parts.next()?.as_os_str().to_str()?;
-    let digest = parts.next()?.as_os_str().to_str()?;
-    if bundles != "bundles" || name != soda_provider_tools::Provider::Muse.as_str() {
-        return None;
-    }
-    if digest.len() != 64 || !digest.bytes().all(|b| b.is_ascii_hexdigit()) {
-        return None;
-    }
-    if parts.next().is_none() {
-        return None;
-    }
-    Some(digest.to_string())
 }
 
 fn map_store_error(err: soda_provider_tools::Error) -> String {

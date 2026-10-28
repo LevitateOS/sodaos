@@ -42,17 +42,6 @@ impl<W: Write + AsRawFd, R: Read + AsRawFd> Connection<W, R> {
         self.notify("initialized", deadline)
     }
 
-    pub fn start_codex_thread(
-        &mut self,
-        workspace: &str,
-        model: &str,
-        instructions: &str,
-        deadline: Instant,
-        observe: &mut impl FnMut(Notice) -> Result<(), Error>,
-    ) -> Result<CodexThread, Error> {
-        self.start_codex_thread_tools(workspace, model, instructions, &[], deadline, observe)
-    }
-
     pub fn start_codex_thread_tools(
         &mut self,
         workspace: &str,
@@ -97,33 +86,6 @@ impl<W: Write + AsRawFd, R: Read + AsRawFd> Connection<W, R> {
             id,
             model: resolved,
         })
-    }
-
-    pub fn read_codex_thread(
-        &mut self,
-        deadline: Instant,
-        observe: &mut impl FnMut(Notice) -> Result<(), Error>,
-    ) -> Result<String, Error> {
-        let id = self
-            .session
-            .clone()
-            .ok_or(Error::Invalid("native Codex thread absent"))?;
-        let result = self.call(
-            "thread/read",
-            json!({"threadId":id,"includeTurns":false}),
-            deadline,
-            observe,
-        )?;
-        let returned = text(
-            result
-                .get("thread")
-                .ok_or(Error::Invalid("native Codex thread reply"))?,
-            "id",
-        )?;
-        if returned != id {
-            return Err(Error::Invalid("native Codex thread binding"));
-        }
-        Ok(returned)
     }
 
     pub fn start_codex_turn(

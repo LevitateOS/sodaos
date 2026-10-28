@@ -1475,22 +1475,6 @@ fn valid_lifecycle_operation(s: &str) -> bool {
     s == LIFECYCLE_OBSERVE || s == LIFECYCLE_ACTIVATE || s == LIFECYCLE_DEACTIVATE
 }
 
-fn valid_lifecycle_state(s: &str) -> bool {
-    s == LIFECYCLE_RUNNING || s == LIFECYCLE_STOPPED || s == LIFECYCLE_UNKNOWN
-}
-
-fn valid_lifecycle_code(s: &str) -> bool {
-    matches!(
-        s,
-        "unavailable"
-            | "unsupported"
-            | "identity_changed"
-            | "operation_in_progress"
-            | "unconfirmed"
-            | "effect_failed"
-    )
-}
-
 /// Strict-decode one lifecycle call body: 16 KiB cap, unknown fields,
 /// duplicate keys and trailing data rejected. Structural validation is
 /// separate so the mux can distinguish malformed (400) from mismatched.
@@ -1520,56 +1504,6 @@ pub fn validate_lifecycle_call(call: &LifecycleCall, now_unix: i64) -> Result<()
         || call.deadline_unix <= now_unix
     {
         return Err(err_invalid());
-    }
-    Ok(())
-}
-
-/// Observation rules mirroring the SDK validator against the call it
-/// answers: exact tuple echo, known state, effect generation present for
-/// running and null otherwise (an older recorded generation stays valid
-/// cleanup evidence, never required equal), admission only with running
-/// and no error, bounded detail, bounded error code and message.
-pub fn validate_lifecycle_observation(
-    observation: &LifecycleObservation,
-    call: &LifecycleCall,
-) -> Result<(), String> {
-    let echoed = LifecycleCall {
-        controller_id: observation.controller_id.clone(),
-        controller_instance_id: observation.controller_instance_id.clone(),
-        package_id: observation.package_id.clone(),
-        package_version: observation.package_version.clone(),
-        package_sha256: observation.package_sha256.clone(),
-        installation_id: observation.installation_id.clone(),
-        generation: observation.generation.clone(),
-        operation: observation.operation.clone(),
-        deadline_unix: observation.deadline_unix,
-    };
-    if echoed != *call || !valid_lifecycle_state(&observation.state) {
-        return Err(err_invalid());
-    }
-    match observation.state.as_str() {
-        LIFECYCLE_RUNNING => {
-            let generation = match observation.effect_generation.as_deref() {
-                Some(generation) => generation,
-                None => return Err(err_invalid()),
-            };
-            if !valid_lifecycle_generation(generation) || observation.error.is_some() {
-                return Err(err_invalid());
-            }
-        }
-        _ => {
-            if observation.effect_generation.is_some() || observation.admission_ready {
-                return Err(err_invalid());
-            }
-        }
-    }
-    if observation.detail.len() > 256 {
-        return Err(err_invalid());
-    }
-    if let Some(error) = observation.error.as_ref() {
-        if !valid_lifecycle_code(&error.code) || error.message.is_empty() {
-            return Err(err_invalid());
-        }
     }
     Ok(())
 }

@@ -15,10 +15,7 @@
 
 use std::time::{Duration, Instant};
 
-use super::native::{
-    factory_unit_name_or_denied, harness_install_script, reserve_run_argv, shell_quote,
-    systemd_escape,
-};
+use super::native::{factory_unit_name_or_denied, harness_install_script, shell_quote};
 use super::run::{
     max_staging_prompt_for_phase, valid_factory_role, valid_factory_run_id, valid_harness_version,
     valid_preparation_id, FACTORY_SCOPE_CODEX,
@@ -107,35 +104,6 @@ pub fn factory_codex_paths(run: &FactoryRun) -> Result<FactoryCodexPaths, String
     })
 }
 
-/// `factorySupervisor`: marker-gated fixed Codex entrypoint. Golden-pinned
-/// against the Go output byte for byte.
-pub fn factory_supervisor(p: &FactoryCodexPaths, guest: &str, model: &str) -> String {
-    let mut command = format!(
-        "{} exec --color never --sandbox danger-full-access --skip-git-repo-check --config {}",
-        shell_quote(guest),
-        shell_quote("model_reasoning_effort=\"low\"")
-    );
-    if !model.is_empty() {
-        command.push_str(&format!(" --model {}", shell_quote(model)));
-    }
-    command.push_str(&format!(
-        " --output-last-message {} - <{}",
-        shell_quote(&p.output),
-        shell_quote(&p.prompt)
-    ));
-    let steps = [
-        format!("RUNDIR={}", shell_quote(&p.run_dir)),
-        "exec >\"$RUNDIR/stdout.log\" 2>&1".to_string(),
-        "STAT=$(cat /proc/$$/stat); REST=${STAT##*)}; set -- $REST; echo \"$$ ${20}\" >\"$RUNDIR/supervisor.pid\"".to_string(),
-        "fail() { echo \"$1\" >\"$RUNDIR/exit\"; exit \"$1\"; }".to_string(),
-        "i=0; while [ ! -f \"$RUNDIR/marker\" ]; do [ -f \"$RUNDIR/stop\" ] && fail 44; i=$((i+1)); [ \"$i\" -gt 600 ] && fail 42; sleep 1; done".to_string(),
-        "mv \"$RUNDIR/marker\" \"$RUNDIR/started\" || fail 43".to_string(),
-        command,
-        "CODE=$?; echo \"$CODE\" >\"$RUNDIR/exit\"; exit \"$CODE\"".to_string(),
-    ];
-    steps.join("\n") + "\n"
-}
-
 /// `factoryCodexBinding`: supervised factory-Codex binding check plus
 /// derived run paths. The recorded credential root must equal the derived
 /// run directory. Family policy (login, generation) wraps the shared
@@ -175,43 +143,6 @@ pub fn factory_codex_binding(lease: &Lease) -> Result<FactoryCodexPaths, String>
 }
 
 // ---------- argv builders ----------
-
-/// `FactoryCodexReserve` podman-supervisor argv (the unit's exec payload).
-pub fn reserve_exec_argv(
-    container: &str,
-    run: &FactoryRun,
-    p: &FactoryCodexPaths,
-    guest: &str,
-) -> Vec<String> {
-    vec![
-        "--remote=false".to_string(),
-        "exec".to_string(),
-        "--user".to_string(),
-        run.role.clone(),
-        "--workdir".to_string(),
-        p.checkout.clone(),
-        "--env".to_string(),
-        format!("HOME={}", p.home),
-        "--env".to_string(),
-        format!("CODEX_HOME={}", p.codex),
-        "--env".to_string(),
-        "TERM=dumb".to_string(),
-        "--env".to_string(),
-        format!("GIT_AUTHOR_NAME={}", run.role),
-        "--env".to_string(),
-        format!("GIT_AUTHOR_EMAIL={}@localhost", run.role),
-        "--env".to_string(),
-        format!("GIT_COMMITTER_NAME={}", run.role),
-        "--env".to_string(),
-        format!("GIT_COMMITTER_EMAIL={}@localhost", run.role),
-        container.to_string(),
-        "/usr/bin/setsid".to_string(),
-        "--wait".to_string(),
-        "/usr/bin/sh".to_string(),
-        "-c".to_string(),
-        systemd_escape(&factory_supervisor(p, guest, &run.model)),
-    ]
-}
 
 /// `factoryCodexSetup` directory-preparation script.
 pub fn codex_setup_script(p: &FactoryCodexPaths, uid: i64, gid: i64) -> String {
@@ -256,21 +187,11 @@ impl<E: Executor> Service<E> {
         self.factory_attest_live(&lease.project_id, binding, &lease.execution_id, deadline)?;
         self.factory_stage_file(&binding.project, binding, &paths.output, output, deadline)
     }
-    /// `Service.FactoryCodexReserve`: prepare run directories, stage the
-    /// bound exact bundle, start the waiting supervisor unit. No
-    /// credentials. Staging uses only the bound package path and executable
-    /// digest; the startup-configured harness path/pin is never consulted.
-    pub fn factory_codex_reserve(
-        &self,
-        run: &FactoryRun,
-        lease: &Lease,
-        bound: &super::bound::BoundBundle,
-        max_secs: i64,
-        deadline: Instant,
-    ) -> Result<(Binding, FactoryCodexPaths), String> {
-        self.factory_codex_reserve_with_channels(run, lease, bound, max_secs, None, deadline)
-    }
-
+    /// `Service.FactoryCodexReserve` over the controlled native transport:
+    /// prepare run directories, stage the bound exact bundle, start the
+    /// waiting supervisor unit. No credentials. Staging uses only the bound
+    /// package path and executable digest; the startup-configured harness
+    /// path/pin is never consulted.
     pub fn factory_codex_controlled_reserve(
         &self,
         run: &FactoryRun,
@@ -278,25 +199,6 @@ impl<E: Executor> Service<E> {
         bound: &super::bound::BoundBundle,
         max_secs: i64,
         channels: &super::native_io::NativeChannels,
-        deadline: Instant,
-    ) -> Result<(Binding, FactoryCodexPaths), String> {
-        self.factory_codex_reserve_with_channels(
-            run,
-            lease,
-            bound,
-            max_secs,
-            Some(channels),
-            deadline,
-        )
-    }
-
-    fn factory_codex_reserve_with_channels(
-        &self,
-        run: &FactoryRun,
-        lease: &Lease,
-        bound: &super::bound::BoundBundle,
-        max_secs: i64,
-        channels: Option<&super::native_io::NativeChannels>,
         deadline: Instant,
     ) -> Result<(Binding, FactoryCodexPaths), String> {
         let mut p = factory_codex_paths(run)?;
@@ -316,20 +218,11 @@ impl<E: Executor> Service<E> {
         self.factory_codex_setup(&container, run, &p, uid, gid, deadline)?;
         let guest = self.factory_codex_stage(&container, bound, deadline)?;
         p.native_profile = self.factory_stage_codex_catalog(&container, run, deadline)?;
-        if p.native_profile.is_some() && channels.is_none() {
-            return Err("configured native Codex profile requires controlled transport".into());
-        }
         let unit = factory_unit_name_or_denied(&run.id)?;
-        let mut args = if let Some(channels) = channels {
-            super::codex_control::reserve_argv(&unit, max_secs, channels)
-        } else {
-            reserve_run_argv(&unit, max_secs)
-        };
-        args.extend(if channels.is_some() {
-            super::codex_control::exec_argv(&container, run, &p, &guest, max_secs)
-        } else {
-            reserve_exec_argv(&container, run, &p, &guest)
-        });
+        let mut args = super::codex_control::reserve_argv(&unit, max_secs, channels);
+        args.extend(super::codex_control::exec_argv(
+            &container, run, &p, &guest, max_secs,
+        ));
         if self.factory_systemd_run(&args, deadline).is_err() {
             return Err("factory unit start unconfirmed".to_string());
         }

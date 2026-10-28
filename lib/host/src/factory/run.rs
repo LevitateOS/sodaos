@@ -120,11 +120,6 @@ pub const IDENTITY_FACTORY: &str = "factory";
 /// Terminal broker execution state meaning custody settled elsewhere.
 pub const EXECUTION_TERMINAL: &str = "terminal";
 
-/// Client-side unknown-run error (`host.ErrRunNotFound`).
-pub const ERR_RUN_NOT_FOUND: &str = "factory run not found";
-/// Client-side incarnation-changed error (`host.ErrRunStale`).
-pub const ERR_RUN_STALE: &str = "factory run incarnation changed";
-
 /// Retry bound for post-expiry retirement, mirroring
 /// `factoryCleanupTimeout`: stop, credential custody and receipt work run
 /// under a fresh 60s deadline detached from the expired operation parent.

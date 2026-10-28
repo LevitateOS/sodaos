@@ -27,7 +27,6 @@ use serde::Deserialize;
 use std::fmt;
 
 pub mod admission;
-mod confirmation;
 mod connection;
 mod create;
 mod executor;
@@ -35,10 +34,6 @@ mod inspect;
 mod os;
 mod profile;
 
-pub use self::confirmation::{
-    confirm_access_keys, confirm_lifecycle, confirm_observe_os, confirm_resolve_profile,
-    valid_address,
-};
 // `muse_serve_oracle` compiles this root through a private `#[path]` copy
 // that never runs a restart; the re-export serves the real library
 // (`tailnet/forgejo.rs`).

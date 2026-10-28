@@ -1,8 +1,8 @@
-use super::commands::{muse_controlled_argv, muse_exec_argv, muse_setup_script};
+use super::commands::{muse_controlled_argv, muse_setup_script};
 use super::paths::{factory_muse_guest, factory_muse_paths, FactoryMusePaths};
 use crate::project::Executor;
 use crate::terminal::factory::native::{
-    factory_unit_name_or_denied, harness_install_script, reserve_run_argv, shell_quote,
+    factory_unit_name_or_denied, harness_install_script, shell_quote,
 };
 use crate::terminal::factory::run::{FactoryRun, FACTORY_SCOPE_MUSE};
 use crate::terminal::{self, Lease, Service, KIND_FACTORY};
@@ -11,20 +11,9 @@ use std::time::{Duration, Instant};
 // ---------- service operations ----------
 
 impl<E: Executor> Service<E> {
-    /// `Service.FactoryCodexReserve` shape for Muse runs. Staging uses only
-    /// the bound exact bundle; the startup-configured harness path/pin is
-    /// never consulted.
-    pub fn factory_muse_reserve(
-        &self,
-        run: &FactoryRun,
-        lease: &Lease,
-        bound: &super::super::bound::BoundBundle,
-        max_secs: i64,
-        deadline: Instant,
-    ) -> Result<(crate::terminal::Binding, FactoryMusePaths), String> {
-        self.factory_muse_reserve_with_channels(run, lease, bound, max_secs, None, deadline)
-    }
-
+    /// `Service.FactoryCodexReserve` shape for Muse runs over the
+    /// controlled native transport. Staging uses only the bound exact
+    /// bundle; the startup-configured harness path/pin is never consulted.
     pub fn factory_muse_controlled_reserve(
         &self,
         run: &FactoryRun,
@@ -32,25 +21,6 @@ impl<E: Executor> Service<E> {
         bound: &super::super::bound::BoundBundle,
         max_secs: i64,
         channels: &super::super::native_io::NativeChannels,
-        deadline: Instant,
-    ) -> Result<(crate::terminal::Binding, FactoryMusePaths), String> {
-        self.factory_muse_reserve_with_channels(
-            run,
-            lease,
-            bound,
-            max_secs,
-            Some(channels),
-            deadline,
-        )
-    }
-
-    fn factory_muse_reserve_with_channels(
-        &self,
-        run: &FactoryRun,
-        lease: &Lease,
-        bound: &super::super::bound::BoundBundle,
-        max_secs: i64,
-        channels: Option<&super::super::native_io::NativeChannels>,
         deadline: Instant,
     ) -> Result<(crate::terminal::Binding, FactoryMusePaths), String> {
         let p = factory_muse_paths(run)?;
@@ -94,16 +64,8 @@ impl<E: Executor> Service<E> {
         }
         let guest = self.factory_muse_stage(&container, bound, deadline)?;
         let unit = factory_unit_name_or_denied(&run.id)?;
-        let mut args = if let Some(channels) = channels {
-            super::super::codex_control::reserve_argv(&unit, max_secs, channels)
-        } else {
-            reserve_run_argv(&unit, max_secs)
-        };
-        args.extend(if channels.is_some() {
-            muse_controlled_argv(&container, run, &p, &guest, max_secs)
-        } else {
-            muse_exec_argv(&container, run, &p, &guest)
-        });
+        let mut args = super::super::codex_control::reserve_argv(&unit, max_secs, channels);
+        args.extend(muse_controlled_argv(&container, run, &p, &guest, max_secs));
         if self.factory_systemd_run(&args, deadline).is_err() {
             return Err("factory unit start unconfirmed".to_string());
         }

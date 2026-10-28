@@ -29,8 +29,6 @@ pub const ERR_NOT_FOUND: &str = "identity execution missing";
 /// Daemon identity-route errors from `internal/host/identity.go`.
 pub const ERR_INVALID_IDENTITY_OPERATION: &str = "invalid identity operation";
 pub const ERR_IDENTITY_UNCONFIRMED: &str = "identity operation unconfirmed";
-/// `POST /identity/launch` path.
-pub const IDENTITY_LAUNCH_PATH: &str = "/identity/launch";
 /// Provider/kind discriminators from `internal/identity/types.go`.
 pub const PROVIDER_CODEX: &str = "codex";
 pub const PROVIDER_MUSE: &str = "muse";

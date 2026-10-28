@@ -26,8 +26,8 @@ mod core;
 pub use self::core::{
     err_denied, err_stale, err_uncertain, now_unix, valid_terminal_id, BROKER_RESPONSE_LIMIT,
     CREDENTIAL_LIMIT, ERR_DENIED, ERR_IDENTITY_UNCONFIRMED, ERR_INVALID_IDENTITY_OPERATION,
-    ERR_NOT_FOUND, ERR_STALE, ERR_UNCERTAIN, FRAME_LIMIT, IDENTITY_LAUNCH_PATH, KIND_FACTORY,
-    KIND_TERMINAL, PROVIDER_CODEX, PROVIDER_MUSE, SCOPE_MUSE_PROJECT, STREAM_LIMIT, TERMINAL_LIMIT,
+    ERR_NOT_FOUND, ERR_STALE, ERR_UNCERTAIN, FRAME_LIMIT, KIND_FACTORY, KIND_TERMINAL,
+    PROVIDER_CODEX, PROVIDER_MUSE, SCOPE_MUSE_PROJECT, STREAM_LIMIT, TERMINAL_LIMIT,
 };
 
 mod text;
@@ -91,7 +91,4 @@ pub use self::stream::TerminalStart;
 
 mod broker;
 
-pub use self::broker::{
-    identity_action, identity_launch, identity_route, rand_id, valid_identity_request,
-    IdentityBroker, IdentityRoute,
-};
+pub use self::broker::{identity_action, identity_launch, rand_id, IdentityBroker};

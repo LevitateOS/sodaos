@@ -11,26 +11,6 @@ use crate::project::Executor;
 use crate::terminal::{self, AcquireRequest, Binding};
 
 impl<E: Executor, H: MuseHooks> MuseRuntime<E, H> {
-    /// `MuseRuntime.verifyGuestBinary`: pinned dispatcher digest, ELF
-    /// header and command availability. Retained for explicit digest
-    /// re-verification; new executions resolve through the store snapshot
-    /// and never consult configured pins.
-    ///
-    /// The expected identity resolves on every call: pinned configuration
-    /// verifies against the pin, while empty pins resolve the fresh shared
-    /// store selection. Returns the verified bundle digest so the execution
-    /// keeps its exact bytes across refreshes. Never caches one hash.
-    pub fn verify_guest_binary(
-        &self,
-        container: &str,
-        child: &str,
-        deadline: Instant,
-    ) -> Result<String, String> {
-        let (_, expected_sha256) =
-            super::provider::expected_muse_identity(&self.binary_version, &self.binary_sha256)?;
-        self.verify_guest_digest(container, child, &expected_sha256, deadline)
-    }
-
     /// Guest-side `podman exec` prefix for nested children; empty for the
     /// normal project-namespace path.
     pub(in crate::muse) fn guest_binary_prefix(&self, child: &str) -> Vec<String> {
