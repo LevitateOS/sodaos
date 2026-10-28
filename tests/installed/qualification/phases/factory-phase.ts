@@ -148,7 +148,7 @@ export function validateFactoryBaseline(c: any, f: any) {
     f.connection?.id === c.connection.id &&
       f.connection.owner_id === c.connection.owner_id &&
       f.connection.state === 'ready' &&
-      f.connection.provider === (c.execution?.harness ?? 'codex') &&
+      f.connection.provider === (c.execution?.harness ?? 'muse') &&
       f.connection.generation === c.connection.generation,
     'factory_ready_connection_changed'
   );
@@ -338,7 +338,7 @@ export function deriveFactoryEvidence(c: any, before: any, after: any, ci: any[]
         r.role === role &&
         a.connection === c.connection.id &&
         typeof r.harness === 'string' &&
-        r.harness.startsWith((c.execution?.harness ?? 'codex') + '-') &&
+        r.harness.startsWith((c.execution?.harness ?? 'muse') + '-') &&
         (!c.execution ||
           (r.model === c.execution.model &&
             r.profile?.effort === c.execution.profile.effort &&
@@ -536,7 +536,7 @@ export async function exerciseFactoryPhase(page: any, cfg: any, _binding: any, i
   );
   for (const role of ['soda-coder', 'soda-reviewer']) {
     const actual = policy.roles[role];
-    check(actual?.harness === (c.execution?.harness ?? 'codex'), 'factory_selected_harness_required');
+    check(actual?.harness === (c.execution?.harness ?? 'muse'), 'factory_selected_harness_required');
     if (c.execution)
       check(
         actual.model === c.execution.model &&

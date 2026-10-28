@@ -102,10 +102,9 @@ export function scenarioInput(value: unknown): QualificationScenario {
         p = object(e.profile);
       keys(e, ['harness', 'model', 'profile']);
       keys(p, ['effort', 'contributor']);
-      assert(e.harness === 'codex' || e.harness === 'muse');
+      assert(e.harness === 'muse');
       assert(typeof e.model === 'string' && /^[A-Za-z0-9][A-Za-z0-9._:/-]{0,127}$/.test(e.model));
       assert(['low', 'medium', 'high', 'xhigh'].includes(String(p.effort)) && typeof p.contributor === 'boolean');
-      assert(!p.contributor || e.harness === 'muse');
     }
     const b = object(f.subject),
       l = object(f.limits);
