@@ -17,6 +17,8 @@ import {
 } from './sodaspaces-factory-feed-families.js';
 import type {FeedFamilyModel} from './sodaspaces-factory-feed-families.js';
 import {feedRolePortraits} from './sodaspaces-factory-feed-portraits.js';
+import type {SodaPlaces} from './soda-places.js';
+import type {FeedCardLinks} from './sodaspaces-factory-feed-communication.js';
 
 // Pure combined-feed presentation: the shared post shell, one registered
 // family section per entry (plans, issues, work, reviews, corrections,
@@ -36,6 +38,8 @@ export interface FeedRepositoryRef {
   readonly id: number;
   readonly path: string | undefined;
   readonly label: string;
+  /** The repository's SodaOS places, when its owner/repo name is known. */
+  readonly places?: SodaPlaces;
 }
 
 export function repositoryRef(
@@ -310,6 +314,7 @@ export interface ProductEvidenceModel {
 }
 
 export interface CommentOutcomeModel {
+  readonly factoryStatusLink?: string | undefined;
   readonly productChange?: CommentPipelineState['productChange'];
   readonly productRepository?: number;
   readonly reviewBusy?: boolean;
@@ -562,6 +567,7 @@ export function describeCommentOutcome(
     text,
     tone,
     issueLink,
+    factoryStatusLink: issueLink && repository.places ? repository.places.factoryStatus(linkIssue) : undefined,
     evidenceText: evidence?.text,
     nativeLinks: evidence?.nativeLinks ?? [],
     retryable,
@@ -694,6 +700,9 @@ export interface DiscussionModel {
   readonly outcomes: readonly CommentOutcomeModel[];
   readonly intakeText: string;
   readonly discussionLink: string | undefined;
+  readonly discussionFactoryStatus?: string | undefined;
+  /** One line until focused (the repository comment box). */
+  readonly collapsed?: boolean;
 }
 
 // describeDiscussion projects the shared fallback/discussion section.
@@ -717,6 +726,8 @@ export function describeDiscussion(
       'Submitting asks JEV to route this comment; a selected new request reaches Product Lead authoring and validated native creation. Acknowledgements stay discussion-only.',
     discussionLink:
       repository.path === undefined || !entry.issue ? undefined : `${repository.path}/issues/${entry.issue}`,
+    discussionFactoryStatus:
+      repository.path === undefined || !entry.issue ? undefined : repository.places?.factoryStatus(entry.issue),
   };
 }
 
@@ -780,6 +791,7 @@ export function renderDiscussion(model: DiscussionModel): TemplateResult {
       (outcome) => html`<div class="soda-feed-outcome">
         <p role=${outcome.tone === 'failed' ? 'alert' : 'status'}>
           ${outcome.text} ${outcome.issueLink ? html`<a href=${outcome.issueLink}>Open linked issue</a>` : ''}
+          ${outcome.factoryStatusLink ? html`<a href=${outcome.factoryStatusLink}>Factory status</a>` : ''}
           ${
             outcome.retryable
               ? html`<button type="button" class="ui button" data-comment-retry=${outcome.commentId}>
@@ -845,7 +857,7 @@ export function renderDiscussion(model: DiscussionModel): TemplateResult {
             ? html`<a class="ui button" href=${outcome.nativeLinks[0]?.href ?? ''}>Open accepted evidence</a>`
             : ''
         }
-        ${outcome.canRetry ? html`<button type="button" data-comment-revise=${outcome.commentId}>${outcome.needsClarification ? 'Answer clarification' : 'Revise or retry request'}</button>` : ''}
+        ${outcome.canRetry ? html`<button type="button" data-comment-revise=${outcome.commentId}>${outcome.needsClarification ? 'Answer clarification' : 'Edit comment and retry'}</button>` : ''}
         <details>
           <summary>Processing details</summary>
           ${outcome.sourceText ? html`<p class="soda-feed-outcome-source">${outcome.sourceText}</p>` : ''}
@@ -876,17 +888,17 @@ export function renderDiscussion(model: DiscussionModel): TemplateResult {
       model.showComposer === false
         ? ''
         : html`<label
-              >${model.compactComposer ? html`<span class="soda-visually-hidden">${model.label ?? 'Reply draft'}</span>` : (model.label ?? 'Reply draft')}
+              >${model.compactComposer || model.label === 'Comment' ? html`<span class="soda-visually-hidden">${model.label ?? 'Reply draft'}</span>` : (model.label ?? 'Reply draft')}
               <textarea
                 name="reply"
                 data-feed-draft=${model.key}
-                rows=${model.compactComposer ? '1' : '3'}
+                rows=${model.compactComposer || model.collapsed ? '1' : '3'}
                 maxlength="4000"
-                placeholder=${model.label === 'Project comment' ? 'Ask a question, share feedback, or request a change…' : 'Write a reply…'}
+                placeholder=${model.label === 'Comment' ? 'Ask a question or suggest a change' : 'Write a reply…'}
                 .value=${live(model.draft)}
               ></textarea>
             </label>
-            <p class="soda-feed-compose-actions">
+            ${model.collapsed ? '' : html`<p class="soda-feed-compose-actions">
               <button
                 type="button"
                 class="ui primary button"
@@ -896,9 +908,10 @@ export function renderDiscussion(model: DiscussionModel): TemplateResult {
               >
                 ${model.submitLabel ?? (model.compactComposer ? 'Post' : 'Submit reply')}
               </button>
-              ${model.label === 'Project comment' ? html`<span class="soda-feed-compose-hint">JEV reviews your comment and routes the next step.</span>` : ''}
+              ${model.label === 'Comment' ? html`<span class="soda-feed-compose-hint">JEV reviews your comment and routes the next step.</span>` : ''}
               ${model.discussionLink ? html`<a href=${model.discussionLink}>Open issue discussion</a>` : ''}
-            </p>`
+              ${model.discussionFactoryStatus ? html`<a href=${model.discussionFactoryStatus}>Factory status</a>` : ''}
+            </p>`}`
     }
   </section>`;
 }
@@ -980,14 +993,15 @@ export function renderFeedPost(
   model: FeedPostModel,
   replies: TemplateResult | string = '',
   request?: import('./sodaspaces-factory-feed-artifact.js').FeedArtifactRequest,
-  assetBase = ''
+  assetBase = '',
+  links: FeedCardLinks = {}
 ): TemplateResult {
   const focal =
     model.family.family === 'discussion' && !model.family.communication
       ? ''
       : model.family.family === 'fallback'
-        ? html`${renderFeedFamily(model.family, request)} ${renderWorkEvidence(model.work)}`
-        : renderFeedFamily(model.family, request);
+        ? html`${renderFeedFamily(model.family, request, links)} ${renderWorkEvidence(model.work)}`
+        : renderFeedFamily(model.family, request, links);
   return html`<article
     class="soda-feed-post"
     id=${'feed-' + model.header.key.replace(':', '-')}

@@ -33,7 +33,7 @@ export const newRequestID = 'new';
 
 /** One SodaOS place on a repository page, as parsed from or built into an address. */
 export type Place =
-  | {place: 'feed'}
+  | {place: 'feed'; post?: string}
   | {place: 'requests'}
   | {place: 'request'; request: string}
   | {place: 'app'; delivery?: string}
@@ -46,7 +46,8 @@ export type PlaceName = Place['place'];
 /** Address builders for one repository's SodaOS places. */
 export interface SodaPlaces {
   readonly slug: string;
-  feed(): string;
+  /** The Feed, or one post's card in it. */
+  feed(post?: string): string;
   requests(): string;
   /** A saved request's page. Points at the global Workspace until REQUESTS_IN_REPOSITORY. */
   request(id: string): string;
@@ -77,7 +78,7 @@ export function repositoryPlaces(prefix: string, slug: string): SodaPlaces {
   const root = `${repository}/workspace`;
   const places: SodaPlaces = {
     slug,
-    feed: () => root,
+    feed: (post) => `${root}${query('post', post)}`,
     requests: () => `${root}/requests`,
     request: (id) =>
       REQUESTS_IN_REPOSITORY ? `${root}/requests/${encodeURIComponent(id)}` : requestRouteFor(prefix, id),
@@ -91,7 +92,7 @@ export function repositoryPlaces(prefix: string, slug: string): SodaPlaces {
     to(place) {
       switch (place.place) {
         case 'feed':
-          return places.feed();
+          return places.feed(place.post);
         case 'requests':
           return places.requests();
         // A parsed request place is on this repository page already, so its
@@ -136,7 +137,7 @@ export function placeFromPath(address: string, prefix: string): {slug: string; p
   const optional = <K extends string>(key: K, value: string | undefined) =>
     (value === undefined ? {} : {[key]: value}) as {[P in K]?: string};
   let place: Place | undefined;
-  if (first === undefined) place = {place: 'feed'};
+  if (first === undefined) place = {place: 'feed', ...optional('post', param('post'))};
   else if (first === 'requests')
     place = second === undefined ? {place: 'requests'} : {place: 'request', request: second};
   else if (second !== undefined) {

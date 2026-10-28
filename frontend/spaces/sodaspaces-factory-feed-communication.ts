@@ -4,7 +4,19 @@ import components from '../../internal/factory/feed_components.json';
 import type {FeedCommunication} from './sodaspaces-factory-feed-response.js';
 import type {FeedArtifactRequest} from './sodaspaces-factory-feed-artifact.js';
 import {actionIcon, actionList, communicationAction, commitTrail, renderFeedAction, sourceExcerpt} from './sodaspaces-factory-feed-actions.js';
+import type {SodaPlaces} from './soda-places.js';
 import './sodaspaces-factory-feed-artifact.js';
+
+/** One card's real links: hrefs come only from the repository's SodaOS places. */
+export interface FeedCardLinks {
+  places?: SodaPlaces;
+  /** The viewer's native user id: Open request shows only on their own requests. */
+  viewer?: string;
+  /** The entry's verified delivery id (the result card's event identity). */
+  delivery?: string;
+  /** Origin of a Ready app the viewer may open for that delivery. */
+  appOrigin?: string;
+}
 
 // The catalog owns the semantic presentation; workers submit facts, never UI.
 export const feedComponentCatalog = components;
@@ -50,7 +62,14 @@ function componentSummary(summary: string): TemplateResult {
   </details>`;
 }
 
-export function renderFeedCommunication(c: FeedCommunication, entryKey: string, request?: FeedArtifactRequest): TemplateResult {
+export function renderFeedCommunication(
+  c: FeedCommunication,
+  entryKey: string,
+  request?: FeedArtifactRequest,
+  links: FeedCardLinks = {}
+): TemplateResult {
+  const {places} = links;
+  const ownRequest = c.intentSource !== undefined && links.viewer !== undefined && c.intentSource.owner === links.viewer;
   const component = feedComponent(c.componentId);
   const presentation = component?.presentation ?? defaultPresentation[c.kind];
   const action = communicationAction(c, presentation);
@@ -69,10 +88,17 @@ export function renderFeedCommunication(c: FeedCommunication, entryKey: string, 
     ${action !== 'diagnosis' ? actionList('Already tried', c.attempts) : ''}
     ${action !== 'question' ? actionList('Options', c.options) : ''}
     ${(action !== 'decision' || c.items.length > 0) && c.evidenceRefs.length ? html`<details class="soda-feed-evidence-refs"><summary>Evidence · ${c.evidenceRefs.length} ${c.evidenceRefs.length === 1 ? 'reference' : 'references'}</summary><ul>${c.evidenceRefs.map((ref) => html`<li><code>${ref}</code></li>`)}</ul></details>` : ''}
-    ${c.libraryItemId ? html`<p class="soda-feed-library-reference"><button type="button" data-library-item=${c.libraryItemId} data-library-entry=${entryKey}>Open in project library${c.libraryRevision ? ` · revision ${c.libraryRevision}` : ''}</button></p>` : ''}
-    ${c.intentSource ? html`<div class="soda-feed-source-reference">${c.intentSource.state === 'draft' ? 'Proposed choice' : 'Recorded choice'} · ${c.intentSource.state}<br><button type="button" data-intent-source=${c.intentSource.intent} data-intent-revision=${c.intentSource.revision} data-source-entry=${entryKey}>Open build request</button><details><summary>Source revision</summary><code>${c.intentSource.revision}</code>${c.intentSource.predecessor ? html`<p>Previous revision: <code>${c.intentSource.predecessor}</code></p>` : ''}</details></div>` : ''}
+    ${c.libraryItemId && places ? html`<p class="soda-feed-library-reference"><a href=${places.knowledge(c.libraryItemId)}>Open in Knowledge</a>${c.libraryRevision ? ` · revision ${c.libraryRevision}` : ''}</p>` : ''}
+    ${c.intentSource ? html`<div class="soda-feed-source-reference">${c.intentSource.state === 'draft' ? 'Proposed choice' : 'Recorded choice'} · ${c.intentSource.state}${ownRequest && places ? html`<br><a href=${places.request(c.intentSource.intent)}>Open request</a>` : ''}<details><summary>Source revision</summary><code>${c.intentSource.revision}</code>${c.intentSource.predecessor ? html`<p>Previous revision: <code>${c.intentSource.predecessor}</code></p>` : ''}</details></div>` : ''}
     ${c.planSource ? html`<details class="soda-feed-source-reference"><summary>Recorded plan · generation ${c.planSource.generation}</summary><p>Plan: <code>${c.planSource.plan}</code></p><p>Assignment: <code>${c.planSource.attemptRoot}</code></p><p>Source commit: <code>${c.planSource.source}</code></p><p>Plan digest: <code>${c.planSource.digest}</code></p><p>Recording this revision does not itself admit or implement the plan.</p></details>` : ''}
     ${c.planningSource ? html`<details class="soda-feed-source-reference"><summary>Recorded strategy${c.planningSource.provisional ? ' · provisional' : ''}</summary><p>Controller choice: ${c.planningSource.strategy || 'None'} · ${c.planningSource.outcome}</p><p>Snapshot: <code>${c.planningSource.snapshot}</code></p><p>Record digest: <code>${c.planningSource.recordDigest}</code></p>${c.planningSource.judgment['selected'] ? html`<details><summary>Actual JEV answer</summary><pre>${JSON.stringify(c.planningSource.judgment, null, 2)}</pre></details>` : html`<p>No JEV answer was recorded.</p>`}<p>Execution and verification remain separate records.</p></details>` : ''}
-    ${c.componentId === 'F10' ? html`<button type="button" data-feed-open-app=${entryKey}>Open project app</button>` : ''}
+    ${
+      c.componentId === 'F10'
+        ? html`<p class="soda-feed-app-links">
+            ${links.appOrigin ? html`<a class="ui primary button" href=${links.appOrigin} target="_blank" rel="noopener" data-feed-open-app=${entryKey}>Open app ↗</a>` : ''}
+            ${places && links.delivery ? html`<a href=${places.app(links.delivery)}>App versions</a>` : ''}
+          </p>`
+        : ''
+    }
   </div>`;
 }

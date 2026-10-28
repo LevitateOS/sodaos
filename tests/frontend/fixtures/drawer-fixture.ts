@@ -237,6 +237,11 @@ function createFixture(extra: Partial<State> = {}) {
     websocket: () => {
       throw Error('Project fixture has no terminal');
     },
+    // Host navigation is recorded, never performed, so the page stays put.
+    navigate(path: string) {
+      document.body.dataset.navigated = path;
+      document.body.dataset.navigateCount = String(Number(document.body.dataset.navigateCount ?? '0') + 1);
+    },
     dispose() {},
   };
   const api = mountProjectControls(root, {expectedUserId: '1', repositoryId: '7', settings: true, transport});

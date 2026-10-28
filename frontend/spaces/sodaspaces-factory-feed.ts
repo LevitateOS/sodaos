@@ -4,6 +4,10 @@ import type {PreparedExtensionMount} from './soda-extension.js';
 import {check, id, object, readSodaJSON} from './sodaspaces-api.js';
 import {activityTimestamp, nativePath} from './sodaspaces-factory-activity.js';
 import {repositoryChoices} from './sodaspaces-repository-response.js';
+import {applicationsResponse} from './sodaspaces-application-response.js';
+import {repositoryPlaces} from './soda-places.js';
+import type {SodaPlaces} from './soda-places.js';
+import type {FeedCardLinks} from './sodaspaces-factory-feed-communication.js';
 import {
   commentPostBody,
   commentSourceForEntry,
@@ -34,7 +38,6 @@ import {
   renderFeedPost,
 } from './sodaspaces-factory-feed-view.js';
 import type {CommentOutcomeModel, PostBodyState} from './sodaspaces-factory-feed-view.js';
-import './sodaspaces-factory-library.js';
 import {renderFeedCommunication} from './sodaspaces-factory-feed-communication.js';
 import {renderConsultation, renderContribution} from './sodaspaces-factory-consultation.js';
 import {roleLabel} from './sodaspaces-factory-feed-families.js';
@@ -47,6 +50,8 @@ export interface FactoryFeedContext {
   repositories?: ReadonlyMap<string, string>;
   account?: string;
   global?: boolean;
+  /** Installation prefix (appSubUrl) for SodaOS place links. */
+  prefix?: string;
 }
 
 interface RepositoryLabels {
@@ -831,7 +836,15 @@ export class SodaFactoryFeed extends LitElement {
       }
     | undefined;
   private openDrawers = new Set<string>();
-  private library: {repository: string; item?: string} | undefined;
+  // The viewer's native user id (the feed subscription's subscriber): Open
+  // request shows only on the viewer's own requests.
+  private viewerID: string | undefined;
+  // Verified delivery id → the origin of a Ready app the viewer may open.
+  private appOrigins = new Map<string, string>();
+  // The repository comment box stays one line until focused.
+  private commentOpen = false;
+  // A post to show alone (the Feed place's ?post=, e.g. a Knowledge item's source).
+  private focusPost: string | undefined;
   // Navigation token for library source opens: each open mints a new token
   // so a superseded GET (Back navigation, newer open, context switch) can
   // never override the current view. librarySourcePending carries the source
@@ -859,6 +872,13 @@ export class SodaFactoryFeed extends LitElement {
 
   constructor() {
     super();
+    // The repository comment box opens from one line when focused.
+    this.addEventListener('focusin', (event) => {
+      if (this.commentOpen || !(event.target instanceof Element) || !event.target.closest('.soda-feed-comment-box'))
+        return;
+      this.commentOpen = true;
+      this.requestUpdate();
+    });
     this.view = {
       message: '',
       busy: false,
@@ -895,9 +915,11 @@ export class SodaFactoryFeed extends LitElement {
     this.threadReads.clear();
     this.openDrawers.clear();
     this.revising = undefined;
-    this.library = undefined;
     this.librarySourceSerial++;
     this.librarySourcePending = undefined;
+    this.viewerID = undefined;
+    this.appOrigins = new Map();
+    this.commentOpen = false;
     // A context change retires every in-flight role-reply selection: the
     // queue never replays in the new project or account, and the action
     // bump keeps even a surviving entry from validating.
@@ -931,6 +953,7 @@ export class SodaFactoryFeed extends LitElement {
     };
     if (context) {
       void this.reload();
+      if (this.focusPost) void this.openSourcePost(this.focusPost);
       this.refreshTimer = setInterval(() => {
         if (this.isConnected && document.visibilityState === 'visible' && !this.view.busy) void this.readLatest(false);
       }, 10000);
@@ -951,7 +974,12 @@ export class SodaFactoryFeed extends LitElement {
 
   private scopeRepositories(): number[] {
     const subscription = this.view.subscription;
-    if (this.current?.global) return subscription?.repositories ?? [];
+    // Until a subscription is saved (revision 0), /feed shows every candidate
+    // repository it already loads; nothing is written.
+    if (this.current?.global)
+      return subscription?.revision === 0
+        ? [...this.view.labels.refs.keys()].sort((a, b) => a - b).slice(0, 1024)
+        : (subscription?.repositories ?? []);
     const current = Number(this.current?.repository);
     return Number.isSafeInteger(current) && current > 0 ? [current] : [];
   }
@@ -975,10 +1003,13 @@ export class SodaFactoryFeed extends LitElement {
             kinds: [],
           } as FeedSubscriptionView);
       if (serial !== this.serial) return;
+      if (context.global) this.viewerID = subscription.subscriber;
+      else void this.readViewerID(context);
       this.view = {...this.view, subscription};
       const labels = await this.resolveLabels(context, subscription);
       if (serial !== this.serial) return;
       this.view = {...this.view, labels};
+      void this.readAppOrigins(context);
       await this.readLatest(true);
     } catch (error) {
       if (serial === this.serial)
@@ -989,6 +1020,77 @@ export class SodaFactoryFeed extends LitElement {
           message: error instanceof Error ? error.message : 'The combined feed is unavailable.',
         };
     }
+  }
+
+  // The subscription's subscriber is the viewer's own native id; the
+  // repository feed reads it only to know which requests are the viewer's.
+  private async readViewerID(context: FactoryFeedContext) {
+    try {
+      const subscriber = parseFeedSubscriptionView(await readJSON(context.transport, 'factory/feed/subscription'))
+        .subscriber;
+      if (this.current !== context) return;
+      this.viewerID = subscriber;
+      this.requestUpdate();
+    } catch {
+      // Without the viewer's id no Open request link shows.
+    }
+  }
+
+  // Open app ↗ appears on a result card when a Ready launch row, or a Ready
+  // administered record with an origin (operator and app administrators),
+  // matches its verified delivery.
+  private async readAppOrigins(context: FactoryFeedContext) {
+    try {
+      const inventory = applicationsResponse(await readJSON(context.transport, 'applications'));
+      if (this.current !== context) return;
+      const origins = new Map<string, string>();
+      for (const launch of inventory.launchable)
+        if (launch.ready && launch.delivery_id && launch.application.origin)
+          origins.set(launch.delivery_id, launch.application.origin);
+      for (const record of inventory.applications) {
+        const origin = record.application.origin;
+        if (record.observation?.ready && record.delivery?.delivery_id && origin)
+          origins.set(record.delivery.delivery_id, origin);
+      }
+      this.appOrigins = origins;
+      this.requestUpdate();
+    } catch {
+      // No app inventory: no Open app ↗; App versions still links the App place.
+    }
+  }
+
+  /** SodaOS place links for a repository whose owner/repo name is known. */
+  private placesFor(repository: number): SodaPlaces | undefined {
+    const ref = this.view.labels.refs.get(repository);
+    if (ref?.path === undefined || !/^[^/]+\/[^/]+$/.test(ref.label)) return undefined;
+    try {
+      return repositoryPlaces(this.current?.prefix ?? '', ref.label);
+    } catch {
+      return undefined;
+    }
+  }
+
+  /** The repository feed's own places (undefined on /feed). */
+  private ownPlaces(): SodaPlaces | undefined {
+    const name = this.current?.global ? undefined : this.current?.repositoryName;
+    if (!name) return undefined;
+    try {
+      return repositoryPlaces(this.current?.prefix ?? '', name);
+    } catch {
+      return undefined;
+    }
+  }
+
+  private cardLinks(entry: FeedEntry): FeedCardLinks {
+    const places = this.placesFor(entry.repository);
+    const delivery = entry.eventIdentity;
+    const appOrigin = delivery ? this.appOrigins.get(delivery) : undefined;
+    return {
+      ...(places ? {places} : {}),
+      ...(this.viewerID ? {viewer: this.viewerID} : {}),
+      ...(delivery ? {delivery} : {}),
+      ...(appOrigin ? {appOrigin} : {}),
+    };
   }
 
   private async resolveLabels(
@@ -1060,7 +1162,7 @@ export class SodaFactoryFeed extends LitElement {
       this.view = {
         ...this.view,
         busy: false,
-        message: 'Follow at least one project below before reading the combined feed.',
+        message: 'Choose at least one repository to follow before reading the Feed.',
       };
       return;
     }
@@ -1221,8 +1323,7 @@ export class SodaFactoryFeed extends LitElement {
     const views = [
       ['all', 'All'],
       ['attention', 'Needs me'],
-      ['decisions', 'Decisions'],
-      ['knowledge', 'Knowledge'],
+      ['decisions', 'Choices & approvals'],
       ['evidence', 'Evidence'],
     ];
     const roles = [
@@ -1486,38 +1587,36 @@ export class SodaFactoryFeed extends LitElement {
     return undefined;
   }
 
-  // Library-internal navigation (Back to results, search/type input,
-  // history moves, related-item selection) supersedes an in-flight source
-  // GET: the pending state clears now and the delayed response is gated on
-  // the bumped serial, so it can never open its thread.
-  private invalidateLibrarySource = () => {
-    this.librarySourceSerial++;
-    if (this.librarySourcePending !== undefined) {
-      this.librarySourcePending = undefined;
+  /** The post shown alone: the Feed place's ?post= (Knowledge's "Open source post"). */
+  set post(post: string | undefined) {
+    const valid = post && /^[a-f0-9]{32}$/.test(post) ? post : undefined;
+    if (valid === this.focusPost) return;
+    this.focusPost = valid;
+    if (valid) void this.openSourcePost(valid);
+    else if (this.focusedEntry) {
+      this.librarySourceSerial++;
+      this.focusedEntry = undefined;
       this.requestUpdate();
     }
-  };
+  }
 
-  private openLibrarySource = async (event: Event) => {
-    if (!(event instanceof CustomEvent) || !this.current || !this.library) return;
-    const detail = object(event.detail),
-      repository = this.library.repository;
-    if (detail.repository !== repository || typeof detail.id !== 'string' || !/^[a-f0-9]{32}$/.test(detail.id)) return;
+  private async openSourcePost(sourceId: string) {
+    if (!this.current) return;
+    const repository = this.current.repository;
     const serial = this.serial;
     const sourceToken = ++this.librarySourceSerial;
-    const sourceId = detail.id;
     const transport = this.current.transport;
     this.librarySourcePending = sourceId;
     this.requestUpdate();
     try {
       const value = object(await readJSON(transport, 'factory/feed/comments/' + sourceId));
-      check(String(value.repository) === repository);
+      check(this.current?.global === true || String(value.repository) === repository);
       const source = parseCommentDetail(value);
       if (serial !== this.serial || sourceToken !== this.librarySourceSerial) return;
       const entry: FeedEntry = {
         kind: 'post',
         id: source.commentId,
-        repository: Number(repository),
+        repository: Number(value.repository),
         seq: 0,
         at: source.at,
         author: source.authorName,
@@ -1526,7 +1625,6 @@ export class SodaFactoryFeed extends LitElement {
       };
       this.view.bodies.set(source.commentId, {state: 'text', body: source.body, edited: source.edited});
       this.focusedEntry = entry;
-      this.library = undefined;
       this.openDrawers.add('post:' + source.commentId);
       this.requestUpdate();
       void this.loadReplies(entry);
@@ -1542,7 +1640,7 @@ export class SodaFactoryFeed extends LitElement {
         this.requestUpdate();
       }
     }
-  };
+  }
 
   private draftIdempotencyKey(key: string): string {
     // The draft key survives failed submits so a retry recovers the original
@@ -2743,13 +2841,9 @@ export class SodaFactoryFeed extends LitElement {
             ? 'Opening the accepted change.'
             : 'Change saved for review. Review and accept the direction in the same build request.',
       };
-      this.dispatchEvent(
-        new CustomEvent('soda-intent-open', {
-          bubbles: true,
-          composed: true,
-          detail: {id: change.intent, repository: String(repository)},
-        })
-      );
+      // The proposed change opens on its request's page (at Update proposal).
+      const places = this.placesFor(repository);
+      if (places) this.go(places.request(change.intent));
     } catch {
       if (serial === this.serial)
         this.view = {
@@ -2761,6 +2855,13 @@ export class SodaFactoryFeed extends LitElement {
       if (serial === this.serial)
         this.view = {...this.view, commentBusy: this.view.commentBusy.filter((id) => id !== comment)};
     }
+  }
+
+  /** Same-origin navigation: the host swaps SodaOS places in its shell. */
+  private go(path: string) {
+    const navigate = this.current?.transport.navigate;
+    if (navigate) navigate(path);
+    else location.assign(path);
   }
 
   private onFeedClick = (event: Event) => {
@@ -2791,43 +2892,6 @@ export class SodaFactoryFeed extends LitElement {
     if (roleReply?.dataset.roleReplyOpen) {
       event.preventDefault();
       void this.openRoleReply(roleReply);
-      return;
-    }
-    const library = target.closest<HTMLElement>('[data-library-item]');
-    if (library?.dataset.libraryItem) {
-      const entry = this.entryForKey(library.dataset.libraryEntry ?? '');
-      if (entry) {
-        this.actionSerial++;
-        this.library = {repository: String(entry.repository), item: library.dataset.libraryItem};
-        this.requestUpdate();
-      }
-      return;
-    }
-    const app = target.closest<HTMLElement>('[data-feed-open-app]');
-    if (app) {
-      const entry = this.entryForKey(app.dataset.feedOpenApp ?? '');
-      if (entry?.payload?.communication?.componentId === 'F10')
-        this.dispatchEvent(
-          new CustomEvent('soda-application-open', {
-            bubbles: true,
-            composed: true,
-            detail: {repository: String(entry.repository), deliveryId: entry.eventIdentity ?? ''},
-          })
-        );
-      return;
-    }
-    const intent = target.closest<HTMLElement>('[data-intent-source]');
-    if (intent) {
-      const entry = this.entryForKey(intent.dataset.sourceEntry ?? '');
-      const source = entry?.payload?.communication?.intentSource;
-      if (source)
-        this.dispatchEvent(
-          new CustomEvent('soda-intent-open', {
-            bubbles: true,
-            composed: true,
-            detail: {id: source.intent, revision: source.revision, repository: String(entry.repository)},
-          })
-        );
       return;
     }
     const revise = target.closest<HTMLElement>('[data-comment-revise]');
@@ -3230,66 +3294,12 @@ export class SodaFactoryFeed extends LitElement {
 
   protected render() {
     const confirmed = activityTimestamp(this.view.confirmedUnix);
-    if (this.library)
-      return html`<section class="soda-feed" aria-label="Project library">
-        <header class="soda-feed-toolbar">
-          <h2>Project library</h2>
-          <button
-            type="button"
-            @click=${() => {
-              this.librarySourceSerial++;
-              this.librarySourcePending = undefined;
-              this.actionSerial++;
-              this.library = undefined;
-              this.requestUpdate();
-            }}
-          >
-            ← Back to activity
-          </button>
-        </header>
-        <p role="status">${this.view.message}</p>
-        <soda-factory-library
-          .repository=${this.library.repository}
-          .itemID=${this.library.item}
-          .pendingSource=${this.librarySourcePending}
-          .request=${this.current?.transport.request}
-          @library-navigate=${this.invalidateLibrarySource}
-          @library-source-open=${this.openLibrarySource}
-        ></soda-factory-library>
-      </section>`;
     return html`<section class="soda-feed" aria-label="Feed" @click=${this.onFeedClick} @input=${this.onDraft}>
       <header class="soda-feed-toolbar">
-        <h2>${this.current?.global ? 'Following' : 'Activity'}</h2>
         <span class="soda-feed-toolbar-actions">
           ${
-            !this.current?.global && this.current?.repository
-              ? html`<button
-                  type="button"
-                  class="soda-feed-utility soda-feed-icon-button"
-                  aria-label="Knowledge & decisions"
-                  title="Knowledge & decisions"
-                  @click=${() => {
-                    if (this.current) {
-                      this.actionSerial++;
-                      this.library = {repository: this.current.repository};
-                    }
-                    this.requestUpdate();
-                  }}
-                >
-                  <svg
-                    viewBox="0 0 24 24"
-                    aria-hidden="true"
-                    fill="none"
-                    stroke="currentColor"
-                    stroke-width="1.6"
-                    stroke-linecap="round"
-                    stroke-linejoin="round"
-                  >
-                    <path
-                      d="M12 6c-1.8-1.5-4.2-2-8-2v14c3.8 0 6.2.5 8 2 1.8-1.5 4.2-2 8-2V4c-3.8 0-6.2.5-8 2Zm0 0v14"
-                    />
-                  </svg>
-                </button>`
+            this.ownPlaces()
+              ? html`<a class="soda-feed-utility" href=${this.ownPlaces()?.knowledge() ?? ''}>Knowledge</a>`
               : ''
           }
           <button
@@ -3327,6 +3337,9 @@ export class SodaFactoryFeed extends LitElement {
                   this.actionSerial++;
                   this.focusedEntry = undefined;
                   this.requestUpdate();
+                  // A post opened by its address goes back to the Feed's own address.
+                  const places = this.focusPost ? this.ownPlaces() : undefined;
+                  if (places) this.go(places.feed());
                 }}
               >
                 Back to feed
@@ -3419,38 +3432,49 @@ export class SodaFactoryFeed extends LitElement {
     const key = this.projectCommentKey();
     const repository = Number(context.repository);
     const ref = this.view.labels.refs.get(repository);
+    const places = this.ownPlaces();
+    const placesRef = places ? {places} : {};
     const outcomes = (this.view.outcomes.get(key) ?? []).map((state) =>
       describeCommentOutcome(
         state,
-        {id: repository, path: ref?.path, label: ref?.label ?? 'This project'},
+        {id: repository, path: ref?.path, label: ref?.label ?? 'This repository', ...placesRef},
         this.view.commentBusy.includes(state.commentId)
       )
     );
-    return renderDiscussion({
-      key,
-      draft: this.draftFor(key),
-      label: 'Project comment',
-      submitLabel: 'Post comment',
-      submitAvailable: this.draftFor(key).trim() !== '' && !this.view.commentBusy.includes(key),
-      outcomes,
-      discussionLink: undefined,
-      intakeText:
-        'Ask a question or request a change. JEV connects your comment to existing work or asks the Product Lead to create new work.',
-    });
+    const draft = this.draftFor(key);
+    return html`<div class="soda-feed-comment-box">
+      ${renderDiscussion({
+        key,
+        draft,
+        label: 'Comment',
+        submitLabel: 'Post comment',
+        submitAvailable: draft.trim() !== '' && !this.view.commentBusy.includes(key),
+        outcomes,
+        discussionLink: undefined,
+        collapsed: !this.commentOpen && draft.trim() === '',
+        intakeText:
+          'Ask a question or request a change. JEV connects your comment to existing work or asks the Product Lead to create new work.',
+      })}
+    </div>`;
   }
 
   private renderSubscription() {
     const subscription = this.view.subscription;
     if (!subscription || !this.current?.global) return html``;
     const candidates = [...this.view.labels.refs.entries()].sort((a, b) => a[0] - b[0]);
-    const member = new Set(subscription.repositories);
-    return html`<form @submit=${this.save}>
+    // Until a subscription is saved, every candidate shows and is checked.
+    const member = new Set(
+      subscription.revision === 0 ? candidates.map(([repository]) => repository) : subscription.repositories
+    );
+    return html`<details class="soda-feed-subscription">
+      <summary>Choose repositories</summary>
+      <form @submit=${this.save}>
       <fieldset>
-        <legend>Followed projects</legend>
+        <legend>Followed repositories</legend>
         <input type="hidden" name="expected_revision" value=${String(subscription.revision)} />
         ${
           subscription.revision === 0
-            ? html`<p>No subscription saved yet: follow at least one project to read the combined feed.</p>`
+            ? html`<p>Showing every repository you can read until you choose.</p>`
             : ''
         }
         ${candidates.map(
@@ -3478,7 +3502,8 @@ export class SodaFactoryFeed extends LitElement {
         </select>
       </fieldset>
       <button class="ui button" type="submit" ?disabled=${this.view.busy}>Save feed subscription</button>
-    </form>`;
+      </form>
+    </details>`;
   }
 
   private renderList() {
@@ -3493,7 +3518,13 @@ export class SodaFactoryFeed extends LitElement {
               path: undefined,
               label: `repository ${entry.repository}`,
             };
-            const repository = {id: entry.repository, path: ref.path, label: ref.label};
+            const links = this.cardLinks(entry);
+            const repository = {
+              id: entry.repository,
+              path: ref.path,
+              label: ref.label,
+              ...(links.places ? {places: links.places} : {}),
+            };
             const key = `${entry.kind}:${entry.id}`;
             const outcomes: CommentOutcomeModel[] = (this.view.outcomes.get(key) ?? []).map((state) =>
               describeCommentOutcome(state, repository, this.view.commentBusy.includes(state.commentId))
@@ -3519,7 +3550,8 @@ export class SodaFactoryFeed extends LitElement {
               },
               this.renderReplies(entry),
               this.current?.transport.request,
-              this.current?.transport.assetBase
+              this.current?.transport.assetBase,
+              links
             );
           }
         )}

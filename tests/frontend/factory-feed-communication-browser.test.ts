@@ -15,10 +15,6 @@ test('a Finance comment opens an explicit change review and reopens its draft wi
       let reviewed = false,
         reads = 0;
       window.drawerFixture.api.setPresentation('settings');
-      document.body.addEventListener('soda-intent-open', (event) => {
-        document.body.dataset.changeOpened = JSON.stringify((event as CustomEvent).detail);
-        document.body.dataset.changeOpenCount = String(Number(document.body.dataset.changeOpenCount ?? '0') + 1);
-      });
       const change = () => ({
         intent,
         accepted_revision: 'd' + 'c'.repeat(24),
@@ -47,7 +43,7 @@ test('a Finance comment opens an explicit change review and reopens its draft wi
           return Response.json({subscriber: '1', repositories: [7], kinds: null, revision: 1});
         if (call.url.includes('/api/repositories?q='))
           return Response.json({
-            items: [{id: '7', owner: 'soda-tester', name: 'demo', can_create: false}],
+            items: [{id: '7', owner: 'soda-tester', name: 'demo', can_create: false, project: {id: `p${'1'.repeat(24)}`, provisioned: true}}],
             next_cursor: '',
           });
         if (call.url.includes('/api/factory/feed?'))
@@ -102,16 +98,13 @@ test('a Finance comment opens an explicit change review and reopens its draft wi
   assert.equal(await page.evaluate(() => window.drawerFixture.calls.filter((call) => call.method !== 'GET').length), 0);
   await feed.getByRole('button', {name: 'Review proposed change', exact: true}).click();
   await feed.getByRole('button', {name: 'Continue change review', exact: true}).waitFor();
-  assert.deepEqual(await page.evaluate(() => JSON.parse(document.body.dataset.changeOpened ?? '{}')), {
-    id: intent,
-    repository: '7',
-  });
+  assert.deepEqual(await page.evaluate(() => document.body.dataset.navigated), `/workspace/requests/${intent}`);
   const writes = await page.evaluate(() => window.drawerFixture.calls.filter((call) => call.method !== 'GET'));
   assert.equal(writes.length, 1);
   assert.deepEqual(JSON.parse(writes[0]!.body ?? '{}'), {revision: 0});
   assert.equal(writes[0]!.url.endsWith(`/api/factory/feed/comments/${comment}/review`), true);
   await feed.getByRole('button', {name: 'Continue change review', exact: true}).click();
-  await page.waitForFunction(() => document.body.dataset.changeOpenCount === '2');
+  await page.waitForFunction(() => document.body.dataset.navigateCount === '2');
   assert.equal(await page.evaluate(() => window.drawerFixture.calls.filter((call) => call.method !== 'GET').length), 1);
   await feed.getByRole('button', {name: 'Continue change review', exact: true}).click();
   await feed
@@ -120,7 +113,7 @@ test('a Finance comment opens an explicit change review and reopens its draft wi
       {exact: true}
     )
     .waitFor();
-  assert.equal(await page.evaluate(() => document.body.dataset.changeOpenCount), '2');
+  assert.equal(await page.evaluate(() => document.body.dataset.navigateCount), '2');
   assert.equal(await draft.inputValue(), 'Keep the delivered EUR 420 request and its history.');
 });
 
@@ -280,7 +273,7 @@ test('actual consultation states refresh in the work thread while filtered views
   await feed.getByText('JEV returned a result', {exact: true}).waitFor();
   await feed.getByText('Selected: yes', {exact: false}).waitFor();
   assert.equal(await draft.inputValue(), 'Keep the existing EUR 420 request after this update.');
-  await feed.getByRole('button', {name: 'Decisions', exact: true}).click();
+  await feed.getByRole('button', {name: 'Choices & approvals', exact: true}).click();
   await feed.getByRole('heading', {name: 'Finance gate retained', exact: true}).waitFor();
   await feed.getByText('Recorded plan · generation 1', {exact: true}).click();
   await feed.getByText('e'.repeat(64), {exact: true}).waitFor();
@@ -882,9 +875,6 @@ test('every product change state renders its own outcome, action and tone', asyn
   await page.evaluate(
     ({work, reviewable, waiting, drafted, accepted, superseded, missing, intent}) => {
       window.drawerFixture.api.setPresentation('settings');
-      document.body.addEventListener('soda-intent-open', (event) => {
-        document.body.dataset.changeOpened = JSON.stringify((event as CustomEvent).detail);
-      });
       const change = (state: string, can_review: boolean, draft_revision?: string) => ({
         intent,
         accepted_revision: 'd' + 'c'.repeat(24),
@@ -934,7 +924,7 @@ test('every product change state renders its own outcome, action and tone', asyn
           return Response.json({subscriber: '1', repositories: [7], kinds: null, revision: 1});
         if (call.url.includes('/api/repositories?q='))
           return Response.json({
-            items: [{id: '7', owner: 'soda-tester', name: 'demo', can_create: false}],
+            items: [{id: '7', owner: 'soda-tester', name: 'demo', can_create: false, project: {id: `p${'1'.repeat(24)}`, provisioned: true}}],
             next_cursor: '',
           });
         if (call.url.includes('/api/factory/feed?'))
@@ -1044,10 +1034,7 @@ test('every product change state renders its own outcome, action and tone', asyn
   // Opening the accepted change dispatches the intent without any mutation.
   await feed.getByRole('button', {name: 'Open accepted change', exact: true}).click();
   await feed.getByText('Opening the accepted change.', {exact: true}).waitFor();
-  assert.deepEqual(await page.evaluate(() => JSON.parse(document.body.dataset.changeOpened ?? '{}')), {
-    id: intent,
-    repository: '7',
-  });
+  assert.deepEqual(await page.evaluate(() => document.body.dataset.navigated), `/workspace/requests/${intent}`);
   assert.equal(await page.evaluate(() => window.drawerFixture.calls.filter((call) => call.method !== 'GET').length), 0);
 });
 
@@ -1062,9 +1049,6 @@ test('adopted change lineage renders evidence and native links separately from o
   await page.evaluate(
     ({work, verifiedRow, pendingRow, unknownRow, historicRow, intent}) => {
       window.drawerFixture.api.setPresentation('settings');
-      document.body.addEventListener('soda-intent-open', (event) => {
-        document.body.dataset.changeOpened = JSON.stringify((event as CustomEvent).detail);
-      });
       const adopted = 'd' + 'e'.repeat(24);
       const task = 'd' + 'f'.repeat(24);
       const acceptance = 'd' + '9'.repeat(24);
@@ -1212,10 +1196,7 @@ test('adopted change lineage renders evidence and native links separately from o
   // without any mutation; the collaborator row never targets it.
   await feed.getByRole('button', {name: 'Open accepted change', exact: true}).click();
   await feed.getByText('Opening the accepted change.', {exact: true}).waitFor();
-  assert.deepEqual(await page.evaluate(() => JSON.parse(document.body.dataset.changeOpened ?? '{}')), {
-    id: intent,
-    repository: '7',
-  });
+  assert.deepEqual(await page.evaluate(() => document.body.dataset.navigated), `/workspace/requests/${intent}`);
   assert.equal(await page.evaluate(() => window.drawerFixture.calls.filter((call) => call.method !== 'GET').length), 0);
 });
 
@@ -1230,10 +1211,6 @@ test('accepted change routes the owner to the private request and the collaborat
   await page.evaluate(
     ({work, ownerRow, collaboratorRow, pendingRow, unavailableRow, intent}) => {
       window.drawerFixture.api.setPresentation('settings');
-      document.body.addEventListener('soda-intent-open', (event) => {
-        document.body.dataset.changeOpened = JSON.stringify((event as CustomEvent).detail);
-        document.body.dataset.changeOpenCount = String(Number(document.body.dataset.changeOpenCount ?? '0') + 1);
-      });
       const adopted = 'd' + 'e'.repeat(24);
       const task = 'd' + 'f'.repeat(24);
       const acceptance = 'd' + '9'.repeat(24);
@@ -1370,11 +1347,8 @@ test('accepted change routes the owner to the private request and the collaborat
   assert.ok(stages.some((line) => line.replace(/\s+/g, ' ').trim().startsWith('Change task evidence')));
   // Owner click lands on the private intent route without any mutation.
   await feed.getByRole('button', {name: 'Open accepted change', exact: true}).click();
-  await page.waitForFunction(() => document.body.dataset.changeOpenCount === '1');
-  assert.deepEqual(await page.evaluate(() => JSON.parse(document.body.dataset.changeOpened ?? '{}')), {
-    id: intent,
-    repository: '7',
-  });
+  await page.waitForFunction(() => document.body.dataset.navigateCount === '1');
+  assert.deepEqual(await page.evaluate(() => document.body.dataset.navigated), `/workspace/requests/${intent}`);
   assert.equal(await page.evaluate(() => window.drawerFixture.calls.filter((call) => call.method !== 'GET').length), 0);
 });
 
@@ -1736,9 +1710,6 @@ test('an unavailable change review reports honestly without opening or saving', 
   await page.evaluate(
     ({work, comment, intent}) => {
       window.drawerFixture.api.setPresentation('settings');
-      document.body.addEventListener('soda-intent-open', () => {
-        document.body.dataset.changeOpenCount = String(Number(document.body.dataset.changeOpenCount ?? '0') + 1);
-      });
       const base = {
         intent,
         accepted_revision: 'd' + 'c'.repeat(24),
@@ -1815,7 +1786,7 @@ test('an unavailable change review reports honestly without opening or saving', 
     0
   );
   // No navigation and no save: zero intent events, zero mutations.
-  assert.equal(await page.evaluate(() => Number(document.body.dataset.changeOpenCount ?? '0')), 0);
+  assert.equal(await page.evaluate(() => Number(document.body.dataset.navigateCount ?? '0')), 0);
   assert.equal(await page.evaluate(() => window.drawerFixture.calls.filter((call) => call.method !== 'GET').length), 0);
   const reads = await page.evaluate(
     (comment) =>
@@ -1839,7 +1810,7 @@ test('an unavailable change review reports honestly without opening or saving', 
   await feed
     .getByText('The proposed change detail is currently unavailable. Check progress to reload it.', {exact: true})
     .waitFor();
-  assert.equal(await page.evaluate(() => Number(document.body.dataset.changeOpenCount ?? '0')), 0);
+  assert.equal(await page.evaluate(() => Number(document.body.dataset.navigateCount ?? '0')), 0);
   assert.equal(await page.evaluate(() => window.drawerFixture.calls.filter((call) => call.method !== 'GET').length), 0);
 });
 
@@ -1851,9 +1822,6 @@ test('a nested unavailable reply recovers its known change through Check progres
   await page.evaluate(
     ({work, comment, intent}) => {
       window.drawerFixture.api.setPresentation('settings');
-      document.body.addEventListener('soda-intent-open', () => {
-        document.body.dataset.changeOpenCount = String(Number(document.body.dataset.changeOpenCount ?? '0') + 1);
-      });
       const base = {
         intent,
         accepted_revision: 'd' + 'c'.repeat(24),
@@ -1944,7 +1912,7 @@ test('a nested unavailable reply recovers its known change through Check progres
   assert.equal(readsAfter, readsBefore + 1);
   // GET-only recovery: no mutation and no navigation into the intent route.
   assert.equal(await page.evaluate(() => window.drawerFixture.calls.filter((call) => call.method !== 'GET').length), 0);
-  assert.equal(await page.evaluate(() => Number(document.body.dataset.changeOpenCount ?? '0')), 0);
+  assert.equal(await page.evaluate(() => Number(document.body.dataset.navigateCount ?? '0')), 0);
   // Single surface: the recovered control lives in the nested row only —
   // the parent drawer never duplicates the same outcome above the thread.
   assert.equal(await feed.getByRole('button', {name: 'Review proposed change', exact: true}).count(), 1);
@@ -2079,9 +2047,6 @@ test('a recovered change detail clears the unavailable banner through Check prog
   await page.evaluate(
     ({work, comment, intent}) => {
       window.drawerFixture.api.setPresentation('settings');
-      document.body.addEventListener('soda-intent-open', () => {
-        document.body.dataset.changeOpenCount = String(Number(document.body.dataset.changeOpenCount ?? '0') + 1);
-      });
       const base = {
         intent,
         accepted_revision: 'd' + 'c'.repeat(24),
@@ -2151,7 +2116,7 @@ test('a recovered change detail clears the unavailable banner through Check prog
   await banner
     .filter({hasText: 'The proposed change detail is currently unavailable. Check progress to reload it.'})
     .waitFor();
-  assert.equal(await page.evaluate(() => Number(document.body.dataset.changeOpenCount ?? '0')), 0);
+  assert.equal(await page.evaluate(() => Number(document.body.dataset.navigateCount ?? '0')), 0);
   assert.equal(await page.evaluate(() => window.drawerFixture.calls.filter((call) => call.method !== 'GET').length), 0);
   // Check progress recovers the same row and retires the banner: exactly
   // one comment GET, still no mutation and no navigation.
@@ -2177,7 +2142,7 @@ test('a recovered change detail clears the unavailable banner through Check prog
     2
   );
   assert.equal(await page.evaluate(() => window.drawerFixture.calls.filter((call) => call.method !== 'GET').length), 0);
-  assert.equal(await page.evaluate(() => Number(document.body.dataset.changeOpenCount ?? '0')), 0);
+  assert.equal(await page.evaluate(() => Number(document.body.dataset.navigateCount ?? '0')), 0);
 });
 
 test('a newer message survives the same unavailable recovery', async (t) => {

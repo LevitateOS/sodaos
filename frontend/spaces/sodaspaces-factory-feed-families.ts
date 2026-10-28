@@ -19,6 +19,7 @@ import type {
 import type {FeedRepositoryRef} from './sodaspaces-factory-feed-view.js';
 import {nativeIssueLink, nativePullLink} from './sodaspaces-factory-work-view.js';
 import {feedComponent, renderFeedCommunication} from './sodaspaces-factory-feed-communication.js';
+import type {FeedCardLinks} from './sodaspaces-factory-feed-communication.js';
 import {renderFeedGraph} from './sodaspaces-factory-feed-graph.js';
 import type {FeedArtifactRequest} from './sodaspaces-factory-feed-artifact.js';
 import {renderRecordAction} from './sodaspaces-factory-feed-record-actions.js';
@@ -382,8 +383,10 @@ function familyLinks(
   // The bound native records, when the wire carries them, replace the
   // generic indexes; without them no issue or PR number is invented.
   const issueLink = entry.issue ? nativeIssueLink(repository.path, String(entry.issue)) : undefined;
-  if (issueLink) links.push({label: `Open issue #${entry.issue}`, href: issueLink});
-  else if (
+  if (issueLink) {
+    links.push({label: `Open issue #${entry.issue}`, href: issueLink});
+    if (repository.places) links.push({label: 'Factory status', href: repository.places.factoryStatus(entry.issue)});
+  } else if (
     family === 'plan' ||
     family === 'issue' ||
     family === 'question' ||
@@ -1437,7 +1440,11 @@ function renderFeedBlock(block: FeedBlock): TemplateResult {
   }
 }
 
-export function renderFeedFamily(model: FeedFamilyModel, request?: FeedArtifactRequest): TemplateResult {
+export function renderFeedFamily(
+  model: FeedFamilyModel,
+  request?: FeedArtifactRequest,
+  links: FeedCardLinks = {}
+): TemplateResult {
   const component = feedComponent(model.componentId);
   const action = renderRecordAction(model.payload);
   return html`<section
@@ -1447,7 +1454,7 @@ export function renderFeedFamily(model: FeedFamilyModel, request?: FeedArtifactR
   >
     ${
       model.communication
-        ? renderFeedCommunication(model.communication, model.entryKey ?? '', request)
+        ? renderFeedCommunication(model.communication, model.entryKey ?? '', request, links)
         : html`<p class="soda-feed-headline"><strong>${component?.label ?? model.headline}</strong></p>
             ${action ?? html`${model.blocks.slice(0, 4).map(renderFeedBlock)}`}
             ${

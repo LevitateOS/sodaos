@@ -35,7 +35,7 @@ test('feed distinguishes a failed read from no matches and keeps drafts through 
   const feed = page.locator('soda-factory-feed');
   await feed.getByRole('heading', {name: 'Activity could not be loaded.', exact: true}).waitFor();
   assert.equal(await feed.getByText('No activity yet.', {exact: true}).count(), 0);
-  const draft = feed.getByLabel('Project comment', {exact: true});
+  const draft = feed.getByLabel('Comment', {exact: true});
   await draft.fill('Keep this unsent note.');
   await page.evaluate(() => {
     document.body.dataset.feedUnavailable = 'false';
@@ -46,7 +46,7 @@ test('feed distinguishes a failed read from no matches and keeps drafts through 
   await feed.locator('.soda-feed-status').getByText('Work created', {exact: true}).waitFor();
   assert.equal(await feed.locator('.soda-feed-status').getByText('Completed', {exact: true}).count(), 0);
   assert.equal(await draft.inputValue(), 'Keep this unsent note.');
-  await feed.getByRole('button', {name: 'Decisions', exact: true}).click();
+  await feed.getByRole('button', {name: 'Choices & approvals', exact: true}).click();
   await feed.getByRole('heading', {name: 'No matching posts.', exact: true}).waitFor();
   await feed.getByRole('button', {name: 'Clear filters', exact: true}).click();
   await feed.locator('.soda-feed-status').getByText('Decision recorded', {exact: true}).waitFor();
@@ -110,7 +110,7 @@ test('a failed per-post body GET keeps its tombstone and Retry recovers the same
   await feed.getByText('Discussion text unavailable; the post keeps its place.', {exact: true}).waitFor();
   const retry = feed.getByRole('button', {name: 'Retry loading discussion text', exact: true});
   await retry.waitFor();
-  const draft = feed.getByLabel('Project comment', {exact: true});
+  const draft = feed.getByLabel('Comment', {exact: true});
   await draft.fill('Hold this unsent note.');
   await retry.click();
   await feed.getByText('Recovered discussion text.', {exact: true}).waitFor();
@@ -315,7 +315,7 @@ test('Project feed reads newest-first with separate enriched posts and live comm
     window.drawerFixture.mountFeed();
   });
   const feed = page.locator('soda-factory-feed');
-  await feed.getByRole('heading', {name: 'Activity'}).waitFor();
+  await feed.getByRole('region', {name: 'Feed', exact: true}).waitFor();
   // Separate posts with the outside-card author context and stored text.
   await feed.getByText('Recorded work').first().waitFor();
   await feed.getByText('Ada').first().waitFor();
@@ -543,7 +543,7 @@ test('Factory-loop families render their own sections and failures stay in front
     window.drawerFixture.mountFeed();
   });
   const feed = page.locator('soda-factory-feed');
-  await feed.getByRole('heading', {name: 'Activity'}).waitFor();
+  await feed.getByRole('region', {name: 'Feed', exact: true}).waitFor();
   for (const family of [
     'integration',
     'verification',
@@ -742,7 +742,7 @@ test('Designed blocks render recorded segments; durable continuation lands witho
     window.drawerFixture.mountFeed();
   });
   const feed = page.locator('soda-factory-feed');
-  await feed.getByRole('heading', {name: 'Activity'}).waitFor();
+  await feed.getByRole('region', {name: 'Feed', exact: true}).waitFor();
   // Designed Builder component: brief + check table + candidate rows.
   const work = feed.locator('[data-feed-family="work"]');
   await work.getByText('Form and permission service ready.').waitFor();
@@ -894,10 +894,10 @@ test('a project comment works before the first worker post', async (t) => {
   );
   const feed = page.locator('soda-factory-feed');
   await feed.getByText('No activity yet.').waitFor();
-  await feed.getByLabel('Project comment', {exact: true}).fill('Thanks for the update.');
+  await feed.getByLabel('Comment', {exact: true}).fill('Thanks for the update.');
   await feed.getByRole('button', {name: 'Post comment', exact: true}).click();
   await feed.getByText('Kept as discussion.').waitFor();
-  assert.equal(await feed.getByLabel('Project comment', {exact: true}).inputValue(), '');
+  assert.equal(await feed.getByLabel('Comment', {exact: true}).inputValue(), '');
   assert(await feed.getByRole('button', {name: 'Post comment', exact: true}).isDisabled());
   const posts = await page.evaluate(() =>
     window.drawerFixture.calls
@@ -997,7 +997,7 @@ test('an uncertain comment retry resends the original payload and keeps newer wr
   );
   const feed = page.locator('soda-factory-feed');
   await feed.getByText('No activity yet.').waitFor();
-  const draft = feed.getByLabel('Project comment', {exact: true});
+  const draft = feed.getByLabel('Comment', {exact: true});
   await draft.fill('Original request');
   await feed.getByRole('button', {name: 'Post comment', exact: true}).click();
   await feed.locator('[data-feed-message]').filter({hasText: 'draft is kept'}).waitFor();
@@ -1057,7 +1057,7 @@ test('clarification answer draft survives reopen with zero writes and clears onl
     {record, clarifyId}
   );
   const feed = page.locator('soda-factory-feed');
-  await feed.getByRole('heading', {name: 'Activity'}).waitFor();
+  await feed.getByRole('region', {name: 'Feed', exact: true}).waitFor();
   await feed.locator(`[data-feed-drawer-toggle="record:${record}"]`).click();
   await feed.getByRole('button', {name: 'Answer clarification', exact: true}).waitFor();
   await feed.getByRole('button', {name: 'Answer clarification', exact: true}).click();
@@ -1078,7 +1078,7 @@ test('clarification answer draft survives reopen with zero writes and clears onl
     document.querySelector('soda-factory-feed')?.remove();
     window.drawerFixture.mountFeed();
   });
-  await feed.getByRole('heading', {name: 'Activity'}).waitFor();
+  await feed.getByRole('region', {name: 'Feed', exact: true}).waitFor();
   const writesBefore = await page.evaluate(
     () => window.drawerFixture.calls.filter((call) => call.method !== 'GET').length
   );
@@ -1162,10 +1162,10 @@ test('revision draft keeps text on failure, requires review on source change, di
     {record, reviseId}
   );
   const feed = page.locator('soda-factory-feed');
-  await feed.getByRole('heading', {name: 'Activity'}).waitFor();
+  await feed.getByRole('region', {name: 'Feed', exact: true}).waitFor();
   await feed.locator(`[data-feed-drawer-toggle="record:${record}"]`).click();
-  await feed.getByRole('button', {name: 'Revise or retry request', exact: true}).waitFor();
-  await feed.getByRole('button', {name: 'Revise or retry request', exact: true}).click();
+  await feed.getByRole('button', {name: 'Edit comment and retry', exact: true}).waitFor();
+  await feed.getByRole('button', {name: 'Edit comment and retry', exact: true}).click();
   const body = feed.locator('[data-revision-body]');
   await body.waitFor();
   await body.fill('Revised request v5 kept');
@@ -1189,7 +1189,7 @@ test('revision draft keeps text on failure, requires review on source change, di
     document.querySelector('soda-factory-feed')?.remove();
     window.drawerFixture.mountFeed();
   });
-  await feed.getByRole('heading', {name: 'Activity'}).waitFor();
+  await feed.getByRole('region', {name: 'Feed', exact: true}).waitFor();
   const retriesBefore = await page.evaluate(
     (reviseId) =>
       window.drawerFixture.calls.filter((call) => call.url.endsWith(`/api/factory/feed/comments/${reviseId}/retry`))
@@ -1197,7 +1197,7 @@ test('revision draft keeps text on failure, requires review on source change, di
     reviseId
   );
   await feed.locator(`[data-feed-drawer-toggle="record:${record}"]`).click();
-  await feed.getByRole('button', {name: 'Revise or retry request', exact: true}).click();
+  await feed.getByRole('button', {name: 'Edit comment and retry', exact: true}).click();
   await feed.locator('.soda-feed-revision').waitFor();
   assert.equal(await feed.locator('[data-revision-body]').inputValue(), 'Revised request v5 kept');
   await feed
@@ -1232,7 +1232,7 @@ test('revision draft keeps text on failure, requires review on source change, di
     }, reviseId),
     0
   );
-  await feed.getByRole('button', {name: 'Revise or retry request', exact: true}).click();
+  await feed.getByRole('button', {name: 'Edit comment and retry', exact: true}).click();
   await feed.locator('.soda-feed-revision').waitFor();
   assert.equal(await feed.locator('[data-revision-body]').inputValue(), 'Original request v6 changed');
 });
@@ -1283,9 +1283,9 @@ test('a delayed revision success keeps later unsent input instead of clearing it
     {record, reviseId}
   );
   const feed = page.locator('soda-factory-feed');
-  await feed.getByRole('heading', {name: 'Activity'}).waitFor();
+  await feed.getByRole('region', {name: 'Feed', exact: true}).waitFor();
   await feed.locator(`[data-feed-drawer-toggle="record:${record}"]`).click();
-  await feed.getByRole('button', {name: 'Revise or retry request', exact: true}).click();
+  await feed.getByRole('button', {name: 'Edit comment and retry', exact: true}).click();
   const body = feed.locator('[data-revision-body]');
   await body.waitFor();
   await body.fill('Submitted revision text');
@@ -1372,9 +1372,9 @@ test('repeated source changes restore the newest revision draft and ignore other
     {record, reviseId}
   );
   const feed = page.locator('soda-factory-feed');
-  await feed.getByRole('heading', {name: 'Activity'}).waitFor();
+  await feed.getByRole('region', {name: 'Feed', exact: true}).waitFor();
   await feed.locator(`[data-feed-drawer-toggle="record:${record}"]`).click();
-  await feed.getByRole('button', {name: 'Revise or retry request', exact: true}).click();
+  await feed.getByRole('button', {name: 'Edit comment and retry', exact: true}).click();
   await feed.locator('[data-revision-body]').waitFor();
   await feed.locator('[data-revision-body]').fill('Draft written against revision 5');
   // Source advances to 6: reopening restores the revision 5 draft for review,
@@ -1384,9 +1384,9 @@ test('repeated source changes restore the newest revision draft and ignore other
     document.querySelector('soda-factory-feed')?.remove();
     window.drawerFixture.mountFeed();
   });
-  await feed.getByRole('heading', {name: 'Activity'}).waitFor();
+  await feed.getByRole('region', {name: 'Feed', exact: true}).waitFor();
   await feed.locator(`[data-feed-drawer-toggle="record:${record}"]`).click();
-  await feed.getByRole('button', {name: 'Revise or retry request', exact: true}).click();
+  await feed.getByRole('button', {name: 'Edit comment and retry', exact: true}).click();
   await feed.locator('.soda-feed-revision').waitFor();
   assert.equal(await feed.locator('[data-revision-body]').inputValue(), 'Draft written against revision 5');
   await feed.locator('[data-revision-body]').fill('Draft rewritten against revision 6');
@@ -1402,7 +1402,7 @@ test('repeated source changes restore the newest revision draft and ignore other
     document.querySelector('soda-factory-feed')?.remove();
     window.drawerFixture.mountFeed();
   });
-  await feed.getByRole('heading', {name: 'Activity'}).waitFor();
+  await feed.getByRole('region', {name: 'Feed', exact: true}).waitFor();
   const retriesBefore = await page.evaluate(
     (reviseId) =>
       window.drawerFixture.calls.filter((call) => call.url.endsWith(`/api/factory/feed/comments/${reviseId}/retry`))
@@ -1410,7 +1410,7 @@ test('repeated source changes restore the newest revision draft and ignore other
     reviseId
   );
   await feed.locator(`[data-feed-drawer-toggle="record:${record}"]`).click();
-  await feed.getByRole('button', {name: 'Revise or retry request', exact: true}).click();
+  await feed.getByRole('button', {name: 'Edit comment and retry', exact: true}).click();
   await feed.locator('.soda-feed-revision').waitFor();
   assert.equal(await feed.locator('[data-revision-body]').inputValue(), 'Draft rewritten against revision 6');
   await feed
@@ -1484,9 +1484,9 @@ test('successful revision submit adopts the live revision and drops obsolete dra
     {record, reviseId}
   );
   const feed = page.locator('soda-factory-feed');
-  await feed.getByRole('heading', {name: 'Activity'}).waitFor();
+  await feed.getByRole('region', {name: 'Feed', exact: true}).waitFor();
   await feed.locator(`[data-feed-drawer-toggle="record:${record}"]`).click();
-  await feed.getByRole('button', {name: 'Revise or retry request', exact: true}).click();
+  await feed.getByRole('button', {name: 'Edit comment and retry', exact: true}).click();
   const body = feed.locator('[data-revision-body]');
   await body.waitFor();
   await body.fill('Fresh v6 text');
@@ -1503,9 +1503,9 @@ test('successful revision submit adopts the live revision and drops obsolete dra
     document.querySelector('soda-factory-feed')?.remove();
     window.drawerFixture.mountFeed();
   });
-  await feed.getByRole('heading', {name: 'Activity'}).waitFor();
+  await feed.getByRole('region', {name: 'Feed', exact: true}).waitFor();
   await feed.locator(`[data-feed-drawer-toggle="record:${record}"]`).click();
-  await feed.getByRole('button', {name: 'Revise or retry request', exact: true}).click();
+  await feed.getByRole('button', {name: 'Edit comment and retry', exact: true}).click();
   await feed.locator('[data-revision-body]').waitFor();
   assert.equal(await feed.locator('[data-revision-body]').inputValue(), 'Source v7');
   assert.equal(await feed.locator('.soda-feed-revision [role="alert"]').count(), 0);
@@ -1577,9 +1577,9 @@ test('newer writing during submit adopts the live revision for a second submit',
     {record, reviseId}
   );
   const feed = page.locator('soda-factory-feed');
-  await feed.getByRole('heading', {name: 'Activity'}).waitFor();
+  await feed.getByRole('region', {name: 'Feed', exact: true}).waitFor();
   await feed.locator(`[data-feed-drawer-toggle="record:${record}"]`).click();
-  await feed.getByRole('button', {name: 'Revise or retry request', exact: true}).click();
+  await feed.getByRole('button', {name: 'Edit comment and retry', exact: true}).click();
   const body = feed.locator('[data-revision-body]');
   await body.waitFor();
   await body.fill('First writing v6');
@@ -1677,9 +1677,9 @@ test('keystrokes during refetch survive with the adopted revision', async (t) =>
     {record, reviseId}
   );
   const feed = page.locator('soda-factory-feed');
-  await feed.getByRole('heading', {name: 'Activity'}).waitFor();
+  await feed.getByRole('region', {name: 'Feed', exact: true}).waitFor();
   await feed.locator(`[data-feed-drawer-toggle="record:${record}"]`).click();
-  await feed.getByRole('button', {name: 'Revise or retry request', exact: true}).click();
+  await feed.getByRole('button', {name: 'Edit comment and retry', exact: true}).click();
   const body = feed.locator('[data-revision-body]');
   await body.waitFor();
   await body.fill('Base text v6');
@@ -1763,9 +1763,9 @@ test('unverifiable revision keeps text with a review requirement', async (t) => 
     {record, reviseId}
   );
   const feed = page.locator('soda-factory-feed');
-  await feed.getByRole('heading', {name: 'Activity'}).waitFor();
+  await feed.getByRole('region', {name: 'Feed', exact: true}).waitFor();
   await feed.locator(`[data-feed-drawer-toggle="record:${record}"]`).click();
-  await feed.getByRole('button', {name: 'Revise or retry request', exact: true}).click();
+  await feed.getByRole('button', {name: 'Edit comment and retry', exact: true}).click();
   const body = feed.locator('[data-revision-body]');
   await body.waitFor();
   await body.fill('Unsent kept text');
@@ -1850,9 +1850,9 @@ test('cross-tab divergent drafts survive submit and the re-key never overwrites'
     {record, reviseId}
   );
   const feed = page.locator('soda-factory-feed');
-  await feed.getByRole('heading', {name: 'Activity'}).waitFor();
+  await feed.getByRole('region', {name: 'Feed', exact: true}).waitFor();
   await feed.locator(`[data-feed-drawer-toggle="record:${record}"]`).click();
-  await feed.getByRole('button', {name: 'Revise or retry request', exact: true}).click();
+  await feed.getByRole('button', {name: 'Edit comment and retry', exact: true}).click();
   const body = feed.locator('[data-revision-body]');
   await body.waitFor();
   assert.equal(await body.inputValue(), 'Source v6');
@@ -1979,9 +1979,9 @@ test('unverified revision disables Submit, blocks forced posts, and refresh rest
     {record, reviseId}
   );
   const feed = page.locator('soda-factory-feed');
-  await feed.getByRole('heading', {name: 'Activity'}).waitFor();
+  await feed.getByRole('region', {name: 'Feed', exact: true}).waitFor();
   await feed.locator(`[data-feed-drawer-toggle="record:${record}"]`).click();
-  await feed.getByRole('button', {name: 'Revise or retry request', exact: true}).click();
+  await feed.getByRole('button', {name: 'Edit comment and retry', exact: true}).click();
   const body = feed.locator('[data-revision-body]');
   await body.waitFor();
   await body.fill('Kept text v6');
@@ -2102,9 +2102,9 @@ test('unverified revision without a revision field keeps text and blocks submits
     {record, reviseId}
   );
   const feed = page.locator('soda-factory-feed');
-  await feed.getByRole('heading', {name: 'Activity'}).waitFor();
+  await feed.getByRole('region', {name: 'Feed', exact: true}).waitFor();
   await feed.locator(`[data-feed-drawer-toggle="record:${record}"]`).click();
-  await feed.getByRole('button', {name: 'Revise or retry request', exact: true}).click();
+  await feed.getByRole('button', {name: 'Edit comment and retry', exact: true}).click();
   const body = feed.locator('[data-revision-body]');
   await body.waitFor();
   await body.fill('Missing revision kept text');
@@ -2210,9 +2210,9 @@ test('stale draft lineage retires after in-panel evolve and submit', async (t) =
     {record, reviseId}
   );
   const feed = page.locator('soda-factory-feed');
-  await feed.getByRole('heading', {name: 'Activity'}).waitFor();
+  await feed.getByRole('region', {name: 'Feed', exact: true}).waitFor();
   await feed.locator(`[data-feed-drawer-toggle="record:${record}"]`).click();
-  await feed.getByRole('button', {name: 'Revise or retry request', exact: true}).click();
+  await feed.getByRole('button', {name: 'Edit comment and retry', exact: true}).click();
   const body = feed.locator('[data-revision-body]');
   await body.waitFor();
   // The stale v5 draft restores for review against v6, never auto-submits.
@@ -2249,9 +2249,9 @@ test('stale draft lineage retires after in-panel evolve and submit', async (t) =
     document.querySelector('soda-factory-feed')?.remove();
     window.drawerFixture.mountFeed();
   });
-  await feed.getByRole('heading', {name: 'Activity'}).waitFor();
+  await feed.getByRole('region', {name: 'Feed', exact: true}).waitFor();
   await feed.locator(`[data-feed-drawer-toggle="record:${record}"]`).click();
-  await feed.getByRole('button', {name: 'Revise or retry request', exact: true}).click();
+  await feed.getByRole('button', {name: 'Edit comment and retry', exact: true}).click();
   await feed.locator('[data-revision-body]').waitFor();
   assert.equal(await feed.locator('[data-revision-body]').inputValue(), 'Source v7');
   assert.equal(await feed.locator('.soda-feed-revision [role="alert"]').count(), 0);
@@ -2315,9 +2315,9 @@ test('submit preserves a foreign lineage draft', async (t) => {
     {record, reviseId}
   );
   const feed = page.locator('soda-factory-feed');
-  await feed.getByRole('heading', {name: 'Activity'}).waitFor();
+  await feed.getByRole('region', {name: 'Feed', exact: true}).waitFor();
   await feed.locator(`[data-feed-drawer-toggle="record:${record}"]`).click();
-  await feed.getByRole('button', {name: 'Revise or retry request', exact: true}).click();
+  await feed.getByRole('button', {name: 'Edit comment and retry', exact: true}).click();
   const body = feed.locator('[data-revision-body]');
   await body.waitFor();
   // The live saved draft restores directly with no stale warning.
@@ -2401,9 +2401,9 @@ test('submit preserves a shared-lineage late write after a stale restore', async
     {record, reviseId}
   );
   const feed = page.locator('soda-factory-feed');
-  await feed.getByRole('heading', {name: 'Activity'}).waitFor();
+  await feed.getByRole('region', {name: 'Feed', exact: true}).waitFor();
   await feed.locator(`[data-feed-drawer-toggle="record:${record}"]`).click();
-  await feed.getByRole('button', {name: 'Revise or retry request', exact: true}).click();
+  await feed.getByRole('button', {name: 'Edit comment and retry', exact: true}).click();
   const body = feed.locator('[data-revision-body]');
   await body.waitFor();
   // Tab B restores the stale v5 draft A against live v6, inheriting the
@@ -2454,9 +2454,9 @@ test('submit preserves a shared-lineage late write after a stale restore', async
     document.querySelector('soda-factory-feed')?.remove();
     window.drawerFixture.mountFeed();
   });
-  await feed.getByRole('heading', {name: 'Activity'}).waitFor();
+  await feed.getByRole('region', {name: 'Feed', exact: true}).waitFor();
   await feed.locator(`[data-feed-drawer-toggle="record:${record}"]`).click();
-  await feed.getByRole('button', {name: 'Revise or retry request', exact: true}).click();
+  await feed.getByRole('button', {name: 'Edit comment and retry', exact: true}).click();
   await feed.locator('[data-revision-body]').waitFor();
   assert.equal(await feed.locator('[data-revision-body]').inputValue(), 'Late write C text');
   await feed
@@ -2519,9 +2519,9 @@ test('keystroke after adopted-key collision keeps foreign text and flags a confl
     {record, reviseId}
   );
   const feed = page.locator('soda-factory-feed');
-  await feed.getByRole('heading', {name: 'Activity'}).waitFor();
+  await feed.getByRole('region', {name: 'Feed', exact: true}).waitFor();
   await feed.locator(`[data-feed-drawer-toggle="record:${record}"]`).click();
-  await feed.getByRole('button', {name: 'Revise or retry request', exact: true}).click();
+  await feed.getByRole('button', {name: 'Edit comment and retry', exact: true}).click();
   const body = feed.locator('[data-revision-body]');
   await body.waitFor();
   await body.fill('Local submit text');
@@ -2649,9 +2649,9 @@ test('reload-before-submit retires the persisted ancestor chain without resurrec
     {record, reviseId}
   );
   const feed = page.locator('soda-factory-feed');
-  await feed.getByRole('heading', {name: 'Activity'}).waitFor();
+  await feed.getByRole('region', {name: 'Feed', exact: true}).waitFor();
   await feed.locator(`[data-feed-drawer-toggle="record:${record}"]`).click();
-  await feed.getByRole('button', {name: 'Revise or retry request', exact: true}).click();
+  await feed.getByRole('button', {name: 'Edit comment and retry', exact: true}).click();
   const body = feed.locator('[data-revision-body]');
   await body.waitFor();
   // The stale v5 draft restores for review against v6, never auto-submits.
@@ -2683,9 +2683,9 @@ test('reload-before-submit retires the persisted ancestor chain without resurrec
     document.querySelector('soda-factory-feed')?.remove();
     window.drawerFixture.mountFeed();
   });
-  await feed.getByRole('heading', {name: 'Activity'}).waitFor();
+  await feed.getByRole('region', {name: 'Feed', exact: true}).waitFor();
   await feed.locator(`[data-feed-drawer-toggle="record:${record}"]`).click();
-  await feed.getByRole('button', {name: 'Revise or retry request', exact: true}).click();
+  await feed.getByRole('button', {name: 'Edit comment and retry', exact: true}).click();
   await feed.locator('[data-revision-body]').waitFor();
   // The persisted v6 text restores directly with no stale-source warning.
   assert.equal(await feed.locator('[data-revision-body]').inputValue(), 'Reload draft B');
@@ -2705,9 +2705,9 @@ test('reload-before-submit retires the persisted ancestor chain without resurrec
     document.querySelector('soda-factory-feed')?.remove();
     window.drawerFixture.mountFeed();
   });
-  await feed.getByRole('heading', {name: 'Activity'}).waitFor();
+  await feed.getByRole('region', {name: 'Feed', exact: true}).waitFor();
   await feed.locator(`[data-feed-drawer-toggle="record:${record}"]`).click();
-  await feed.getByRole('button', {name: 'Revise or retry request', exact: true}).click();
+  await feed.getByRole('button', {name: 'Edit comment and retry', exact: true}).click();
   await feed.locator('[data-revision-body]').waitFor();
   assert.equal(await feed.locator('[data-revision-body]').inputValue(), 'Source v7');
   assert.equal(await feed.locator('.soda-feed-revision [role="alert"]').count(), 0);
@@ -2766,9 +2766,9 @@ test('revision advances retire the full ancestor chain only when unchanged', asy
     {record, reviseId}
   );
   const feed = page.locator('soda-factory-feed');
-  await feed.getByRole('heading', {name: 'Activity'}).waitFor();
+  await feed.getByRole('region', {name: 'Feed', exact: true}).waitFor();
   await feed.locator(`[data-feed-drawer-toggle="record:${record}"]`).click();
-  await feed.getByRole('button', {name: 'Revise or retry request', exact: true}).click();
+  await feed.getByRole('button', {name: 'Edit comment and retry', exact: true}).click();
   const body = feed.locator('[data-revision-body]');
   await body.waitFor();
   // v5 restores for review against live v6; evolving to B persists the chain.
@@ -2786,9 +2786,9 @@ test('revision advances retire the full ancestor chain only when unchanged', asy
     document.querySelector('soda-factory-feed')?.remove();
     window.drawerFixture.mountFeed();
   });
-  await feed.getByRole('heading', {name: 'Activity'}).waitFor();
+  await feed.getByRole('region', {name: 'Feed', exact: true}).waitFor();
   await feed.locator(`[data-feed-drawer-toggle="record:${record}"]`).click();
-  await feed.getByRole('button', {name: 'Revise or retry request', exact: true}).click();
+  await feed.getByRole('button', {name: 'Edit comment and retry', exact: true}).click();
   await feed.locator('[data-revision-body]').waitFor();
   // The newest superseded draft restores for review; evolving to C extends the chain.
   assert.equal(await feed.locator('[data-revision-body]').inputValue(), 'Chain draft B');
@@ -2851,9 +2851,9 @@ test('revision advances retire the full ancestor chain only when unchanged', asy
     document.querySelector('soda-factory-feed')?.remove();
     window.drawerFixture.mountFeed();
   });
-  await feed.getByRole('heading', {name: 'Activity'}).waitFor();
+  await feed.getByRole('region', {name: 'Feed', exact: true}).waitFor();
   await feed.locator(`[data-feed-drawer-toggle="record:${record}"]`).click();
-  await feed.getByRole('button', {name: 'Revise or retry request', exact: true}).click();
+  await feed.getByRole('button', {name: 'Edit comment and retry', exact: true}).click();
   await feed.locator('[data-revision-body]').waitFor();
   assert.equal(await feed.locator('[data-revision-body]').inputValue(), 'Late unsent B2');
   await feed
@@ -2916,9 +2916,9 @@ test('changed-after-rekey double submit retires the adopted snapshot without res
     {record, reviseId}
   );
   const feed = page.locator('soda-factory-feed');
-  await feed.getByRole('heading', {name: 'Activity'}).waitFor();
+  await feed.getByRole('region', {name: 'Feed', exact: true}).waitFor();
   await feed.locator(`[data-feed-drawer-toggle="record:${record}"]`).click();
-  await feed.getByRole('button', {name: 'Revise or retry request', exact: true}).click();
+  await feed.getByRole('button', {name: 'Edit comment and retry', exact: true}).click();
   const body = feed.locator('[data-revision-body]');
   await body.waitFor();
   // Submit A at v6, then type B while the POST waits.
@@ -2982,9 +2982,9 @@ test('changed-after-rekey double submit retires the adopted snapshot without res
     document.querySelector('soda-factory-feed')?.remove();
     window.drawerFixture.mountFeed();
   });
-  await feed.getByRole('heading', {name: 'Activity'}).waitFor();
+  await feed.getByRole('region', {name: 'Feed', exact: true}).waitFor();
   await feed.locator(`[data-feed-drawer-toggle="record:${record}"]`).click();
-  await feed.getByRole('button', {name: 'Revise or retry request', exact: true}).click();
+  await feed.getByRole('button', {name: 'Edit comment and retry', exact: true}).click();
   await feed.locator('[data-revision-body]').waitFor();
   assert.equal(await feed.locator('[data-revision-body]').inputValue(), 'Source v8');
   assert.equal(await feed.locator('.soda-feed-revision [role="alert"]').count(), 0);
@@ -3042,9 +3042,9 @@ test('changed-after-rekey late edit preserves the adopted text for review', asyn
     {record, reviseId}
   );
   const feed = page.locator('soda-factory-feed');
-  await feed.getByRole('heading', {name: 'Activity'}).waitFor();
+  await feed.getByRole('region', {name: 'Feed', exact: true}).waitFor();
   await feed.locator(`[data-feed-drawer-toggle="record:${record}"]`).click();
-  await feed.getByRole('button', {name: 'Revise or retry request', exact: true}).click();
+  await feed.getByRole('button', {name: 'Edit comment and retry', exact: true}).click();
   const body = feed.locator('[data-revision-body]');
   await body.waitFor();
   await body.fill('Submitted A text');
@@ -3103,9 +3103,9 @@ test('changed-after-rekey late edit preserves the adopted text for review', asyn
     document.querySelector('soda-factory-feed')?.remove();
     window.drawerFixture.mountFeed();
   });
-  await feed.getByRole('heading', {name: 'Activity'}).waitFor();
+  await feed.getByRole('region', {name: 'Feed', exact: true}).waitFor();
   await feed.locator(`[data-feed-drawer-toggle="record:${record}"]`).click();
-  await feed.getByRole('button', {name: 'Revise or retry request', exact: true}).click();
+  await feed.getByRole('button', {name: 'Edit comment and retry', exact: true}).click();
   await feed.locator('[data-revision-body]').waitFor();
   assert.equal(await feed.locator('[data-revision-body]').inputValue(), 'Late-edited B2 text');
   await feed
@@ -3114,467 +3114,6 @@ test('changed-after-rekey late edit preserves the adopted text for review', asyn
       exact: true,
     })
     .waitFor();
-});
-
-test('a slow source GET resolving after Back-to-activity leaves activity view intact', async (t) => {
-  const page = await fixture(t);
-  const item = 'b'.repeat(32);
-  const source = 'c'.repeat(32);
-  await page.evaluate(
-    ({item, source}) => {
-      const record = {
-        id: item,
-        revision: 1,
-        title: 'Decision record',
-        body: 'Recorded rationale.',
-        source_post: source,
-      };
-      window.drawerFixture.setReply(async (call) => {
-        if (call.url.includes('/api/repositories?q=')) return Response.json({items: [], next_cursor: ''});
-        if (call.url.includes('/api/factory/feed?')) return Response.json({entries: [], truncated: false});
-        if (call.url.includes('/api/factory/library/item?')) return Response.json({item: record, history: []});
-        if (call.url.includes('/api/factory/library?')) return Response.json({items: [record], next_cursor: ''});
-        if (call.url.endsWith(`/api/factory/feed/comments/${source}`) && call.method === 'GET')
-          return new Promise<Response>((resolve) => {
-            const holds = window as unknown as {sourceHolds?: Record<string, (response: Response) => void>};
-            if (!holds.sourceHolds) holds.sourceHolds = {};
-            (holds.sourceHolds as Record<string, (response: Response) => void>)[source] = resolve;
-          });
-        return null;
-      });
-      window.drawerFixture.mountFeed();
-    },
-    {item, source}
-  );
-  const feed = page.locator('soda-factory-feed');
-  await feed.getByRole('heading', {name: 'Activity', exact: true}).waitFor();
-  await feed.getByRole('button', {name: 'Knowledge & decisions'}).click();
-  await feed.getByRole('button', {name: 'Decision record'}).click();
-  await feed.getByRole('button', {name: 'Open source conversation'}).click();
-  const pending = feed.getByRole('button', {name: 'Opening source'});
-  await pending.waitFor();
-  assert.equal(await pending.isDisabled(), true);
-  await feed.getByRole('button', {name: 'Back to activity'}).click();
-  await feed.getByText('No activity yet.').waitFor();
-  await page.evaluate((source) => {
-    const holds = (window as unknown as {sourceHolds: Record<string, (response: Response) => void>}).sourceHolds;
-    const release = holds[source];
-    if (!release) throw Error('source GET was never issued');
-    release(
-      Response.json({
-        comment_id: source,
-        revision: 0,
-        repository: 7,
-        author_name: 'Ada',
-        at: 1720000000,
-        edited: false,
-        body: 'Late source body.',
-        intake: 'recorded',
-        judgment: 'pending',
-        draft: 'pending',
-        effect: 'pending',
-        issue: 0,
-      })
-    );
-  }, source);
-  await page.waitForTimeout(250);
-  assert.equal(await feed.getByText('Source conversation').count(), 0);
-  assert.equal(await feed.getByText('Late source body.').count(), 0);
-  assert.equal(await feed.locator('soda-factory-library').count(), 0);
-  await feed.getByText('No activity yet.').waitFor();
-  assert.equal(await feed.locator('[data-feed-message]').innerText(), '');
-  assert.equal(await page.evaluate(() => window.drawerFixture.calls.filter((call) => call.method !== 'GET').length), 0);
-});
-
-test('two rapid source clicks render the newer source only', async (t) => {
-  const page = await fixture(t);
-  const item = 'b'.repeat(32);
-  const first = 'c'.repeat(32);
-  const second = 'e'.repeat(32);
-  await page.evaluate(
-    ({item, first, second}) => {
-      const record = (revision: number, source: string, body: string) => ({
-        id: item,
-        revision,
-        title: 'Decision record',
-        body,
-        source_post: source,
-      });
-      window.drawerFixture.setReply(async (call) => {
-        if (call.url.includes('/api/repositories?q=')) return Response.json({items: [], next_cursor: ''});
-        if (call.url.includes('/api/factory/feed?')) return Response.json({entries: [], truncated: false});
-        if (call.url.includes('/api/factory/library/item?'))
-          return Response.json({
-            item: record(2, first, 'Recorded rationale.'),
-            history: [{item: record(1, second, 'Older rationale.'), reason: 'Revised', actor: 'Ada'}],
-          });
-        if (call.url.includes('/api/factory/library?'))
-          return Response.json({items: [record(2, first, 'Recorded rationale.')], next_cursor: ''});
-        for (const source of [first, second]) {
-          if (call.url.endsWith(`/api/factory/feed/comments/${source}`) && call.method === 'GET')
-            return new Promise<Response>((resolve) => {
-              const holds = window as unknown as {sourceHolds?: Record<string, (response: Response) => void>};
-              if (!holds.sourceHolds) holds.sourceHolds = {};
-              (holds.sourceHolds as Record<string, (response: Response) => void>)[source] = resolve;
-            });
-        }
-        return null;
-      });
-      window.drawerFixture.mountFeed();
-    },
-    {item, first, second}
-  );
-  const feed = page.locator('soda-factory-feed');
-  const resolveSource = (source: string, body: string) =>
-    page.evaluate(
-      ({source, body}) => {
-        const holds = (window as unknown as {sourceHolds: Record<string, (response: Response) => void>}).sourceHolds;
-        const release = holds[source];
-        if (!release) throw Error('source GET was never issued');
-        release(
-          Response.json({
-            comment_id: source,
-            revision: 0,
-            repository: 7,
-            author_name: 'Ada',
-            at: 1720000000,
-            edited: false,
-            body,
-            intake: 'recorded',
-            judgment: 'pending',
-            draft: 'pending',
-            effect: 'pending',
-            issue: 0,
-          })
-        );
-      },
-      {source, body}
-    );
-  await feed.getByRole('heading', {name: 'Activity', exact: true}).waitFor();
-  await feed.getByRole('button', {name: 'Knowledge & decisions'}).click();
-  await feed.getByRole('button', {name: 'Decision record'}).click();
-  await feed.getByText('Recent revisions · 1').click();
-  await feed.getByText('Revision 1 · Revised · Ada').click();
-  const openers = feed.getByRole('button', {name: 'Open source conversation'});
-  await openers.nth(0).click();
-  await feed.getByRole('button', {name: 'Opening source'}).waitFor();
-  // The first button now shows its pending state, so the remaining opener is
-  // the revision's newer source.
-  await feed.getByRole('button', {name: 'Open source conversation'}).nth(0).click();
-  await feed.getByRole('button', {name: 'Opening source'}).waitFor();
-  assert.equal(await feed.getByRole('button', {name: 'Opening source'}).count(), 1);
-  await resolveSource(first, 'First source body text.');
-  await page.waitForTimeout(250);
-  assert.equal(await feed.getByRole('button', {name: 'Back to feed'}).count(), 0);
-  assert.equal(await feed.getByText('First source body text.').count(), 0);
-  assert.equal(await feed.getByRole('button', {name: 'Opening source'}).count(), 1);
-  await resolveSource(second, 'Second source body text.');
-  await feed.getByRole('button', {name: 'Back to feed'}).waitFor();
-  await feed.getByText('Second source body text.').waitFor();
-  assert.equal(await feed.getByText('First source body text.').count(), 0);
-  assert.equal(await feed.locator('soda-factory-library').count(), 0);
-  await feed.getByRole('button', {name: 'Back to feed'}).waitFor();
-  assert.equal(await page.evaluate(() => window.drawerFixture.calls.filter((call) => call.method !== 'GET').length), 0);
-});
-
-test('a failed source GET after a project switch leaves the new context intact', async (t) => {
-  const page = await fixture(t);
-  await page.evaluate(async () => {
-    const item = 'b'.repeat(32);
-    const source = 'c'.repeat(32);
-    const record = {
-      id: item,
-      revision: 1,
-      title: 'Decision record',
-      body: 'Recorded rationale.',
-      source_post: source,
-    };
-    const holds = window as unknown as {
-      sourceHolds?: Record<string, (response: Response) => void>;
-      guardTransport?: unknown;
-    };
-    let sourceCalls = 0;
-    const transport = {
-      request: async (path: string) => {
-        if (path.startsWith('factory/feed?')) return Response.json({entries: [], truncated: false});
-        if (path === 'repositories?q=') return Response.json({items: [], next_cursor: ''});
-        if (path.startsWith('factory/library/item?')) return Response.json({item: record, history: []});
-        if (path.startsWith('factory/library?')) return Response.json({items: [record], next_cursor: ''});
-        if (path === `factory/feed/comments/${source}`) {
-          sourceCalls++;
-          if (sourceCalls === 1)
-            return new Promise<Response>((resolve) => {
-              if (!holds.sourceHolds) holds.sourceHolds = {};
-              (holds.sourceHolds as Record<string, (response: Response) => void>)[source] = resolve;
-            });
-          return Response.json({}, {status: 503});
-        }
-        throw Error('Unexpected library guard read: ' + path);
-      },
-    };
-    holds.guardTransport = transport;
-    const feed = document.createElement('soda-factory-feed') as HTMLElement & {
-      context: unknown;
-      updateComplete: Promise<unknown>;
-    };
-    feed.dataset.guardRace = 'true';
-    document.body.append(feed);
-    feed.context = {transport, repository: '7'};
-    await feed.updateComplete;
-  });
-  const feed = page.locator('soda-factory-feed[data-guard-race="true"]');
-  await feed.getByRole('heading', {name: 'Activity', exact: true}).waitFor();
-  await feed.getByRole('button', {name: 'Knowledge & decisions'}).click();
-  await feed.getByRole('button', {name: 'Decision record'}).click();
-  await feed.getByRole('button', {name: 'Open source conversation'}).click();
-  await feed.getByRole('button', {name: 'Opening source'}).waitFor();
-  await page.evaluate(() => {
-    const feed = document.querySelector('soda-factory-feed[data-guard-race="true"]') as HTMLElement & {
-      context: unknown;
-    };
-    const holds = window as unknown as {guardTransport: unknown};
-    feed.context = {transport: holds.guardTransport, repository: '8'};
-  });
-  await feed.getByText('No activity yet.').waitFor();
-  await page.evaluate(() => {
-    const holds = (window as unknown as {sourceHolds: Record<string, (response: Response) => void>}).sourceHolds;
-    const release = holds['c'.repeat(32)];
-    if (!release) throw Error('source GET was never issued');
-    release(new Response(null, {status: 503}));
-  });
-  await page.waitForTimeout(250);
-  await feed.getByText('No activity yet.').waitFor();
-  assert.equal(await feed.locator('[data-feed-message]').innerText(), '');
-  assert.equal(await feed.getByRole('button', {name: 'Back to feed'}).count(), 0);
-  assert.equal(await feed.locator('soda-factory-library').count(), 0);
-  // A failure against the current context still surfaces truthfully.
-  await feed.getByRole('button', {name: 'Knowledge & decisions'}).click();
-  await feed.getByRole('button', {name: 'Decision record'}).click();
-  await feed.getByRole('button', {name: 'Open source conversation'}).click();
-  await feed.getByText('The combined feed is unavailable.').waitFor();
-  assert.equal(await feed.getByRole('button', {name: 'Back to feed'}).count(), 0);
-  assert.equal(await feed.locator('soda-factory-library').count(), 1);
-});
-
-test('a slow source GET resolving after Back-to-results never opens its thread', async (t) => {
-  const page = await fixture(t);
-  const item = 'b'.repeat(32);
-  const source = 'c'.repeat(32);
-  await page.evaluate(
-    ({item, source}) => {
-      const record = {
-        id: item,
-        revision: 1,
-        title: 'Decision record',
-        body: 'Recorded rationale.',
-        source_post: source,
-      };
-      window.drawerFixture.setReply(async (call) => {
-        if (call.url.includes('/api/repositories?q=')) return Response.json({items: [], next_cursor: ''});
-        if (call.url.includes('/api/factory/feed?')) return Response.json({entries: [], truncated: false});
-        if (call.url.includes('/api/factory/library/item?')) return Response.json({item: record, history: []});
-        if (call.url.includes('/api/factory/library?')) return Response.json({items: [record], next_cursor: ''});
-        if (call.url.endsWith(`/api/factory/feed/comments/${source}`) && call.method === 'GET')
-          return new Promise<Response>((resolve) => {
-            const holds = window as unknown as {sourceHolds?: Record<string, (response: Response) => void>};
-            if (!holds.sourceHolds) holds.sourceHolds = {};
-            (holds.sourceHolds as Record<string, (response: Response) => void>)[source] = resolve;
-          });
-        return null;
-      });
-      window.drawerFixture.mountFeed();
-    },
-    {item, source}
-  );
-  const feed = page.locator('soda-factory-feed');
-  await feed.getByRole('heading', {name: 'Activity', exact: true}).waitFor();
-  await feed.getByRole('button', {name: 'Knowledge & decisions'}).click();
-  await feed.getByRole('button', {name: 'Decision record'}).click();
-  await feed.getByRole('button', {name: 'Open source conversation'}).click();
-  await feed.getByRole('button', {name: 'Opening source'}).waitFor();
-  await feed.getByRole('button', {name: 'Back to results'}).click();
-  await feed.getByRole('button', {name: 'Decision record'}).waitFor();
-  await page.evaluate((source) => {
-    const holds = (window as unknown as {sourceHolds: Record<string, (response: Response) => void>}).sourceHolds;
-    const release = holds[source];
-    if (!release) throw Error('source GET was never issued');
-    release(
-      Response.json({
-        comment_id: source,
-        revision: 0,
-        repository: 7,
-        author_name: 'Ada',
-        at: 1720000000,
-        edited: false,
-        body: 'Late source body.',
-        intake: 'recorded',
-        judgment: 'pending',
-        draft: 'pending',
-        effect: 'pending',
-        issue: 0,
-      })
-    );
-  }, source);
-  await page.waitForTimeout(250);
-  assert.equal(await feed.getByText('Source conversation').count(), 0);
-  assert.equal(await feed.getByText('Late source body.').count(), 0);
-  assert.equal(await feed.getByRole('button', {name: 'Back to feed'}).count(), 0);
-  assert.equal(await feed.locator('soda-factory-library').count(), 1);
-  await feed.getByRole('button', {name: 'Decision record'}).waitFor();
-  assert.equal(await feed.getByRole('status').innerText(), '');
-  assert.equal(await page.evaluate(() => window.drawerFixture.calls.filter((call) => call.method !== 'GET').length), 0);
-});
-
-test('typing a library search while a source GET is in flight drops the stale thread', async (t) => {
-  const page = await fixture(t);
-  const item = 'b'.repeat(32);
-  const source = 'c'.repeat(32);
-  await page.evaluate(
-    ({item, source}) => {
-      const record = {
-        id: item,
-        revision: 1,
-        title: 'Decision record',
-        body: 'Recorded rationale.',
-        source_post: source,
-      };
-      window.drawerFixture.setReply(async (call) => {
-        if (call.url.includes('/api/repositories?q=')) return Response.json({items: [], next_cursor: ''});
-        if (call.url.includes('/api/factory/feed?')) return Response.json({entries: [], truncated: false});
-        if (call.url.includes('/api/factory/library/item?')) return Response.json({item: record, history: []});
-        if (call.url.includes('/api/factory/library?')) return Response.json({items: [record], next_cursor: ''});
-        if (call.url.endsWith(`/api/factory/feed/comments/${source}`) && call.method === 'GET')
-          return new Promise<Response>((resolve) => {
-            const holds = window as unknown as {sourceHolds?: Record<string, (response: Response) => void>};
-            if (!holds.sourceHolds) holds.sourceHolds = {};
-            (holds.sourceHolds as Record<string, (response: Response) => void>)[source] = resolve;
-          });
-        return null;
-      });
-      window.drawerFixture.mountFeed();
-    },
-    {item, source}
-  );
-  const feed = page.locator('soda-factory-feed');
-  await feed.getByRole('heading', {name: 'Activity', exact: true}).waitFor();
-  await feed.getByRole('button', {name: 'Knowledge & decisions'}).click();
-  await feed.getByRole('button', {name: 'Decision record'}).click();
-  await feed.getByRole('button', {name: 'Open source conversation'}).click();
-  await feed.getByRole('button', {name: 'Opening source'}).waitFor();
-  await feed.getByLabel('Search the library').fill('rationale');
-  // Typing alone clears the pending source state before the late response.
-  await feed.getByRole('button', {name: 'Open source conversation'}).waitFor();
-  await page.evaluate((source) => {
-    const holds = (window as unknown as {sourceHolds: Record<string, (response: Response) => void>}).sourceHolds;
-    const release = holds[source];
-    if (!release) throw Error('source GET was never issued');
-    release(
-      Response.json({
-        comment_id: source,
-        revision: 0,
-        repository: 7,
-        author_name: 'Ada',
-        at: 1720000000,
-        edited: false,
-        body: 'Late source body.',
-        intake: 'recorded',
-        judgment: 'pending',
-        draft: 'pending',
-        effect: 'pending',
-        issue: 0,
-      })
-    );
-  }, source);
-  await page.waitForTimeout(250);
-  assert.equal(await feed.getByText('Late source body.').count(), 0);
-  assert.equal(await feed.getByRole('button', {name: 'Back to feed'}).count(), 0);
-  assert.equal(await feed.locator('soda-factory-library').count(), 1);
-  // The detail view stays intact with its source button usable again.
-  await feed.getByText('Recorded rationale.').waitFor();
-  await feed.getByRole('button', {name: 'Open source conversation'}).waitFor();
-  assert.equal(await feed.getByRole('status').innerText(), '');
-  assert.equal(await page.evaluate(() => window.drawerFixture.calls.filter((call) => call.method !== 'GET').length), 0);
-});
-
-test('a slow source GET resolving after a related-item move keeps the newer item', async (t) => {
-  const page = await fixture(t);
-  const first = 'a'.repeat(32);
-  const second = 'b'.repeat(32);
-  const source = 'c'.repeat(32);
-  await page.evaluate(
-    ({first, second, source}) => {
-      const records: Record<string, unknown> = {
-        [first]: {
-          id: first,
-          revision: 1,
-          title: 'First record',
-          body: 'First rationale.',
-          source_post: source,
-          relations: [{kind: 'see_also', target: second, evidence: []}],
-        },
-        [second]: {id: second, revision: 1, title: 'Second record', body: 'Second rationale.'},
-      };
-      window.drawerFixture.setReply(async (call) => {
-        if (call.url.includes('/api/repositories?q=')) return Response.json({items: [], next_cursor: ''});
-        if (call.url.includes('/api/factory/feed?')) return Response.json({entries: [], truncated: false});
-        if (call.url.includes('/api/factory/library/item?')) {
-          const id = new URL(call.url, location.origin).searchParams.get('id') ?? '';
-          const record = records[id];
-          if (!record) return Response.json({}, {status: 404});
-          return Response.json({item: record, history: []});
-        }
-        if (call.url.includes('/api/factory/library?'))
-          return Response.json({items: [records[first]], next_cursor: ''});
-        if (call.url.endsWith(`/api/factory/feed/comments/${source}`) && call.method === 'GET')
-          return new Promise<Response>((resolve) => {
-            const holds = window as unknown as {sourceHolds?: Record<string, (response: Response) => void>};
-            if (!holds.sourceHolds) holds.sourceHolds = {};
-            (holds.sourceHolds as Record<string, (response: Response) => void>)[source] = resolve;
-          });
-        return null;
-      });
-      window.drawerFixture.mountFeed();
-    },
-    {first, second, source}
-  );
-  const feed = page.locator('soda-factory-feed');
-  await feed.getByRole('heading', {name: 'Activity', exact: true}).waitFor();
-  await feed.getByRole('button', {name: 'Knowledge & decisions'}).click();
-  await feed.getByRole('button', {name: 'First record'}).click();
-  await feed.getByRole('button', {name: 'Open source conversation'}).click();
-  await feed.getByRole('button', {name: 'Opening source'}).waitFor();
-  await feed.getByRole('button', {name: 'bbbbbbbb'}).click();
-  await feed.getByText('Second rationale.').waitFor();
-  await page.evaluate((source) => {
-    const holds = (window as unknown as {sourceHolds: Record<string, (response: Response) => void>}).sourceHolds;
-    const release = holds[source];
-    if (!release) throw Error('source GET was never issued');
-    release(
-      Response.json({
-        comment_id: source,
-        revision: 0,
-        repository: 7,
-        author_name: 'Ada',
-        at: 1720000000,
-        edited: false,
-        body: 'Late source body.',
-        intake: 'recorded',
-        judgment: 'pending',
-        draft: 'pending',
-        effect: 'pending',
-        issue: 0,
-      })
-    );
-  }, source);
-  await page.waitForTimeout(250);
-  assert.equal(await feed.getByText('Source conversation').count(), 0);
-  assert.equal(await feed.getByText('Late source body.').count(), 0);
-  assert.equal(await feed.getByRole('button', {name: 'Back to feed'}).count(), 0);
-  await feed.getByText('Second rationale.').waitFor();
-  assert.equal(await feed.getByText('First rationale.').count(), 0);
-  assert.equal(await feed.locator('soda-factory-library').count(), 1);
-  assert.equal(await feed.getByRole('status').innerText(), '');
-  assert.equal(await page.evaluate(() => window.drawerFixture.calls.filter((call) => call.method !== 'GET').length), 0);
 });
 
 test('a role reply link pages the original thread until the older target is found and focused', async (t) => {
@@ -4102,7 +3641,7 @@ test('a filter change during a role-reply lookup leaves the stale thread untouch
   await link.click();
   // The older page stays in flight while the user moves on to a filter.
   await page.waitForFunction(() => (window as unknown as {replyHeld?: boolean}).replyHeld === true);
-  await feed.getByRole('button', {name: 'Decisions', exact: true}).click();
+  await feed.getByRole('button', {name: 'Choices & approvals', exact: true}).click();
   await feed.getByRole('heading', {name: 'No matching posts.', exact: true}).waitFor();
   await page.evaluate(
     ({target, work, invite}: {target: string; work: string; invite: string}) => {
@@ -4463,131 +4002,6 @@ test('a permission-denied older page during a role-reply lookup says so and keep
     ),
     1
   );
-  assert.equal(await page.evaluate(() => window.drawerFixture.calls.filter((call) => call.method !== 'GET').length), 0);
-});
-
-test('entering the library during a role-reply lookup leaves the stale lookup silent', async (t) => {
-  const page = await fixture(t);
-  const work = 'a'.repeat(32);
-  const invite = 'b'.repeat(32);
-  const target = 'c'.repeat(32);
-  await page.evaluate(
-    ({work, invite, target}) => {
-      const record = {
-        id: 'd'.repeat(32),
-        revision: 1,
-        title: 'Decision record',
-        body: 'Recorded rationale.',
-        source_post: target,
-      };
-      window.drawerFixture.api.setPresentation('settings');
-      window.drawerFixture.setReply(async (call) => {
-        if (call.url.includes('/api/repositories?q=')) return Response.json({items: [], next_cursor: ''});
-        if (call.url.includes('/api/factory/feed?'))
-          return Response.json({
-            entries: [
-              {
-                kind: 'record',
-                id: work,
-                repository: 7,
-                seq: 1,
-                actor: 'builder',
-                author: 'Builder',
-                status: 'assigned',
-                summary: 'Working on the demo.',
-              },
-            ],
-            truncated: false,
-          });
-        if (call.url.includes('/api/factory/library/item?')) return Response.json({item: record, history: []});
-        if (call.url.includes('/api/factory/library?')) return Response.json({items: [record], next_cursor: ''});
-        if (call.url.includes('/api/factory/feed/replies?')) {
-          const before = new URL(call.url, location.origin).searchParams.get('before');
-          if (!before)
-            return Response.json({
-              items: [
-                {
-                  comment_id: invite,
-                  repository: 7,
-                  revision: 0,
-                  actor: 'builder',
-                  author_name: 'Builder',
-                  assignment: work,
-                  reply_to: '',
-                  body: 'Consulted the architect.',
-                  at: 1729000001,
-                  edited: false,
-                  contribution: {
-                    source: work,
-                    revision: 0,
-                    state: 'responded',
-                    profile: 'architect',
-                    reply: target,
-                    body: 'Consulted the architect.',
-                    roles: [],
-                    replies: [],
-                  },
-                },
-              ],
-              next_before: 5,
-            });
-          (window as unknown as {replyHeld?: boolean}).replyHeld = true;
-          return new Promise<Response>((resolve) => {
-            const holds = window as unknown as {replyHolds?: Record<string, (response: Response) => void>};
-            if (!holds.replyHolds) holds.replyHolds = {};
-            (holds.replyHolds as Record<string, (response: Response) => void>)[target] = resolve;
-          });
-        }
-        return null;
-      });
-    },
-    {work, invite, target}
-  );
-  await refresh(page);
-  await page.evaluate(() => {
-    window.drawerFixture.mountFeed();
-  });
-  const feed = page.locator('soda-factory-feed');
-  await feed.locator(`[data-feed-drawer-toggle="record:${work}"]`).click();
-  await feed.locator(`[data-role-reply-open="${target}"]`).click();
-  // The older page stays in flight while the user enters the library.
-  await page.waitForFunction(() => (window as unknown as {replyHeld?: boolean}).replyHeld === true);
-  await feed.getByRole('button', {name: 'Knowledge & decisions'}).click();
-  await feed.locator('soda-factory-library').waitFor();
-  await page.evaluate(
-    ({target, work, invite}) => {
-      const holds = (window as unknown as {replyHolds: Record<string, (response: Response) => void>}).replyHolds;
-      const release = holds[target];
-      if (!release) throw Error('older replies GET was never issued');
-      release(
-        Response.json({
-          items: [
-            {
-              comment_id: target,
-              repository: 7,
-              revision: 0,
-              actor: 'architect',
-              author_name: 'Architect',
-              assignment: work,
-              reply_to: invite,
-              body: 'The late role reply the user left behind.',
-              at: 1729000000,
-              edited: false,
-            },
-          ],
-          next_before: 0,
-        })
-      );
-    },
-    {target, work, invite}
-  );
-  await page.waitForTimeout(250);
-  // The library stays open with no status write and no focus steal.
-  await feed.locator('soda-factory-library').waitFor();
-  await feed.getByRole('button', {name: 'Back to activity'}).waitFor();
-  assert.equal(await feed.locator(`#comment-${target}`).count(), 0);
-  assert.equal(await feed.locator('section.soda-feed p[role="status"]').innerText(), '');
-  assert.equal(await page.evaluate(() => document.activeElement?.id ?? ''), '');
   assert.equal(await page.evaluate(() => window.drawerFixture.calls.filter((call) => call.method !== 'GET').length), 0);
 });
 
@@ -8932,7 +8346,7 @@ test('a retried post body that reports removed keeps no Check progress', async (
   await feed.getByText('Discussion text unavailable; the post keeps its place.', {exact: true}).waitFor();
   const retry = feed.getByRole('button', {name: 'Retry loading discussion text', exact: true});
   await retry.waitFor();
-  const draft = feed.getByLabel('Project comment', {exact: true});
+  const draft = feed.getByLabel('Comment', {exact: true});
   await draft.fill('Hold this unsent note.');
   await retry.click();
   await feed
@@ -9077,7 +8491,7 @@ test('a cached thread refresh survives reload across close, advance and reopen',
     document.querySelector('soda-factory-feed')?.remove();
     window.drawerFixture.mountFeed();
   });
-  await feed.getByRole('heading', {name: 'Activity'}).waitFor();
+  await feed.getByRole('region', {name: 'Feed', exact: true}).waitFor();
   await feed.locator(`[data-feed-drawer-toggle="record:${work}"]`).click();
   await nested.getByText('Please add substitute approvers.', {exact: true}).waitFor();
   await nested.getByRole('button', {name: 'Check progress', exact: true}).waitFor();
@@ -9285,7 +8699,7 @@ test('a cached change progression survives a genuine reload across close, advanc
     window.drawerFixture.mountFeed();
   });
   feed = page.locator('soda-factory-feed');
-  await feed.getByRole('heading', {name: 'Activity'}).waitFor();
+  await feed.getByRole('region', {name: 'Feed', exact: true}).waitFor();
   await feed.locator(`[data-feed-drawer-toggle="record:${work}"]`).click();
   nested = feed.locator(`#comment-${comment}`);
   await nested.getByText('Please adopt the new direction.', {exact: true}).waitFor();
@@ -9528,7 +8942,7 @@ test('a delayed retry body never restores a removed post after refresh', async (
   });
   const feed = page.locator('soda-factory-feed');
   await feed.getByText('Discussion text unavailable; the post keeps its place.', {exact: true}).waitFor();
-  const draft = feed.getByLabel('Project comment', {exact: true});
+  const draft = feed.getByLabel('Comment', {exact: true});
   await draft.fill('Hold this unsent note.');
   await page.evaluate(() => {
     document.body.dataset.gated = '1';
@@ -9722,7 +9136,7 @@ test('a revoked post with empty body and pipeline stays removed', async (t) => {
   });
   const feed = page.locator('soda-factory-feed');
   await feed.getByText('Discussion text unavailable; the post keeps its place.', {exact: true}).waitFor();
-  const draft = feed.getByLabel('Project comment', {exact: true});
+  const draft = feed.getByLabel('Comment', {exact: true});
   await draft.fill('Hold this unsent note.');
   await feed.getByRole('button', {name: 'Retry loading discussion text', exact: true}).click();
   await feed
@@ -9911,7 +9325,7 @@ test('a closed unavailable change recovers after reload when the server restores
     window.drawerFixture.mountFeed();
   });
   feed = page.locator('soda-factory-feed');
-  await feed.getByRole('heading', {name: 'Activity'}).waitFor();
+  await feed.getByRole('region', {name: 'Feed', exact: true}).waitFor();
   await feed.locator(`[data-feed-drawer-toggle="record:${work}"]`).click();
   nested = feed.locator(`#comment-${comment}`);
   await nested.getByText('Please adopt the new direction.', {exact: true}).waitFor();
