@@ -221,11 +221,6 @@ func dispatchSeed(t *testing.T, db *store.Store, sourceInputs ...map[string]stri
 	}); err != nil {
 		t.Fatal(err)
 	}
-	if err := db.SaveConnectionUsageBudget(ctx, factory.ConnectionUsageBudget{
-		Connection: "conn", RollingMinutes: factory.DefaultConnectionUsageBudgetMinutes,
-	}); err != nil {
-		t.Fatal(err)
-	}
 	if err := db.SaveEnvironmentGrant(ctx, project.EnvironmentGrant{Repository: fx.repo, Owner: 7, Profile: &project.Profile{
 		ID: project.RockyHeadless, Distribution: "rocky", Version: "9.6", Interface: "headless",
 		Architecture: "amd64", Image: "sha256:" + strings.Repeat("b", 64), Revision: strings.Repeat("c", 40),

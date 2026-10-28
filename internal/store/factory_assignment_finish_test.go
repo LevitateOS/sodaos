@@ -26,8 +26,8 @@ func finishGuardBaseAssignment() factory.Assignment {
 	return factory.Assignment{
 		Authority: factory.AuthorityRef{
 			Policy: 1, Operator: 1, Capacity: 1, Sponsorship: 1, Environment: 1,
-			SponsorshipConnection: "conn", ConnectionUsageBudget: 1,
-			RequirementsID: "d" + strings.Repeat("c", 24), ApprovalID: "d" + strings.Repeat("e", 24),
+			SponsorshipConnection: "conn",
+			RequirementsID:        "d" + strings.Repeat("c", 24), ApprovalID: "d" + strings.Repeat("e", 24),
 		},
 		Subject: factory.ExecutionSubject{
 			Kind:  factory.SubjectIssue,

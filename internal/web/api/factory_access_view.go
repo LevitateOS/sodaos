@@ -45,7 +45,7 @@ type accessViewerView struct {
 }
 
 // accessConnectionEntryView reports editability for one connection-owned
-// section: sponsorships and usage budgets admit the connection owner.
+// section: sponsorships admit the connection owner.
 type accessConnectionEntryView struct {
 	Connection string `json:"connection"`
 	Reason     string `json:"reason,omitempty"`
@@ -57,7 +57,6 @@ type accessConnectionEntryView struct {
 // powers only, never a second copy of the settings.
 type accessEditableView struct {
 	Sponsorships     []accessConnectionEntryView `json:"sponsorships"`
-	UsageBudgets     []accessConnectionEntryView `json:"usage_budgets"`
 	Policy           accessEntryView             `json:"policy"`
 	ActivitySettings accessEntryView             `json:"activity_settings"`
 	OperatorGrant    accessEntryView             `json:"operator_grant"`
@@ -73,7 +72,7 @@ type accessEditableInput struct {
 }
 
 func accessEditableDTO(in accessEditableInput) accessEditableView {
-	view := accessEditableView{Sponsorships: []accessConnectionEntryView{}, UsageBudgets: []accessConnectionEntryView{}}
+	view := accessEditableView{Sponsorships: []accessConnectionEntryView{}}
 	session := ""
 	if !in.Viewer.SessionCurrent {
 		session = accessReasonSession
@@ -105,7 +104,6 @@ func accessEditableDTO(in accessEditableInput) accessEditableView {
 			entry.Editable = true
 		}
 		view.Sponsorships = append(view.Sponsorships, entry)
-		view.UsageBudgets = append(view.UsageBudgets, entry)
 	}
 	return view
 }
@@ -143,8 +141,6 @@ func accessRequiredActions(missing []string) []accessActionView {
 			}
 		case factory.MissingSponsorship, factory.MissingSponsorshipGone:
 			action.ResolveBy, action.Setting = accessResolveConnOwner, "sponsorships"
-		case factory.MissingConnectionUsageBudget:
-			action.ResolveBy, action.Setting = accessResolveConnOwner, "usage_budgets"
 		case factory.MissingEnvironment, factory.MissingEnvironmentGone:
 			action.ResolveBy, action.Setting = accessResolveOwnerAdmin, "environment_grant"
 		case factory.MissingPreparation:
@@ -166,9 +162,10 @@ const (
 )
 
 // accessUsageView renders actual execution usage for one sponsored
-// connection in real minutes, or the explicit status withholding it.
-// Budget and spend belong to the connection owner; other viewers see
-// the withholding status, never zeros that could read as no spend.
+// connection in real minutes against the sponsorship's allowance, or the
+// explicit status withholding it. Allowance and spend belong to the
+// connection owner; other viewers see the withholding status, never zeros
+// that could read as no spend.
 type accessUsageView struct {
 	UsedMinutes   *int   `json:"used_minutes,omitempty"`
 	Connection    string `json:"connection"`
@@ -180,22 +177,21 @@ type accessUsageView struct {
 type accessUsageInput struct {
 	Connection string
 	Owned      bool
-	BudgetOK   bool
 	UsedOK     bool
 	Budget     int64
 	Used       int
 }
 
 // accessUsageDTO renders one connection's usage. Values render only for
-// the verified connection owner with both reads succeeding; every other
-// case names its withholding status.
+// the verified connection owner with the usage read succeeding; every
+// other case names its withholding status.
 func accessUsageDTO(in accessUsageInput) accessUsageView {
 	view := accessUsageView{Connection: in.Connection, Unit: "minutes"}
 	if !in.Owned {
 		view.Status = accessUsageOwnerOnly
 		return view
 	}
-	if !in.BudgetOK || !in.UsedOK {
+	if !in.UsedOK {
 		view.Status = accessUsageUnavailable
 		return view
 	}
@@ -273,25 +269,10 @@ func (s *API) collectFactoryAccessUsage(ctx context.Context, repository int64, s
 			view.Usage = append(view.Usage, accessUsageView{Connection: sponsorship.Connection, Unit: "minutes", Status: accessUsageIdentityDown})
 			continue
 		}
-		in := accessUsageInput{Connection: sponsorship.Connection, Owned: editable.Owned[sponsorship.Connection]}
+		in := accessUsageInput{Connection: sponsorship.Connection, Owned: editable.Owned[sponsorship.Connection], Budget: int64(sponsorship.AllowanceMinutes)}
 		if in.Owned {
-			if budget, err := s.Store.ConnectionUsageBudget(ctx, sponsorship.Connection); err == nil {
-				in.Budget, in.BudgetOK = budget.RollingMinutes, true
-			} else if !errors.Is(err, store.ErrNotFound) {
-				view.Usage = append(view.Usage, accessUsageView{Connection: sponsorship.Connection, Unit: "minutes", Status: accessUsageUnavailable})
-				continue
-			}
 			if total, err := s.Store.UsageTotal(ctx, repository, sponsorship.Connection); err == nil {
 				in.Used, in.UsedOK = total, true
-			} else {
-				view.Usage = append(view.Usage, accessUsageView{Connection: sponsorship.Connection, Unit: "minutes", Status: accessUsageUnavailable})
-				continue
-			}
-			if !in.BudgetOK {
-				// A missing budget is itself a required action
-				// (connection_usage_budget_missing), not a zero budget.
-				view.Usage = append(view.Usage, accessUsageView{Connection: sponsorship.Connection, Unit: "minutes", Status: accessUsageUnavailable})
-				continue
 			}
 		}
 		view.Usage = append(view.Usage, accessUsageDTO(in))

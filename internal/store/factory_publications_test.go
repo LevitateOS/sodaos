@@ -31,11 +31,6 @@ func publicationStoreFixture(t *testing.T) *Store {
 			t.Fatal(err)
 		}
 	}
-	if err := db.SaveConnectionUsageBudget(ctx, factory.ConnectionUsageBudget{
-		Connection: "conn", RollingMinutes: factory.DefaultConnectionUsageBudgetMinutes,
-	}); err != nil {
-		t.Fatal(err)
-	}
 	if err := db.CreateProject(ctx, Project{ID: projectID, Name: "factory", RepositoryID: 7, OwnerID: 7, Repository: "soda-tester/factory"}); err != nil {
 		t.Fatal(err)
 	}

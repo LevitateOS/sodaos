@@ -1095,7 +1095,7 @@ func (a CompletionAuthority) validateVerdict() error {
 	}
 	if a.Effective.Authority.Policy < 0 || a.Effective.Authority.Operator < 0 ||
 		a.Effective.Authority.Capacity < 0 || a.Effective.Authority.Sponsorship < 0 ||
-		a.Effective.Authority.ConnectionUsageBudget < 0 || a.Effective.Authority.Environment < 0 {
+		a.Effective.Authority.Environment < 0 {
 		return errors.New("invalid completion authority revisions")
 	}
 	if !project.ValidDecisionID(a.Effective.Authority.RequirementsID) ||

@@ -943,7 +943,6 @@ type admissionGrants struct {
 	policy      factory.RepositoryPolicy
 	operator    factory.OperatorGrant
 	sponsorship factory.Sponsorship
-	usageBudget factory.ConnectionUsageBudget
 	environment project.EnvironmentGrant
 }
 
@@ -1013,12 +1012,6 @@ func loadAdmissionGrantsTx(ctx context.Context, t *sql.Tx, repository int64, con
 		return admissionGrants{}, err
 	}
 	grants.sponsorship = sponsorship
-	if err := loadGrantDocumentTx(ctx, t, &grants.usageBudget, `SELECT data FROM factory_connection_usage_budgets WHERE connection=$1 FOR UPDATE`, connection); err != nil {
-		return admissionGrants{}, err
-	}
-	if grants.usageBudget.Connection != connection || grants.usageBudget.Validate() != nil {
-		return admissionGrants{}, ErrAdmissionChanged
-	}
 	if err := loadGrantDocumentTx(ctx, t, &grants.environment, `SELECT data FROM project_environment_grants WHERE repository=$1 FOR UPDATE`, repository); err != nil {
 		return admissionGrants{}, err
 	}
@@ -1054,7 +1047,7 @@ func checkAssignmentAuthorityTx(ctx context.Context, t *sql.Tx, expected factory
 	current := factory.AuthorityRef{
 		Policy: grants.policy.Revision, Operator: grants.operator.Revision,
 		Capacity: grants.capacity.Revision, Sponsorship: grants.sponsorship.Revision,
-		SponsorshipConnection: grants.sponsorship.Connection, ConnectionUsageBudget: grants.usageBudget.Revision,
+		SponsorshipConnection: grants.sponsorship.Connection,
 		Environment: grants.environment.Revision, RequirementsID: requirement, ApprovalID: approval,
 	}
 	if current != expected || requirement != a.Authority.RequirementsID || approval != a.Authority.ApprovalID {

@@ -173,13 +173,6 @@ func TestReleasedReviewerRetryAcceptsCurrentAuthorityAndNativeRevision(t *testin
 	if err := fx.db.SaveCapacity(ctx, capacity); err != nil {
 		t.Fatal(err)
 	}
-	budget, err := fx.db.ConnectionUsageBudget(ctx, child.Connection)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if err := fx.db.SaveConnectionUsageBudget(ctx, budget); err != nil {
-		t.Fatal(err)
-	}
 	control, err := fx.db.IssueControl(ctx, child.Repository, child.Issue)
 	if err != nil {
 		t.Fatal(err)
@@ -233,13 +226,8 @@ func TestReleasedReviewerRetryAcceptsCurrentAuthorityAndNativeRevision(t *testin
 	if err != nil {
 		t.Fatal(err)
 	}
-	currentBudget, err := fx.db.ConnectionUsageBudget(ctx, child.Connection)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if retryRun.Admission.Authority.Capacity != currentCapacity.Revision ||
-		retryRun.Admission.Authority.ConnectionUsageBudget != currentBudget.Revision {
-		t.Fatalf("retry run did not capture current capacity/budget revisions: admission=%+v capacity=%d budget=%d", retryRun.Admission.Authority, currentCapacity.Revision, currentBudget.Revision)
+	if retryRun.Admission.Authority.Capacity != currentCapacity.Revision {
+		t.Fatalf("retry run did not capture the current capacity revision: admission=%+v capacity=%d", retryRun.Admission.Authority, currentCapacity.Revision)
 	}
 }
 

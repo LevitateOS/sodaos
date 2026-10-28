@@ -18,7 +18,7 @@ import (
 func gateTestMergeRow(t *testing.T, db *store.Store) factory.Merge {
 	t.Helper()
 	m := factory.Merge{
-		Authority: factory.AuthorityRef{Policy: 2, Operator: 1, Capacity: 1, Sponsorship: 1, ConnectionUsageBudget: 1, Environment: 1},
+		Authority: factory.AuthorityRef{Policy: 2, Operator: 1, Capacity: 1, Sponsorship: 1, Environment: 1},
 		Operation: factory.MergeOperation{Kind: factory.OpMerge},
 		ID:        factory.NewID(), PublicationID: factory.NewID(), AssignmentID: factory.NewID(),
 		ProjectID: "p" + strings.Repeat("d", 24),

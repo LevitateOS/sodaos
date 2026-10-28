@@ -1017,8 +1017,6 @@ test('provider budget and sponsorship use observed connection and grant records 
             revoked: false,
           },
         ]);
-      if (call.url.endsWith('/api/factory/connections/connection-observed/usage-budget'))
-        return Response.json({connection: 'connection-observed', revision: 3, rolling_minutes: 120});
       if (call.method === 'PUT' && call.url.includes('/factory/sponsorships/'))
         return Response.json({error: {code: 'stale_credential_generation'}}, {status: 409});
       return null;
@@ -1035,7 +1033,6 @@ test('provider budget and sponsorship use observed connection and grant records 
     await (el as HTMLElement & {updateComplete: Promise<unknown>}).updateComplete;
   });
   assert.match(await settings.innerText(), /Primary · active/);
-  assert.match(await settings.innerText(), /120 minutes \(revision 3\)/);
   assert.equal(await settings.locator('[name="connection"]').count(), 0);
   assert.equal(await settings.locator('[name="grant_id"]').inputValue(), '');
   await settings.locator('[name="grant_id"]').selectOption('grant-observed');
@@ -1051,55 +1048,6 @@ test('provider budget and sponsorship use observed connection and grant records 
   assert.equal(payload.generation, 7);
   assert.deepEqual(payload.roles, ['soda-coder']);
   assert.equal(writesSent.filter((call) => call.url.includes('/factory/sponsorships/')).length, 1);
-});
-
-test('provider budget reports a forbidden response and does not repeat the command', async (t) => {
-  const page = await fixture(t);
-  await page.evaluate(() =>
-    window.drawerFixture.setReply(async (call) => {
-      if (call.url.endsWith('/api/repositories/7/factory'))
-        return Response.json({
-          repository: '7',
-          appliance: {revision: 1, max_concurrent_runs: 1},
-          sponsorships: [],
-          effective: {effective: false, dispatch_open: false, missing: []},
-        });
-      if (call.url.endsWith('/api/identity/connections'))
-        return Response.json([
-          {id: 'connection-observed', owner_id: '9', label: 'Primary', generation: 7, state: 'active'},
-        ]);
-      if (call.url.endsWith('/api/identity/connections/connection-observed/grants')) return Response.json([]);
-      if (call.url.endsWith('/api/factory/connections/connection-observed/usage-budget'))
-        return call.method === 'PUT'
-          ? Response.json({error: {code: 'connection_owner_required'}}, {status: 403})
-          : Response.json({connection: 'connection-observed', revision: 0, rolling_minutes: 120});
-      return null;
-    })
-  );
-  await page.evaluate(async () => {
-    window.drawerFixture.api.setPresentation('settings');
-    await window.drawerFixture.api.ready;
-  });
-  await refresh(page);
-  await page.getByRole('tab', {name: 'Factory'}).click();
-  const settings = page.locator('soda-factory-settings');
-  await settings.evaluate(async (el) => {
-    await (el as HTMLElement & {updateComplete: Promise<unknown>}).updateComplete;
-  });
-  let sessionInvalid = 0;
-  await settings.evaluate((element) =>
-    element.addEventListener('soda-session-invalid', () => {
-      (element as HTMLElement).dataset.invalid = 'yes';
-    })
-  );
-  await settings.getByRole('button', {name: 'Save connection budget'}).click();
-  await settings.getByRole('status').filter({hasText: 'not confirmed (403)'}).waitFor();
-  sessionInvalid = (await settings.getAttribute('data-invalid')) === 'yes' ? 1 : 0;
-  assert.equal(sessionInvalid, 0, 'an ordinary permission refusal must not retire the signed-in session');
-  const budgetWrites = (await writes(page)).filter((call) =>
-    call.url.endsWith('/api/factory/connections/connection-observed/usage-budget')
-  );
-  assert.equal(budgetWrites.length, 1);
 });
 
 test('late source-preview and acceptance replies cannot write into a newer Project context', async (t) => {
@@ -1259,11 +1207,10 @@ test('Factory execution usage reports exact minutes, editability and required ac
               capacity: {editable: true},
               environment_grant: {editable: false, reason: 'repository_owner_required'},
               sponsorships: [{connection: 'c1', editable: true}],
-              usage_budgets: [{connection: 'c1', editable: false, reason: 'connection_owner_required'}],
             },
             effective: {missing: [], effective: true, dispatch_open: true},
             required_actions: [
-              {code: 'usage_budget_missing', resolve_by: 'connection_owner', setting: 'usage_budgets'},
+              {code: 'sponsorship_missing', resolve_by: 'connection_owner', setting: 'sponsorships'},
             ],
             preparation: null,
             usage: [
@@ -1281,13 +1228,12 @@ test('Factory execution usage reports exact minutes, editability and required ac
   await page.getByRole('tab', {name: 'Factory'}).click();
   const settings = page.locator('[data-factory-settings]');
   assert(await settings.getByLabel('Intent active minutes', {exact: true}).isDisabled());
-  await settings.getByText('c1: 360 minutes budget; 41 minutes used.').waitFor();
+  await settings.getByText('c1: 360 minutes allowance; 41 minutes used.').waitFor();
   assert.doesNotMatch(await settings.innerText(), /planning calls/i);
   assert.match(await settings.innerText(), /c2: visible to its connection owner only/);
-  assert.match(await settings.innerText(), /Budget read-only: needs connection owner/);
   assert.match(await settings.innerText(), /Policy: read-only \(needs repository owner or administrator\)/);
   assert.match(await settings.innerText(), /Activity display: editable/);
-  assert.match(await settings.innerText(), /usage_budget_missing: resolve as connection owner in usage_budgets/);
+  assert.match(await settings.innerText(), /sponsorship_missing: resolve as connection owner in sponsorships/);
   assert.doesNotMatch(await settings.innerText(), /\$/);
   assert.equal((await writes(page)).filter((call) => call.method !== 'GET').length, 0);
 });
@@ -1453,7 +1399,6 @@ test('Factory settings disable dispatch resume without repository write access',
             capacity: {editable: false, reason: 'operator_required'},
             environment_grant: {editable: false, reason: 'repository_admin_required'},
             sponsorships: [{connection: 'connection-observed', editable: false}],
-            usage_budgets: [{connection: 'connection-observed', editable: false}],
           },
           effective: {},
           required_actions: [],

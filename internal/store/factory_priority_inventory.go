@@ -210,8 +210,6 @@ type priorityDigestInputs struct {
 	repoPreps     map[int64]string
 	capacityRev   int64
 	occupancy     string
-	connBudget    map[string]string
-	connRoom      map[string]bool
 	allowRoom     map[int64]bool
 }
 
@@ -258,9 +256,6 @@ func (c *priorityDigestInputs) digest() (string, error) {
 		key := fmt.Sprintf("%d", repo)
 		doc.Repos[key] = c.repoAuthority[repo] + "|" + c.repoGate[repo] + "|" +
 			c.repoReqAppr[repo] + "|" + c.repoPreps[repo]
-	}
-	for conn, rev := range c.connBudget {
-		doc.Conns[conn] = rev + fmt.Sprintf("|room=%t", c.connRoom[conn])
 	}
 	repoKeys := make([]int64, 0, len(c.repos))
 	for repo := range c.repos {
@@ -532,8 +527,6 @@ func (c *priorityDigestInputs) batchRepoInputs(ctx context.Context) error {
 // with eligibility as booleans evaluated now. Exact balances stay out of
 // the digest; the packet admission rechecks them.
 func (c *priorityDigestInputs) batchBudgetInputs(ctx context.Context) error {
-	c.connBudget = map[string]string{}
-	c.connRoom = map[string]bool{}
 	c.allowRoom = map[int64]bool{}
 	var capacityRev int64
 	if err := c.tx.QueryRowContext(ctx, `SELECT revision FROM factory_capacity WHERE id=1`).Scan(&capacityRev); err != nil && !errors.Is(err, sql.ErrNoRows) {
@@ -584,26 +577,6 @@ func (c *priorityDigestInputs) batchBudgetInputs(ctx context.Context) error {
 		if err := rows.Close(); err != nil {
 			return err
 		}
-	}
-	for conn := range conns {
-		var rev int64
-		var data []byte
-		if err := c.tx.QueryRowContext(ctx, `SELECT revision, data FROM factory_connection_usage_budgets WHERE connection=$1`, conn).Scan(&rev, &data); err != nil {
-			if errors.Is(err, sql.ErrNoRows) {
-				continue
-			}
-			return err
-		}
-		var budget factory.ConnectionUsageBudget
-		if err := json.Unmarshal(data, &budget); err != nil {
-			return err
-		}
-		charge, err := connectionUsageCharge(ctx, c.tx, conn, c.now)
-		if err != nil {
-			return err
-		}
-		c.connBudget[conn] = fmt.Sprintf("%d", rev)
-		c.connRoom[conn] = budget.RollingMinutes*factory.UsageMicrosPerMinute-charge >= factory.UsageMicrosPerMinute
 	}
 	for repo, conn := range repoConn {
 		var used int

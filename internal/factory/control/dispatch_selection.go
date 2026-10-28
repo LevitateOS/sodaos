@@ -36,10 +36,6 @@ func selectSponsorship(ctx context.Context, deps DispatchDeps, repository int64,
 		if !permitted {
 			return factory.Sponsorship{}, waitFor(WaitSponsorshipRole, "sponsorship does not permit this role"), nil
 		}
-		budget, err := deps.Store.ConnectionUsageBudget(ctx, sponsorship.Connection)
-		if err != nil || budget.Revision != effective.Authority.ConnectionUsageBudget {
-			return factory.Sponsorship{}, waitFor(WaitAuthority, "connection usage budget changed during dispatch"), nil
-		}
 		return sponsorship, nil, nil
 	}
 	return factory.Sponsorship{}, waitFor(WaitAuthority, "sponsorship changed during dispatch"), nil

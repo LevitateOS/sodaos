@@ -23,7 +23,6 @@ type View = {
   access?: FactoryAccess;
   connections: Record<string, unknown>[];
   grants: Record<string, unknown>[];
-  usageBudget?: Record<string, unknown>;
   sourceSelection?: {
     source_commit: string;
     source_paths: string[];
@@ -536,17 +535,8 @@ export class SodaFactorySettings extends LitElement {
 
   private async connectionFacts(connection: string) {
     if (!connection) return {grants: [] as Record<string, unknown>[]};
-    const [grants, usageBudget] = await Promise.all([
-      this.request(`/api/identity/connections/${encodeURIComponent(connection)}/grants`),
-      this.request(`/api/factory/connections/${encodeURIComponent(connection)}/usage-budget`).catch((error) => {
-        if (error instanceof FactoryRequestError && error.status === 404) return undefined;
-        throw error;
-      }),
-    ]);
-    return {
-      grants: Array.isArray(grants) ? grants.map(asObject) : [],
-      ...(usageBudget === undefined ? {} : {usageBudget: asObject(usageBudget)}),
-    };
+    const grants = await this.request(`/api/identity/connections/${encodeURIComponent(connection)}/grants`);
+    return {grants: Array.isArray(grants) ? grants.map(asObject) : []};
   }
 
   private changeConnection = async (event: Event) => {
@@ -554,8 +544,7 @@ export class SodaFactorySettings extends LitElement {
     if (!(select instanceof HTMLSelectElement)) return;
     const connection = select.value;
     const serial = this.serial;
-    const {usageBudget: _oldBudget, ...withoutBudget} = this.view;
-    this.view = {...withoutBudget, selectedConnection: connection, grants: [], busy: true};
+    this.view = {...this.view, selectedConnection: connection, grants: [], busy: true};
     try {
       const facts = await this.connectionFacts(connection);
       if (serial !== this.serial || this.view.selectedConnection !== connection) return;
@@ -565,7 +554,7 @@ export class SodaFactorySettings extends LitElement {
       this.view = {
         ...this.view,
         busy: false,
-        message: 'Provider connection details are unavailable. Refresh before changing sponsorship or budget.',
+        message: 'Provider connection details are unavailable. Refresh before changing sponsorship.',
       };
     }
   };
@@ -607,7 +596,6 @@ export class SodaFactorySettings extends LitElement {
       prepare: this.submitPrepare,
       approval: this.submitApproval,
       capacity: this.submitCapacity,
-      budget: this.submitBudget,
       sponsorship: this.submitSponsorship,
       'operator-grant': this.submitOperatorGrant,
       'environment-grant': this.submitEnvironmentGrant,
@@ -635,10 +623,6 @@ export class SodaFactorySettings extends LitElement {
         return access.editable.environment_grant.editable;
       case 'sponsorship':
         return access.editable.sponsorships.some(
-          (row) => row.connection === this.view.selectedConnection && row.editable
-        );
-      case 'budget':
-        return access.editable.usage_budgets.some(
           (row) => row.connection === this.view.selectedConnection && row.editable
         );
       default:
@@ -862,25 +846,6 @@ export class SodaFactorySettings extends LitElement {
     });
   };
 
-  private submitBudget = async (form: HTMLFormElement) => {
-    const context = this.contextValue;
-    if (!context) throw Error('Reload this Forgejo page before changing factory settings.');
-    const connection = this.view.selectedConnection;
-    if (!connection) throw Error('Select a provider connection from the current account inventory.');
-    const path = `/api/factory/connections/${encodeURIComponent(connection)}/usage-budget`;
-    let currentBudget: Record<string, unknown> = {};
-    try {
-      currentBudget = asObject(this.view.usageBudget || (await this.request(path)));
-    } catch (error) {
-      if (!(error instanceof FactoryRequestError) || error.status !== 404) throw error;
-    }
-    await this.request(path, 'PUT', {
-      command_id: factoryCommandId(),
-      expected_revision: Number(currentBudget.revision || 0),
-      rolling_minutes: integer(form, 'rolling_minutes', 1),
-    });
-  };
-
   private submitSponsorship = async (form: HTMLFormElement) => {
     const context = this.contextValue;
     if (!context) throw Error('Reload this Forgejo page before changing factory settings.');
@@ -1081,7 +1046,6 @@ export class SodaFactorySettings extends LitElement {
       capacity_missing: ['Set how many jobs can run', 'capacity'],
       sponsorship_missing: ['Choose an account for Factory to use', 'sponsorship'],
       sponsorship_withdrawn: ['Restore Factory account access', 'sponsorship'],
-      connection_usage_budget_missing: ['Set the account’s usage allowance', 'budget'],
       environment_grant_missing: ['Allow project preparation', 'environment-grant'],
       environment_grant_withdrawn: ['Restore project preparation permission', 'environment-grant'],
       preparation_not_ready: ['Prepare the project’s tools and checks', 'source-preview'],
@@ -1515,7 +1479,6 @@ ${selection?.required_tools.join('\n') || ''}</textarea>
           ${this.view.connections.map((row) => html`<option value=${safeText(row.id)}>${safeText(row.label || row.provider_id)} · ${safeText(row.state)}</option>`)}
         </select></label
       >
-      ${this.renderBudgetForm()}
       <form data-action="sponsorship" @submit=${this.submit}>
         <fieldset class="soda-factory-permission" ?disabled=${this.view.busy || !this.canAction('sponsorship')}>
           <label
@@ -1538,20 +1501,6 @@ ${selection?.required_tools.join('\n') || ''}</textarea>
     </fieldset>`;
   }
 
-  private renderBudgetForm() {
-    const budget = this.view.usageBudget;
-    return html`<form data-action="budget" @submit=${this.submit}>
-      <fieldset class="soda-factory-permission" ?disabled=${this.view.busy || !this.canAction('budget')}>
-        <p>
-          Current rolling allowance:
-          ${budget ? `${budget.rolling_minutes} minutes (revision ${budget.revision})` : 'not configured'}.
-        </p>
-        ${this.numberInput('Rolling minutes', 'rolling_minutes', safeNumber(budget?.rolling_minutes, 360))}
-        ${this.submitButton('Save connection budget')}
-      </fieldset>
-    </form>`;
-  }
-
   private renderExecutionUsage() {
     const access = this.view.access;
     if (!access)
@@ -1564,25 +1513,20 @@ ${selection?.required_tools.join('\n') || ''}</textarea>
       <p>Provider execution minutes only.</p>
       ${
         access.usage.length
-          ? access.usage.map((row) => this.renderUsageRow(row, access))
+          ? access.usage.map((row) => this.renderUsageRow(row))
           : html`<p>No sponsored execution connections.</p>`
       }
       ${this.renderAccessPermissions(access)} ${this.renderRequiredActions(access)}
     </fieldset>`;
   }
 
-  private renderUsageRow(row: FactoryAccessUsage, access: FactoryAccess) {
+  private renderUsageRow(row: FactoryAccessUsage) {
     if (row.status !== undefined)
       return html`<p>${safeText(row.connection) || 'Connection'}: ${accessUsageStatusText(row.status)}.</p>`;
-    const budget = row.budget_minutes === undefined ? 'budget unavailable' : `${row.budget_minutes} minutes budget`;
+    const allowance =
+      row.budget_minutes === undefined ? 'allowance unavailable' : `${row.budget_minutes} minutes allowance`;
     const used = row.used_minutes === undefined ? 'used unavailable' : `${row.used_minutes} minutes used`;
-    const budgetEdit = access.editable.usage_budgets.find((item) => item.connection === row.connection);
-    const permission = !budgetEdit
-      ? ''
-      : budgetEdit.editable
-        ? 'Budget editable.'
-        : `Budget read-only: ${accessReasonText(budgetEdit.reason)}.`;
-    return html`<p>${safeText(row.connection) || 'Connection'}: ${budget}; ${used}. ${permission}</p>`;
+    return html`<p>${safeText(row.connection) || 'Connection'}: ${allowance}; ${used}.</p>`;
   }
 
   private renderAccessPermissions(access: FactoryAccess) {

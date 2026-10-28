@@ -37,7 +37,6 @@ export interface FactoryAccess {
     capacity: FactoryAccessEditable;
     environment_grant: FactoryAccessEditable;
     sponsorships: FactoryAccessConnectionEditable[];
-    usage_budgets: FactoryAccessConnectionEditable[];
   };
   effective: Record<string, unknown>;
   required_actions: FactoryAccessRequiredAction[];
@@ -113,7 +112,7 @@ export function factoryAccessResponse(value: unknown): FactoryAccess {
   for (const key of ['code_write', 'owner_or_admin', 'environment_owner', 'operator', 'member', 'session_current'])
     check(typeof viewer[key] === 'boolean');
   const edit = object(data.editable);
-  check(Array.isArray(edit.sponsorships) && Array.isArray(edit.usage_budgets));
+  check(Array.isArray(edit.sponsorships));
   check(Array.isArray(data.required_actions) && Array.isArray(data.usage));
   check(typeof data.observed_unix === 'number' && Number.isFinite(data.observed_unix));
   check(typeof data.repository === 'string' && data.repository.length > 0);
@@ -133,7 +132,6 @@ export function factoryAccessResponse(value: unknown): FactoryAccess {
       capacity: editable(edit.capacity),
       environment_grant: editable(edit.environment_grant),
       sponsorships: edit.sponsorships.map(connectionEditable),
-      usage_budgets: edit.usage_budgets.map(connectionEditable),
     },
     effective: object(data.effective),
     required_actions: (data.required_actions as unknown[]).map(requiredAction),

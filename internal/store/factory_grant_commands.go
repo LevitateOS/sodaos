@@ -51,8 +51,7 @@ func loadAuthorityGrantRows(ctx context.Context, q grantCommandSQL, repository i
 }
 
 // pickAuthoritySponsorship selects the active sponsorship behind one
-// authority evaluation with its validated usage budget, falling back
-// to the first recorded sponsorship.
+// authority evaluation, falling back to the first recorded sponsorship.
 func pickAuthoritySponsorship(ctx context.Context, q grantCommandSQL, repository int64, in *factory.AuthorityInput) error {
 	sponsorships, err := sponsorshipsQuery(ctx, q, repository)
 	if err != nil {
@@ -66,20 +65,6 @@ func pickAuthoritySponsorship(ctx context.Context, q grantCommandSQL, repository
 	}
 	if in.Sponsorship == nil && len(sponsorships) > 0 {
 		in.Sponsorship = &sponsorships[0]
-	}
-	if in.Sponsorship != nil {
-		var budget factory.ConnectionUsageBudget
-		if err = loadGrantQuery(ctx, q, "factory_connection_usage_budgets", "connection", in.Sponsorship.Connection, &budget); err == nil {
-			if budget.Connection != in.Sponsorship.Connection {
-				return errors.New("connection usage budget key mismatch")
-			}
-			if err = budget.Validate(); err != nil {
-				return err
-			}
-			in.ConnectionUsageBudget = &budget
-		} else if !errors.Is(err, ErrNotFound) {
-			return err
-		}
 	}
 	return nil
 }
@@ -193,10 +178,6 @@ func (s *Store) ApplySponsorshipCommand(ctx context.Context, cmd factory.Command
 	return s.applyFactoryGrantCommand(ctx, cmd, change, now)
 }
 
-func (s *Store) ApplyConnectionUsageBudgetCommand(ctx context.Context, cmd factory.Command, change factory.ConnectionUsageBudget, now time.Time) (factory.Command, bool, error) {
-	return s.applyFactoryGrantCommand(ctx, cmd, change, now)
-}
-
 func (s *Store) ApplyEnvironmentGrantCommand(ctx context.Context, cmd factory.Command, change project.EnvironmentGrant, now time.Time) (factory.Command, bool, error) {
 	return s.applyFactoryGrantCommand(ctx, cmd, change, now)
 }
@@ -205,7 +186,6 @@ func (s *Store) ApplyEnvironmentGrantCommand(ctx context.Context, cmd factory.Co
 // target, scope, revision, withdrawal cause and validator.
 type grantCommandResolution struct {
 	target     string
-	connection string
 	repository int64
 	revision   int64
 	withdraw   bool
@@ -227,9 +207,6 @@ func resolveGrantCommandTarget(change any) (grantCommandResolution, error) {
 		resolved.validate = g.Validate
 	case factory.Capacity:
 		resolved.target, resolved.revision, resolved.validate = "capacity", g.Revision, g.Validate
-	case factory.ConnectionUsageBudget:
-		resolved.connection, resolved.revision, resolved.validate = g.Connection, g.Revision, g.Validate
-		resolved.target = grantCommandConnectionBudgetTarget(g.Connection)
 	case factory.OperatorGrant:
 		resolved.target, resolved.repository, resolved.revision = grantCommandTarget("operator-grant", g.Repository), g.Repository, g.Revision
 		resolved.withdraw, resolved.cause, resolved.validate = !g.Active, "operator_grant_withdrawn", g.Validate
@@ -253,8 +230,6 @@ func grantCommandExpectedType(change any) string {
 		return factory.CommandPolicy
 	case factory.Capacity:
 		return factory.CommandCapacity
-	case factory.ConnectionUsageBudget:
-		return factory.CommandConnectionUsageBudget
 	case factory.OperatorGrant:
 		return factory.CommandOperatorGrant
 	case factory.Sponsorship:
@@ -268,19 +243,16 @@ func grantCommandExpectedType(change any) string {
 // lockGrantScopeTx locks the repository gate or the appliance
 // capacity row behind one grant command, matching dispatch lock
 // order.
-func lockGrantScopeTx(ctx context.Context, tx *sql.Tx, repository int64, connection string) error {
+func lockGrantScopeTx(ctx context.Context, tx *sql.Tx, repository int64) error {
 	if repository > 0 {
 		_, _, _, err := ensureDispatchGateTx(ctx, tx, repository)
 		return err
 	}
-	if connection == "" {
-		if _, err := tx.ExecContext(ctx, `INSERT INTO factory_capacity(id,revision,data) VALUES(1,0,'{}'::jsonb) ON CONFLICT(id) DO NOTHING`); err != nil {
-			return err
-		}
-		var locked int64
-		return tx.QueryRowContext(ctx, `SELECT revision FROM factory_capacity WHERE id=1 FOR UPDATE`).Scan(&locked)
+	if _, err := tx.ExecContext(ctx, `INSERT INTO factory_capacity(id,revision,data) VALUES(1,0,'{}'::jsonb) ON CONFLICT(id) DO NOTHING`); err != nil {
+		return err
 	}
-	return nil
+	var locked int64
+	return tx.QueryRowContext(ctx, `SELECT revision FROM factory_capacity WHERE id=1 FOR UPDATE`).Scan(&locked)
 }
 
 // refreshSponsorshipWithdrawTx clears a sponsorship withdrawal when
@@ -350,7 +322,7 @@ func (s *Store) applyFactoryGrantCommand(ctx context.Context, cmd factory.Comman
 		return factory.Command{}, false, err
 	}
 	defer func() { _ = tx.Rollback() }()
-	if err = lockGrantScopeTx(ctx, tx, resolved.repository, resolved.connection); err != nil {
+	if err = lockGrantScopeTx(ctx, tx, resolved.repository); err != nil {
 		return factory.Command{}, false, err
 	}
 	stored, created, err := recordFactoryCommandTx(ctx, tx, cmd, now)
@@ -398,10 +370,6 @@ func grantCommandTarget(record string, repository int64) string {
 	return "repository/" + strconv.FormatInt(repository, 10) + "/" + record
 }
 
-func grantCommandConnectionBudgetTarget(connection string) string {
-	return "connection/" + connection + "/usage-budget"
-}
-
 func saveFactoryGrantChangeTx(ctx context.Context, tx *sql.Tx, change any) error {
 	switch g := change.(type) {
 	case factory.RepositoryPolicy:
@@ -431,27 +399,7 @@ func saveFactoryGrantChangeTx(ctx context.Context, tx *sql.Tx, change any) error
 		}
 		next := g
 		next.Revision++
-		if err := saveSponsorshipQuery(ctx, tx, g, next); err != nil {
-			return err
-		}
-		if g.Active {
-			budget := factory.ConnectionUsageBudget{Connection: g.Connection, RollingMinutes: factory.DefaultConnectionUsageBudgetMinutes}
-			data, err := json.Marshal(budget)
-			if err != nil {
-				return err
-			}
-			_, err = tx.ExecContext(ctx, `INSERT INTO factory_connection_usage_budgets(connection,revision,data) VALUES($1,0,$2)
-				ON CONFLICT(connection) DO NOTHING`, g.Connection, string(data))
-			return err
-		}
-		return nil
-	case factory.ConnectionUsageBudget:
-		if err := g.Validate(); err != nil {
-			return err
-		}
-		next := g
-		next.Revision++
-		return saveRevisionedGrantQuery(ctx, tx, "factory_connection_usage_budgets", "connection", g.Connection, g.Revision, next, "connection usage budget")
+		return saveSponsorshipQuery(ctx, tx, g, next)
 	case project.EnvironmentGrant:
 		if err := g.Validate(); err != nil {
 			return err

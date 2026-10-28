@@ -66,11 +66,6 @@ func seedDispatchLimits(t *testing.T, db *Store) {
 			t.Fatal(err)
 		}
 	}
-	if err := db.SaveConnectionUsageBudget(ctx, factory.ConnectionUsageBudget{
-		Connection: "conn", RollingMinutes: factory.DefaultConnectionUsageBudgetMinutes,
-	}); err != nil {
-		t.Fatal(err)
-	}
 	projectID := dispatchTestProjectID()
 	if err := db.UpsertUser(ctx, User{ID: 7, Login: "soda-tester"}); err != nil {
 		t.Fatal(err)
@@ -110,8 +105,8 @@ func dispatchTestApprovalID() string    { return "d" + strings.Repeat("e", 24) }
 func dispatchTestAuthority() factory.AuthorityRef {
 	return factory.AuthorityRef{
 		Policy: 1, Operator: 1, Capacity: 1, Sponsorship: 1, Environment: 1,
-		SponsorshipConnection: "conn", ConnectionUsageBudget: 1,
-		RequirementsID: dispatchTestRequirementID(), ApprovalID: dispatchTestApprovalID(),
+		SponsorshipConnection: "conn",
+		RequirementsID:        dispatchTestRequirementID(), ApprovalID: dispatchTestApprovalID(),
 	}
 }
 
@@ -165,14 +160,9 @@ func dispatchCurrentAuthority(t *testing.T, db *Store, a factory.Assignment) fac
 	if err != nil {
 		t.Fatal(err)
 	}
-	budget, err := db.ConnectionUsageBudget(context.Background(), a.Connection)
-	if err != nil {
-		t.Fatal(err)
-	}
 	return factory.AuthorityRef{
 		Policy: policy.Revision, Operator: operator.Revision, Capacity: capacity.Revision,
-		Sponsorship: sponsorship.Revision, SponsorshipConnection: sponsorship.Connection,
-		ConnectionUsageBudget: budget.Revision, Environment: environment.Revision,
+		Sponsorship: sponsorship.Revision, SponsorshipConnection: sponsorship.Connection, Environment: environment.Revision,
 		RequirementsID: requirement, ApprovalID: approval,
 	}
 }
@@ -548,28 +538,6 @@ func TestRecordRunUsageStoresOutwardMicrosecondProjections(t *testing.T) {
 	canonical, err := db.RunUsage(ctx, usage.RunID)
 	if err != nil || !canonical.StartedAt.Equal(started) || !canonical.EndedAt.Equal(ended) {
 		t.Fatalf("canonical interval lost precision: %+v %v", canonical, err)
-	}
-}
-
-func TestConnectionUsageBudgetAdmitsExactPlannedMinutes(t *testing.T) {
-	ctx := context.Background()
-	db := dispatchStoreFixture(t)
-	budget, err := db.ConnectionUsageBudget(ctx, "conn")
-	if err != nil {
-		t.Fatal(err)
-	}
-	budget.RollingMinutes = 30
-	if err = db.SaveConnectionUsageBudget(ctx, budget); err != nil {
-		t.Fatal(err)
-	}
-	started := time.Now().UTC().Truncate(time.Second).Add(-time.Second + time.Nanosecond)
-	assignment, reservation, run, view := dispatchTestPacket(t, started)
-	assignment.Authority.ConnectionUsageBudget = budget.Revision + 1
-	if reservation.PlannedMinutes != 30 {
-		t.Fatalf("fixture planned %d minutes", reservation.PlannedMinutes)
-	}
-	if err = recordDispatchTestPacket(t, ctx, db, dispatchTestRegistration(assignment), assignment, reservation, run, view); err != nil {
-		t.Fatalf("unused exact-minute connection budget refused its complete reservation: %v", err)
 	}
 }
 

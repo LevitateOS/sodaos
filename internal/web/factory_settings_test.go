@@ -84,7 +84,7 @@ func factoryPolicyBody(commandID string) string {
 		`"required_checks":["native-ci/build"],"merge_method":"fast-forward-only",` +
 		`"publish_actor":{"token_id":"11","actor_id":"12"},"create_actor":{"token_id":"11","actor_id":"12"},` +
 		`"review_actor":{"token_id":"13","actor_id":"14"},"merge_actor":{"token_id":"15","actor_id":"16"},` +
-		`"max_concurrent":2}`
+		`"intent_minutes":2}`
 }
 
 func decodeBody(t *testing.T, w *httptest.ResponseRecorder, out any) {
@@ -163,7 +163,7 @@ func TestFactoryPolicyJourney(t *testing.T) {
 	if replay.Code != 200 || replay.Body.String() != w.Body.String() {
 		t.Fatal("identical command did not replay its receipt", replay.Code, replay.Body.String())
 	}
-	changed := strings.Replace(factoryPolicyBody(command), `"max_concurrent":2`, `"max_concurrent":3`, 1)
+	changed := strings.Replace(factoryPolicyBody(command), `"intent_minutes":2`, `"intent_minutes":3`, 1)
 	conflict := httptest.NewRecorder()
 	nativeAPIServe(t, s, conflict, apiTestRequest(http.MethodPut, "/api/repositories/7/factory/policy", changed, "alice"))
 	if conflict.Code != 409 {
@@ -185,14 +185,14 @@ func TestFactoryPolicyJourney(t *testing.T) {
 	if forged.Code != 400 {
 		t.Fatal("body-selected authorizer accepted", forged.Code, forged.Body.String())
 	}
-	invalidLimits := strings.Replace(factoryPolicyBody(factory.NewID()), `"max_concurrent":2`, `"max_concurrent":2,"attempt_limits":{"active_minutes":0,"correction_cycles":3}`, 1)
+	invalidLimits := strings.Replace(factoryPolicyBody(factory.NewID()), `"intent_minutes":2`, `"attempt_limits":{"active_minutes":0,"correction_cycles":3}`, 1)
 	invalid := httptest.NewRecorder()
 	nativeAPIServe(t, s, invalid, apiTestRequest(http.MethodPut, "/api/repositories/7/factory/policy", invalidLimits, "alice"))
 	if invalid.Code != 400 {
 		t.Fatal("zero active attempt time accepted", invalid.Code, invalid.Body.String())
 	}
 	customLimits := strings.Replace(factoryPolicyBody(factory.NewID()), `"expected_revision":0`, `"expected_revision":1`, 1)
-	customLimits = strings.Replace(customLimits, `"max_concurrent":2`, `"max_concurrent":2,"attempt_limits":{"active_minutes":45,"correction_cycles":1}`, 1)
+	customLimits = strings.Replace(customLimits, `"intent_minutes":2`, `"attempt_limits":{"active_minutes":45,"correction_cycles":1}`, 1)
 	custom := httptest.NewRecorder()
 	nativeAPIServe(t, s, custom, apiTestRequest(http.MethodPut, "/api/repositories/7/factory/policy", customLimits, "alice"))
 	if custom.Code != 200 {
@@ -242,7 +242,7 @@ func TestFactoryPolicyPauseWithdrawsDispatch(t *testing.T) {
 
 func TestFactoryCapacityIsOperatorOnly(t *testing.T) {
 	s := factorySettingsServer(t)
-	body := `{"command_id":"` + factory.NewID() + `","expected_revision":0,"max_concurrent_runs":2,"max_queued":4}`
+	body := `{"command_id":"` + factory.NewID() + `","expected_revision":0,"max_concurrent_runs":2}`
 	w := httptest.NewRecorder()
 	nativeAPIServe(t, s, w, apiTestRequest(http.MethodPut, "/api/factory/capacity", body, "alice"))
 	if w.Code != 200 {
@@ -253,7 +253,7 @@ func TestFactoryCapacityIsOperatorOnly(t *testing.T) {
 	if denied.Code != 403 {
 		t.Fatal("non-operator changed capacity", denied.Code, denied.Body.String())
 	}
-	grant := `{"command_id":"` + factory.NewID() + `","expected_revision":0,"active":true,"max_concurrent":2}`
+	grant := `{"command_id":"` + factory.NewID() + `","expected_revision":0,"active":true}`
 	allowed := httptest.NewRecorder()
 	nativeAPIServe(t, s, allowed, apiTestRequest(http.MethodPut, "/api/repositories/7/factory/operator-grant", grant, "alice"))
 	if allowed.Code != 200 {
@@ -292,7 +292,7 @@ func TestFactorySponsorshipNeedsConnectionOwner(t *testing.T) {
 	}
 	sponsor := func(command, grant string, generation int64) string {
 		return `{"command_id":"` + command + `","expected_revision":0,"grant_id":"` + grant + `","generation":` + strconv.FormatInt(generation, 10) +
-			`,"roles":["soda-coder"],"allowance_minutes":60,"max_concurrent":1,"active":true}`
+			`,"roles":["soda-coder"],"allowance_minutes":60,"active":true}`
 	}
 	put := func(connection, body, login string) *httptest.ResponseRecorder {
 		w := httptest.NewRecorder()
@@ -364,52 +364,6 @@ func TestFactorySponsorshipNeedsConnectionOwner(t *testing.T) {
 	s.API.Identity = nil
 	if w := put("conn-1", sponsor(factory.NewID(), "grant-1", 1), "alice"); w.Code != 503 {
 		t.Fatal("missing identity service accepted", w.Code, w.Body.String())
-	}
-}
-
-func TestFactoryConnectionUsageBudgetUsesBrokerOwnerAndReplays(t *testing.T) {
-	s := factoryEncryptedServer(t)
-	s.API.Identity = &stubIdentityClient{
-		connections: []identity.Connection{{ID: "conn-1", ProviderID: identity.Codex, OwnerID: 1, Label: "test", Generation: 1, State: identity.Ready}},
-		grants:      []identity.Grant{{ID: "grant-1", ConnectionID: "conn-1", UserID: 1, ProjectID: factorySettingsProject}},
-	}
-	sponsor := `{"command_id":"` + factory.NewID() + `","expected_revision":0,"grant_id":"grant-1","generation":1,"roles":["soda-coder"],"allowance_minutes":60,"max_concurrent":1,"active":true}`
-	created := httptest.NewRecorder()
-	nativeAPIServe(t, s, created, apiTestRequest(http.MethodPut, "/api/repositories/7/factory/sponsorships/conn-1", sponsor, "alice"))
-	if created.Code != http.StatusOK {
-		t.Fatal(created.Code, created.Body.String())
-	}
-	path := "/api/factory/connections/conn-1/usage-budget"
-	read := httptest.NewRecorder()
-	nativeAPIServe(t, s, read, apiTestRequest(http.MethodGet, path, "", "alice"))
-	var initial factory.ConnectionUsageBudget
-	decodeBody(t, read, &initial)
-	if read.Code != http.StatusOK || initial.RollingMinutes != factory.DefaultConnectionUsageBudgetMinutes || initial.Revision != 0 {
-		t.Fatalf("initial budget = %+v, status %d", initial, read.Code)
-	}
-	command := factory.NewID()
-	body := `{"command_id":"` + command + `","expected_revision":0,"rolling_minutes":720}`
-	updated := httptest.NewRecorder()
-	nativeAPIServe(t, s, updated, apiTestRequest(http.MethodPut, path, body, "alice"))
-	var result factory.ConnectionUsageBudget
-	decodeBody(t, updated, &result)
-	if updated.Code != http.StatusOK || result.Revision != 1 || result.RollingMinutes != 720 {
-		t.Fatalf("updated budget = %+v, status %d", result, updated.Code)
-	}
-	replay := httptest.NewRecorder()
-	nativeAPIServe(t, s, replay, apiTestRequest(http.MethodPut, path, body, "alice"))
-	if replay.Code != http.StatusOK || replay.Body.String() != updated.Body.String() {
-		t.Fatalf("budget replay = %d %s", replay.Code, replay.Body.String())
-	}
-	changed := httptest.NewRecorder()
-	nativeAPIServe(t, s, changed, apiTestRequest(http.MethodPut, path, strings.Replace(body, `"rolling_minutes":720`, `"rolling_minutes":721`, 1), "alice"))
-	if changed.Code != http.StatusConflict {
-		t.Fatalf("changed budget payload reused command: %d %s", changed.Code, changed.Body.String())
-	}
-	foreign := httptest.NewRecorder()
-	nativeAPIServe(t, s, foreign, apiTestRequest(http.MethodGet, path, "", "bob"))
-	if foreign.Code != http.StatusNotFound {
-		t.Fatalf("foreign connection budget was disclosed: %d %s", foreign.Code, foreign.Body.String())
 	}
 }
 

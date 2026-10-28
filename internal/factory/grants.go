@@ -9,7 +9,6 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"errors"
-	"math"
 	"strings"
 
 	"github.com/levitateos/sodaos/internal/project"
@@ -46,7 +45,6 @@ const (
 	CommandOperatorGrant         = "operator-grant"
 	CommandCapacity              = "capacity"
 	CommandSponsorship           = "sponsorship"
-	CommandConnectionUsageBudget = "connection-usage-budget"
 	CommandEnvironmentGrant      = "environment-grant"
 	CommandRequirement           = "preparation-requirement"
 	CommandApproval              = "preparation-approval"
@@ -88,7 +86,7 @@ const (
 // through the admitted browser controls, never the operator endpoint.
 func SettingsCommandType(typ string) bool {
 	switch typ {
-	case CommandPolicy, CommandOperatorGrant, CommandCapacity, CommandSponsorship, CommandConnectionUsageBudget,
+	case CommandPolicy, CommandOperatorGrant, CommandCapacity, CommandSponsorship,
 		CommandEnvironmentGrant, CommandRequirement, CommandApproval, CommandReopen,
 		CommandAcceptance, CommandWithdrawal,
 		CommandPause, CommandResume, CommandRetry, CommandRetryImplementation, CommandTakeover, CommandPlanIntent, CommandContextCurrent, CommandCompletionRetry,
@@ -313,35 +311,6 @@ func (c Capacity) Validate() error {
 	return nil
 }
 
-// DefaultConnectionUsageBudgetMinutes is recorded when the first active
-// sponsorship enables a provider connection for factory use. The owner may
-// later revise it; it is an initial value, not a ceiling.
-const DefaultConnectionUsageBudgetMinutes int64 = 360
-
-// UsageMicrosPerMinute is the persisted rolling-window accounting unit.
-const UsageMicrosPerMinute int64 = 60_000_000
-
-// ConnectionUsageBudget is the provider owner's rolling connection-wide
-// factory session-time limit. Its key is the canonical broker connection ID;
-// credential and owner metadata remain with the broker.
-type ConnectionUsageBudget struct {
-	Connection     string `json:"connection"`
-	Revision       int64  `json:"revision"`
-	RollingMinutes int64  `json:"rolling_minutes"`
-}
-
-func (b ConnectionUsageBudget) Validate() error {
-	if b.Connection == "" || len(b.Connection) > 128 || strings.TrimSpace(b.Connection) != b.Connection ||
-		strings.IndexFunc(b.Connection, func(r rune) bool { return r < 0x20 || r == 0x7f }) >= 0 ||
-		b.Revision < 0 || b.RollingMinutes < 1 {
-		return errors.New("invalid connection usage budget")
-	}
-	if b.RollingMinutes > math.MaxInt64/UsageMicrosPerMinute {
-		return errors.New("connection usage budget exceeds microsecond accounting range")
-	}
-	return nil
-}
-
 // OperatorGrant permits one repository to use appliance capacity. It
 // grants no repository access or merge rights.
 type OperatorGrant struct {
@@ -370,7 +339,6 @@ type AuthorityRef struct {
 	Operator              int64  `json:"operator"`
 	Capacity              int64  `json:"capacity"`
 	Sponsorship           int64  `json:"sponsorship"`
-	ConnectionUsageBudget int64  `json:"connection_usage_budget"`
 	Environment           int64  `json:"environment"`
 }
 
@@ -385,7 +353,6 @@ const (
 	MissingCapacity              = "capacity_missing"
 	MissingSponsorship           = "sponsorship_missing"
 	MissingSponsorshipGone       = "sponsorship_withdrawn"
-	MissingConnectionUsageBudget = "connection_usage_budget_missing"
 	MissingEnvironment           = "environment_grant_missing"
 	MissingEnvironmentGone       = "environment_grant_withdrawn"
 	MissingPreparation           = "preparation_not_ready"
@@ -423,7 +390,6 @@ type AuthorityInput struct {
 	Operator              *OperatorGrant
 	Appliance             *Capacity
 	Sponsorship           *Sponsorship
-	ConnectionUsageBudget *ConnectionUsageBudget
 	Environment           *project.EnvironmentGrant
 	ProjectExists         bool
 	PreparationReady      bool

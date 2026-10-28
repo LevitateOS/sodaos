@@ -156,7 +156,6 @@ function createFixture(extra: Partial<State> = {}) {
           capacity: {editable: true},
           environment_grant: {editable: true},
           sponsorships: [{connection: 'connection-observed', editable: true}],
-          usage_budgets: [{connection: 'connection-observed', editable: true}],
         },
         effective: {},
         required_actions: [],

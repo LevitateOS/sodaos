@@ -171,9 +171,6 @@ func seedPlanFundingWithPreparations(t *testing.T, ctx context.Context, s *store
 	}); err != nil {
 		t.Fatal(err)
 	}
-	if err := s.SaveConnectionUsageBudget(ctx, factory.ConnectionUsageBudget{Connection: "conn", RollingMinutes: factory.DefaultConnectionUsageBudgetMinutes}); err != nil {
-		t.Fatal(err)
-	}
 	profile := &project.Profile{ID: project.RockyHeadless, Distribution: "rocky", Version: "9.6", Interface: "headless", Architecture: "amd64", Image: "sha256:" + strings.Repeat("b", 64), Revision: strings.Repeat("c", 40)}
 	if err := s.SaveEnvironmentGrant(ctx, project.EnvironmentGrant{Repository: 7, Owner: 1, Profile: profile, Active: true}); err != nil {
 		t.Fatal(err)
