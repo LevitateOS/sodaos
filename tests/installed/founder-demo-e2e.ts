@@ -50,8 +50,8 @@ const MAX_ISSUES = 1;
 const PLANNING_CALLS = 12;
 const PLAN_TIMEOUT_MS = 20 * 60 * 1000;
 
-type Phase = 'describe' | 'explore' | 'decide' | 'answers' | 'raise' | 'plan' | 'retry' | 'poll' | 'check' | 'correct' | 'accept' | 'build' | 'retry-build' | 'allowance' | 'places' | 'policy-minutes' | 'new-request' | 'bounds' | 'ready-explore' | 'app' | 'improve';
-const PHASES: Phase[] = ['describe', 'explore', 'decide', 'answers', 'raise', 'plan', 'retry', 'poll', 'check', 'correct', 'accept', 'build', 'retry-build', 'allowance', 'places', 'policy-minutes', 'new-request', 'bounds', 'ready-explore', 'app', 'improve'];
+type Phase = 'describe' | 'explore' | 'decide' | 'answers' | 'raise' | 'plan' | 'retry' | 'poll' | 'check' | 'correct' | 'accept' | 'build' | 'retry-build' | 'allowance' | 'raise-planning' | 'places' | 'policy-minutes' | 'new-request' | 'bounds' | 'ready-explore' | 'app' | 'improve';
+const PHASES: Phase[] = ['describe', 'explore', 'decide', 'answers', 'raise', 'plan', 'retry', 'poll', 'check', 'correct', 'accept', 'build', 'retry-build', 'allowance', 'raise-planning', 'places', 'policy-minutes', 'new-request', 'bounds', 'ready-explore', 'app', 'improve'];
 
 function args() {
   const out: {resume?: string; out?: string; phase?: string} = {};
@@ -1345,6 +1345,60 @@ async function phaseCheck(page: Page, out: string, intent: string): Promise<void
   assert.equal(mismatches.length, 0, `Check: JEV found ${mismatches.length} mismatch(s); correct before Accept`);
 }
 
+/** Owner-approved planning raise (12 -> 20): the Settings → SodaOS planning
+ * rows are display-only (verified: row click opens nothing), so the raise
+ * goes through the request page's own Planning calls bound + its single
+ * Update proposal save — the same path that raised dd00 12→20→24. Ideas are
+ * untouched, so the page takes its limit-edit branch (save + allowance
+ * top-up, no re-explore). Verified read-only in Settings afterwards. */
+async function phaseRaisePlanning(page: Page, out: string, intent: string): Promise<void> {
+  await page.goto(`${ORIGIN}${PLACES.request(intent)}`);
+  const spaces = await mountRepoPage(page, null);
+  await spaces.getByRole('heading', {name: 'Review your product direction'}).waitFor({timeout: 60000});
+  await spaces.locator('details.bounds > summary, details:has(summary:has-text("More options")) > summary').first().click();
+  const calls = spaces.getByLabel('Planning calls', {exact: true});
+  assert((await calls.count()) === 1, 'Raise-planning: Planning calls input not found');
+  const before = await calls.inputValue();
+  if (before !== '20') {
+    await calls.fill('20');
+    const readBack = await calls.first().inputValue();
+    assert(readBack === '20', `Raise-planning: bound did not take (shows ${readBack})`);
+  }
+  const saving = page.waitForResponse(
+    (r) => r.url().endsWith('/api/factory/intents') && r.request().method() === 'POST',
+    {timeout: 120000}
+  );
+  const toppedUp = page.waitForResponse(
+    (r) => r.url().endsWith('/api/factory/intent-allowances') && r.request().method() === 'POST',
+    {timeout: 120000}
+  );
+  await spaces.getByRole('button', {name: 'Update proposal'}).first().click();
+  const saved = await saving;
+  assert.equal(saved.status(), 201, `Raise-planning: Update proposal must return 201, got ${saved.status()}`);
+  const topUp = await toppedUp;
+  assert.equal(topUp.status(), 201, `Raise-planning: allowance top-up must return 201, got ${topUp.status()}`);
+  const topUpBody = (await topUp.json()) as {amount?: number};
+  await writeFile(`${out}/raise-planning.json`, JSON.stringify({before, after: '20', allowance: topUpBody}, null, 2));
+  await shot(page, `${out}/raise-planning-saved.png`);
+  // Read-only verification in Settings → SodaOS.
+  await page.goto(`${ORIGIN}${PLACES.settingsFactory}`);
+  await mountRepoPage(page, 'repository-settings');
+  await spaces.getByRole('heading', {name: /^SodaOS$/}).first().waitFor({timeout: 30000});
+  await page.waitForTimeout(3000);
+  let text = await visibleText(page, 10000);
+  if (/Planning calls are unavailable/i.test(text)) {
+    const refresh = spaces.getByRole('button', {name: /refresh (current authority|status)/i});
+    if ((await refresh.count()) >= 1) {
+      await refresh.first().click();
+      await page.waitForTimeout(5000);
+      text = await visibleText(page, 10000);
+    }
+  }
+  await writeFile(`${out}/raise-planning-settings.txt`, text);
+  const row = text.match(/Request d8978582[^.]*\./)?.[0] ?? '';
+  assert(/20/.test(row), `Raise-planning: Settings row does not show 20: ${row.slice(0, 300)}`);
+}
+
 async function phaseCorrect(page: Page, out: string): Promise<void> {
   const spaces = await mountRepoPage(page, null);
   const more = spaces.locator('summary', {hasText: 'More options'});
@@ -1501,6 +1555,11 @@ async function main() {
     // Standalone only: fix Max work items / Planning calls on a saved draft.
     if (only === 'bounds') {
       await phaseBounds(s.page, dir);
+    }
+    // Standalone only, owner-approved: raise the d897 planning allowance to
+    // 20 through Settings → SodaOS with exactly one save.
+    if (only === 'raise-planning') {
+      await phaseRaisePlanning(s.page, dir, intent);
     }
     // Standalone rehearsal step: bounds fix + Explore ideas in one session.
     if (only === 'ready-explore') {
