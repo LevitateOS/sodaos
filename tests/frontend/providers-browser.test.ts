@@ -48,17 +48,17 @@ test('Providers starts device login, resumes its dialog, follows completion and 
       document.body.append(widget);
       widget.transport = {request: (path: string, init: RequestInit) => fetch('/api/' + path, init)};
     });
-    await page.getByRole('button', {name: 'Providers', exact: true}).click();
+    await page.getByRole('button', {name: 'AI accounts', exact: true}).click();
   };
   await mount();
-  const dialog = page.getByRole('dialog', {name: 'Providers', exact: true});
+  const dialog = page.getByRole('dialog', {name: 'AI accounts', exact: true});
   assert.equal(await dialog.evaluate(node => getComputedStyle(node).display), 'block', 'Forge dialog styles must not squeeze the content into columns');
   await dialog.getByRole('button', {name: 'Codex: Not connected', exact: true}).click();
   await dialog.getByText('ABCD-EFGH', {exact: true}).waitFor();
   assert.equal(await dialog.getByRole('link', {name: 'Open sign-in', exact: true}).getAttribute('href'), 'https://auth.openai.com/codex/device');
   await dialog.getByRole('button', {name: 'Close', exact: true}).click();
   assert.equal(await page.getByLabel('Work draft').inputValue(), 'keep this draft');
-  await page.getByRole('button', {name: 'Providers', exact: true}).click();
+  await page.getByRole('button', {name: 'AI accounts', exact: true}).click();
   await dialog.getByText('ABCD-EFGH', {exact: true}).waitFor();
   assert.equal(starts, 1, 'reopening must resume the same login');
   await mount();
@@ -107,8 +107,8 @@ test('external trigger hides the in-page button and the arrival flag opens the d
     widget.transport = {request: (path: string, init: RequestInit) => fetch('/api/' + path, init)};
   });
   // No in-page Providers button; the arrival flag opens the dialog by itself.
-  assert.equal(await page.getByRole('button', {name: 'Providers', exact: true}).count(), 0);
-  const dialog = page.getByRole('dialog', {name: 'Providers', exact: true});
+  assert.equal(await page.getByRole('button', {name: 'AI accounts', exact: true}).count(), 0);
+  const dialog = page.getByRole('dialog', {name: 'AI accounts', exact: true});
   await dialog.getByRole('button', {name: 'Codex: Not connected', exact: true}).waitFor();
   assert.equal(await page.evaluate(() => sessionStorage.getItem('soda-open-providers')), null, 'flag is one-shot');
 });

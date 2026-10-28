@@ -270,15 +270,15 @@ export class SodaIdentity extends LitElement {
       </form>`;
   }
   protected render() {
-    return html`<section aria-label="Identity connections">
-      <h2>Identity connections</h2>
+    return html`<section aria-label="AI accounts">
+      <h2>AI accounts</h2>
       <p role="status">${this.message}</p>
       <fieldset ?disabled=${this.blocked()}>
-        <legend>Personal account connections</legend>
+        <legend>Your AI accounts</legend>
         <button type="button" @click=${this.refresh}>Refresh status</button>
         <soda-providers .transport=${this.transport} @soda-provider-connections-changed=${this.refresh}></soda-providers>
         <label
-          >Your connections
+          >Your AI accounts
           <select .value=${this.selected} @change=${this.select}>
             ${this.connections.map((connection) => html`<option value=${connection.id}>${connection.label}</option>`)}
           </select></label

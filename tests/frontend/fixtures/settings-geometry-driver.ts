@@ -126,7 +126,7 @@ export async function settingsFixture(
     },
     {extra, connections}
   );
-  await page.getByRole('heading', {name: 'Identity connections'}).waitFor();
+  await page.getByRole('heading', {name: 'AI accounts'}).waitFor();
   await page.locator('[data-project-controls][aria-busy=false]').waitFor();
   return page;
 }

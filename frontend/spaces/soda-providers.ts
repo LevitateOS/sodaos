@@ -92,17 +92,17 @@ export class SodaProviders extends LitElement {
 
   private async request(path: string, body?: unknown) {
     const serial = this.serial;
-    if (!this.current) throw Error('Providers are unavailable. Reopen this Project.');
+    if (!this.current) throw Error('AI accounts are unavailable. Reopen this page.');
     const response = await this.current.request(path, {
       method: body === undefined ? 'GET' : 'POST',
       ...(body === undefined ? {} : {headers: {'Content-Type': 'application/json'}, body: JSON.stringify(body)}),
       signal: AbortSignal.timeout(15000),
     });
     const value = await readSodaJSON(response);
-    if (serial !== this.serial || !this.isConnected) throw Error('Project changed. Reopen Providers.');
+    if (serial !== this.serial || !this.isConnected) throw Error('The page changed. Reopen AI accounts.');
     if (!response.ok) {
       const detail = value as {message?: unknown; error?: {message?: string}};
-      throw Error(detail.error?.message ?? (typeof detail?.message === 'string' ? detail.message : `Provider request failed (${response.status}). Try again.`));
+      throw Error(detail.error?.message ?? (typeof detail?.message === 'string' ? detail.message : `AI account request failed (${response.status}). Try again.`));
     }
     return value;
   }
@@ -241,12 +241,12 @@ export class SodaProviders extends LitElement {
         .soda-providers-dialog :focus-visible { outline:2px solid var(--soda-page-focus); outline-offset:3px; }
         .soda-providers-dialog [role=status]:empty { display:none; }
         @media(max-width:480px) { .soda-providers-dialog { padding:16px; } }
-      </style>${this.externalTrigger ? nothing : html`<button type="button" class="ui basic button" @click=${this.open} ?disabled=${!this.current}>Providers</button>`}
-      <dialog class="soda-providers-dialog" aria-label="Providers" >
-        <header><div><p class="soda-provider-eyebrow">Factory connections</p><h2>Providers</h2></div>
+      </style>${this.externalTrigger ? nothing : html`<button type="button" class="ui basic button" @click=${this.open} ?disabled=${!this.current}>AI accounts</button>`}
+      <dialog class="soda-providers-dialog" aria-label="AI accounts" >
+        <header><div><p class="soda-provider-eyebrow">Your AI subscriptions</p><h2>AI accounts</h2></div>
           <button type="button" class="ui basic button" @click=${() => this.querySelector('dialog')?.close()}>Close</button></header>
-        <p>Connect an account to use it in Factory. Connecting lets Soda securely store your account credentials and use them in authorized Project processes.</p>
-        ${!this.loaded ? html`<p role="status">${this.busy ? 'Loading providers…' : 'Provider status unavailable.'}</p>` : nothing}
+        <p>Connect an account to use it in Factory. Connecting lets SodaOS securely store your account credentials and use them in authorized repository work.</p>
+        ${!this.loaded ? html`<p role="status">${this.busy ? 'Loading AI accounts…' : 'AI account status unavailable.'}</p>` : nothing}
         <ul>${providers.map(provider => this.row(provider))}</ul>
         <p role="status">${this.message}</p>
         ${this.message ? html`<button type="button" class="ui basic button" ?disabled=${this.busy} @click=${() => this.run(() => this.readStatus())}>Check status</button>` : nothing}
