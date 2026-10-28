@@ -2,11 +2,6 @@ package project
 
 import "errors"
 
-// MaxFactoryExportBundle bounds one exported candidate bundle. Bundles
-// travel the private daemon socket base64-encoded; the publisher
-// re-validates the decoded bytes before any native call.
-const MaxFactoryExportBundle = 4 << 20
-
 // These verdicts follow a successful native export invocation. Transport
 // failures remain errors, never evidence that the candidate is invalid.
 var (

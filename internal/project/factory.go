@@ -17,15 +17,9 @@ const (
 	// FactoryHarnessCodex is the first harness family. Each released
 	// version needs its own proof before the executor admits its pin.
 	FactoryHarnessCodex = "codex"
-	// FactoryScopeCodex is the fixed factory execution discriminator carried
-	// in the broker binding for supervised Codex runs.
-	FactoryScopeCodex = "factory-codex"
 	// FactoryHarnessMuse is the Muse Code CLI harness family
 	// (`muse exec` runs backed by the native "muse" provider).
 	FactoryHarnessMuse = "muse"
-	// FactoryScopeMuse is the fixed factory execution discriminator
-	// carried in the broker binding for supervised Muse Code runs.
-	FactoryScopeMuse = "factory-muse"
 )
 
 const (
