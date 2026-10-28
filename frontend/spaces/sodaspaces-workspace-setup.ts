@@ -43,16 +43,6 @@ export function requestIdFromLocation(pathname: string, forgejoPrefix: string): 
   return requestIDPattern.test(id) ? id : '';
 }
 
-/** Canonical request route under the admitted installation prefix. */
-export function requestRouteFor(forgejoPrefix: string, intent: string): string {
-  return `${forgejoPrefix}/workspace/requests/${intent}`;
-}
-
-/** Fresh-entry route under the admitted installation prefix. */
-export function newRouteFor(forgejoPrefix: string): string {
-  return `${forgejoPrefix}/workspace/new`;
-}
-
 /** Exact fresh-entry route match under the admitted installation prefix. */
 export function isNewRouteLocation(pathname: string, forgejoPrefix: string): boolean {
   return stripRoutePrefix(pathname, forgejoPrefix) === '/workspace/new';

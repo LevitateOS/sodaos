@@ -63,13 +63,8 @@ import {
   inspectCommittedRequest,
   renderSetup,
 } from './sodaspaces-workspace-setup.js';
-import {
-  isNewRouteLocation,
-  newRouteFor,
-  requestIdFromLocation,
-  requestIDPattern,
-  requestRouteFor,
-} from './sodaspaces-workspace-setup.js';
+import {isNewRouteLocation, requestIdFromLocation, requestIDPattern} from './sodaspaces-workspace-setup.js';
+import {newRouteFor, requestRouteFor} from './soda-places.js';
 import {resolveWatchTarget, resumeSetup} from './sodaspaces-workspace-setup.js';
 import type {FactoryWatchRequest, SetupActions, SetupReading} from './sodaspaces-workspace-setup.js';
 import type {OverviewScope} from './sodaspaces-factory-progress-view.js';
