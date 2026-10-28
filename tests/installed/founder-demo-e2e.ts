@@ -1460,13 +1460,13 @@ async function phaseCorrect(page: Page, out: string): Promise<void> {
   const text1 = await visibleText(page, 8000);
   await writeFile(`${out}/correct-change-ui.txt`, text1);
   await shot(page, `${out}/correct-change-ui.png`);
-  // Correction text (recorded rehearsal answers): resolve the two "still to
-  // establish" items — visibility limited to the three named roles, and
-  // pre-decision display limited to item/reason/date + Submitted/pending.
+  // Correction for JEV's effect_added finding on the new plan: the
+  // walkthrough claims ordered/delivered steps record acting identities, but
+  // the request never asks for that. Remove the effect: status updates only.
   const correction = [
-    'Clarification for the two open walkthrough points.',
-    '(1) Visibility: only the requesting employee, their manager, and Operations can see a request. No other employees, no shared department visibility, nobody outside those three roles.',
-    '(2) Before a manager decision, the request shows the submitted item, reason and needed-by date with status Submitted to the employee and pending approval to the manager. Nothing about ordering, delivery, or progress appears until the manager approves.',
+    'Correction for the walkthrough finding: ordering and delivery update the request status only.',
+    'The request does not record which Operations staff member performed each step, and no acting identities are shown.',
+    'Remove that claim from the walkthrough.',
   ].join(' ');
   const field = spaces.locator('.change-field textarea');
   assert((await field.count()) >= 1, 'Correct: What-should-change field not found');
