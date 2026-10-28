@@ -122,7 +122,7 @@ func TestDispatchWaitReasons(t *testing.T) {
 		"harness mismatch": {
 			mutate: func(fx *dispatchFixture, db *store.Store) {
 				fx.host.harness = func(family string) (project.FactoryHarnessPin, error) {
-					return project.FactoryHarnessPin{Harness: project.FactoryHarnessMuse, Version: "different-label", SHA256: strings.Repeat("a", 64), Image: "sha256:" + strings.Repeat("b", 64)}, nil
+					return project.FactoryHarnessPin{Harness: "codex", Version: "different-label", SHA256: strings.Repeat("a", 64), Image: "sha256:" + strings.Repeat("b", 64)}, nil
 				}
 			},
 			reason: WaitHarness,
