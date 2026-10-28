@@ -53,7 +53,6 @@ type CurrentContextAllowance struct {
 	ActiveSecondsRemaining    int64 `json:"active_seconds_remaining"`
 	CorrectionCyclesRemaining *int  `json:"correction_cycles_remaining"`
 	ReviewRoundsRemaining     *int  `json:"review_rounds_remaining"`
-	DeliveryCallsRemaining    *int  `json:"delivery_calls_remaining"`
 	MaxChildren               int   `json:"max_children"`
 	Closed                    bool  `json:"closed"`
 }

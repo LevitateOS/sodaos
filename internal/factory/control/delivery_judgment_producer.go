@@ -149,7 +149,7 @@ func (c *Coordinator) advisePublicationDelivery(ctx context.Context, p factory.P
 	if err != nil || allowance.RootAssignment != cycle.AttemptRoot || allowance.Closed || !allowance.Active {
 		return factory.DeliveryDecision{}, "", ErrDeliveryUnavailable
 	}
-	decision, _, err := c.AdviseDelivery(ctx, DeliveryAdvice{Input: material.Input, State: material, Repository: p.Repository, Issue: p.Issue, AttemptRoot: cycle.AttemptRoot, RequestID: requestID, ReviewsFit: allowance.ReviewFits(p.Candidate, false, time.Now()), ObservedNativeRevision: material.Native.Revision, Chooser: chooser, Funding: c.Store})
+	decision, _, err := c.AdviseDelivery(ctx, DeliveryAdvice{Input: material.Input, State: material, Repository: p.Repository, Issue: p.Issue, AttemptRoot: cycle.AttemptRoot, ReviewsFit: allowance.ReviewFits(p.Candidate, false, time.Now()), ObservedNativeRevision: material.Native.Revision, Chooser: chooser, Funding: c.Store})
 	if err != nil || decision.Effective != factory.DeliveryEffectiveReady {
 		return decision, requestID, err
 	}

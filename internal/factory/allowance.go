@@ -12,29 +12,26 @@ import (
 // The attempt snapshots it; subsequent policy changes do not replenish it.
 // ReviewRounds counts every dispatched independent review: first
 // inspections and policy-required reviews alike; MaxChildren caps
-// concurrent native task children; DeliveryCalls funds Jev delivery
-// judgments, where zero cannot authorize automatic merge. Discretionary
-// same-head re-reviews additionally spend the single unchanged-head extra
-// pass per head (D08).
+// concurrent native task children. Discretionary same-head re-reviews
+// additionally spend the single unchanged-head extra pass per head (D08).
+// Jev delivery judgments are free and not counted here.
 type AttemptLimits struct {
 	ActiveMinutes    int `json:"active_minutes"`
 	CorrectionCycles int `json:"correction_cycles"`
 	ReviewRounds     int `json:"review_rounds"`
 	MaxChildren      int `json:"max_children"`
-	DeliveryCalls    int `json:"delivery_calls"`
 }
 
 // Frozen D04 allowance defaults.
 const (
-	DefaultReviewRounds  = 6
-	DefaultMaxChildren   = 3
-	DefaultDeliveryCalls = 8
+	DefaultReviewRounds = 6
+	DefaultMaxChildren  = 3
 )
 
 func DefaultAttemptLimits() AttemptLimits {
 	return AttemptLimits{
 		ActiveMinutes: 120, CorrectionCycles: 3,
-		ReviewRounds: DefaultReviewRounds, MaxChildren: DefaultMaxChildren, DeliveryCalls: DefaultDeliveryCalls,
+		ReviewRounds: DefaultReviewRounds, MaxChildren: DefaultMaxChildren,
 	}
 }
 
@@ -48,19 +45,15 @@ func (l AttemptLimits) Validate() error {
 	if l.MaxChildren < 1 || l.MaxChildren > 4 {
 		return errors.New("attempt child concurrency outside its bound")
 	}
-	if l.DeliveryCalls < 0 || l.DeliveryCalls > 16 {
-		return errors.New("attempt delivery calls outside their bound")
-	}
 	return nil
 }
 
 // EffectiveAttemptLimits resolves omission only when recording a policy or the
 // initial attempt. Review rounds and child concurrency accept no zero, so a
 // zero there is an unambiguous omission filled with the frozen default.
-// Active minutes keep their explicit-zero refusal, and correction and
-// delivery calls keep an explicit zero: zero delivery calls is the valid
-// unfunded posture that can never authorize automatic merge. Never call this
-// on a running record: only explicit authorized Retry starts a new root.
+// Active minutes keep their explicit-zero refusal, and correction cycles keep
+// an explicit zero. Never call this on a running record: only explicit
+// authorized Retry starts a new root.
 func EffectiveAttemptLimits(limits *AttemptLimits) AttemptLimits {
 	if limits == nil {
 		return DefaultAttemptLimits()
@@ -79,7 +72,6 @@ var (
 	ErrAttemptTimeExhausted = errors.New("attempt active-time allowance exhausted")
 	ErrAttemptClosed        = errors.New("attempt is closed; explicit retry is required")
 	ErrCorrectionExhausted  = errors.New("attempt correction allowance exhausted")
-	ErrDeliveryExhausted    = errors.New("attempt delivery-call allowance exhausted")
 	ErrAllowanceClock       = errors.New("attempt allowance clock moved backwards")
 	// ErrReviewRoundsExhausted reports that no further independent review
 	// fits the attempt's ReviewRounds: first inspections, policy-required
@@ -126,16 +118,11 @@ type IntentAttemptScope struct {
 // immutable reviewer assignment identity: every dispatched independent
 // review consumes one ReviewRound, and a discretionary re-review of an
 // already inspected head additionally spends that head's single extra
-// pass (ReviewedHeads/UnchangedHeadExtra, D08). DeliveryCalls is the
-// funded-Jev call subledger under the attempt root: reserved by immutable
-// request identity, consumed together with the existing global budget in
-// one store transaction, and never refilled by phase changes, reviews or
-// input edits.
+// pass (ReviewedHeads/UnchangedHeadExtra, D08).
 type AttemptAllowance struct {
-	Limits        AttemptLimits `json:"limits"`
-	Corrections   []string      `json:"corrections"`
-	DeliveryCalls []string      `json:"delivery_calls"`
-	Reviews       []string      `json:"reviews,omitempty"`
+	Limits      AttemptLimits `json:"limits"`
+	Corrections []string      `json:"corrections"`
+	Reviews     []string      `json:"reviews,omitempty"`
 	// ReviewedHeads binds each independently inspected head to the
 	// reviewer assignment that first inspected it. Absent means the head
 	// is new: its first inspection consumes ReviewRounds but never the
@@ -180,13 +167,13 @@ func (a AttemptAllowance) Validate() error {
 	}
 	if a.Issue == 0 {
 		if a.DeliveryRepair != nil {
-			if a.Intent != nil || a.Completion != nil || a.Delivery != nil || a.Stall != nil || a.DeliveryRepair.Validate() != nil || a.Limits.ActiveMinutes < 1 || a.Limits.ActiveMinutes > DefaultRepairCycleActiveMinutes || a.Limits.CorrectionCycles != 0 || a.Limits.ReviewRounds != 0 || a.Limits.MaxChildren != 0 || a.Limits.DeliveryCalls != 0 || len(a.Corrections)+len(a.DeliveryCalls)+len(a.Reviews)+len(a.ReviewedHeads)+len(a.UnchangedHeadExtra) != 0 {
+			if a.Intent != nil || a.Completion != nil || a.Delivery != nil || a.Stall != nil || a.DeliveryRepair.Validate() != nil || a.Limits.ActiveMinutes < 1 || a.Limits.ActiveMinutes > DefaultRepairCycleActiveMinutes || a.Limits.CorrectionCycles != 0 || a.Limits.ReviewRounds != 0 || a.Limits.MaxChildren != 0 || len(a.Corrections)+len(a.Reviews)+len(a.ReviewedHeads)+len(a.UnchangedHeadExtra) != 0 {
 				return errors.New("delivery repair allowance carries only its exact bounded investigator time")
 			}
 			return nil
 		}
 		if a.Stall != nil {
-			if a.Intent != nil || a.Completion != nil || a.Delivery != nil || a.Stall.Validate() != nil || a.Limits.ActiveMinutes < 1 || a.Limits.ActiveMinutes > DefaultRepairCycleActiveMinutes || a.Limits.CorrectionCycles != 0 || a.Limits.ReviewRounds != 0 || a.Limits.MaxChildren != 0 || a.Limits.DeliveryCalls != 0 || len(a.Corrections)+len(a.DeliveryCalls)+len(a.Reviews)+len(a.ReviewedHeads)+len(a.UnchangedHeadExtra) != 0 {
+			if a.Intent != nil || a.Completion != nil || a.Delivery != nil || a.Stall.Validate() != nil || a.Limits.ActiveMinutes < 1 || a.Limits.ActiveMinutes > DefaultRepairCycleActiveMinutes || a.Limits.CorrectionCycles != 0 || a.Limits.ReviewRounds != 0 || a.Limits.MaxChildren != 0 || len(a.Corrections)+len(a.Reviews)+len(a.ReviewedHeads)+len(a.UnchangedHeadExtra) != 0 {
 				return errors.New("stall repair allowance carries only its bounded investigator time")
 			}
 			return nil
@@ -195,7 +182,7 @@ func (a AttemptAllowance) Validate() error {
 			if a.Intent != nil || a.Completion != nil || a.Delivery.Validate() != nil {
 				return errors.New("delivery allowance requires its single exact delivery subject")
 			}
-			if a.Limits.ActiveMinutes < 1 || int64(a.Limits.ActiveMinutes) > math.MaxInt64/int64(time.Minute) || a.Limits.CorrectionCycles != 0 || a.Limits.ReviewRounds != 0 || a.Limits.MaxChildren != 0 || a.Limits.DeliveryCalls != 0 || len(a.Corrections)+len(a.DeliveryCalls)+len(a.Reviews)+len(a.ReviewedHeads)+len(a.UnchangedHeadExtra) != 0 {
+			if a.Limits.ActiveMinutes < 1 || int64(a.Limits.ActiveMinutes) > math.MaxInt64/int64(time.Minute) || a.Limits.CorrectionCycles != 0 || a.Limits.ReviewRounds != 0 || a.Limits.MaxChildren != 0 || len(a.Corrections)+len(a.Reviews)+len(a.ReviewedHeads)+len(a.UnchangedHeadExtra) != 0 {
 				return errors.New("delivery allowance carries only bounded active time")
 			}
 			return nil
@@ -229,9 +216,6 @@ func (a AttemptAllowance) Validate() error {
 	if err := a.validateCorrectionLedger(); err != nil {
 		return err
 	}
-	if err := a.validateDeliveryLedger(); err != nil {
-		return err
-	}
 	seenReview, err := a.validateReviewLedger()
 	if err != nil {
 		return err
@@ -251,22 +235,6 @@ func (a AttemptAllowance) validateCorrectionLedger() error {
 			return errors.New("invalid correction assignment identity")
 		}
 		seen[id] = true
-	}
-	return nil
-}
-
-// validateDeliveryLedger refuses delivery consumption beyond the
-// admitted calls or with duplicate identities.
-func (a AttemptAllowance) validateDeliveryLedger() error {
-	if len(a.DeliveryCalls) > a.Limits.DeliveryCalls {
-		return errors.New("attempt delivery consumption exceeds its allowance")
-	}
-	seenDelivery := make(map[string]bool, len(a.DeliveryCalls))
-	for _, id := range a.DeliveryCalls {
-		if !ValidID(id) || seenDelivery[id] {
-			return errors.New("invalid delivery request identity")
-		}
-		seenDelivery[id] = true
 	}
 	return nil
 }
@@ -332,10 +300,10 @@ func (a AttemptAllowance) validateCompletionTimeOnly() error {
 		return errors.New("completion active time is not its admitted reassessment minutes")
 	}
 	if a.Limits.CorrectionCycles != 0 || a.Limits.ReviewRounds != 0 ||
-		a.Limits.MaxChildren != 0 || a.Limits.DeliveryCalls != 0 {
+		a.Limits.MaxChildren != 0 {
 		return errors.New("completion allowance carries only active time")
 	}
-	if len(a.Corrections) != 0 || len(a.DeliveryCalls) != 0 || len(a.Reviews) != 0 ||
+	if len(a.Corrections) != 0 || len(a.Reviews) != 0 ||
 		len(a.ReviewedHeads) != 0 || len(a.UnchangedHeadExtra) != 0 {
 		return errors.New("completion allowance carries only active time")
 	}
@@ -364,48 +332,14 @@ func (a AttemptAllowance) validateIntentTimeOnly() error {
 		return errors.New("intent active time is not finite positive policy time")
 	}
 	if a.Limits.CorrectionCycles != 0 || a.Limits.ReviewRounds != 0 ||
-		a.Limits.MaxChildren != 0 || a.Limits.DeliveryCalls != 0 {
+		a.Limits.MaxChildren != 0 {
 		return errors.New("intent allowance carries only active time")
 	}
-	if len(a.Corrections) != 0 || len(a.DeliveryCalls) != 0 || len(a.Reviews) != 0 ||
+	if len(a.Corrections) != 0 || len(a.Reviews) != 0 ||
 		len(a.ReviewedHeads) != 0 || len(a.UnchangedHeadExtra) != 0 {
 		return errors.New("intent allowance carries only active time")
 	}
 	return nil
-}
-
-// ReserveDeliveryCall charges one funded delivery judgment before its
-// request sends. Replaying the same request never consumes a second call,
-// even after exhaustion. Failure after reservation stays charged: there is
-// no unreserve. A zero delivery limit authorizes no call, so automatic
-// merge stays unreachable on an unfunded attempt.
-func (a AttemptAllowance) ReserveDeliveryCall(id string, now time.Time) (AttemptAllowance, bool, error) {
-	if a.Intent != nil {
-		return AttemptAllowance{}, false, ErrIntentTimeOnly
-	}
-	if a.Issue == 0 || a.Completion != nil {
-		return AttemptAllowance{}, false, ErrCompletionTimeOnly
-	}
-	if !ValidID(id) {
-		return AttemptAllowance{}, false, errors.New("invalid delivery request identity")
-	}
-	next, err := a.Checkpoint(now, a.Active)
-	if err != nil {
-		return AttemptAllowance{}, false, err
-	}
-	for _, seen := range a.DeliveryCalls {
-		if seen == id {
-			return next, false, nil
-		}
-	}
-	if next.RemainingSeconds(now) == 0 {
-		return AttemptAllowance{}, false, ErrAttemptTimeExhausted
-	}
-	if len(next.DeliveryCalls) >= next.Limits.DeliveryCalls {
-		return AttemptAllowance{}, false, ErrDeliveryExhausted
-	}
-	next.DeliveryCalls = append(append([]string(nil), next.DeliveryCalls...), id)
-	return next, true, nil
 }
 
 // RemainingSeconds is the per-run limit: every run of an open attempt gets
