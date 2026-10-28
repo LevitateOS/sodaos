@@ -88,3 +88,40 @@ func (s *factoryCatalogServer) receiptBody(ctx context.Context, assignment strin
 	}
 	return body
 }
+
+// bindIssuePlan fills the plan fields this assignment already records,
+// then its digest, so a worker never hand-copies 64-digit identities.
+// Workers dropped or changed digits copying them from factory.context
+// and spent their finish calls on the refusals. A plan that does not
+// decode is left untouched for the validation refusal to name.
+func (s *factoryCatalogServer) bindIssuePlan(ctx context.Context, capability factory.MCPCapability, payload map[string]any) {
+	tasks, ok := payload["tasks"].(map[string]any)
+	if !ok || s.deps.Assignments == nil {
+		return
+	}
+	assigned, err := s.deps.Assignments.Assignment(ctx, capability.AssignmentID)
+	if err != nil || assigned.Phase != project.ExecutionInvestigate {
+		return
+	}
+	tasks["attempt_root"] = assigned.AttemptRoot
+	tasks["source_commit"] = assigned.SourceCommit
+	tasks["preparation"] = assigned.Preparation
+	tasks["scope_digest"] = capability.ScopeDigest()
+	tasks["input_digest"] = assigned.PromptSHA
+	tasks["digest"] = ""
+	encoded, err := json.Marshal(tasks)
+	if err != nil {
+		return
+	}
+	var plan factory.InvestigationPlan
+	if err := strictjson.Decode(bytes.NewReader(encoded), &plan); err != nil {
+		return
+	}
+	if plan.Generation == 0 {
+		plan.IntegrationCommit = plan.SourceCommit
+		tasks["integration_commit"] = plan.SourceCommit
+	}
+	if digest, err := factory.PlanDigest(plan); err == nil {
+		tasks["digest"] = digest
+	}
+}
