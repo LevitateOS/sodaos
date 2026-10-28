@@ -57,32 +57,32 @@ type CheckSpec struct {
 
 func (c CheckSpec) Validate() error {
 	if !ValidPlanKey(c.ID) {
-		return errors.New("invalid check key")
+		return fmt.Errorf("invalid check key %.40q: check ids are a lowercase letter then up to 31 of a-z, 0-9, _ or -", c.ID)
 	}
 	if c.Scope != CheckScopeTask && c.Scope != CheckScopeIntegration {
-		return errors.New("invalid check scope")
+		return fmt.Errorf("check %q has invalid scope %.40q: use %q or %q", c.ID, c.Scope, CheckScopeTask, CheckScopeIntegration)
 	}
 	if c.TimeoutSeconds < MinCheckTimeoutSec || c.TimeoutSeconds > MaxCheckTimeoutSec {
-		return errors.New("check timeout outside its bound")
+		return fmt.Errorf("check %q timeout_seconds %d is outside %d-%d", c.ID, c.TimeoutSeconds, MinCheckTimeoutSec, MaxCheckTimeoutSec)
 	}
 	if len(c.Argv) == 0 || len(c.Argv) > MaxCheckArgv {
-		return errors.New("check argv outside its bound")
+		return fmt.Errorf("check %q argv needs 1-%d arguments, got %d", c.ID, MaxCheckArgv, len(c.Argv))
 	}
 	total := 0
 	for _, arg := range c.Argv {
 		if arg == "" || strings.ContainsRune(arg, 0) {
-			return errors.New("invalid check argument")
+			return fmt.Errorf("check %q has an empty or NUL-bearing argv entry", c.ID)
 		}
 		total += len(arg)
 	}
 	if total > MaxCheckArgvBytes {
-		return errors.New("check argv exceeds its bound")
+		return fmt.Errorf("check %q argv exceeds %d bytes in total", c.ID, MaxCheckArgvBytes)
 	}
 	if c.Cwd == "" {
-		return errors.New("check needs its working directory")
+		return fmt.Errorf("check %q needs cwd: use \".\" for the repository root or a clean relative path", c.ID)
 	}
 	if c.Cwd != "." && !validOwnershipEntry(c.Cwd) {
-		return errors.New("check working directory is not a clean relative path")
+		return fmt.Errorf("check %q cwd %.80q is not a clean relative path (no leading /, no .., no globs, not .git)", c.ID, c.Cwd)
 	}
 	return nil
 }
@@ -145,13 +145,13 @@ type PlanLane struct {
 // not share ownership or interface writes.
 func ValidatePlanGraph(tasks []PlanTask, lanes []PlanLane, checks []CheckSpec) error {
 	if len(tasks) == 0 || len(tasks) > MaxPlanTasks {
-		return errors.New("plan task count outside its bound")
+		return fmt.Errorf("plan needs 1-%d tasks, got %d", MaxPlanTasks, len(tasks))
 	}
 	if len(lanes) == 0 || len(lanes) > MaxPlanLanes {
-		return errors.New("plan lane count outside its bound")
+		return fmt.Errorf("plan needs 1-%d lanes, got %d", MaxPlanLanes, len(lanes))
 	}
 	if len(checks) > MaxPlanChecks {
-		return errors.New("plan check count outside its bound")
+		return fmt.Errorf("plan allows at most %d checks, got %d", MaxPlanChecks, len(checks))
 	}
 	knownChecks, err := indexPlanChecks(checks)
 	if err != nil {
@@ -164,10 +164,10 @@ func ValidatePlanGraph(tasks []PlanTask, lanes []PlanLane, checks []CheckSpec) e
 	byKey := make(map[string]int, len(tasks))
 	for i, task := range tasks {
 		if !ValidPlanKey(task.ID) {
-			return errors.New("invalid task key")
+			return fmt.Errorf("invalid task key %.40q: task ids are a lowercase letter then up to 31 of a-z, 0-9, _ or -", task.ID)
 		}
 		if _, dup := byKey[task.ID]; dup {
-			return errors.New("duplicate task key")
+			return fmt.Errorf("duplicate task key %q: every task id must be unique", task.ID)
 		}
 		byKey[task.ID] = i
 		if err := checkPlanTask(task, knownLanes, laneOf, knownChecks); err != nil {
@@ -180,7 +180,7 @@ func ValidatePlanGraph(tasks []PlanTask, lanes []PlanLane, checks []CheckSpec) e
 		}
 	}
 	if len(seenLaneTasks) != len(tasks) {
-		return errors.New("lane membership does not cover every task")
+		return errors.New("lane membership does not cover every task: list each task id in exactly one lane's task_ids")
 	}
 	return checkPlanConcurrency(tasks, byKey)
 }
@@ -245,14 +245,14 @@ func checkPlanTaskPair(a, b PlanTask) error {
 	for _, owned := range a.OwnedPaths {
 		for _, other := range b.OwnedPaths {
 			if planPathOverlap(owned, other) {
-				return errors.New("concurrent tasks share owned paths without a dependency")
+				return fmt.Errorf("tasks %q and %q can run at once and both own %q and %q: put them in one lane or make one depend on the other", a.ID, b.ID, owned, other)
 			}
 		}
 	}
 	for _, written := range a.InterfaceWrite {
 		for _, other := range b.InterfaceWrite {
 			if written == other {
-				return errors.New("concurrent tasks share an interface write without a dependency")
+				return fmt.Errorf("tasks %q and %q can run at once and both write interface %q: put them in one lane or make one depend on the other", a.ID, b.ID, written)
 			}
 		}
 	}
@@ -266,7 +266,7 @@ func indexPlanChecks(checks []CheckSpec) (map[string]bool, error) {
 			return nil, err
 		}
 		if knownChecks[c.ID] {
-			return nil, errors.New("duplicate check key")
+			return nil, fmt.Errorf("duplicate check key %q: every check id must be unique", c.ID)
 		}
 		knownChecks[c.ID] = true
 	}
@@ -277,10 +277,10 @@ func indexPlanLanes(lanes []PlanLane) (map[string]int, map[string]string, map[st
 	knownLanes := make(map[string]int, len(lanes))
 	for i, lane := range lanes {
 		if !ValidPlanKey(lane.ID) {
-			return nil, nil, nil, errors.New("invalid lane key")
+			return nil, nil, nil, fmt.Errorf("invalid lane key %.40q: lane ids are a lowercase letter then up to 31 of a-z, 0-9, _ or -", lane.ID)
 		}
 		if _, dup := knownLanes[lane.ID]; dup {
-			return nil, nil, nil, errors.New("duplicate lane key")
+			return nil, nil, nil, fmt.Errorf("duplicate lane key %q: every lane id must be unique", lane.ID)
 		}
 		knownLanes[lane.ID] = i
 	}
@@ -289,10 +289,10 @@ func indexPlanLanes(lanes []PlanLane) (map[string]int, map[string]string, map[st
 	for _, lane := range lanes {
 		for _, id := range lane.TaskIDs {
 			if !ValidPlanKey(id) {
-				return nil, nil, nil, errors.New("lane references an invalid task key")
+				return nil, nil, nil, fmt.Errorf("lane %q task_ids holds invalid task key %.40q", lane.ID, id)
 			}
 			if seenLaneTasks[id] {
-				return nil, nil, nil, errors.New("task enters two lanes")
+				return nil, nil, nil, fmt.Errorf("task %q is listed in two lanes; list it in exactly one", id)
 			}
 			seenLaneTasks[id] = true
 			laneOf[id] = lane.ID
@@ -303,45 +303,45 @@ func indexPlanLanes(lanes []PlanLane) (map[string]int, map[string]string, map[st
 
 func checkPlanTask(task PlanTask, knownLanes map[string]int, laneOf map[string]string, knownChecks map[string]bool) error {
 	if laneOf[task.ID] == "" || laneOf[task.ID] != task.Lane {
-		return errors.New("task lane does not match its lane membership")
+		return fmt.Errorf("task %q lane %.40q does not match the lane whose task_ids list it (%q)", task.ID, task.Lane, laneOf[task.ID])
 	}
 	if _, ok := knownLanes[task.Lane]; !ok {
-		return errors.New("task names an unknown lane")
+		return fmt.Errorf("task %q names unknown lane %.40q", task.ID, task.Lane)
 	}
 	if task.Objective == "" || len(task.Objective) > MaxPlanTextBytes {
-		return errors.New("task objective outside its bound")
+		return fmt.Errorf("task %q objective must be 1-%d bytes", task.ID, MaxPlanTextBytes)
 	}
 	if len(task.Outputs) == 0 {
-		return errors.New("task lacks expected outputs")
+		return fmt.Errorf("task %q lacks outputs: name at least one expected output", task.ID)
 	}
 	for _, text := range append(append([]string(nil), task.Outputs...), task.AcceptanceRefs...) {
 		if text == "" || len(text) > MaxPlanTextBytes {
-			return errors.New("task output or acceptance reference outside its bound")
+			return fmt.Errorf("task %q has an empty or over-%d-byte output or acceptance_refs entry", task.ID, MaxPlanTextBytes)
 		}
 	}
 	if len(task.AcceptanceRefs) == 0 {
-		return errors.New("task lacks acceptance coverage")
+		return fmt.Errorf("task %q lacks acceptance_refs: name the acceptance criteria it covers", task.ID)
 	}
 	return checkPlanTaskRefs(task, knownChecks)
 }
 
 func checkPlanTaskRefs(task PlanTask, knownChecks map[string]bool) error {
 	if len(task.OwnedPaths) > MaxTaskOwnership {
-		return errors.New("task ownership exceeds its bound")
+		return fmt.Errorf("task %q owns %d paths; at most %d are allowed", task.ID, len(task.OwnedPaths), MaxTaskOwnership)
 	}
 	for _, entry := range task.OwnedPaths {
 		if !validOwnershipEntry(entry) {
-			return errors.New("task ownership is not an exact file or directory prefix")
+			return fmt.Errorf("task %q owned_paths entry %.80q is not an exact relative file or a directory prefix ending in one / (no leading /, no .., no globs, not .git)", task.ID, entry)
 		}
 	}
 	for _, key := range task.InterfaceWrite {
 		if key == "" || len(key) > 256 {
-			return errors.New("task interface write outside its bound")
+			return fmt.Errorf("task %q has an empty or over-256-byte interface_writes entry", task.ID)
 		}
 	}
 	for _, id := range task.CheckIDs {
 		if !knownChecks[id] {
-			return errors.New("task references an unknown check")
+			return fmt.Errorf("task %q check_ids names unknown check %.40q: declare it in checks first", task.ID, id)
 		}
 	}
 	return nil

@@ -21,32 +21,32 @@ import (
 var (
 	// ErrMCPCapabilityInactive reports a call under a capability that
 	// is not active: staged, revoked or retired.
-	ErrMCPCapabilityInactive = errors.New("factory capability is not active")
+	ErrMCPCapabilityInactive = errors.New("factory capability is not active: this run has ended or not started; stop calling tools and end the session")
 	// ErrMCPCapabilityExpired reports a call past the recorded
 	// deadline. Rate limits never extend deadlines.
-	ErrMCPCapabilityExpired = errors.New("factory capability is expired")
+	ErrMCPCapabilityExpired = errors.New("factory capability is expired: the run deadline passed; stop calling tools and end the session")
 	// ErrMCPCapabilityStopped reports a call racing current stop
 	// intent: activation compares the observed binding, and stop
 	// ordered before start permanently prevents admission.
-	ErrMCPCapabilityStopped = errors.New("factory run is stopped")
+	ErrMCPCapabilityStopped = errors.New("factory run is stopped: the owner or SodaOS stopped this run; stop calling tools and end the session")
 	// ErrMCPCapabilityBinding reports a profile/tool/input binding
 	// the recorded capability does not authorize, including tools
 	// the caller's discovery set never advertised.
-	ErrMCPCapabilityBinding = errors.New("capability does not authorize this call")
+	ErrMCPCapabilityBinding = errors.New("capability does not authorize this call: this role may not use this tool or input; call only the tools this server lists for the run")
 	// ErrMCPSubmissionFrozen reports a new submission identity after
 	// the assignment recorded a terminal proposal: exact replay of a
 	// recorded ID and the same terminal content under another ID
 	// remain allowed, other new identities refuse.
-	ErrMCPSubmissionFrozen = errors.New("assignment already recorded a terminal proposal")
+	ErrMCPSubmissionFrozen = errors.New("assignment already recorded a terminal proposal: do not finish again under a new submission_id; read the result with factory.receipt and the first submission_id")
 	// ErrMCPSubmissionStale reports a submission built against
 	// admitted inputs that are no longer current: the caller must
 	// re-read the assignment and resubmit against the current
 	// inputs, never force stale bytes through.
-	ErrMCPSubmissionStale = errors.New("factory submission built against stale admitted inputs")
+	ErrMCPSubmissionStale = errors.New("factory submission built against stale admitted inputs: call factory.context again and resubmit with its current scope_digest as expected_input_digest, or omit expected_input_digest")
 	// ErrMCPHandoffCap reports the 256-handoff bound for one
 	// assignment: terminal receipt capacity stays reserved
 	// regardless of task traffic.
-	ErrMCPHandoffCap = errors.New("assignment handoff bound reached")
+	ErrMCPHandoffCap = errors.New("assignment handoff bound reached (256 task handoffs): finish the assignment with its finish tool")
 )
 
 // MCPRunObservation is the host-observed run state read outside SQL:

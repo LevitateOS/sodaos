@@ -215,7 +215,7 @@ func derivePhasedAttemptResult(a factory.Assignment, run factory.Run, output, su
 	}
 	parsed, ok := factory.ParsePhaseResult(output)
 	if !ok {
-		return refusePhasedAttempt(a, recordedUnix, "run completed without a parseable phase result")
+		return refusePhasedAttempt(a, recordedUnix, "run completed without a parseable phase result: "+factory.PhaseResultProblem(output))
 	}
 	if err := parsed.BindAssignment(a); err != nil {
 		return refusePhasedAttempt(a, recordedUnix, "phase result does not match its assignment phase")
@@ -333,7 +333,7 @@ func derivePhasedReviewAttemptResult(a factory.Assignment, run factory.Run, outp
 	}
 	parsed, ok := factory.ParsePhaseResult(output)
 	if !ok {
-		return refuse("review completed without a parseable phase result")
+		return refuse("review completed without a parseable phase result: " + factory.PhaseResultProblem(output))
 	}
 	if err := parsed.BindAssignment(a); err != nil {
 		return refuse("phase result does not match its assignment phase")
@@ -398,7 +398,7 @@ func derivePhasedVerifyAttemptResult(a factory.Assignment, run factory.Run, outp
 	}
 	parsed, ok := factory.ParsePhaseResult(output)
 	if !ok {
-		return refuse("verification completed without a parseable phase result")
+		return refuse("verification completed without a parseable phase result: " + factory.PhaseResultProblem(output))
 	}
 	if err := parsed.BindAssignment(a); err != nil {
 		return refuse("phase result does not match its assignment phase")
