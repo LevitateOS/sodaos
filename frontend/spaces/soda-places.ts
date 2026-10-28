@@ -86,7 +86,8 @@ export function repositoryPlaces(prefix: string, slug: string): SodaPlaces {
     knowledge: (item) => `${root}/knowledge${query('item', item)}`,
     terminals: (run) => `${root}/terminals${query('run', run)}`,
     settings: (section) => `${root}/settings/${encodeURIComponent(section)}`,
-    factoryStatus: (issue) => (issue === undefined ? `${root}/issues` : `${root}/issues/${encodeURIComponent(String(issue))}`),
+    factoryStatus: (issue) =>
+      issue === undefined ? `${root}/issues` : `${root}/issues/${encodeURIComponent(String(issue))}`,
     to(place) {
       switch (place.place) {
         case 'feed':
@@ -136,7 +137,8 @@ export function placeFromPath(address: string, prefix: string): {slug: string; p
     (value === undefined ? {} : {[key]: value}) as {[P in K]?: string};
   let place: Place | undefined;
   if (first === undefined) place = {place: 'feed'};
-  else if (first === 'requests') place = second === undefined ? {place: 'requests'} : {place: 'request', request: second};
+  else if (first === 'requests')
+    place = second === undefined ? {place: 'requests'} : {place: 'request', request: second};
   else if (second !== undefined) {
     if (first === 'settings') place = {place: 'settings', section: second};
     else if (first === 'issues') place = {place: 'factory-status', issue: second};

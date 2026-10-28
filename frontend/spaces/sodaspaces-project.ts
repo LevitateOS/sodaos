@@ -304,6 +304,10 @@ export class SodaProjectControls extends LitElement {
       return;
     void action();
   }
+  /** Show one settings section (Settings → SodaOS → {section}). */
+  showSection(view: View) {
+    if (views.includes(view)) this.selected = view;
+  }
   setPresentation(presentation: 'standard' | 'journey' | 'settings') {
     if (this.presentation === presentation) return false;
     this.presentation = presentation;
@@ -847,6 +851,7 @@ export function mountProjectControls(root: HTMLElement, context: ProjectContext)
     retire: () => box.retire(),
     invalidate: () => box.invalidate(),
     setPresentation: (mode: 'standard' | 'journey' | 'settings') => box.setPresentation(mode),
+    showSection: (view: View) => box.showSection(view),
     get ready() {
       return box.updateComplete;
     },

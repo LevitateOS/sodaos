@@ -23,7 +23,24 @@
         }
       ]
     },
-    {"id": "repository-feed", "route": "workspace", "title": "Feed", "scope": "repository", "permission": "read", "entry": "soda-feed-entry.js"},
+    {
+      "id": "repository-feed",
+      "route": "workspace",
+      "title": "SodaOS",
+      "scope": "repository",
+      "permission": "read",
+      "entry": "soda-repository-entry.js",
+      "subroutes": [
+        {"pattern": "requests", "title": "Requests"},
+        {"pattern": "requests/{request}", "title": "Request"},
+        {"pattern": "app", "title": "App"},
+        {"pattern": "knowledge", "title": "Knowledge"},
+        {"pattern": "terminals", "title": "Terminals"},
+        {"pattern": "settings/{section}", "title": "SodaOS settings"},
+        {"pattern": "issues", "title": "Factory status"},
+        {"pattern": "issues/{issue}", "title": "Factory status"}
+      ]
+    },
     {"id": "feed", "route": "feed", "title": "Feed", "scope": "global", "entry": "soda-feed-entry.js"},
     {"id": "applications", "route": "applications", "title": "Applications", "scope": "global", "entry": "soda-feed-entry.js"}
   ],
