@@ -638,10 +638,48 @@ async function phaseAllowance(page: Page, out: string): Promise<void> {
     const afterGrant = await visibleText(page, 2000);
     assert.fail(`Allowance: no grant loaded for the selected connection (page: ${afterGrant.slice(0, 300)})`);
   }
+  // GO-2: the grant select starts on its placeholder even when grants exist.
+  // Pick the approved grant inside the SPONSORSHIP form only (grant_id also
+  // appears in the unrelated Project grants form).
+  const sponsorshipForm = spaces.locator('form[data-action="sponsorship"]');
+  const grantSelect = sponsorshipForm.locator('select[name="grant_id"]');
+  assert((await grantSelect.count()) >= 1, 'Allowance: sponsorship grant select not found');
+  const grantValues: string[] = await grantSelect.first().evaluate((select: HTMLSelectElement) =>
+    Array.from(select.options).map((o) => o.value).filter((v) => v !== '')
+  );
+  await writeFile(`${out}/allowance-grants.json`, JSON.stringify(grantValues, null, 2));
+  const matching = grantValues.filter((v) => v.startsWith('cf013ecf'));
+  assert(matching.length >= 1, `Allowance: approved grant cf013ecf… not offered (grants: ${JSON.stringify(grantValues)})`);
+  assert(matching.length === 1, `Allowance: several grants match; owner must choose: ${JSON.stringify(matching)}`);
+  const grant = matching[0];
+  assert(grant !== undefined);
+  await grantSelect.first().selectOption(grant);
+  await page.waitForTimeout(2000);
   const minutes = spaces.getByLabel(/Allowance minutes/i);
   assert((await minutes.count()) >= 1, 'Allowance: allowance minutes input not found');
   const before = await minutes.first().inputValue();
   await minutes.first().fill('480');
+  // GO-2 end state: Builder + Inspector checked, concurrent 1, active on.
+  // Touch each only when it differs, and record what changed.
+  const changes: Record<string, {before: string; after: string}> = {};
+  const setChecked = async (name: string, want: boolean) => {
+    const box = sponsorshipForm.locator(`input[name="${name}"]`).first();
+    const was = await box.isChecked();
+    if (was !== want) {
+      await box.setChecked(want);
+      changes[name] = {before: String(was), after: String(want)};
+    }
+  };
+  await setChecked('coder', true);
+  await setChecked('reviewer', true);
+  await setChecked('sponsorship_active', true);
+  const concurrent = sponsorshipForm.locator('input[name="max_concurrent"]').first();
+  const concurrentBefore = await concurrent.inputValue();
+  if (concurrentBefore !== '1') {
+    await concurrent.fill('1');
+    changes['max_concurrent'] = {before: concurrentBefore, after: '1'};
+  }
+  await writeFile(`${out}/allowance-form.json`, JSON.stringify({before, grant, changes}, null, 2));
   const acted = page.waitForResponse(
     (r) => /\/api\/repositories\/1\/factory\/sponsorships\/.+$/.test(new URL(r.url()).pathname) && r.request().method() === 'PUT',
     {timeout: 120000}
