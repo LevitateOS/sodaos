@@ -71,7 +71,14 @@ async function openE2E(profile: string, allowWrite: (method: string, path: strin
   );
   const blocked: string[] = [];
   const allowed: string[] = [];
+  const failed: string[] = [];
   const guard = {armed: false};
+  b.context.on('response', (response) => {
+    const url = new URL(response.url());
+    if (url.origin !== ORIGIN || response.ok()) return;
+    if (!url.pathname.startsWith('/-/native/pages/soda/spaces/api/')) return;
+    failed.push(`${response.status()} ${url.pathname.slice('/-/native/pages/soda/spaces/api'.length)}${url.search.slice(0, 160)}`);
+  });
   await b.context.route('**/*', async (route) => {
     const req = route.request();
     const url = new URL(req.url());
@@ -90,7 +97,7 @@ async function openE2E(profile: string, allowWrite: (method: string, path: strin
   await page.setViewportSize({width: 1920, height: 1080});
   await loginNativeForgejo(page, ORIGIN, 'maya', await readMayaPassword());
   guard.armed = true;
-  return {page, blocked, allowed, close: () => b.close().catch(() => {})};
+  return {page, blocked, allowed, failed, close: () => b.close().catch(() => {})};
 }
 
 async function shot(page: Page, file: string) {
@@ -830,6 +837,7 @@ async function main() {
   } finally {
     report.allowed = s.allowed;
     report.blocked = s.blocked;
+    report.failed = s.failed;
     await writeFile(`${dir}/report.json`, JSON.stringify(report, null, 2));
     await s.close();
   }
