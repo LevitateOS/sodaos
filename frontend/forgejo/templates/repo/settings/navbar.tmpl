@@ -2,7 +2,8 @@
 <nav class="soda-settings-nav" aria-label="{{ctx.Locale.Tr "repo.settings"}}">
 <button type="button" class="soda-settings-current" aria-expanded="true" aria-controls="soda-settings-destinations">{{.Title}} {{svg "octicon-chevron-down" 16}}</button>
 <div id="soda-settings-destinations" class="soda-settings-destinations">
-{{with .ExtensionPages}}{{range index . "repository"}}{{if eq .Permission "admin"}}<a class="soda-settings-nav-link" href="{{.URL}}"{{if eq .URL $.ExtensionPageURL}} aria-current="page"{{end}}>{{.Title}}</a>{{end}}{{end}}{{end}}
+{{template "custom/soda/places" (dict "Page" . "Part" "settings-generic")}}
+{{template "custom/soda/places" (dict "Page" . "Part" "settings-group")}}
 <section class="soda-settings-nav-group">
 <button type="button" class="soda-settings-nav-trigger" aria-expanded="true" aria-controls="soda-settings-repository">{{ctx.Locale.Tr "repo.settings.options"}} {{svg "octicon-chevron-down" 16}}</button>
 <div id="soda-settings-repository" class="soda-settings-menu">

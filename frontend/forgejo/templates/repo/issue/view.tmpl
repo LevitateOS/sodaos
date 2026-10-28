@@ -3,6 +3,7 @@
 	{{template "repo/header" .}}
 	<div class="ui container soda-repo-thread-container">
 		<div class="soda-repo-thread-title">{{template "repo/issue/view_title" .}}</div>
+		{{if not .Issue.IsPull}}{{template "custom/soda/places" (dict "Page" . "Part" "factory-status")}}{{end}}
 		{{if .Issue.IsPull}}
 			{{template "repo/pulls/tab_menu" .}}
 		{{end}}
