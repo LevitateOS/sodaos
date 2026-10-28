@@ -77,7 +77,15 @@ async function openE2E(profile: string, allowWrite: (method: string, path: strin
     const url = new URL(response.url());
     if (url.origin !== ORIGIN || response.ok()) return;
     if (!url.pathname.startsWith('/-/native/pages/soda/spaces/api/')) return;
-    failed.push(`${response.status()} ${url.pathname.slice('/-/native/pages/soda/spaces/api'.length)}${url.search.slice(0, 160)}`);
+    const key = `${response.status()} ${url.pathname.slice('/-/native/pages/soda/spaces/api'.length)}${url.search.slice(0, 120)}`;
+    void response
+      .text()
+      .then((body) => {
+        failed.push(`${key} :: ${body.slice(0, 300)}`);
+      })
+      .catch(() => {
+        failed.push(`${key} :: <unreadable body>`);
+      });
   });
   await b.context.route('**/*', async (route) => {
     const req = route.request();
