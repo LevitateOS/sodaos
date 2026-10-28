@@ -3,7 +3,6 @@ package control
 import (
 	"context"
 	"errors"
-	"fmt"
 	"time"
 
 	"github.com/levitateos/sodaos/internal/factory"
@@ -87,19 +86,15 @@ type DispatchReads interface {
 // (attempt_recorded, launch_exhausted) end the attempt for its head;
 // every other reason retries on a later pass.
 const (
-	WaitAssigned        = "already_assigned"
-	WaitAttemptRecorded = "attempt_recorded"
-	WaitAuthority       = "authority_ineffective"
-	WaitDispatchClosed  = "dispatch_closed"
-	WaitCapacity        = "capacity_full"
-	WaitRepository      = "repository_full"
-	WaitSponsorship     = "sponsorship_full"
-	WaitSponsorshipRole = "sponsorship_role_missing"
-	WaitAllowance       = "allowance_exhausted"
-	// WaitAllowanceLow holds a run the coder-time allowance could fund only
-	// for a few minutes: admitting it would close as an opaque
-	// stop-before-start. The owner raises the allowance in Settings.
-	WaitAllowanceLow      = "allowance_nearly_used"
+	WaitAssigned          = "already_assigned"
+	WaitAttemptRecorded   = "attempt_recorded"
+	WaitAuthority         = "authority_ineffective"
+	WaitDispatchClosed    = "dispatch_closed"
+	WaitCapacity          = "capacity_full"
+	WaitRepository        = "repository_full"
+	WaitSponsorship       = "sponsorship_full"
+	WaitSponsorshipRole   = "sponsorship_role_missing"
+	WaitAllowance         = "allowance_exhausted"
 	WaitPreparation       = "preparation_not_ready"
 	WaitHarness           = "harness_unavailable"
 	WaitInputsUnavailable = "inputs_unavailable"
@@ -182,11 +177,6 @@ type DispatchObservationReason struct {
 	Issue      int64  `json:"issue,string,omitempty"`
 	Reason     string `json:"reason"`
 	Stage      string `json:"stage"`
-	// MinutesLeft and AllowanceMinutes size an allowance_nearly_used hold so
-	// the views can say how much coder time is left. They are numbers parsed
-	// from the fixed detail, never its text.
-	MinutesLeft      int `json:"minutes_left,omitempty"`
-	AllowanceMinutes int `json:"allowance_minutes,omitempty"`
 	// CoderTime marks a wait the coder-time allowance causes, which the
 	// owner fixes by raising it, apart from attempt limits that need Retry.
 	CoderTime bool `json:"coder_time,omitempty"`
@@ -263,7 +253,7 @@ func dispatchObservationReason(repository, issue int64, reason, detail string) D
 	// this diagnostic into an indirect error/provider text channel.
 	stage := "admission"
 	switch reason {
-	case WaitAssigned, WaitAttemptRecorded, WaitAuthority, WaitDispatchClosed, WaitSponsorship, WaitSponsorshipRole, WaitAllowance, WaitAllowanceLow, WaitIssueClosed, WaitIssueLocked, WaitReassessmentPending, WaitLaunchRefused, WaitLaunchExhausted, DispatchErrFence:
+	case WaitAssigned, WaitAttemptRecorded, WaitAuthority, WaitDispatchClosed, WaitSponsorship, WaitSponsorshipRole, WaitAllowance, WaitIssueClosed, WaitIssueLocked, WaitReassessmentPending, WaitLaunchRefused, WaitLaunchExhausted, DispatchErrFence:
 	case WaitCapacity, WaitRepository:
 		stage = "capacity"
 	case WaitPreparation:
@@ -305,30 +295,8 @@ func dispatchObservationReason(repository, issue int64, reason, detail string) D
 		issue = 0
 	}
 	out := DispatchObservationReason{Repository: repository, Issue: issue, Reason: reason, Stage: stage}
-	switch {
-	case reason == WaitAllowanceLow:
-		out.MinutesLeft, out.AllowanceMinutes = parseAllowanceLow(detail)
-		out.CoderTime = true
-	case reason == WaitAllowance && (detail == "sponsorship allowance is exhausted" || detail == "connection rolling usage budget is exhausted"):
-		out.CoderTime = true
-	}
+	out.CoderTime = reason == WaitAllowance && detail == "sponsorship allowance is exhausted"
 	return out
-}
-
-// allowanceLowDetail is the one fixed shape of an allowance_nearly_used
-// detail; parseAllowanceLow reads back only its two numbers.
-const allowanceLowDetail = "coder-time allowance nearly used: %d of %d minutes left"
-
-func allowanceLowWait(left, total int) *planWait {
-	return waitFor(WaitAllowanceLow, fmt.Sprintf(allowanceLowDetail, left, total))
-}
-
-func parseAllowanceLow(detail string) (int, int) {
-	var left, total int
-	if n, _ := fmt.Sscanf(detail, allowanceLowDetail, &left, &total); n != 2 || left < 0 || total < 1 {
-		return 0, 0
-	}
-	return left, total
 }
 
 func newDispatchReport() DispatchReport {
@@ -346,10 +314,6 @@ const (
 	// refuses deadlines past three hours; the minute under keeps clock
 	// skew from tipping a full allowance over the bound.
 	MaxDispatchDeadline = 179
-	// MinUsefulRunMinutes is the shortest run the factory admits when the
-	// coder-time allowance, not the attempt, bounds it. A shorter run spends
-	// its minutes starting up and stops before it does anything.
-	MinUsefulRunMinutes = 20
 )
 
 // DispatchDeps gathers one dispatch pass's dependencies. Authority

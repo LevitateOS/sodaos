@@ -334,15 +334,9 @@ func admitRetryRunTx(ctx context.Context, tx *sql.Tx, priorRun string, priorAssi
 	if err != nil || allowance.RootAssignment != owner.ID {
 		return empty, ErrExplicitRetryIneligible
 	}
-	// Preserve the original failed/cancelled coder-owner retry path: those
-	// outcomes already end the owner attempt without closing its reusable
-	// allowance. A successful owner or any child retry is eligible only after
-	// its root is closed.
-	stoppedOwnerFailure := priorAssignment.ID == owner.ID && priorAssignment.Role == project.RoleCoder &&
-		(priorOutcome == string(factory.Failed) || priorOutcome == string(factory.Cancelled))
-	if allowance.Active || (!allowance.Closed && !stoppedOwnerFailure) {
-		return empty, ErrExplicitRetryIneligible
-	}
+	// Retry is eligible once every run of the root has settled; the fresh
+	// attempt closes this root. Attempts never time out on their own, so
+	// Retry is the way past a stuck or finished attempt.
 	settled, err := attemptRootRunsSettledTx(ctx, tx, repository, issue, owner.ID)
 	if err != nil {
 		return empty, err

@@ -331,7 +331,7 @@ func TestApplicationAuthorityAndLifecycleHTTP(t *testing.T) {
 	}
 	row := launch.Launchable[0]
 	var reference map[string]json.RawMessage
-	if len(row) != 8 || json.Unmarshal(row["application"], &reference) != nil || len(reference) != 4 {
+	if len(row) != 7 || json.Unmarshal(row["application"], &reference) != nil || len(reference) != 4 {
 		t.Fatalf("ordinary launch exposed private fields: %s", body)
 	}
 	for _, key := range []string{"id", "revision", "name", "origin"} {

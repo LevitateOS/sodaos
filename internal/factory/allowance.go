@@ -408,20 +408,15 @@ func (a AttemptAllowance) ReserveDeliveryCall(id string, now time.Time) (Attempt
 	return next, true, nil
 }
 
-// RemainingSeconds includes the current active interval without changing the
-// record. A clock regression grants no remaining time until it is resolved.
-func (a AttemptAllowance) RemainingSeconds(now time.Time) int64 {
-	if a.Validate() != nil || now.Unix() < a.CheckpointUnix {
+// RemainingSeconds is the per-run limit: every run of an open attempt gets
+// the full ActiveMinutes. Time spent waiting on CI, review or judgment, and
+// earlier runs, never shorten a later run. Loop caps (corrections, review
+// rounds) bound the attempt instead.
+func (a AttemptAllowance) RemainingSeconds(time.Time) int64 {
+	if a.Validate() != nil || a.Closed {
 		return 0
 	}
-	remaining := int64(a.Limits.ActiveMinutes)*60 - a.ActiveSeconds
-	if a.Active {
-		remaining -= now.Unix() - a.CheckpointUnix
-	}
-	if remaining < 0 {
-		return 0
-	}
-	return remaining
+	return int64(a.Limits.ActiveMinutes) * 60
 }
 
 // Checkpoint closes the previous interval and records the next accounting mode.

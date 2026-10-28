@@ -45,21 +45,6 @@ func selectSponsorship(ctx context.Context, deps DispatchDeps, repository int64,
 	return factory.Sponsorship{}, waitFor(WaitAuthority, "sponsorship changed during dispatch"), nil
 }
 
-// checkLimits enforces appliance, repository-session, sponsorship and
-// allowance limits against unsettled runs, held reservations and confirmed
-// usage, then sizes the plan's deadline from the remaining allowance. The
-// deadline never exceeds the host's supervised bound.
-func checkLimits(ctx context.Context, deps DispatchDeps, occupancy *passOccupancy, plan *attemptPlan) (*planWait, *planWait) {
-	if wait, failed := checkConcurrencyLimits(ctx, deps, occupancy, plan); wait != nil || failed != nil {
-		return wait, failed
-	}
-	remaining, wait, failed := checkSponsorshipBudget(ctx, deps, occupancy, plan)
-	if wait != nil || failed != nil {
-		return wait, failed
-	}
-	return sizeAttemptDeadline(ctx, deps, plan, remaining)
-}
-
 func checkConcurrencyLimits(ctx context.Context, deps DispatchDeps, occupancy *passOccupancy, plan *attemptPlan) (*planWait, *planWait) {
 	capacity, err := deps.Store.Capacity(ctx)
 	if err != nil {
@@ -98,84 +83,6 @@ func checkConcurrencyLimits(ctx context.Context, deps DispatchDeps, occupancy *p
 	if occupancy.heldRepo(repository)+occupancy.byProject[plan.projectID] >= repoLimit {
 		return waitFor(WaitRepository, "repository runs at its limit"), nil
 	}
-	return nil, nil
-}
-
-func checkSponsorshipBudget(ctx context.Context, deps DispatchDeps, occupancy *passOccupancy, plan *attemptPlan) (int, *planWait, *planWait) {
-	repository := plan.policy.Repository
-	slots, planned := occupancy.heldConn(repository, plan.sponsorship.Connection)
-	if slots >= plan.sponsorship.MaxConcurrent {
-		return 0, waitFor(WaitSponsorship, "sponsorship runs at its limit"), nil
-	}
-	used, err := deps.Store.UsageTotal(ctx, repository, plan.sponsorship.Connection)
-	if err != nil {
-		return 0, nil, waitFor(DispatchErrStore, "confirmed usage unreadable")
-	}
-	remaining := plan.sponsorship.AllowanceMinutes - used - planned
-	if remaining < 1 {
-		return 0, waitFor(WaitAllowance, "sponsorship allowance is exhausted"), nil
-	}
-	plan.allowanceTotal, plan.allowanceBound = plan.sponsorship.AllowanceMinutes, remaining < MaxDispatchDeadline
-	if remaining > MaxDispatchDeadline {
-		remaining = MaxDispatchDeadline
-	}
-	budget, err := deps.Store.ConnectionUsageBudget(ctx, plan.sponsorship.Connection)
-	if err != nil {
-		return 0, waitFor(WaitAuthority, "connection usage budget changed during dispatch"), nil
-	}
-	if budget.Revision != plan.effective.Authority.ConnectionUsageBudget {
-		return 0, waitFor(WaitAuthority, "connection usage budget changed during dispatch"), nil
-	}
-	charge, err := deps.Store.ConnectionUsageCharge(ctx, plan.sponsorship.Connection, time.Now())
-	if err != nil {
-		return 0, nil, waitFor(DispatchErrStore, "connection usage unreadable")
-	}
-	left := budget.RollingMinutes*factory.UsageMicrosPerMinute - charge
-	if left < factory.UsageMicrosPerMinute {
-		return 0, waitFor(WaitAllowance, "connection rolling usage budget is exhausted"), nil
-	}
-	if connectionMinutes := left / factory.UsageMicrosPerMinute; connectionMinutes < int64(remaining) {
-		remaining = int(connectionMinutes)
-		plan.allowanceTotal, plan.allowanceBound = int(budget.RollingMinutes), true
-	}
-	return remaining, nil, nil
-}
-
-func sizeAttemptDeadline(ctx context.Context, deps DispatchDeps, plan *attemptPlan, remaining int) (*planWait, *planWait) {
-	now := time.Now()
-	deadline := now.Add(time.Duration(remaining) * time.Minute)
-	plan.attemptLimits = plan.policy.AttemptLimits
-	attemptSeconds := int64(plan.policy.AttemptLimits.ActiveMinutes) * 60
-	if !plan.freshAttempt {
-		allowance, allowanceErr := deps.Store.AttemptAllowance(ctx, plan.policy.Repository, plan.control.Issue)
-		switch {
-		case allowanceErr == nil:
-			if allowance.Closed {
-				return waitFor(WaitAttemptRecorded, "attempt is terminal; explicit Retry is required"), nil
-			}
-			plan.attemptRoot = allowance.RootAssignment
-			plan.attemptLimits = allowance.Limits
-			attemptSeconds = allowance.RemainingSeconds(now)
-		case errors.Is(allowanceErr, store.ErrNotFound):
-		default:
-			return nil, waitFor(DispatchErrStore, "attempt allowance unreadable")
-		}
-	}
-	if attemptSeconds <= 0 {
-		return waitFor(WaitAllowance, "attempt active-time allowance is exhausted"), nil
-	}
-	if wait := holdShortAllowance(plan, remaining, attemptSeconds); wait != nil {
-		return wait, nil
-	}
-	attemptDeadline := time.Unix(now.Unix()+attemptSeconds, 0)
-	if attemptDeadline.Before(deadline) {
-		deadline = attemptDeadline
-	}
-	if boundedMinutes := int((deadline.Sub(now) + time.Minute - 1) / time.Minute); boundedMinutes < remaining {
-		remaining = boundedMinutes
-	}
-	plan.planned = remaining
-	plan.deadline = deadline
 	return nil, nil
 }
 
@@ -240,18 +147,62 @@ func checkHarnessFor(ctx context.Context, deps DispatchDeps, plan *attemptPlan, 
 	return nil
 }
 
-// holdShortAllowance holds an issue run whose coder-time allowance, not
-// its attempt, would cut it below a useful length. Admitting it would
-// spend the last minutes starting a run that stops before it starts; the
-// named wait tells the owner to raise the allowance instead. Time-only
-// roots size their funded minutes later and are left to those checks.
-func holdShortAllowance(plan *attemptPlan, remaining int, attemptSeconds int64) *planWait {
-	if !plan.allowanceBound || (plan.subject.Kind != "" && plan.subject.Kind != factory.SubjectIssue) {
-		return nil
+// checkLimits enforces appliance, repository-session and sponsorship limits,
+// then gives the run the one per-run limit. Leftover budgets never shorten a
+// run: a nearly spent allowance still admits a full run.
+func checkLimits(ctx context.Context, deps DispatchDeps, occupancy *passOccupancy, plan *attemptPlan) (*planWait, *planWait) {
+	if wait, failed := checkConcurrencyLimits(ctx, deps, occupancy, plan); wait != nil || failed != nil {
+		return wait, failed
 	}
-	need := min(int((attemptSeconds+59)/60), MaxDispatchDeadline, MinUsefulRunMinutes)
-	if remaining >= need {
-		return nil
+	if wait, failed := checkSponsorshipBudget(ctx, deps, occupancy, plan); wait != nil || failed != nil {
+		return wait, failed
 	}
-	return allowanceLowWait(remaining, plan.allowanceTotal)
+	return sizeAttemptDeadline(ctx, deps, plan)
+}
+
+// checkSponsorshipBudget is the one spend cap, checked softly at admission:
+// any minutes left admit one full run, which may overrun the cap by that run.
+func checkSponsorshipBudget(ctx context.Context, deps DispatchDeps, occupancy *passOccupancy, plan *attemptPlan) (*planWait, *planWait) {
+	repository := plan.policy.Repository
+	if slots, _ := occupancy.heldConn(repository, plan.sponsorship.Connection); slots >= plan.sponsorship.MaxConcurrent {
+		return waitFor(WaitSponsorship, "sponsorship runs at its limit"), nil
+	}
+	used, err := deps.Store.UsageTotal(ctx, repository, plan.sponsorship.Connection)
+	if err != nil {
+		return nil, waitFor(DispatchErrStore, "confirmed usage unreadable")
+	}
+	if plan.sponsorship.AllowanceMinutes-used < 1 {
+		return waitFor(WaitAllowance, "sponsorship allowance is exhausted"), nil
+	}
+	return nil, nil
+}
+
+// sizeAttemptDeadline gives the run the attempt's per-run limit, bounded by
+// the host's supervised maximum.
+func sizeAttemptDeadline(ctx context.Context, deps DispatchDeps, plan *attemptPlan) (*planWait, *planWait) {
+	now := time.Now()
+	plan.attemptLimits = plan.policy.AttemptLimits
+	runSeconds := int64(plan.policy.AttemptLimits.ActiveMinutes) * 60
+	if !plan.freshAttempt {
+		allowance, allowanceErr := deps.Store.AttemptAllowance(ctx, plan.policy.Repository, plan.control.Issue)
+		switch {
+		case allowanceErr == nil:
+			if allowance.Closed {
+				return waitFor(WaitAttemptRecorded, "attempt is terminal; explicit Retry is required"), nil
+			}
+			plan.attemptRoot = allowance.RootAssignment
+			plan.attemptLimits = allowance.Limits
+			runSeconds = allowance.RemainingSeconds(now)
+		case errors.Is(allowanceErr, store.ErrNotFound):
+		default:
+			return nil, waitFor(DispatchErrStore, "attempt allowance unreadable")
+		}
+	}
+	if runSeconds <= 0 {
+		return waitFor(WaitAllowance, "attempt has no run time"), nil
+	}
+	minutes := min(int(runSeconds/60), MaxDispatchDeadline)
+	plan.planned = minutes
+	plan.deadline = time.Unix(now.Unix()+int64(minutes)*60, 0)
+	return nil, nil
 }

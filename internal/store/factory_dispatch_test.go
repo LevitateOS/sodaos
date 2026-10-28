@@ -4,7 +4,6 @@ import (
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
-	"encoding/json"
 	"errors"
 	"strconv"
 	"strings"
@@ -493,83 +492,6 @@ func TestRecordDispatchPacketEnforcesLimits(t *testing.T) {
 		if err := recordDispatchTestPacket(t, ctx, db, dispatchTestRegistration(b), b, r2, run2, view2); !errors.Is(err, ErrAllowanceExhausted) {
 			t.Fatalf("over-budget packet accepted: %v", err)
 		}
-	})
-	t.Run("connection rolling window spans repositories", func(t *testing.T) {
-		now := time.Now().UTC()
-		for _, tc := range []struct {
-			name string
-			end  time.Time
-			want error
-		}{
-			{"in window", now.Add(-time.Minute), ErrConnectionUsageBudget},
-			{"outside window", now.Add(-24*time.Hour - time.Minute), nil},
-		} {
-			t.Run(tc.name, func(t *testing.T) {
-				db := dispatchStoreFixture(t)
-				start := tc.end.Add(-360 * time.Minute)
-				usage := factory.Usage{RunID: factory.NewID(), Repository: 8, Connection: "conn", Minutes: 360, StartedAt: start, EndedAt: tc.end}
-				if err := db.RecordRunUsage(ctx, usage); err != nil {
-					t.Fatal(err)
-				}
-				a, r, run, view := dispatchTestPacket(t, now)
-				err := recordDispatchTestPacket(t, ctx, db, dispatchTestRegistration(a), a, r, run, view)
-				if !errors.Is(err, tc.want) {
-					t.Fatalf("rolling-window packet error = %v, want %v", err, tc.want)
-				}
-				if tc.want != nil {
-					assertDispatchPacketAbsent(t, db, a)
-				}
-			})
-		}
-	})
-	t.Run("held session keeps growing past its plan", func(t *testing.T) {
-		now := time.Now().UTC()
-		db := dispatchStoreFixture(t)
-		firstAt := now.Add(-4 * time.Hour)
-		a, reservation, run, _ := dispatchTestPacket(t, firstAt)
-		// This is a different repository sharing the same provider connection;
-		// the product allows cross-repository use of available appliance slots.
-		a.Repository, reservation.Repository = 8, 8
-		a.ProjectID, run.ProjectID = "p888888888888888888888888", "p888888888888888888888888"
-		// Seed an existing held process with its original immutable binding.
-		// Fresh admission correctly refuses its now-expired deadline.
-		if err := db.RecordFactoryRun(ctx, run); err != nil {
-			t.Fatal(err)
-		}
-		assignmentData, err := json.Marshal(a)
-		if err != nil {
-			t.Fatal(err)
-		}
-		if _, err := db.db.ExecContext(ctx, `INSERT INTO factory_assignments(id,repository,issue,run,stage,revision,data) VALUES($1,$2,$3,$4,$5,$6,$7)`, a.ID, a.Repository, a.Issue, a.Run, a.Stage, a.Revision, string(assignmentData)); err != nil {
-			t.Fatal(err)
-		}
-		reservationData, err := json.Marshal(reservation)
-		if err != nil {
-			t.Fatal(err)
-		}
-		if _, err := db.db.ExecContext(ctx, `INSERT INTO factory_reservations(assignment,repository,connection,state,data) VALUES($1,$2,$3,$4,$5)`, a.ID, a.Repository, a.Connection, reservation.State, string(reservationData)); err != nil {
-			t.Fatal(err)
-		}
-		budget, err := db.ConnectionUsageBudget(ctx, "conn")
-		if err != nil {
-			t.Fatal(err)
-		}
-		budget.RollingMinutes = 200
-		if err := db.SaveConnectionUsageBudget(ctx, budget); err != nil {
-			t.Fatal(err)
-		}
-		second, r2, run2, view2 := dispatchTestPacket(t, now)
-		second.ID, second.Issue, second.Run, second.RunHistory = factory.NewID(), 4, run2.ID, []string{run2.ID}
-		second.Acceptance = "d" + strings.Repeat("b", 24)
-		second.Subject.Issue.Issue, second.Subject.Issue.Acceptance = 4, second.Acceptance
-		second.AttemptRoot, second.PublicationAssignment = second.ID, second.ID
-		second.Authority.ConnectionUsageBudget = budget.Revision + 1
-		r2.AssignmentID = second.ID
-		view2.Issue, view2.Attempt = 4, second.ID
-		if err := recordDispatchTestPacket(t, ctx, db, dispatchTestRegistration(second), second, r2, run2, view2); !errors.Is(err, ErrConnectionUsageBudget) {
-			t.Fatalf("over-plan held usage was not charged: %v", err)
-		}
-		assertDispatchPacketAbsent(t, db, second)
 	})
 	t.Run("held session with missing run start fails closed", func(t *testing.T) {
 		now := time.Now().UTC()

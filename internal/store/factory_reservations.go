@@ -172,8 +172,6 @@ func (s *Store) RunUsage(ctx context.Context, runID string) (factory.Usage, erro
 	return u, err
 }
 
-const usageMicrosPerMinute int64 = factory.UsageMicrosPerMinute
-
 // ConnectionUsageCharge returns settled rolling-window usage in microseconds
 // plus the conservative charge for every held reservation on this connection.
 func (s *Store) ConnectionUsageCharge(ctx context.Context, connection string, now time.Time) (int64, error) {

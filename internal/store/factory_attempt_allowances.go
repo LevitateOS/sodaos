@@ -92,11 +92,20 @@ func (s *Store) CapAttemptDeadline(ctx context.Context, assignmentID string, req
 	return deadline, nil
 }
 
-// CloseExpiredAttempt closes automatic continuation for the current exact
-// assignment root once its cumulative active-time allowance is exhausted.
-// It is safe to replay: a closed root can still be deactivated after its last
-// descendant run is confirmed settled.
+// CloseExpiredAttempt deactivates an already closed root once its last
+// descendant run is confirmed settled. Attempts no longer expire on time, so
+// an open root stays open. It is safe to replay.
 func (s *Store) CloseExpiredAttempt(ctx context.Context, assignmentID string) (bool, error) {
+	return s.closeAttempt(ctx, assignmentID, false)
+}
+
+// CloseAttempt closes the current exact root for an explicit Retry, which
+// then starts a fresh attempt. It is safe to replay.
+func (s *Store) CloseAttempt(ctx context.Context, assignmentID string) (bool, error) {
+	return s.closeAttempt(ctx, assignmentID, true)
+}
+
+func (s *Store) closeAttempt(ctx context.Context, assignmentID string, force bool) (bool, error) {
 	if !factory.ValidID(assignmentID) {
 		return false, errors.New("invalid attempt assignment")
 	}
@@ -134,11 +143,12 @@ func (s *Store) CloseExpiredAttempt(ctx context.Context, assignmentID string) (b
 	}
 	now := time.Now()
 	if !allowance.Closed {
-		if now.Unix() < allowance.CheckpointUnix {
-			return false, factory.ErrAllowanceClock
-		}
-		if allowance.RemainingSeconds(now) > 0 {
+		if !force {
 			return false, tx.Commit()
+		}
+		settled, err := attemptRootRunsSettledTx(ctx, tx, allowance.Repository, allowance.Issue, allowance.RootAssignment)
+		if err != nil || !settled {
+			return false, err
 		}
 	}
 	if err = transitionLockedAttemptRootTx(ctx, tx, allowance, true, now); err != nil {

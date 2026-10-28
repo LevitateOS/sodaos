@@ -31,24 +31,20 @@ guards and the actionable MCP refusals.
   default should cover at least one issue's full path (plan, build, review,
   verify, one correction), and Settings should say how far the allowance
   goes in issues, not only minutes.
-- **The allowance hold covers issue runs only.** `holdShortAllowance`
-  (`internal/factory/control/dispatch_selection.go`) skips time-only roots
-  (intent, delivery, completion, stall, research), because their funded
-  minutes are sized later in `timeOnlyScope`
-  (`internal/factory/control/dispatch_timeonly.go:458`). Those roots can
-  still start with a few minutes left. Sizing their funded minutes before
-  `checkLimits` would let the same hold apply.
-- **`MinUsefulRunMinutes` is one fixed number.** It is 20 for every role
-  (`internal/factory/control/dispatch.go`). A planning run can be useful in
-  less, and a Builder run needs more. It should come from the role's phase
-  limits.
-- **The hold is visible only to owners and admins, and only until restart.**
+- **Runs get one per-run limit.** On `simplify/over-engineering` a run's
+  deadline is the attempt's `ActiveMinutes`, capped at the host's 179.
+  Leftover sponsorship or rolling minutes no longer shorten it. The
+  sponsorship minutes are a soft spend cap checked at admission, and the
+  attempt clock no longer runs down across CI, review and judge waits. The
+  short-allowance hold and `MinUsefulRunMinutes` went with the problem they
+  patched. Retry is available once all of a root's runs have settled.
+- **The used-up notice is visible only to owners and admins, and only until restart.**
   Dispatch waits live in the coordinator's in-memory observation
   (`internal/factory/control/dispatch.go`, `observeDispatch`) and the
   factory status exposes them only to repository admins
   (`internal/web/api/factory_status.go:110-118`). The Feed and Work notices
   read that status, so a non-admin collaborator sees nothing, and a
-  restart clears the notice until the next dispatch pass. A held issue
+  restart clears the notice until the next dispatch pass. A waiting issue
   should leave a durable, visible record (a Feed post or an issue-control
   blocker).
 - **The notice names "Settings → SodaOS → Factory control".** The current

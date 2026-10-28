@@ -15,7 +15,6 @@ internal/factory/control/delivery_admission_test.go
 internal/factory/control/dispatch_accounting_test.go
 internal/factory/control/dispatch_advance_stale_test.go
 internal/factory/control/dispatch_concurrency_test.go
-internal/factory/control/dispatch_expiry_test.go
 internal/factory/control/dispatch_fixture_test.go
 internal/factory/control/dispatch_preparation_test.go
 internal/factory/control/dispatch_recovery_test.go
@@ -91,7 +90,6 @@ internal/store/factory_assignment_finish_test.go
 internal/store/factory_attempt_allowance_scope_test.go
 internal/store/factory_attempt_allowances_review_test.go
 internal/store/factory_attempt_allowances_test.go
-internal/store/factory_attempt_expiry_test.go
 internal/store/factory_checks_test.go
 internal/store/factory_completion_current_head_test.go
 internal/store/factory_completion_material_test.go
@@ -128,8 +126,6 @@ internal/store/factory_lifecycle_test.go
 internal/store/factory_mcp_communication_test.go
 internal/store/factory_mcp_settle_test.go
 internal/store/factory_mcp_test.go
-internal/store/factory_merges_generations_test.go
-internal/store/factory_merges_history_immutable_test.go
 internal/store/factory_merges_test.go
 internal/store/factory_planning_revisions_test.go
 internal/store/factory_plan_reads_test.go

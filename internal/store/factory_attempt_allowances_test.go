@@ -622,54 +622,6 @@ func TestFreshRetryAllowancePreservesConsumedPriorRoot(t *testing.T) {
 	}
 }
 
-func TestAttemptAllowanceExhaustionRollsBackRetry(t *testing.T) {
-	ctx := context.Background()
-	db := dispatchStoreFixture(t)
-	now := time.Now().UTC()
-	a, reservation, run, view := dispatchTestPacket(t, now)
-	if err := recordDispatchTestPacket(t, ctx, db, dispatchTestRegistration(a), a, reservation, run, view); err != nil {
-		t.Fatal(err)
-	}
-	allowance, err := db.AttemptAllowance(ctx, a.Repository, a.Issue)
-	if err != nil {
-		t.Fatal(err)
-	}
-	allowance.ActiveSeconds = int64(allowance.Limits.ActiveMinutes*60) - 10
-	allowance.CheckpointUnix = time.Now().Unix()
-	allowance.Revision++
-	data, err := json.Marshal(allowance)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if _, err = db.db.ExecContext(ctx, `UPDATE factory_attempt_allowances SET revision=$1,data=$2 WHERE repository=$3 AND issue=$4`, allowance.Revision, string(data), a.Repository, a.Issue); err != nil {
-		t.Fatal(err)
-	}
-
-	control, err := db.IssueControl(ctx, a.Repository, a.Issue)
-	if err != nil {
-		t.Fatal(err)
-	}
-	storedRun, err := db.FactoryRun(ctx, run.ID)
-	if err != nil {
-		t.Fatal(err)
-	}
-	storedRun.Outcome, storedRun.Reconciled, storedRun.Summary = factory.Failed, true, "superseded"
-	if err = db.SaveFactoryRun(ctx, storedRun); err != nil {
-		t.Fatal(err)
-	}
-	retry, retryView := retryTestRun(t, a, run)
-	if _, err = db.RecordRetryPacket(ctx, a, control, a.Authority, retry, retryView, 30); !errors.Is(err, factory.ErrAttemptTimeExhausted) {
-		t.Fatalf("exhausted retry error = %v", err)
-	}
-	if _, err = db.FactoryRun(ctx, retry.ID); !errors.Is(err, ErrNotFound) {
-		t.Fatalf("refused retry left a run: %v", err)
-	}
-	stored, err := db.Assignment(ctx, a.ID)
-	if err != nil || stored.Revision != a.Revision || stored.Run != a.Run {
-		t.Fatalf("refused retry changed assignment: %+v, %v", stored, err)
-	}
-}
-
 func TestInitialAttemptDeadlineMustFitRecordedAllowance(t *testing.T) {
 	for name, expired := range map[string]bool{"over budget": false, "already expired": true} {
 		t.Run(name, func(t *testing.T) {

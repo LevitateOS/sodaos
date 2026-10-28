@@ -26,13 +26,12 @@ var ErrAssignmentActive = errors.New("issue already carries an unfinished assign
 // refusal means a concurrent admission consumed the room this attempt
 // planned against; the dispatcher waits instead of launching.
 var (
-	ErrDispatchControlStale  = errors.New("queued issue control changed during dispatch")
-	ErrCapacityFull          = errors.New("appliance runs at its limit")
-	ErrRepositoryFull        = errors.New("repository runs at its limit")
-	ErrSponsorshipFull       = errors.New("sponsorship runs at its limit")
-	ErrAllowanceExhausted    = errors.New("sponsorship allowance is exhausted")
-	ErrConnectionUsageBudget = errors.New("connection rolling usage budget is exhausted")
-	ErrAdmissionChanged      = errors.New("admission grants changed during dispatch")
+	ErrDispatchControlStale = errors.New("queued issue control changed during dispatch")
+	ErrCapacityFull         = errors.New("appliance runs at its limit")
+	ErrRepositoryFull       = errors.New("repository runs at its limit")
+	ErrSponsorshipFull      = errors.New("sponsorship runs at its limit")
+	ErrAllowanceExhausted   = errors.New("sponsorship allowance is exhausted")
+	ErrAdmissionChanged     = errors.New("admission grants changed during dispatch")
 )
 
 // RecordDispatchPacket stores one dispatch atomically: the gate
@@ -50,7 +49,7 @@ var (
 //
 // The packet is also the atomic admission gate: the limit rows are
 // locked, the packet records, and then appliance, repository,
-// sponsorship, repository allowance and connection rolling usage limits are rechecked inside the same
+// sponsorship and spend-cap limits are rechecked inside the same
 // transaction. Concurrent passes serialize here, so only room that
 // actually exists is admitted; the losers wait instead of launching.
 func (s *Store) RecordDispatchPacket(ctx context.Context, d factory.DispatchRegistration, expected factory.IssueControl, a factory.Assignment, r factory.Reservation, run factory.Run, view factory.RunView) error {
@@ -1124,20 +1123,13 @@ func checkAssignmentAuthorityTx(ctx context.Context, t *sql.Tx, expected factory
 }
 
 // checkAdmissionLimitsTx enforces appliance, one-session-per-repository,
-// sponsorship, repository allowance and connection rolling usage limits inside the admission transaction. The limit rows are
+// sponsorship and spend-cap limits inside the admission transaction. The limit rows are
 // locked first so concurrent admissions serialize here; the packet's own
 // held reservation is already recorded, so every comparison accounts for
 // it and refuses exactly when the pre-packet state plus this admission
 // would exceed a limit. Count reads are capped just past each limit,
 // which decides exact admission without scanning settled history.
 func checkAdmissionLimitsTx(ctx context.Context, t *sql.Tx, repository int64, connection, projectID string, grants admissionGrants) error {
-	charge, err := connectionUsageCharge(ctx, t, connection, time.Now())
-	if err != nil {
-		return err
-	}
-	if charge > grants.usageBudget.RollingMinutes*usageMicrosPerMinute {
-		return ErrConnectionUsageBudget
-	}
 	heldTotal, err := cappedCountTx(ctx, t, `SELECT 1 FROM factory_reservations WHERE state='held'`, grants.capacity.MaxConcurrentRuns+1)
 	if err != nil {
 		return err
@@ -1201,19 +1193,14 @@ func checkAdmissionLimitsTx(ctx context.Context, t *sql.Tx, repository int64, co
 	if slots > grants.sponsorship.MaxConcurrent {
 		return ErrSponsorshipFull
 	}
-	var planned int
-	err = t.QueryRowContext(ctx, `SELECT coalesce(sum((data->>'planned_minutes')::bigint),0)::bigint FROM factory_reservations WHERE state='held' AND repository=$1 AND connection=$2`,
-		repository, connection).Scan(&planned)
-	if err != nil {
-		return err
-	}
 	var used int
 	err = t.QueryRowContext(ctx, `SELECT COALESCE(SUM(minutes),0) FROM factory_usage WHERE repository=$1 AND connection=$2`,
 		repository, connection).Scan(&used)
 	if err != nil {
 		return err
 	}
-	if grants.sponsorship.AllowanceMinutes-used-planned < 0 {
+	// The spend cap is soft: any minutes left admit one full run.
+	if grants.sponsorship.AllowanceMinutes-used < 1 {
 		return ErrAllowanceExhausted
 	}
 	return nil
