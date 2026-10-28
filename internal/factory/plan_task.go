@@ -7,6 +7,7 @@ package factory
 
 import (
 	"errors"
+	"fmt"
 	"path"
 	"regexp"
 	"strings"
@@ -188,10 +189,10 @@ func checkPlanTaskDeps(task PlanTask, i int, byKey map[string]int) error {
 	for _, dep := range task.DependsOn {
 		pos, ok := byKey[dep]
 		if !ok || dep == task.ID {
-			return errors.New("task depends on an unknown task")
+			return fmt.Errorf("task %q depends on unknown task %q: depends_on lists earlier task ids only; name checks in check_ids", task.ID, dep)
 		}
 		if pos > i {
-			return errors.New("task dependency is not earlier in plan order")
+			return fmt.Errorf("task %q depends on %q, which is not earlier in plan order", task.ID, dep)
 		}
 	}
 	return nil

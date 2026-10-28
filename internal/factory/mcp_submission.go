@@ -179,7 +179,7 @@ func (s MCPSubmission) Validate() error {
 		return errors.New("invalid submission assignment")
 	}
 	if !ValidID(s.SubmissionID) {
-		return errors.New("invalid submission identity")
+		return errors.New("invalid submission identity: submission_id must be 32 lowercase hexadecimal digits (a UUID is accepted), new for each submission")
 	}
 	if !ValidID(s.CapabilityID) {
 		return errors.New("invalid submission capability")

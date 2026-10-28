@@ -13,6 +13,7 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"strings"
 	"sync"
 	"time"
 
@@ -585,6 +586,9 @@ func (s *factoryCatalogServer) admitMutation(ctx context.Context, tool factory.M
 	if err != nil {
 		return factory.MCPCapability{}, factory.MCPSubmission{}, nil, err
 	}
+	if tool == factory.MCPToolFinishIssuePlan {
+		s.bindIssuePlan(ctx, capability, args.Payload)
+	}
 	raw, err := canonicalPayload(args.Payload)
 	if err != nil {
 		release()
@@ -634,6 +638,9 @@ func (s *factoryCatalogServer) admitMutation(ctx context.Context, tool factory.M
 				err = s.checkManifestProposal(ctx, capability, args.Payload)
 				if err == nil {
 					err = s.checkProductPlanWalkthroughs(ctx, capability, args.Payload)
+				}
+				if err == nil {
+					err = s.checkProductPlanSemantics(ctx, capability, raw)
 				}
 			}
 			if err != nil {
@@ -706,6 +713,7 @@ func newFactoryCatalogServer(deps FactoryMCPDeps) *mcp.Server {
 }
 
 func (s *factoryCatalogServer) serve(ctx context.Context, tool factory.MCPTool, args mcpCallArgs) (*mcp.CallToolResult, any, error) {
+	args.SubmissionID = mcpSubmissionID(args.SubmissionID)
 	if factory.MCPIsLibraryRead(tool) {
 		return s.serveLibraryRead(ctx, tool, args)
 	}
@@ -1144,3 +1152,15 @@ var _ FactoryMCPSubmissionSink = (*store.Store)(nil)
 var _ FactoryMCPAssignmentSource = (*store.Store)(nil)
 var _ FactoryMCPPriorityJudgmentSource = (*store.Store)(nil)
 var _ FactoryMCPRunSource = (*store.Store)(nil)
+
+// mcpSubmissionID accepts a UUID as its 32-hex submission identity.
+// Workers mint UUIDs, and refusing the dashes spent their finish calls.
+func mcpSubmissionID(id string) string {
+	if len(id) != 36 || id[8] != '-' || id[13] != '-' || id[18] != '-' || id[23] != '-' {
+		return id
+	}
+	if hex := strings.ToLower(strings.ReplaceAll(id, "-", "")); factory.ValidID(hex) {
+		return hex
+	}
+	return id
+}

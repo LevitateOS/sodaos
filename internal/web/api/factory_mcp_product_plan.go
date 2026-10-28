@@ -50,3 +50,17 @@ func (s *factoryCatalogServer) checkProductPlanWalkthroughs(ctx context.Context,
 	}
 	return factory.ValidatePlanningWalkthroughs(in.Head, content)
 }
+
+// checkProductPlanSemantics refuses a Product Lead finish that settlement
+// would fence, so the worker sees the exact defect (for example an
+// uncovered authorized outcome) while it can still resubmit.
+func (s *factoryCatalogServer) checkProductPlanSemantics(ctx context.Context, cap factory.MCPCapability, raw json.RawMessage) error {
+	if s.deps.Assignments == nil {
+		return nil
+	}
+	a, err := s.deps.Assignments.Assignment(ctx, cap.AssignmentID)
+	if err != nil {
+		return err
+	}
+	return control.CheckProductPlanFinish(a, raw)
+}
