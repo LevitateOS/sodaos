@@ -496,17 +496,17 @@ func (s *Store) OutstandingPublications(ctx context.Context, repository int64, l
 		WHERE repository=$1 AND (
 			stage IN ('open','fenced') OR
 			(stage='published' AND (EXISTS (
-				SELECT 1 FROM jsonb_array_elements(COALESCE(data->'corrections','[]'::jsonb)) AS correction
+				SELECT 1 FROM jsonb_array_elements(CASE WHEN jsonb_typeof(data->'corrections')='array' THEN data->'corrections' ELSE '[]'::jsonb END) AS correction
 				WHERE COALESCE(correction->>'effect','') IN ('','pending','indeterminate')
 				   OR COALESCE(correction->>'cancellation','') IN ('pending','indeterminate')
 				   OR (correction->>'effect'='committed' AND COALESCE(correction->>'completion','') <> 'complete')
 			) OR EXISTS (
-				SELECT 1 FROM jsonb_array_elements(COALESCE(data->'review_operations','[]'::jsonb)) AS review_op
+				SELECT 1 FROM jsonb_array_elements(CASE WHEN jsonb_typeof(data->'review_operations')='array' THEN data->'review_operations' ELSE '[]'::jsonb END) AS review_op
 				WHERE COALESCE(review_op->'outcome'->>'Effect','') IN ('','pending','indeterminate')
 				   OR COALESCE(review_op->'outcome'->>'Cancellation','') IN ('pending','indeterminate')
 				   OR (review_op->'outcome'->>'Effect'='committed' AND COALESCE(review_op->'outcome'->>'Completion','') <> 'complete')
 			) OR EXISTS (
-				SELECT 1 FROM jsonb_array_elements(COALESCE(data->'resolution_operations','[]'::jsonb)) AS resolve_op
+				SELECT 1 FROM jsonb_array_elements(CASE WHEN jsonb_typeof(data->'resolution_operations')='array' THEN data->'resolution_operations' ELSE '[]'::jsonb END) AS resolve_op
 				WHERE COALESCE(resolve_op->'outcome'->>'Effect','') IN ('','pending','indeterminate')
 				   OR COALESCE(resolve_op->'outcome'->>'Cancellation','') IN ('pending','indeterminate')
 				   OR (resolve_op->'outcome'->>'Effect'='committed' AND (COALESCE(resolve_op->'outcome'->>'Completion','') <> 'complete' OR COALESCE(resolve_op->>'confirmed','false') <> 'true'))
@@ -539,17 +539,17 @@ func requestPublicationWithdrawalsTx(ctx context.Context, tx *sql.Tx, repository
 		WHERE repository=$1 AND (
 			stage IN ('open','fenced') OR
 			(stage='published' AND (EXISTS (
-				SELECT 1 FROM jsonb_array_elements(COALESCE(data->'corrections','[]'::jsonb)) AS correction
+				SELECT 1 FROM jsonb_array_elements(CASE WHEN jsonb_typeof(data->'corrections')='array' THEN data->'corrections' ELSE '[]'::jsonb END) AS correction
 				WHERE COALESCE(correction->>'effect','') IN ('','pending','indeterminate')
 				   OR COALESCE(correction->>'cancellation','') IN ('pending','indeterminate')
 				   OR (correction->>'effect'='committed' AND COALESCE(correction->>'completion','') <> 'complete')
 			) OR EXISTS (
-				SELECT 1 FROM jsonb_array_elements(COALESCE(data->'review_operations','[]'::jsonb)) AS review_op
+				SELECT 1 FROM jsonb_array_elements(CASE WHEN jsonb_typeof(data->'review_operations')='array' THEN data->'review_operations' ELSE '[]'::jsonb END) AS review_op
 				WHERE COALESCE(review_op->'outcome'->>'Effect','') IN ('','pending','indeterminate')
 				   OR COALESCE(review_op->'outcome'->>'Cancellation','') IN ('pending','indeterminate')
 				   OR (review_op->'outcome'->>'Effect'='committed' AND COALESCE(review_op->'outcome'->>'Completion','') <> 'complete')
 			) OR EXISTS (
-				SELECT 1 FROM jsonb_array_elements(COALESCE(data->'resolution_operations','[]'::jsonb)) AS resolve_op
+				SELECT 1 FROM jsonb_array_elements(CASE WHEN jsonb_typeof(data->'resolution_operations')='array' THEN data->'resolution_operations' ELSE '[]'::jsonb END) AS resolve_op
 				WHERE COALESCE(resolve_op->'outcome'->>'Effect','') IN ('','pending','indeterminate')
 				   OR COALESCE(resolve_op->'outcome'->>'Cancellation','') IN ('pending','indeterminate')
 				   OR (resolve_op->'outcome'->>'Effect'='committed' AND (COALESCE(resolve_op->'outcome'->>'Completion','') <> 'complete' OR COALESCE(resolve_op->>'confirmed','false') <> 'true'))
@@ -612,17 +612,17 @@ func (s *Store) OpenPublications(ctx context.Context, limit int) ([]factory.Publ
 	}
 	rows, err := s.db.QueryContext(ctx, `SELECT data FROM factory_publications
 		WHERE stage IN ('open','fenced') OR (stage='published' AND (EXISTS (
-			SELECT 1 FROM jsonb_array_elements(COALESCE(data->'corrections','[]'::jsonb)) AS correction
+			SELECT 1 FROM jsonb_array_elements(CASE WHEN jsonb_typeof(data->'corrections')='array' THEN data->'corrections' ELSE '[]'::jsonb END) AS correction
 			WHERE COALESCE(correction->>'effect','') IN ('','pending','indeterminate')
 			   OR COALESCE(correction->>'cancellation','') IN ('pending','indeterminate')
 			   OR (correction->>'effect'='committed' AND COALESCE(correction->>'completion','') <> 'complete')
 		) OR EXISTS (
-			SELECT 1 FROM jsonb_array_elements(COALESCE(data->'review_operations','[]'::jsonb)) AS review_op
+			SELECT 1 FROM jsonb_array_elements(CASE WHEN jsonb_typeof(data->'review_operations')='array' THEN data->'review_operations' ELSE '[]'::jsonb END) AS review_op
 			WHERE COALESCE(review_op->'outcome'->>'Effect','') IN ('','pending','indeterminate')
 			   OR COALESCE(review_op->'outcome'->>'Cancellation','') IN ('pending','indeterminate')
 			   OR (review_op->'outcome'->>'Effect'='committed' AND COALESCE(review_op->'outcome'->>'Completion','') <> 'complete')
 		) OR EXISTS (
-			SELECT 1 FROM jsonb_array_elements(COALESCE(data->'resolution_operations','[]'::jsonb)) AS resolve_op
+			SELECT 1 FROM jsonb_array_elements(CASE WHEN jsonb_typeof(data->'resolution_operations')='array' THEN data->'resolution_operations' ELSE '[]'::jsonb END) AS resolve_op
 			WHERE COALESCE(resolve_op->'outcome'->>'Effect','') IN ('','pending','indeterminate')
 			   OR COALESCE(resolve_op->'outcome'->>'Cancellation','') IN ('pending','indeterminate')
 			   OR (resolve_op->'outcome'->>'Effect'='committed' AND (COALESCE(resolve_op->'outcome'->>'Completion','') <> 'complete' OR COALESCE(resolve_op->>'confirmed','false') <> 'true'))
@@ -737,11 +737,11 @@ func (s *Store) PendingPublicationChildren(ctx context.Context, afterAssignment 
 		AND p.stage='published' AND COALESCE(p.data->>'withdraw_requested','false')='false'
 		AND a.data->>'source_commit'=p.data->>'candidate'
 		AND NOT EXISTS (
-			SELECT 1 FROM jsonb_array_elements(COALESCE(p.data->'review_operations','[]'::jsonb)) op
+			SELECT 1 FROM jsonb_array_elements(CASE WHEN jsonb_typeof(p.data->'review_operations')='array' THEN p.data->'review_operations' ELSE '[]'::jsonb END) op
 			WHERE op->>'run_id'=a.run
 		)
 		AND NOT EXISTS (
-			SELECT 1 FROM jsonb_array_elements(COALESCE(p.data->'corrections','[]'::jsonb)) op
+			SELECT 1 FROM jsonb_array_elements(CASE WHEN jsonb_typeof(p.data->'corrections')='array' THEN p.data->'corrections' ELSE '[]'::jsonb END) op
 			WHERE op->>'run_id'=a.run
 		)
 		AND a.seq>COALESCE((SELECT seq FROM factory_assignments WHERE id=$1),0)

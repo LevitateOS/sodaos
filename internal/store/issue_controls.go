@@ -200,7 +200,7 @@ func acceptanceDependantsPage(ctx context.Context, queryer readinessQueryer, rep
 					SELECT 1 FROM issue_acceptance_decisions d
 					WHERE d.id = h.decision AND EXISTS (
 						SELECT 1
-						FROM jsonb_array_elements(d.data->'prerequisites') AS prerequisite(value)
+						FROM jsonb_array_elements(CASE WHEN jsonb_typeof(d.data->'prerequisites')='array' THEN d.data->'prerequisites' ELSE '[]'::jsonb END) AS prerequisite(value)
 						WHERE jsonb_typeof(value->'endpoint_repository') = 'string'
 						  AND jsonb_typeof(value->'endpoint_issue') = 'string'
 						  AND value->>'endpoint_repository' = $3::TEXT
