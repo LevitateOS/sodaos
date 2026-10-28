@@ -50,8 +50,8 @@ const MAX_ISSUES = 1;
 const PLANNING_CALLS = 12;
 const PLAN_TIMEOUT_MS = 20 * 60 * 1000;
 
-type Phase = 'describe' | 'explore' | 'decide' | 'answers' | 'raise' | 'plan' | 'retry' | 'poll' | 'check' | 'accept' | 'build' | 'retry-build' | 'allowance' | 'places' | 'policy-minutes' | 'new-request' | 'app' | 'improve';
-const PHASES: Phase[] = ['describe', 'explore', 'decide', 'answers', 'raise', 'plan', 'retry', 'poll', 'check', 'accept', 'build', 'retry-build', 'allowance', 'places', 'policy-minutes', 'new-request', 'app', 'improve'];
+type Phase = 'describe' | 'explore' | 'decide' | 'answers' | 'raise' | 'plan' | 'retry' | 'poll' | 'check' | 'accept' | 'build' | 'retry-build' | 'allowance' | 'places' | 'policy-minutes' | 'new-request' | 'bounds' | 'app' | 'improve';
+const PHASES: Phase[] = ['describe', 'explore', 'decide', 'answers', 'raise', 'plan', 'retry', 'poll', 'check', 'accept', 'build', 'retry-build', 'allowance', 'places', 'policy-minutes', 'new-request', 'bounds', 'app', 'improve'];
 
 function args() {
   const out: {resume?: string; out?: string; phase?: string} = {};
@@ -113,7 +113,7 @@ async function openE2E(profile: string, allowWrite: (method: string, path: strin
         .catch(() => {});
       return;
     }
-    if (!response.ok()) return;
+    if (response.ok()) return;
     const marker = '/-/native/pages/soda/';
     const at = url.pathname.indexOf(marker);
     if (at < 0) return;
@@ -187,7 +187,7 @@ async function phaseDescribe(page: Page, out: string, resume?: string): Promise<
   }
   await page.goto(`${ORIGIN}${PLACES.feed}`);
   await mountRepoPage(page, 'repository-feed');
-  const spaces = await spacesContent(page);
+  const spaces = await mountRepoPage(page, null);
   await spaces.getByRole('button', {name: 'Work', exact: true}).first().waitFor({timeout: 30000});
   await spaces.getByRole('button', {name: 'Work', exact: true}).first().click();
   await page.waitForTimeout(1200);
@@ -224,7 +224,7 @@ async function phaseDescribe(page: Page, out: string, resume?: string): Promise<
 }
 
 async function phaseExplore(page: Page, out: string, intent: string): Promise<void> {
-  const spaces = await spacesContent(page);
+  const spaces = await mountRepoPage(page, null);
   const exploring = page.waitForResponse(
     (r) => r.url().endsWith(`/api/factory/intents/${intent}/explore`) && r.request().method() === 'POST',
     {timeout: 300000}
@@ -244,7 +244,7 @@ const DECIDE_CORRECTION = `First user action: an employee submits an equipment r
 const OBJECTIVE_SUFFIX = `\n\nFirst action and success: an employee submits an equipment request with item, reason and needed-by date; the request is saved and visible as Submitted to the employee and pending to the manager.`;
 
 async function phaseDecide(page: Page, out: string): Promise<void> {
-  const spaces = await spacesContent(page);
+  const spaces = await mountRepoPage(page, null);
   await spaces.getByRole('heading', {name: 'Review your product direction'}).waitFor({timeout: 60000});
   // List pending questions without answering blindly: the run fails naming them.
   const ideas = spaces.locator('section.intent-review > article');
@@ -351,7 +351,7 @@ async function phaseDecide(page: Page, out: string): Promise<void> {
 }
 
 async function phaseAnswerQuestions(page: Page, out: string): Promise<void> {
-  const spaces = await spacesContent(page);
+  const spaces = await mountRepoPage(page, null);
   await spaces.getByRole('heading', {name: 'Review your product direction'}).waitFor({timeout: 60000});
   const challenges = spaces.locator('section[aria-label="Questions needing your answer"] article');
   const count = await challenges.count();
@@ -387,7 +387,7 @@ async function phaseAnswerQuestions(page: Page, out: string): Promise<void> {
 }
 
 async function phaseBind(page: Page, out: string): Promise<string | null> {
-  const spaces = await spacesContent(page);
+  const spaces = await mountRepoPage(page, null);
   const choose = spaces.getByRole('button', {name: 'Choose repository'});
   if ((await choose.count()) === 0 || !(await choose.first().isEnabled())) return null;
   await choose.click();
@@ -424,7 +424,7 @@ async function phaseBind(page: Page, out: string): Promise<string | null> {
 }
 
 async function phaseRaise(page: Page, out: string, amount: number): Promise<void> {
-  const spaces = await spacesContent(page);
+  const spaces = await mountRepoPage(page, null);
   await spaces.getByRole('heading', {name: 'Review your product direction'}).waitFor({timeout: 60000});
   await spaces.locator('details.bounds > summary').first().click();
   const calls = spaces.getByLabel('Planning calls', {exact: true});
@@ -451,7 +451,7 @@ async function phaseStartPlanBypass(page: Page, out: string, _intent: string): P
   // so this calls the page's own `soda-intent` methods — no hand-built
   // bodies (if they are unreachable, this fails instead of improvising).
   // Replace with a real click once the page fix lands. Single use only.
-  const spaces = await spacesContent(page);
+  const spaces = await mountRepoPage(page, null);
   await spaces.getByRole('heading', {name: 'Review your product direction'}).waitFor({timeout: 60000});
   const planning = page.waitForResponse(
     (r) => r.url().includes('/api/factory/intents/') && r.url().endsWith('/plan') && r.request().method() === 'POST',
@@ -498,7 +498,7 @@ async function phaseStartPlanBypass(page: Page, out: string, _intent: string): P
 }
 
 async function phaseStartPlan(page: Page, out: string): Promise<void> {
-  const spaces = await spacesContent(page);
+  const spaces = await mountRepoPage(page, null);
   const cont = spaces.getByRole('button', {name: 'Continue to planning', exact: true});
   await cont.waitFor({timeout: 60000});
   assert(await cont.isEnabled(), 'Plan: Continue to planning must be enabled on the bound draft');
@@ -521,7 +521,7 @@ async function phaseStartPlan(page: Page, out: string): Promise<void> {
 }
 
 async function phasePlan(page: Page, out: string, intent: string, revision: string | null): Promise<void> {
-  const spaces = await spacesContent(page);
+  const spaces = await mountRepoPage(page, null);
   const started = Date.now();
   let want = revision;
   const deadline = started + PLAN_TIMEOUT_MS;
@@ -815,36 +815,12 @@ async function phaseNewRequest(page: Page, out: string): Promise<string> {
   });
   await writeFile(`${out}/new-request-controls.json`, JSON.stringify(controls, null, 2));
   const setNumber = async (match: RegExp, value: string) => {
-    const hit = controls.findIndex((c) => match.test(c.label));
-    if (hit < 0) return `${match}: not offered`;
-    await page.evaluate(
-      ({index, val}: {index: number; val: string}) => {
-        const roots: (Document | ShadowRoot)[] = [document];
-        for (let i = 0; i < roots.length; i++) {
-          for (const el of Array.from(roots[i].querySelectorAll('*'))) {
-            if ((el as Element).shadowRoot) roots.push((el as Element).shadowRoot as ShadowRoot);
-          }
-        }
-        let n = -1;
-        for (const root of roots) {
-          for (const el of Array.from(root.querySelectorAll('input[type="number"], input:not([type])'))) {
-            const input = el as HTMLInputElement;
-            if (input.tagName === 'INPUT' && input.type !== 'number' && input.type !== '') continue;
-            n++;
-            if (n === index) {
-              input.focus();
-              input.value = val;
-              input.dispatchEvent(new Event('input', {bubbles: true}));
-              input.dispatchEvent(new Event('change', {bubbles: true}));
-              return true;
-            }
-          }
-        }
-        return false;
-      },
-      {index: hit, val: value}
-    );
-    return `${match}: set ${value}`;
+    const field = page.getByLabel(match);
+    assert((await field.count()) === 1, `New request: expected exactly one ${match}, found ${await field.count()}`);
+    await field.first().fill(value);
+    const readBack = await field.first().inputValue();
+    assert(readBack === value, `New request: ${match} did not take (want ${value}, shows ${readBack})`);
+    return `${match}: set ${value} (verified)`;
   };
   const fields: Record<string, string> = {};
   fields['max'] = await setNumber(/Maximum work items/i, '1');
@@ -863,6 +839,33 @@ async function phaseNewRequest(page: Page, out: string): Promise<string> {
   assert(newIntent !== INTENT_DD00 && !newIntent.startsWith('d4014235'), 'New request: must not reuse a protected request');
   await writeFile(`${out}/new-intent.json`, JSON.stringify({intent: newIntent, fields}, null, 2));
   return newIntent;
+}
+
+/** Rehearsal bounds fix: the synthetic fills at creation did not take, so
+ * the draft saved defaults (Max 20, Planning 1). Set both through the
+ * page with read-back verification, then Save draft (POST intents, already
+ * allow-listed) so the next Explore can authorize its allowance. */
+async function phaseBounds(page: Page, out: string): Promise<void> {
+  const setNumber = async (match: RegExp, value: string) => {
+    const field = page.getByLabel(match);
+    assert((await field.count()) === 1, `Bounds: expected exactly one ${match}, found ${await field.count()}`);
+    await field.first().fill(value);
+    const readBack = await field.first().inputValue();
+    assert(readBack === value, `Bounds: ${match} did not take (want ${value}, shows ${readBack})`);
+    return `${match}: ${value} (verified)`;
+  };
+  const applied: Record<string, string> = {};
+  applied['max'] = await setNumber(/Maximum work items/i, '1');
+  applied['planning'] = await setNumber(/Planning calls/i, '12');
+  await shot(page, `${out}/bounds-set.png`);
+  const saving = page.waitForResponse(
+    (r) => r.url().endsWith('/api/factory/intents') && r.request().method() === 'POST',
+    {timeout: 60000}
+  );
+  await page.getByRole('button', {name: 'Save draft', exact: true}).first().click();
+  const saved = await saving;
+  assert.equal(saved.status(), 201, `Bounds: Save draft must return 201, got ${saved.status()}`);
+  await writeFile(`${out}/bounds.json`, JSON.stringify(applied, null, 2));
 }
 
 /** Read-only migration check (UI installs A–E): visits each repo-first
@@ -943,6 +946,46 @@ async function phasePlaces(page: Page, out: string, intent: string): Promise<voi
     );
     // Button inventory for the next go-ahead (presence only, never clicked):
     // Retry run, Check walkthrough, Accept and build.
+    // Allowance authorization context for the rehearsal (read-only).
+    structure['request-allowance'] = await page.evaluate(() => {
+      const text = document.body.textContent || '';
+      const out: string[] = [];
+      const push = (re: RegExp) => {
+        const i = text.search(re);
+        if (i >= 0) out.push(text.slice(Math.max(0, i - 80), i + 220).replace(/\s+/g, ' '));
+      };
+      push(/planning allowance/i);
+      push(/planning calls/i);
+      push(/authorize/i);
+      return out;
+    });
+    // Shadow-piercing control inventory (planning limits live in shadow DOM).
+    structure['request-controls'] = await page.evaluate(() => {
+      const roots: (Document | ShadowRoot)[] = [document];
+      for (let i = 0; i < roots.length; i++) {
+        for (const el of Array.from(roots[i].querySelectorAll('*'))) {
+          if ((el as Element).shadowRoot) roots.push((el as Element).shadowRoot as ShadowRoot);
+        }
+      }
+      const buttons: string[] = [];
+      const inputs: {label: string; name: string; value: string}[] = [];
+      for (const root of roots) {
+        for (const b of Array.from(root.querySelectorAll('button'))) {
+          const t = (b.textContent || '').replace(/\s+/g, ' ').trim().slice(0, 80);
+          if (t && !buttons.includes(t)) buttons.push(t);
+        }
+        for (const el of Array.from(root.querySelectorAll('input, textarea, select'))) {
+          const input = el as HTMLInputElement;
+          const id = input.id;
+          const label = id ? root.querySelector(`label[for="${id}"]`)?.textContent?.trim().slice(0, 60) ?? '' : '';
+          const wrap = input.closest('label')?.textContent?.trim().slice(0, 60) ?? '';
+          const aria = input.getAttribute('aria-label')?.slice(0, 60) ?? '';
+          const name = input.name || (input as HTMLSelectElement).name || '';
+          inputs.push({label: label || wrap || aria, name, value: (input.value || '').slice(0, 120)});
+        }
+      }
+      return {buttons, inputs};
+    });
     structure['request-buttons'] = await page.evaluate(() =>
       Array.from(document.querySelectorAll('button'))
         .map((b) => {
@@ -1170,7 +1213,7 @@ async function phaseBuildFollow(page: Page, out: string, intent: string, launchG
 }
 
 async function phaseCheck(page: Page, out: string, intent: string): Promise<void> {
-  const spaces = await spacesContent(page);
+  const spaces = await mountRepoPage(page, null);
   const checking = page.waitForResponse(
     (r) => r.url().endsWith(`/api/factory/intents/${intent}/plan/review`) && r.request().method() === 'POST',
     {timeout: 180000}
@@ -1185,7 +1228,7 @@ async function phaseCheck(page: Page, out: string, intent: string): Promise<void
 }
 
 async function phaseAccept(page: Page, out: string, _intent: string): Promise<void> {
-  const spaces = await spacesContent(page);
+  const spaces = await mountRepoPage(page, null);
   const accepted = page.waitForResponse(
     (r) => r.url().endsWith('/api/factory/intents') && r.request().method() === 'POST',
     {timeout: 120000}
@@ -1289,6 +1332,10 @@ async function main() {
       intent = await phaseNewRequest(s.page, dir);
       report.intent = intent;
       await writeFile(`${dir}/intent.json`, JSON.stringify({intent}, null, 2));
+    }
+    // Standalone only: fix Max work items / Planning calls on a saved draft.
+    if (only === 'bounds') {
+      await phaseBounds(s.page, dir);
     }
     if (only === 'all' || only === 'app') await phaseAppUse(s.page, dir);
     if (only === 'all' || only === 'improve') {
