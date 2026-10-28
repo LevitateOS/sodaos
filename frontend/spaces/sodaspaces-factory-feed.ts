@@ -1238,8 +1238,6 @@ export class SodaFactoryFeed extends LitElement {
       'fixer',
       'strategist',
       'test_pilot',
-      'library_admin',
-      'researcher',
       'jev',
       'factory',
     ];
