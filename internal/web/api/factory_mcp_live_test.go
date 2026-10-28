@@ -531,8 +531,8 @@ func exerciseFactoryLiveMCP(t *testing.T, wire *liveMCPTypeSafeTransport) {
 		if !ok || selection["action"] != "hold" || body["attempt"] != nil || body["lineage"] != nil {
 			t.Fatal("missing or uncertain receipt broadened history", body)
 		}
-		if guidance, ok := body["library_guidance"].(string); !ok || !strings.Contains(guidance, "current_only") || !strings.Contains(guidance, "frozen accepted inputs") {
-			t.Fatal("admitted context lost current-library read and authority guidance")
+		if guidance, ok := body["library_guidance"].(string); !ok || guidance != factory.LibraryReadGuidance {
+			t.Fatal("admitted context lost its library read guidance")
 		}
 		if err := db.QueryRowContext(ctx, "SELECT count(*) FROM factory_priority_judgments").Scan(&countAfter); err != nil {
 			t.Fatal(err)
