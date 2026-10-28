@@ -184,13 +184,13 @@ The assertions cover:
   approval and delivery after the update.
 
 Successful output ends with `v2-retained-data-and-threshold-guards` and writes
-`result.json` and `inside-forge.png`. The v1/v2 sources, compiler artifacts, canonical `bundle.json` files and
+`result.json` and `app-own-tab.png`. The v1/v2 sources, compiler artifacts, canonical `bundle.json` files and
 retained data are in the same private directory. A compiler/package mismatch,
 authentication failure, missing row or incorrect rule exits unsuccessfully.
 
 A successful fresh-source run is recorded at
 `/home/vince/Projects/founder-demo-runs/1792997395565/result.json`, with its
-`inside-forge.png` and exact canonical v1/v2 `bundle.json` bytes alongside it.
+`app-own-tab.png` and exact canonical v1/v2 `bundle.json` bytes alongside it.
 Those are the bundles consumed by that actual runtime check, including its
 explicit local HTTPS origin. The form presents readable labels and defaults
 the canonical currency selector to EUR; employees enter major currency units.
