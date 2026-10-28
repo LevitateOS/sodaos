@@ -98,7 +98,7 @@ test('a Finance comment opens an explicit change review and reopens its draft wi
   assert.equal(await page.evaluate(() => window.drawerFixture.calls.filter((call) => call.method !== 'GET').length), 0);
   await feed.getByRole('button', {name: 'Review proposed change', exact: true}).click();
   await feed.getByRole('button', {name: 'Continue change review', exact: true}).waitFor();
-  assert.deepEqual(await page.evaluate(() => document.body.dataset.navigated), `/workspace/requests/${intent}`);
+  assert.deepEqual(await page.evaluate(() => document.body.dataset.navigated), `/soda-tester/demo/workspace/requests/${intent}`);
   const writes = await page.evaluate(() => window.drawerFixture.calls.filter((call) => call.method !== 'GET'));
   assert.equal(writes.length, 1);
   assert.deepEqual(JSON.parse(writes[0]!.body ?? '{}'), {revision: 0});
@@ -1034,7 +1034,7 @@ test('every product change state renders its own outcome, action and tone', asyn
   // Opening the accepted change dispatches the intent without any mutation.
   await feed.getByRole('button', {name: 'Open accepted change', exact: true}).click();
   await feed.getByText('Opening the accepted change.', {exact: true}).waitFor();
-  assert.deepEqual(await page.evaluate(() => document.body.dataset.navigated), `/workspace/requests/${intent}`);
+  assert.deepEqual(await page.evaluate(() => document.body.dataset.navigated), `/soda-tester/demo/workspace/requests/${intent}`);
   assert.equal(await page.evaluate(() => window.drawerFixture.calls.filter((call) => call.method !== 'GET').length), 0);
 });
 
@@ -1196,7 +1196,7 @@ test('adopted change lineage renders evidence and native links separately from o
   // without any mutation; the collaborator row never targets it.
   await feed.getByRole('button', {name: 'Open accepted change', exact: true}).click();
   await feed.getByText('Opening the accepted change.', {exact: true}).waitFor();
-  assert.deepEqual(await page.evaluate(() => document.body.dataset.navigated), `/workspace/requests/${intent}`);
+  assert.deepEqual(await page.evaluate(() => document.body.dataset.navigated), `/soda-tester/demo/workspace/requests/${intent}`);
   assert.equal(await page.evaluate(() => window.drawerFixture.calls.filter((call) => call.method !== 'GET').length), 0);
 });
 
@@ -1348,7 +1348,7 @@ test('accepted change routes the owner to the private request and the collaborat
   // Owner click lands on the private intent route without any mutation.
   await feed.getByRole('button', {name: 'Open accepted change', exact: true}).click();
   await page.waitForFunction(() => document.body.dataset.navigateCount === '1');
-  assert.deepEqual(await page.evaluate(() => document.body.dataset.navigated), `/workspace/requests/${intent}`);
+  assert.deepEqual(await page.evaluate(() => document.body.dataset.navigated), `/soda-tester/demo/workspace/requests/${intent}`);
   assert.equal(await page.evaluate(() => window.drawerFixture.calls.filter((call) => call.method !== 'GET').length), 0);
 });
 
