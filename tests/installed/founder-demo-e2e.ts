@@ -27,8 +27,8 @@ const MAX_ISSUES = 1;
 const PLANNING_CALLS = 12;
 const PLAN_TIMEOUT_MS = 20 * 60 * 1000;
 
-type Phase = 'describe' | 'explore' | 'decide' | 'answers' | 'raise' | 'plan' | 'retry' | 'poll' | 'check' | 'accept' | 'build' | 'app' | 'improve';
-const PHASES: Phase[] = ['describe', 'explore', 'decide', 'answers', 'raise', 'plan', 'retry', 'poll', 'check', 'accept', 'build', 'app', 'improve'];
+type Phase = 'describe' | 'explore' | 'decide' | 'answers' | 'raise' | 'plan' | 'retry' | 'poll' | 'check' | 'accept' | 'build' | 'retry-build' | 'app' | 'improve';
+const PHASES: Phase[] = ['describe', 'explore', 'decide', 'answers', 'raise', 'plan', 'retry', 'poll', 'check', 'accept', 'build', 'retry-build', 'app', 'improve'];
 
 function args() {
   const out: {resume?: string; out?: string; phase?: string} = {};
@@ -557,12 +557,48 @@ interface FeedCard {
 
 const BUILD_TIMEOUT_MS = 35 * 60 * 1000;
 
-async function phaseBuildFollow(page: Page, out: string, intent: string): Promise<void> {
+/** Retry the cancelled build ONCE through the product's own Retry control
+ * (RetryRun path for stop-before-start). Fails naming the exact state when
+ * the page offers no usable Retry for the stopped run. */
+async function phaseRetryBuild(page: Page, out: string, run: string): Promise<void> {
+  await page.goto(`${ORIGIN}/workspace?repository=${REPOSITORY}`);
+  await nativeSpacesMount(page);
+  const spaces = await spacesContent(page);
+  await spaces.getByRole('button', {name: 'Work', exact: true}).first().click();
+  await page.waitForTimeout(4000);
+  await shot(page, `${out}/retry-work.png`);
+  const text = await visibleText(page, 8000);
+  await writeFile(`${out}/retry-work-text.txt`, text);
+  assert(
+    text.includes(run.slice(0, 8)) || /Earlier runs|Retry run/i.test(text),
+    `Retry: expected the stopped run ${run.slice(0, 8)} or an Earlier-runs/Retry control in Work (page: ${text.slice(0, 300)})`
+  );
+  const retry = spaces.getByRole('button', {name: 'Retry run'});
+  const count = await retry.count();
+  assert(count >= 1, `Retry: no "Retry run" button offered in Work (page: ${text.slice(0, 300)})`);
+  assert(count === 1, `Retry: ${count} "Retry run" buttons; cannot tell which one retries run ${run.slice(0, 8)}`);
+  const button = retry.first();
+  assert(await button.isEnabled(), `Retry: the "Retry run" button is disabled for run ${run.slice(0, 8)}`);
+  const acted = page.waitForResponse(
+    (r) => /\/api\/factory\/runs\/[0-9a-f]{32}\/actions$/.test(new URL(r.url()).pathname) && r.request().method() === 'POST',
+    {timeout: 120000}
+  );
+  await button.click();
+  const reply = await acted;
+  const body = await reply.json().catch(() => ({}));
+  await writeFile(`${out}/retry-reply.json`, JSON.stringify({status: reply.status(), body}, null, 2));
+  await shot(page, `${out}/retry-acted.png`);
+  assert(reply.ok(), `Retry: run action must succeed, got HTTP ${reply.status()}: ${JSON.stringify(body).slice(0, 300)}`);
+}
+
+async function phaseBuildFollow(page: Page, out: string, intent: string, launchGraceMs = 0): Promise<void> {
   const started = Date.now();
   const deadline = started + BUILD_TIMEOUT_MS;
+  const launchBy = launchGraceMs > 0 ? started + launchGraceMs : 0;
   const baseline = new Set<string>();
   let baselined = false;
-  await writeFile(`${out}/build-milestones.log`, `started=${new Date(started).toISOString()} intent=${intent}\n`);
+  let launched = launchGraceMs === 0;
+  await writeFile(`${out}/build-milestones.log`, `started=${new Date(started).toISOString()} intent=${intent} launchGraceMs=${launchGraceMs}\n`);
   for (;;) {
     assert(Date.now() < deadline, 'Build: 35-minute follow window expired; retain the last observed state');
     await page.goto(`${ORIGIN}/workspace?repository=${REPOSITORY}`);
@@ -607,6 +643,16 @@ async function phaseBuildFollow(page: Page, out: string, intent: string): Promis
       );
       if (card.status === 'failure') {
         assert.fail(`Build: a new Feed card reports failure (status=failure role=${card.role}): ${card.text.slice(0, 500)}`);
+      }
+    }
+    if (!launched) {
+      if (fresh.some((card) => /Started|assigned|Running/i.test(card.text))) {
+        launched = true;
+        await appendFile(`${out}/build-milestones.log`, `${new Date().toISOString()} launched: a new run-start card posted\n`);
+      } else if (launchBy > 0 && Date.now() > launchBy) {
+        assert.fail(
+          'Build: retried run did not launch within ~6 minutes (no new run-start card); same hold as the stopped run — stopping per go-ahead'
+        );
       }
     }
     const appCards = cards.filter((card) => card.appKeys.length > 0);
@@ -680,6 +726,7 @@ async function main() {
     if (method === 'POST' && /\/api\/factory\/intents\/[0-9a-f]+\/plan$/.test(p)) return true;
     if (method === 'POST' && /\/api\/factory\/intents\/[0-9a-f]+\/plan\/review$/.test(p)) return true;
     if (method === 'POST' && /\/api\/factory\/intents\/[0-9a-f]+\/generate$/.test(p)) return true;
+    if (method === 'POST' && /\/api\/factory\/runs\/[0-9a-f]{32}\/actions$/.test(p)) return true;
     return false;
   };
   const s = await openE2E(`founder-${stamp.slice(9)}`.slice(0, 24).replace(/[^a-z0-9-]/gi, '').toLowerCase() || 'founder-e2e', allowWrite);
@@ -724,6 +771,13 @@ async function main() {
     if (only === 'all' || only === 'check') await phaseCheck(s.page, dir, intent);
     if (only === 'all' || only === 'accept') await phaseAccept(s.page, dir, intent);
     if (only === 'all' || only === 'build') await phaseBuildFollow(s.page, dir, intent);
+    // Approved single build retry (see BUILD-RETRY-GO.md): one Retry run
+    // click, then a follow with a ~6-minute launch deadline. Standalone
+    // phase only — never part of `all`.
+    if (only === 'retry-build') {
+      await phaseRetryBuild(s.page, dir, '00976679f6258efbc2c82b7ce1719b87');
+      await phaseBuildFollow(s.page, dir, intent, 6 * 60 * 1000);
+    }
     if (only === 'all' || only === 'app') await phaseAppUse(s.page, dir);
     if (only === 'all' || only === 'improve') {
       await shot(s.page, `${dir}/${only}-observed.png`);
