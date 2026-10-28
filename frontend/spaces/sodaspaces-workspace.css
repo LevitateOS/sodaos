@@ -1020,3 +1020,8 @@ html[data-theme^="soda-"] body .soda-repository-header .ui.button:not(.disabled)
 .soda-settings-place-main > h2 { font: var(--soda-font-title); font-size: 22px; margin: 0 0 12px; }
 .soda-settings-place-main > h2 span { color: var(--soda-page-muted); }
 @media (max-width: 760px) { .soda-settings-place { grid-template-columns: minmax(0, 1fr); } }
+/* App tab (M13) and navbar Apps (M14). */
+.soda-applications-place > section > h2, .soda-app-attention > h2 { font: var(--soda-font-heading); font-size: 22px; margin: 32px 0 8px; }
+.soda-applications-toolbar { display: flex; justify-content: flex-end; }
+.soda-applications-place .soda-application-built-from { color: var(--soda-page-muted); }
+.soda-app-attention:not(:has(soda-factory-verification-retry > section)) { display: none; }
