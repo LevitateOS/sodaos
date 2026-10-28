@@ -143,10 +143,10 @@ export interface ModelLimits {
 
 export interface FactoryCase {
   readonly subject: FactorySubject;
-  /** Exact selected CLI execution; omitted historical cases retain their
-   * original Codex route. A selected Muse route never falls back to Codex. */
+  /** Exact selected CLI execution. The factory is Muse-only; an omitted
+   * selection uses the Muse harness. */
   readonly execution?: {
-    readonly harness: 'codex' | 'muse';
+    readonly harness: 'muse';
     readonly model: string;
     readonly profile: {readonly effort: 'low' | 'medium' | 'high' | 'xhigh'; readonly contributor: boolean};
   };

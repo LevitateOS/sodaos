@@ -6,12 +6,10 @@
 //! child observations remain observations until the admitted-task correlation
 //! round trip has been proved; assistant prose cannot create task authority.
 
-mod codex;
 mod session;
 mod transport;
 mod wire;
 
-pub use codex::{CodexThread, CodexTurn};
 pub use session::{
     mcp_probe_outcome, new_command_id, sanitize_mcp_servers, SessionSnapshot, TurnAdmission,
 };

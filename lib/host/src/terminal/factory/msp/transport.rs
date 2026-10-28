@@ -38,7 +38,6 @@ pub struct Connection<W, R> {
     next_id: u64,
     revisions: BTreeMap<(String, String), (u64, [u8; 32])>,
     pub(super) session: Option<String>,
-    pub(super) codex: bool,
 }
 
 impl<W: Write + AsRawFd, R: Read + AsRawFd> Connection<W, R> {
@@ -50,14 +49,7 @@ impl<W: Write + AsRawFd, R: Read + AsRawFd> Connection<W, R> {
             next_id: 0,
             revisions: BTreeMap::new(),
             session: None,
-            codex: false,
         }
-    }
-
-    pub fn codex(writer: W, reader: R) -> Self {
-        let mut connection = Self::new(writer, reader);
-        connection.codex = true;
-        connection
     }
 
     /// EOF only closes input. The existing native run owner must still wait for
@@ -93,7 +85,7 @@ impl<W: Write + AsRawFd, R: Read + AsRawFd> Connection<W, R> {
                 }
                 let frame: Value =
                     serde_json::from_slice(&line).map_err(|_| Error::Invalid("native frame"))?;
-                if !self.codex && frame.get("jsonrpc").and_then(Value::as_str) != Some("2.0") {
+                if frame.get("jsonrpc").and_then(Value::as_str) != Some("2.0") {
                     return Err(Error::Invalid("native envelope"));
                 }
                 return Ok(frame);
@@ -121,25 +113,6 @@ impl<W: Write + AsRawFd, R: Read + AsRawFd> Connection<W, R> {
             .and_then(Value::as_str)
             .ok_or(Error::Invalid("native envelope"))?;
         let params = frame.get("params").cloned().unwrap_or_else(|| json!({}));
-        if self.codex {
-            if !wire::short(method) {
-                return Err(Error::Invalid("native notification"));
-            }
-            if let Some(id) = frame.get("id") {
-                if !id.is_i64() && !id.is_u64() && !id.as_str().is_some_and(wire::short) {
-                    return Err(Error::Invalid("native server request identity"));
-                }
-                return Ok(Some(Notice::CodexRequest {
-                    id: id.clone(),
-                    method: method.into(),
-                    params,
-                }));
-            }
-            return Ok(Some(Notice::Codex {
-                method: method.into(),
-                params,
-            }));
-        }
         if frame.get("id").is_some() {
             return Err(Error::InputRequired);
         }
@@ -183,24 +156,6 @@ impl<W: Write + AsRawFd, R: Read + AsRawFd> Connection<W, R> {
 
     pub(super) fn notify(&mut self, method: &str, deadline: Instant) -> Result<(), Error> {
         self.write(&json!({"jsonrpc":"2.0", "method":method}), deadline)
-    }
-
-    /// The run owner must retain the native request identity before replying.
-    /// This does not authorize a tool; it only sends its already-validated result.
-    pub fn reply_codex_tool(
-        &mut self,
-        id: &Value,
-        result: &str,
-        success: bool,
-        deadline: Instant,
-    ) -> Result<(), Error> {
-        if !self.codex
-            || result.len() > MAX_FRAME_BYTES / 2
-            || (!id.is_i64() && !id.is_u64() && !id.as_str().is_some_and(wire::short))
-        {
-            return Err(Error::Invalid("native tool reply"));
-        }
-        self.write(&json!({"id":id,"result":{"contentItems":[{"type":"inputText","text":result}],"success":success}}),deadline)
     }
 
     pub(super) fn call(

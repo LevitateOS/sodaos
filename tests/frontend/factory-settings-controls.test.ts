@@ -312,6 +312,11 @@ test('repository policy preserves canonical role selections and submits only act
     'soda-coder': {harness: 'muse', harness_version: '1.4.0-R4161.1', model: 'fixture-coder'},
     'soda-reviewer': {harness: 'codex', harness_version: '0.101.0', model: 'fixture-reviewer'},
   };
+  // The factory is Muse-only: saving rewrites a stored non-Muse harness.
+  const submittedRoles = {
+    'soda-coder': roles['soda-coder'],
+    'soda-reviewer': {...roles['soda-reviewer'], harness: 'muse'},
+  };
   const actors = {
     publish_actor: {actor_id: '41', token_id: '51'},
     create_actor: {actor_id: '42', token_id: '52'},
@@ -356,10 +361,8 @@ test('repository policy preserves canonical role selections and submits only act
   assert.equal(await form.getByLabel('Intent active minutes', {exact: true}).inputValue(), '9');
   const rendered: Record<string, string> = {};
   const selected = {
-    coder_harness: roles['soda-coder'].harness,
     coder_harness_version: roles['soda-coder'].harness_version,
     coder_model: roles['soda-coder'].model,
-    reviewer_harness: roles['soda-reviewer'].harness,
     reviewer_harness_version: roles['soda-reviewer'].harness_version,
     reviewer_model: roles['soda-reviewer'].model,
   };
@@ -390,7 +393,7 @@ test('repository policy preserves canonical role selections and submits only act
         target_branch: 'refs/heads/main',
         merge_method: 'fast-forward-only',
         required_checks: ['native-check', 'review-check'],
-        roles,
+        roles: submittedRoles,
         ...actors,
         attempt_limits: {active_minutes: 10, correction_cycles: 1, delivery_calls: 2, review_rounds: 4},
         intent_minutes: 9,
@@ -1502,10 +1505,7 @@ test(
             repository: '7',
             appliance: {revision: 1, max_concurrent_runs: 1, max_queued: 0},
           });
-        if (
-          call.url.endsWith('/api/environments/p0123456789abcdef01234567/preparation') &&
-          call.method === 'GET'
-        ) {
+        if (call.url.endsWith('/api/environments/p0123456789abcdef01234567/preparation') && call.method === 'GET') {
           await new Promise((resolve) => setTimeout(resolve, 20000));
           return Response.json({
             project: 'test-project',
@@ -1533,12 +1533,12 @@ test(
     await refresh(page);
     await page.getByRole('tab', {name: 'Factory'}).click();
     const settings = page.locator('soda-factory-settings');
-    await settings.getByText(/ID prep-slow/).first().waitFor({timeout: 45000});
+    await settings
+      .getByText(/ID prep-slow/)
+      .first()
+      .waitFor({timeout: 45000});
     assert.match(await settings.innerText(), /coder · complete · ID prep-slow · ready/);
-    assert(
-      Date.now() - started >= 19000,
-      'The UI waited out the slow preview instead of aborting it early'
-    );
+    assert(Date.now() - started >= 19000, 'The UI waited out the slow preview instead of aborting it early');
     assert.equal(
       await settings.getByRole('button', {name: 'Refresh current authority', exact: true}).isDisabled(),
       false
@@ -1558,10 +1558,7 @@ test(
             repository: '7',
             appliance: {revision: 1, max_concurrent_runs: 1, max_queued: 0},
           });
-        if (
-          call.url.endsWith('/api/environments/p0123456789abcdef01234567/preparation') &&
-          call.method === 'GET'
-        )
+        if (call.url.endsWith('/api/environments/p0123456789abcdef01234567/preparation') && call.method === 'GET')
           return new Promise<Response | null>(() => {});
         return null;
       });

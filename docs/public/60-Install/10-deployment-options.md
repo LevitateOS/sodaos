@@ -29,9 +29,10 @@ installation or a successful boot alone does not establish capacity.
 | Docker starting allocation | 4 CPU cores or vCPUs | 8 GiB | 96 GiB | One native Factory issue; the application and browser terminal were measured in a separate window. |
 
 These are the smallest allocations exercised for these workloads, rather than
-measurements of every smaller configuration. The two-issue profile requires two
-independently authorized Codex connections: each connection admits one native
-Factory execution at a time. Raising appliance capacity does not increase a
+measurements of every smaller configuration. The two-issue profile was measured with two
+independently authorized Codex connections, each admitting one native Factory
+execution at a time; Factory workers now run on Muse, whose leases are
+concurrent. Raising appliance capacity does not increase a
 connection's concurrency. The Docker windows do not establish the combined
 Factory, terminal and application profile or two-issue concurrency. Match any
 such Docker workload to its own release qualification.

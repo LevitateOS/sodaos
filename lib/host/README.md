@@ -36,17 +36,11 @@ both `--fixture-canlang-runtime sha256:ID` and `--fixture-canlang-tools SHA256`,
 accepted only with `--release=`. The fixed reference guard does not interpret
 application semantics or provider configuration.
 
-### Codex child profile
+### Factory harness
 
-Factory Codex can select an explicit native backend catalog with
-`codex_model_catalog` and `codex_model_catalog_sha256` in the host configuration.
-The catalog must be a root-owned, non-writable regular file matching its digest;
-the assigned model must select the native `v1` child backend. The host stages
-the exact catalog read-only outside the checkout and binds its digest, selected
-model/backend and native invocation in private run state before credentials are
-delivered. This is a distinct native profile requiring installed qualification.
-The stock `v2` child stream does not currently expose the accepted task input
-needed for trusted task correlation, so it remains unqualified for task writes.
+Supervised factory runs use only the Muse harness (`muse_harness*` host
+configuration). The `codex_harness*` fields serve human project terminals;
+the factory never stages Codex.
 
 The `--tailnet-action run|stop --project ID` form operates a project's companion
 lifecycle and is used by the installed service wiring. Preparation failures exit

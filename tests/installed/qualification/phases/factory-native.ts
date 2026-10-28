@@ -10,12 +10,11 @@ export function validateFactoryPhase(c: any) {
   if (c.execution !== undefined) {
     const e = c.execution;
     check(
-      ['codex', 'muse'].includes(e?.harness) &&
+      e?.harness === 'muse' &&
         typeof e.model === 'string' &&
         /^[A-Za-z0-9][A-Za-z0-9._:/-]{0,127}$/.test(e.model) &&
         ['low', 'medium', 'high', 'xhigh'].includes(e.profile?.effort) &&
-        typeof e.profile?.contributor === 'boolean' &&
-        (!e.profile.contributor || e.harness === 'muse'),
+        typeof e.profile?.contributor === 'boolean',
       'factory_exact_execution_selection'
     );
   }

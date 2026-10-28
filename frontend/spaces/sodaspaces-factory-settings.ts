@@ -69,6 +69,8 @@ const policyActorSlots = [
 // a valid slow preview must not abort in the UI. Every other settings
 // request keeps the 15s default.
 const preparationRequestTimeoutMs = 45000;
+/** The factory is Muse-only; every role selection names this harness. */
+const FACTORY_HARNESS = 'muse';
 
 function nativeBindingKey(binding: Record<string, unknown>) {
   const actor = safeText(binding.actor_id),
@@ -973,12 +975,12 @@ export class SodaFactorySettings extends LitElement {
       merge = selected('merge_actor');
     const roles = {
       'soda-coder': {
-        harness: inputValue(form, 'coder_harness'),
+        harness: FACTORY_HARNESS,
         harness_version: inputValue(form, 'coder_harness_version'),
         model: inputValue(form, 'coder_model'),
       },
       'soda-reviewer': {
-        harness: inputValue(form, 'reviewer_harness'),
+        harness: FACTORY_HARNESS,
         harness_version: inputValue(form, 'reviewer_harness_version'),
         model: inputValue(form, 'reviewer_model'),
       },
@@ -1455,11 +1457,10 @@ ${selection?.required_tools.join('\n') || ''}</textarea>
           ${this.renderPolicyBindings(policy)}
           ${this.textInput('Target branch ref', 'target_branch', safeText(policy.target_branch))}
           ${this.textInput('Required checks (comma separated)', 'required_checks', Array.isArray(policy.required_checks) ? policy.required_checks.join(', ') : '')}
-          ${this.textInput('Coder harness', 'coder_harness', safeText(coder.harness || 'codex'))}
-          ${this.textInput('Coder harness version', 'coder_harness_version', safeText(coder.harness_version))}
+          <p>Factory workers run on Muse.</p>
+          ${this.textInput('Coder Muse version', 'coder_harness_version', safeText(coder.harness_version))}
           ${this.textInput('Coder model', 'coder_model', safeText(coder.model))}
-          ${this.textInput('Reviewer harness', 'reviewer_harness', safeText(reviewer.harness || 'codex'))}
-          ${this.textInput('Reviewer harness version', 'reviewer_harness_version', safeText(reviewer.harness_version))}
+          ${this.textInput('Reviewer Muse version', 'reviewer_harness_version', safeText(reviewer.harness_version))}
           ${this.textInput('Reviewer model', 'reviewer_model', safeText(reviewer.model))}
           ${this.numberInput('Intent active minutes', 'intent_minutes', safeNumber(policy.intent_minutes, 0))}
           <p>Zero leaves intent planning unfunded.</p>

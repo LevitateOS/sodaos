@@ -1,17 +1,12 @@
 use super::muse::paths::factory_muse_binding;
 use super::native::shell_quote;
 use super::run::FACTORY_SCOPE_MUSE;
-use super::tcodex::factory_codex_binding;
 use crate::project::Executor;
 use crate::terminal::{self, Lease, Service};
 use std::time::Instant;
 
 const RELAY: &str = "/usr/libexec/soda/project-terminal";
 const SOCKET: &str = "/run/soda/factory-ipc/mcp.sock";
-
-fn codex_config(home: &str) -> Vec<u8> {
-    format!("[mcp_servers.factory]\ncommand = \"{RELAY}\"\nargs = [\"factory-mcp\"]\nrequired = true\nstartup_timeout_sec = 20\ntool_timeout_sec = 120\n[mcp_servers.factory.env]\nHOME = \"{home}\"\n").into_bytes()
-}
 
 fn muse_config(home: &str) -> Vec<u8> {
     serde_json::to_vec(&serde_json::json!({
@@ -41,21 +36,13 @@ impl<E: Executor> Service<E> {
             return Err("invalid Factory MCP staging".to_string());
         }
         let binding = lease.binding.as_ref().ok_or_else(terminal::err_denied)?;
-        let (run_dir, config_path, config) = if binding.scope == FACTORY_SCOPE_MUSE {
-            let paths = factory_muse_binding(lease)?;
-            (
-                paths.run_dir,
-                format!("{}/settings.json", paths.muse_config),
-                muse_config(&paths.home),
-            )
-        } else {
-            let paths = factory_codex_binding(lease)?;
-            (
-                paths.run_dir,
-                format!("{}/config.toml", paths.codex),
-                codex_config(&paths.home),
-            )
-        };
+        if binding.scope != FACTORY_SCOPE_MUSE {
+            return Err(terminal::err_denied());
+        }
+        let paths = factory_muse_binding(lease)?;
+        let run_dir = paths.run_dir;
+        let config_path = format!("{}/settings.json", paths.muse_config);
+        let config = muse_config(&paths.home);
         self.factory_attest_live(&lease.project_id, binding, &lease.execution_id, deadline)?;
         let container = binding.project.clone();
         for (path, data) in [

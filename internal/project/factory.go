@@ -13,14 +13,10 @@ import (
 	"time"
 )
 
-const (
-	// FactoryHarnessCodex is the first harness family. Each released
-	// version needs its own proof before the executor admits its pin.
-	FactoryHarnessCodex = "codex"
-	// FactoryHarnessMuse is the Muse Code CLI harness family
-	// (`muse exec` runs backed by the native "muse" provider).
-	FactoryHarnessMuse = "muse"
-)
+// FactoryHarnessMuse is the only factory harness family: Muse Code CLI
+// (`muse exec` runs backed by the native "muse" provider). Each released
+// version needs its own proof before the executor admits its pin.
+const FactoryHarnessMuse = "muse"
 
 const (
 	// FactoryApproved means the run intent is recorded but nothing started.
@@ -123,9 +119,11 @@ var harnessVersion = regexp.MustCompile(`^[A-Za-z0-9][A-Za-z0-9._-]{0,31}$`)
 // staged guest paths fixed.
 func ValidHarnessVersion(version string) bool { return harnessVersion.MatchString(version) }
 
-// ValidHarnessFamily identifies the supported supervised CLI families.
+// ValidHarnessFamily identifies the supported supervised CLI family. The
+// factory is Muse-only; a stored selection naming any other family is
+// refused and must be reconfigured.
 func ValidHarnessFamily(family string) bool {
-	return family == FactoryHarnessCodex || family == FactoryHarnessMuse
+	return family == FactoryHarnessMuse
 }
 
 const (
@@ -203,7 +201,7 @@ func (r FactoryRun) validateRunIdentity() error {
 	if !ValidHarnessFamily(r.Harness) || !ValidHarnessVersion(r.HarnessVers) {
 		return errors.New("unsupported factory harness")
 	}
-	if r.Effort != "" && (!ValidTaskEffort(r.Effort) || r.Harness != FactoryHarnessMuse || r.Model == "") || r.Contributor && r.Effort == "" {
+	if r.Effort != "" && (!ValidTaskEffort(r.Effort) || r.Model == "") || r.Contributor && r.Effort == "" {
 		return errors.New("invalid Muse execution profile")
 	}
 	// Empty keeps the CLI default for older launches; a set model pins

@@ -21,11 +21,11 @@ impl<E: Executor> Service<E> {
         self.factory_stage_file(&binding.project, binding, &paths.output, output, deadline)
     }
 
-    /// `Service.FactoryCodexStart` shape for Muse runs: stage the opaque
+    /// Muse `Start` operation: stage the opaque
     /// broker `auth.json` bytes verbatim (both the run-dir copy capture
     /// echoes and the CLI lookup copy), then prompt, then the start
     /// marker the supervisor gates on. Marker order is load-bearing.
-    /// The credential is never parsed: opaque-valid JSON, like codex.
+    /// The credential is never parsed: it only has to be opaque-valid JSON.
     pub fn factory_muse_start(
         &self,
         lease: &Lease,

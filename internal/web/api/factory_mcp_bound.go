@@ -175,8 +175,8 @@ func factoryBoundCatalogHandler(deps FactoryMCPDeps, key []byte) http.Handler {
 		bound := deps
 		bound.BoundCapability = &capability
 		if bound.NativeTask != nil {
-			// Codex uses its native dynamic tools. Only a retained Muse run
-			// advertises the MCP bridge to that same native task owner.
+			// Only a retained Muse run advertises the MCP bridge to its
+			// native task owner.
 			if bound.Runs == nil {
 				bound.NativeTask = nil
 			} else if run, err := bound.Runs.FactoryRun(r.Context(), capability.RunID); err != nil || run.Admission == nil || run.Admission.Tool.Harness != project.FactoryHarnessMuse {

@@ -104,8 +104,6 @@ struct Ledger {
     manifest: String,
     selections: Vec<Selection>,
     profiles: BTreeMap<String, (String, String)>,
-    #[serde(default)]
-    activity_completed: BTreeMap<String, bool>,
 }
 
 pub(super) struct NativeTasks {
@@ -453,26 +451,6 @@ impl NativeTasks {
         })
     }
 
-    pub(super) fn tools(correct: bool) -> Vec<Value> {
-        let spec = |name: &str, description: &str| {
-            json!({
-                "type":"function", "name":name, "description":description,
-                "inputSchema":{"type":"object","properties":{"task_id":{"type":"string"}},"required":["task_id"],"additionalProperties":false}
-            })
-        };
-        if correct {
-            vec![spec(
-                RELEASE_TOOL,
-                "Release the singleton task's filesystem output while waiting for its trusted checkpoint. Do not write source again after release. The returned digest is a proposal binding, never a check result.",
-            )]
-        } else {
-            vec![spec(
-                START_TOOL,
-                "Select a ready admitted task. Before spawning, call this exactly once for that task. Spawn one native child with the returned prompt verbatim and the returned model and effort. Never reassign or resume a task child.",
-            )]
-        }
-    }
-
     fn persist(&self, private: &PrivateState) -> Result<(), FactoryError> {
         private
             .write(&self.name, &self.ledger)
@@ -803,154 +781,6 @@ impl NativeTasks {
         Ok(self.selected(receipt, &task.id, &child_prompt))
     }
 
-    pub(super) fn item<E: Executor, T: FactoryTerminal, B: FactoryBroker>(
-        &mut self,
-        factory: &Factory<E, T, B>,
-        receipt: &FactoryReceipt,
-        private: &PrivateState,
-        method: &str,
-        params: &Value,
-        deadline: Instant,
-    ) -> Result<(), FactoryError> {
-        if !matches!(method, "item/started" | "item/completed") {
-            return Ok(());
-        }
-        let item = &params["item"];
-        if !matches!(
-            item["type"].as_str(),
-            Some("collabAgentToolCall" | "subAgentActivity")
-        ) {
-            return Ok(());
-        }
-        if receipt.run.execution_phase == EXECUTION_CORRECT
-            || params["threadId"] != self.ledger.thread
-        {
-            return Err(invalid());
-        }
-        if item["type"] == "collabAgentToolCall" {
-            if item["senderThreadId"] != self.ledger.thread {
-                return Err(invalid());
-            }
-            let tool = item["tool"].as_str().ok_or_else(invalid)?;
-            if tool == "spawnAgent" {
-                let prompt = item["prompt"].as_str().ok_or_else(invalid)?;
-                let index = self
-                    .ledger
-                    .selections
-                    .iter()
-                    .position(|selection| selection.prompt == prompt)
-                    .ok_or_else(invalid)?;
-                let spawn = item["id"]
-                    .as_str()
-                    .filter(|id| !id.is_empty() && id.len() <= 128)
-                    .ok_or_else(invalid)?;
-                let selection = &mut self.ledger.selections[index];
-                if !selection.spawn.is_empty() && selection.spawn != spawn {
-                    return Err(FactoryError::Stale);
-                }
-                selection.spawn = spawn.into();
-                if method == "item/completed" {
-                    if item["status"] != "completed" {
-                        return Err(invalid());
-                    }
-                    let children = item["receiverThreadIds"]
-                        .as_array()
-                        .filter(|ids| ids.len() == 1)
-                        .ok_or_else(invalid)?;
-                    let child = children[0]
-                        .as_str()
-                        .filter(|id| !id.is_empty() && id.len() <= 128)
-                        .ok_or_else(invalid)?
-                        .to_owned();
-                    if !selection.child.is_empty() && selection.child != child {
-                        return Err(FactoryError::Stale);
-                    }
-                    selection.child = child.clone();
-                    let model = item["model"].as_str().ok_or_else(invalid)?;
-                    let effort = item["reasoningEffort"].as_str().ok_or_else(invalid)?;
-                    if model != receipt.run.model || effort != self.manifest.effort {
-                        return Err(invalid());
-                    }
-                    if self
-                        .ledger
-                        .selections
-                        .iter()
-                        .enumerate()
-                        .any(|(other, selection)| other != index && selection.child == child)
-                    {
-                        return Err(FactoryError::Stale);
-                    }
-                    if self
-                        .ledger
-                        .profiles
-                        .get(&child)
-                        .is_some_and(|old| old != &(model.into(), effort.into()))
-                    {
-                        return Err(FactoryError::Stale);
-                    }
-                    self.ledger
-                        .profiles
-                        .insert(child.clone(), (model.into(), effort.into()));
-                    if item["agentsStates"][&child]["status"] == "completed" {
-                        self.ledger.selections[index].result_complete = true;
-                        self.ledger.activity_completed.insert(child, true);
-                    }
-                }
-            } else if matches!(tool, "wait" | "closeAgent") {
-                for child in item["receiverThreadIds"].as_array().ok_or_else(invalid)? {
-                    let child = child.as_str().ok_or_else(invalid)?;
-                    let selection = self
-                        .ledger
-                        .selections
-                        .iter_mut()
-                        .find(|selection| selection.child == child)
-                        .ok_or_else(invalid)?;
-                    if method == "item/completed"
-                        && item["agentsStates"][child]["status"] == "completed"
-                    {
-                        selection.result_complete = true;
-                        self.ledger.activity_completed.insert(child.into(), true);
-                    }
-                }
-            } else {
-                return Err(invalid());
-            }
-        } else {
-            let child = item["agentThreadId"]
-                .as_str()
-                .filter(|id| !id.is_empty() && id.len() <= 128)
-                .ok_or_else(invalid)?;
-            if item["kind"] == "started" {
-                let model = item["model"].as_str().ok_or_else(invalid)?;
-                let effort = item["reasoningEffort"].as_str().ok_or_else(invalid)?;
-                if model != receipt.run.model || effort != self.manifest.effort {
-                    return Err(invalid());
-                }
-                if let Some(old) = self.ledger.profiles.get(child) {
-                    if old != &(model.into(), effort.into()) {
-                        return Err(FactoryError::Stale);
-                    }
-                } else {
-                    if self.ledger.profiles.len() >= 64 {
-                        return Err(invalid());
-                    }
-                    self.ledger
-                        .profiles
-                        .insert(child.into(), (model.into(), effort.into()));
-                }
-            } else if item["kind"] == "completed" {
-                if !self.ledger.profiles.contains_key(child) {
-                    return Err(invalid());
-                }
-                self.ledger.activity_completed.insert(child.into(), true);
-            } else if item["kind"] == "interrupted" {
-                return Err(invalid());
-            }
-        }
-        self.persist(private)?;
-        self.release_observed(factory, receipt, private, deadline)
-    }
-
     fn release_observed<E: Executor, T: FactoryTerminal, B: FactoryBroker>(
         &mut self,
         factory: &Factory<E, T, B>,
@@ -959,13 +789,6 @@ impl NativeTasks {
         deadline: Instant,
     ) -> Result<(), FactoryError> {
         for index in 0..self.ledger.selections.len() {
-            if self
-                .ledger
-                .activity_completed
-                .contains_key(&self.ledger.selections[index].child)
-            {
-                self.ledger.selections[index].activity_complete = true;
-            }
             let selection = self.ledger.selections[index].clone();
             if selection.child.is_empty() || !self.ledger.profiles.contains_key(&selection.child) {
                 continue;

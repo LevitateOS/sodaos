@@ -15,16 +15,13 @@ pub const MAX_FACTORY_OUTPUT_OFFSET: i64 = 256 << 20;
 
 /// One observed byte slice of recorded CLI output with its cursor.
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
-pub struct FactoryCodexOutputSlice {
+pub struct FactoryOutputSlice {
     pub data: Vec<u8>,
     pub total: i64,
     pub offset: i64,
     pub truncated: bool,
     pub gap: bool,
 }
-
-/// Family-neutral alias for the shared output-slice record.
-pub type FactoryOutputSlice = FactoryCodexOutputSlice;
 
 /// Shared output-cursor gate: adapters run this before binding
 /// attestation so a bad cursor never shells out.
@@ -37,7 +34,7 @@ pub fn check_output_range(offset: i64, limit: i64) -> Result<(), String> {
     Ok(())
 }
 
-/// `FactoryCodexOutput` bounded read pipeline.
+/// Bounded factory output read pipeline.
 pub fn output_read_command(stdout: &str, start: i64, limit: i64) -> String {
     format!(
         "/usr/bin/tail -c +{} {} | /usr/bin/head -c {limit}\n",

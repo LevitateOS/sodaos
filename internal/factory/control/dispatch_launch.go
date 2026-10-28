@@ -154,7 +154,7 @@ func implementationManifest(plan *factory.InvestigationPlan) ([]byte, error) {
 // task events (record_task_event binds the live binding, never this
 // claim). The run identity is the only dispatch-known unique execution
 // identity, so it doubles as the invocation claim; executor event
-// authorization stays authoritative. FW14 joint for Codex D05 review:
+// authorization stays authoritative. FW14 joint for D05 review:
 // either accept this doubling with the live binding authoritative, or
 // revise D05 so the executor adopts the staged invocation (deep change).
 func stageExecutionManifest(plan *factory.InvestigationPlan, runID string, deadline time.Time, profile factory.ExecutionProfile, phase string, maxChildren int) ([]byte, error) {

@@ -19,12 +19,13 @@ is a separate prerequisite and does not enroll these actors. Host administrators
 follow [Enroll native Factory operations](#enroll-native-factory-operations)
 below before enabling dispatch or creating Factory issues.
 
-A native repository owner or administrator selects the target branch, eligible role harnesses and models, merge method, native actors and repository limits. The policy also names a nonempty set of required native CI checks and the conditions that must hold before merge. Publication, review and merge use attributable native actors; they do not impersonate the issue author or the provider account owner.
+A native repository owner or administrator selects the target branch, role Muse versions and models, merge method, native actors and repository limits. The policy also names a nonempty set of required native CI checks and the conditions that must hold before merge. Publication, review and merge use attributable native actors; they do not impersonate the issue author or the provider account owner.
 
 In **Repository policy**, select the enrolled **Publisher**, **Pull request
 creator**, **Reviewer**, **Thread resolver** and **Merger**, then review **Target branch
-ref**, **Required checks (comma separated)**, harness/model selections and
-attempt limits. Set **Intent active minutes** explicitly to fund intent planning;
+ref**, **Required checks (comma separated)**, the Muse version and model for
+each role, and attempt limits. Factory workers run only on Muse; a policy saved
+earlier with Codex roles is refused at dispatch until it is saved again. Set **Intent active minutes** explicitly to fund intent planning;
 zero leaves it unfunded. This limit is separate from planning calls, provider
 allowances and application verification. Check **Enable automatic factory dispatch** when authorizing
 automatic work and select **Save repository policy**. **Pause dispatch** keeps

@@ -26,8 +26,8 @@ func grantTestPolicy() factory.RepositoryPolicy {
 		Repository: 42, GrantedBy: 7, Enabled: true,
 		TargetBranch: "refs/heads/main",
 		Roles: map[string]factory.RoleSelection{
-			project.RoleCoder:    {Harness: project.FactoryHarnessCodex, HarnessVers: "0.157.1", Model: "test"},
-			project.RoleReviewer: {Harness: project.FactoryHarnessCodex, HarnessVers: "0.157.1", Model: "test"},
+			project.RoleCoder:    {Harness: project.FactoryHarnessMuse, HarnessVers: "0.157.1", Model: "test"},
+			project.RoleReviewer: {Harness: project.FactoryHarnessMuse, HarnessVers: "0.157.1", Model: "test"},
 		},
 		Checks:              []string{"native-ci/build"},
 		MergeMethod:         factory.MergeFastForward,

@@ -80,7 +80,7 @@ func factoryEncryptedServer(t *testing.T) *Server {
 func factoryPolicyBody(commandID string) string {
 	return `{"command_id":"` + commandID + `","expected_revision":0,"enabled":true,"paused":false,` +
 		`"target_branch":"refs/heads/main",` +
-		`"roles":{"soda-coder":{"harness":"codex","harness_version":"codex-0.157.1","model":"test"},"soda-reviewer":{"harness":"codex","harness_version":"codex-0.157.1","model":"test"}},` +
+		`"roles":{"soda-coder":{"harness":"muse","harness_version":"muse-1.4.9","model":"test"},"soda-reviewer":{"harness":"muse","harness_version":"muse-1.4.9","model":"test"}},` +
 		`"required_checks":["native-ci/build"],"merge_method":"fast-forward-only",` +
 		`"publish_actor":{"token_id":"11","actor_id":"12"},"create_actor":{"token_id":"11","actor_id":"12"},` +
 		`"review_actor":{"token_id":"13","actor_id":"14"},"merge_actor":{"token_id":"15","actor_id":"16"},` +

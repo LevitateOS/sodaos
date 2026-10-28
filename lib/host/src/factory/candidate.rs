@@ -46,7 +46,7 @@ impl<E: Executor, T: FactoryTerminal, B: FactoryBroker> Factory<E, T, B> {
             Ok(container) if container == binding.project => container,
             _ => return Err(FactoryError::Stale),
         };
-        let (checkout, _, _, _) =
+        let (checkout, _, _) =
             factory_run_paths(&receipt.run.role, &receipt.run.preparation, &receipt.run.id);
         let home = format!("/home/{}", receipt.run.role);
         let tmpdir = format!("/home/{}/checkouts", receipt.run.role);

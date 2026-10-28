@@ -197,8 +197,8 @@ func dispatchSeed(t *testing.T, db *store.Store, sourceInputs ...map[string]stri
 	fx.policy = factory.RepositoryPolicy{
 		Repository: fx.repo, GrantedBy: 7, Enabled: true, TargetBranch: "refs/heads/main",
 		Roles: map[string]factory.RoleSelection{
-			project.RoleCoder:    {Harness: project.FactoryHarnessCodex, HarnessVers: fx.harness, Model: "test-model"},
-			project.RoleReviewer: {Harness: project.FactoryHarnessCodex, HarnessVers: fx.harness, Model: "test-model"},
+			project.RoleCoder:    {Harness: project.FactoryHarnessMuse, HarnessVers: fx.harness, Model: "test-model"},
+			project.RoleReviewer: {Harness: project.FactoryHarnessMuse, HarnessVers: fx.harness, Model: "test-model"},
 		},
 		Checks: []string{"ci"}, MergeMethod: factory.MergeFastForward,
 		Publish: actor(factory.OpRefPublish), Create: actor(factory.OpPRCreate),

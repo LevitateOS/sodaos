@@ -128,7 +128,6 @@ pub fn release_harness_ref(provider: Provider, package_digest: &str, ref_token: 
 
 pub fn provider_for_family(family: &str) -> Result<Provider, String> {
     match family {
-        crate::factory::FACTORY_HARNESS_CODEX => Ok(Provider::Codex),
         crate::factory::FACTORY_HARNESS_MUSE => Ok(Provider::Muse),
         _ => Err("unsupported factory harness".to_string()),
     }

@@ -117,8 +117,9 @@ Soda cannot invalidate copies or recall already accepted upstream requests; prov
 logout/revocation is separate. This mode does not restrict where repository data
 can be sent. Git read/publication/review permissions remain independent.
 
-Each Codex connection has one active stream across enrollment, human and factory use.
-A human start reports unavailable while busy. Factory runs acquire by execution
+Each Codex connection has one active stream across enrollment and human use.
+A human start reports unavailable while busy. Factory workers run only on Muse.
+Factory runs acquire by execution
 identity and bind the exact run, container, unit and systemd incarnation. Human
 sessions bind to the exact project OCI incarnation, terminal, lease and systemd
 invocation. The broker delivers credentials only after native attestation of that
@@ -209,14 +210,15 @@ startup instead of generating a replacement.
 
 Host configuration selects `identity_socket` and a verified `codex_harness` release
 package with `codex_harness_sha256`. The supplied package root contains
-`bin/codex` and its `bin/codex-code-mode-host` companion. Store operator-supplied
-public packages and the pinned model catalog in root-owned retained storage, such
+`bin/codex` and its `bin/codex-code-mode-host` companion; it serves human project
+terminals only. Store operator-supplied
+public packages in root-owned retained storage, such
 as `/var/lib/soda/providers/`, with no group or other write permission. This path
 survives both appliance reboots and Docker container recreation; Docker's
 `/usr/local` is outside its retained volumes. The host stages the supplied package
-into a managed session's private tmpfs. Supervised factory runs stage the harness
-tuple selected by their run record and verify its actual executable digest. Retain
-native qualification evidence for the chosen harness, model and backend.
+into a managed session's private tmpfs. Supervised factory runs stage the Muse
+harness tuple selected by their run record and verify its actual executable digest.
+Retain native qualification evidence for the chosen harness and model.
 Provider credentials must not be embedded in that package, images, persistent
 project homes or exported artifacts.
 

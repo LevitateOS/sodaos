@@ -73,7 +73,7 @@ pub fn factory_systemd_run_argv(euid: u32, args: &[&str]) -> Vec<String> {
     argv
 }
 
-/// `FactoryCodexReserve` systemd-run header argv.
+/// Factory reserve systemd-run header argv.
 pub fn reserve_run_argv(unit: &str, max_secs: i64) -> Vec<String> {
     vec![
         format!("--unit={unit}"),

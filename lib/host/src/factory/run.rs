@@ -10,14 +10,12 @@ use super::deadline::{deadline_is_zero, parse_deadline, NANOS_PER_SEC};
 /// Daemon receipt directory for supervised factory runs.
 pub const FACTORY_STATE_ROOT: &str = "/var/lib/soda/host/factory";
 
-/// First harness family.
-pub const FACTORY_HARNESS_CODEX: &str = "codex";
 /// Muse Code CLI harness family.
 pub const FACTORY_HARNESS_MUSE: &str = "muse";
 
 /// Supported supervised CLI families.
 pub fn valid_harness_family(family: &str) -> bool {
-    family == FACTORY_HARNESS_CODEX || family == FACTORY_HARNESS_MUSE
+    family == FACTORY_HARNESS_MUSE
 }
 
 pub const FACTORY_APPROVED: &str = "approved";
@@ -165,22 +163,17 @@ pub fn factory_unit_name(run: &str) -> String {
 
 /// `FactoryRunPaths`: fixed container paths for one run. Empty strings
 /// report an invalid identity.
-pub fn factory_run_paths(
-    role: &str,
-    preparation: &str,
-    run: &str,
-) -> (String, String, String, String) {
+pub fn factory_run_paths(role: &str, preparation: &str, run: &str) -> (String, String, String) {
     if !preparation::valid_factory_role(role)
         || !preparation::valid_preparation_id(preparation)
         || !valid_factory_run_id(run)
     {
-        return (String::new(), String::new(), String::new(), String::new());
+        return (String::new(), String::new(), String::new());
     }
     let checkout = format!("/home/{role}/checkouts/{preparation}");
     let run_dir = format!("{checkout}/.soda-home/runs/{run}");
     let home = format!("{run_dir}/home");
-    let codex_home = format!("{home}/.codex");
-    (checkout, run_dir, home, codex_home)
+    (checkout, run_dir, home)
 }
 
 /// `TakeoverDestination`: member-owned checkout destination for one run.
