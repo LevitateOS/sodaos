@@ -517,6 +517,31 @@ func (s *API) commentCollaborators() *CommentCollaborators {
 	return wired
 }
 
+// Stalled stages: the request's next stage is admitted but this server has
+// no collaborator to run it, so it cannot move until one is connected.
+const (
+	commentStalledJEV         = "jev"
+	commentStalledProductLead = "product_lead"
+	commentStalledForge       = "forge"
+)
+
+// commentStalled names the collaborator the request is waiting for, or ""
+// when its next stage can run (or nothing is left to run).
+func commentStalled(pipe factory.CommentPipeline, wired *CommentCollaborators) string {
+	if wired == nil {
+		wired = &CommentCollaborators{}
+	}
+	switch {
+	case pipe.AdmitCommentJudgment() && wired.Judge == nil:
+		return commentStalledJEV
+	case pipe.AdmitCommentDraft() && wired.Drafter == nil:
+		return commentStalledProductLead
+	case pipe.AdmitCommentEffect() && wired.Creator == nil:
+		return commentStalledForge
+	}
+	return ""
+}
+
 // driveCommentPipeline advances one durable comment request through
 // judgment, draft and native effect, reloading after every step so a
 // concurrent advance wins honestly through CAS instead of being

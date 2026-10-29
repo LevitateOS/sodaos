@@ -1309,3 +1309,6 @@ html[data-theme^="soda-"] body .soda-feed .soda-feed-composer button[data-commen
 .soda-jev-why .soda-jev-answer { padding-top: 6px; }
 .soda-feed-outcome-body { flex: 1 1 auto; }
 .soda-feed-outcome-body > .soda-jev-answer { max-width: 560px; }
+/* JEV can't run a stage on this server: say so in warning colours, no dots. */
+.soda-feed .soda-feed-outcome[data-tone=blocked] { background: var(--soda-page-warning-bg); color: var(--soda-page-warning); }
+.soda-feed .soda-feed-outcome[data-tone=blocked] .soda-feed-outcome-who { color: var(--soda-page-text); }

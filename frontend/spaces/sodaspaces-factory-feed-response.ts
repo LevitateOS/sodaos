@@ -375,6 +375,8 @@ export interface CommentPipelineState {
   productChange?: CommentProductChange;
   /** JEV's routing Choice: each option weighed, the pick and her confidence. */
   routing?: CommentRouting;
+  /** The collaborator the next stage waits for: jev, product_lead or forge. */
+  stalled?: string;
 }
 
 export interface CommentRouting {

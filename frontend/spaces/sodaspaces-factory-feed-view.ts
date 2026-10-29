@@ -2,7 +2,7 @@ import {html, svg} from 'lit';
 import {live} from 'lit/directives/live.js';
 import type {TemplateResult} from 'lit';
 import type {CommentDetail, CommentPipelineState, FeedEntry, FeedJudgment} from './sodaspaces-factory-feed-response.js';
-import {commentAttemptsExhausted, commentUnsettled, feedEntryKey} from './sodaspaces-factory-feed-response.js';
+import {commentAttemptsExhausted, feedEntryKey} from './sodaspaces-factory-feed-response.js';
 import {nativeIssueLink, nativePullLink} from './sodaspaces-factory-work-view.js';
 import {feedRolePortraits} from './sodaspaces-factory-feed-portraits.js';
 import {describePostLine, feedStateWords, roleLabel} from './sodaspaces-factory-feed-thread.js';
@@ -64,7 +64,7 @@ export function cardType(entry: FeedEntry): FeedCardType {
   return entry.kind === 'post' ? 'comment' : 'work';
 }
 
-export type CommentOutcomeTone = 'progress' | 'settled' | 'failed';
+export type CommentOutcomeTone = 'progress' | 'settled' | 'failed' | 'blocked';
 
 export interface CommentOutcomeModel {
   readonly commentId: string;
@@ -75,6 +75,7 @@ export interface CommentOutcomeModel {
   readonly factoryStatusLink?: string | undefined;
   // Still advancing on the server: the feed refresh picks up its next state.
   readonly pending: boolean;
+  readonly phase?: CommentPhase;
   readonly canRetry: boolean;
   readonly needsClarification: boolean;
   readonly revision: number;
@@ -85,68 +86,147 @@ export interface CommentOutcomeModel {
   readonly routing: CommentPipelineState['routing'];
 }
 
-function outcomeText(state: CommentPipelineState, issue: number): [string, CommentOutcomeTone] {
-  const change = state.productChange;
-  if (change) {
-    switch (change.state) {
-      case 'review_required':
-        return [
-          change.canReview
-            ? 'Review this proposed change before updating the accepted direction.'
-            : 'Waiting for the request owner to review this proposed change.',
-          'progress',
-        ];
-      case 'draft':
-        return [
-          'The change is saved in the build request for review. Accept its direction before building.',
-          'progress',
-        ];
-      case 'accepted':
-        return [
-          'The changed direction is accepted. Follow its build and verification before applying a version.',
-          'settled',
-        ];
-      case 'superseded':
-        return [
-          'This proposal refers to an earlier direction. Refresh the request before proposing another change.',
-          'failed',
-        ];
-      default:
-        return ['The proposed change detail is currently unavailable. It reloads on its own.', 'progress'];
-    }
-  }
-  // JEV answers the post herself, in the first person, saying what she is
-  // doing right now.
-  if (commentAttemptsExhausted(state))
-    return ['I stopped after several tries. Edit your request or retry and I’ll pick it up again.', 'failed'];
-  if (state.judgment === 'pending') return ['I’m reading your request and working out what it needs…', 'progress'];
-  if (state.judgment === 'failed') return ['I couldn’t make sense of this one. Edit your request or retry.', 'failed'];
+// JEV's reply is one explicit state machine: the stored pipeline states plus
+// any stage the server cannot run (stalled) select exactly one phase, and
+// each phase owns its words, its tone and whether JEV is actually working.
+export type CommentPhase =
+  | 'stalled_jev'
+  | 'reading'
+  | 'assess_failed'
+  | 'exhausted'
+  | 'discussion'
+  | 'clarify'
+  | 'feedback_finding'
+  | 'feedback_delivering'
+  | 'feedback_added'
+  | 'stalled_product_lead'
+  | 'drafting'
+  | 'draft_invalid'
+  | 'stalled_forge'
+  | 'creating'
+  | 'create_failed'
+  | 'create_blocked'
+  | 'created';
+
+export function commentPhase(state: CommentPipelineState): CommentPhase {
+  if (commentAttemptsExhausted(state)) return 'exhausted';
+  if (state.judgment === 'pending') return state.stalled === 'jev' ? 'stalled_jev' : 'reading';
+  if (state.judgment === 'failed') return 'assess_failed';
   switch (state.route) {
     case 'discussion':
-      return ['This reads as a discussion, so I’ve left it here for people to answer.', 'settled'];
+      return 'discussion';
     case 'clarify':
-      return ['I need a little more from you before I can route this.', 'progress'];
+      return 'clarify';
     case 'existing_work':
-      if (state.effect === 'applied' || state.effect === 'verified')
-        return [`I added this as feedback on issue #${issue}.`, 'settled'];
+      if (state.effect === 'applied' || state.effect === 'verified') return 'feedback_added';
+      return (state.existingIssue || state.issue || 0) > 0 ? 'feedback_delivering' : 'feedback_finding';
+  }
+  if (state.draft === 'pending') return state.stalled === 'product_lead' ? 'stalled_product_lead' : 'drafting';
+  if (state.draft === 'invalid') return 'draft_invalid';
+  if (state.effect === 'pending') return state.stalled === 'forge' ? 'stalled_forge' : 'creating';
+  if (state.effect === 'failed') return 'create_failed';
+  if (state.effect === 'blocked') return 'create_blocked';
+  return 'created';
+}
+
+const commentPhases: Readonly<
+  Record<CommentPhase, {text: (issue: number) => string; tone: CommentOutcomeTone; working: boolean}>
+> = {
+  stalled_jev: {
+    text: () => 'I’m not connected on this server yet, so I can’t read this. An administrator needs to connect JEV.',
+    tone: 'blocked',
+    working: false,
+  },
+  reading: {text: () => 'I’m reading your request and working out what it needs…', tone: 'progress', working: true},
+  assess_failed: {
+    text: () => 'I couldn’t make sense of this one. Edit your request or retry.',
+    tone: 'failed',
+    working: false,
+  },
+  exhausted: {
+    text: () => 'I stopped after several tries. Edit your request or retry and I’ll pick it up again.',
+    tone: 'failed',
+    working: false,
+  },
+  discussion: {
+    text: () => 'This reads as a discussion, so I’ve left it here for people to answer.',
+    tone: 'settled',
+    working: false,
+  },
+  clarify: {text: () => 'I need a little more from you before I can route this.', tone: 'progress', working: false},
+  feedback_finding: {
+    text: () => 'This is feedback on existing work. I’m finding the issue it belongs to…',
+    tone: 'progress',
+    working: true,
+  },
+  feedback_delivering: {
+    text: (issue) => `This belongs to issue #${issue}. I’m adding your feedback there now…`,
+    tone: 'progress',
+    working: true,
+  },
+  feedback_added: {text: (issue) => `I added this as feedback on issue #${issue}.`, tone: 'settled', working: false},
+  stalled_product_lead: {
+    text: () => 'This is new work, but no Product Lead is set up on this server to write the issue.',
+    tone: 'blocked',
+    working: false,
+  },
+  drafting: {
+    text: () => 'This is new work. The Product Lead is writing it up as an issue…',
+    tone: 'progress',
+    working: true,
+  },
+  draft_invalid: {
+    text: () => 'I couldn’t turn this into a valid issue, so nothing was created.',
+    tone: 'failed',
+    working: false,
+  },
+  stalled_forge: {
+    text: () => 'The issue is written, but this server can’t create issues in the repository yet.',
+    tone: 'blocked',
+    working: false,
+  },
+  creating: {text: () => 'The issue is written. I’m creating it now…', tone: 'progress', working: true},
+  create_failed: {
+    text: () => 'Creating the issue failed. Retrying won’t make a duplicate.',
+    tone: 'failed',
+    working: false,
+  },
+  create_blocked: {
+    text: () =>
+      'I stopped: the repository changed or access was lost before I could create the issue. Your request is kept.',
+    tone: 'failed',
+    working: false,
+  },
+  created: {text: (issue) => `I created issue #${issue} for this.`, tone: 'settled', working: false},
+};
+
+// Proposed product changes keep their own review states.
+function productChangeOutcome(
+  change: NonNullable<CommentPipelineState['productChange']>
+): [string, CommentOutcomeTone] {
+  switch (change.state) {
+    case 'review_required':
       return [
-        issue > 0
-          ? `This belongs to issue #${issue}. I’m adding your feedback there now…`
-          : 'This is feedback on existing work. I’m finding the issue it belongs to…',
+        change.canReview
+          ? 'Review this proposed change before updating the accepted direction.'
+          : 'Waiting for the request owner to review this proposed change.',
         'progress',
       ];
+    case 'draft':
+      return ['The change is saved in the build request for review. Accept its direction before building.', 'progress'];
+    case 'accepted':
+      return [
+        'The changed direction is accepted. Follow its build and verification before applying a version.',
+        'settled',
+      ];
+    case 'superseded':
+      return [
+        'This proposal refers to an earlier direction. Refresh the request before proposing another change.',
+        'failed',
+      ];
+    default:
+      return ['The proposed change detail is currently unavailable. It reloads on its own.', 'progress'];
   }
-  if (state.draft === 'pending')
-    return ['This is new work. The Product Lead is writing it up as an issue…', 'progress'];
-  if (state.draft === 'invalid') return ['I couldn’t turn this into a valid issue, so nothing was created.', 'failed'];
-  if (state.effect === 'pending') return ['The issue is written. I’m creating it now…', 'progress'];
-  if (state.effect === 'failed') return ['Creating the issue failed. Retrying won’t make a duplicate.', 'failed'];
-  if (state.effect === 'blocked')
-    return [
-      'I stopped: the repository changed or access was lost before I could create the issue. Your request is kept.',
-      'failed',
-    ];
-  return [`I created issue #${issue} for this.`, 'settled'];
 }
 
 function validRouting(value: CommentPipelineState['routing']): CommentPipelineState['routing'] {
@@ -165,7 +245,10 @@ export function describeCommentOutcome(
   busy = false
 ): CommentOutcomeModel {
   const issue = (state.route === 'existing_work' ? state.existingIssue || state.issue : state.issue) ?? 0;
-  const [text, tone] = outcomeText(state, issue);
+  const phase = state.productChange ? undefined : commentPhase(state);
+  const [text, tone] = state.productChange
+    ? productChangeOutcome(state.productChange)
+    : [commentPhases[phase!].text(issue), commentPhases[phase!].tone];
   return {
     commentId: state.commentId,
     text,
@@ -173,7 +256,9 @@ export function describeCommentOutcome(
     issueLink: issue > 0 && repository.path !== undefined ? nativeIssueLink(repository.path, String(issue)) : undefined,
     issue,
     factoryStatusLink: issue > 0 && repository.path !== undefined ? repository.places?.factoryStatus(issue) : undefined,
-    pending: commentUnsettled(state) || state.productChange?.state === 'unavailable',
+    // Dots only while someone is actually working on it.
+    pending: phase ? commentPhases[phase].working : state.productChange?.state === 'unavailable',
+    ...(phase ? {phase} : {}),
     canRetry: state.canRetry === true,
     needsClarification: state.route === 'clarify',
     revision: state.revision,
