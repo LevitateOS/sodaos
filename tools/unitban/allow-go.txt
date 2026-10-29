@@ -40,7 +40,6 @@ internal/factory/control/merge_judgment_gate_test.go
 internal/factory/control/merge_native_deadline_test.go
 internal/factory/control/merge_native_fixture_test.go
 internal/factory/control/planning_admission_test.go
-internal/factory/control/planning_test.go
 internal/factory/control/postgres_fixture_test.go
 internal/factory/control/preparation_start_test.go
 internal/factory/control/priority_test.go
