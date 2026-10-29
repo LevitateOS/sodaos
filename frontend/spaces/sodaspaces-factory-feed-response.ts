@@ -373,6 +373,14 @@ export interface CommentPipelineState {
   attemptLimit?: number;
   source?: CommentSource;
   productChange?: CommentProductChange;
+  /** JEV's routing Choice: each option weighed, the pick and her confidence. */
+  routing?: CommentRouting;
+}
+
+export interface CommentRouting {
+  selected: string;
+  confidence: number;
+  options: {key: string; label: string; probability: number}[];
 }
 
 // commentSourceForEntry names the feed entry one reply answers: a post by

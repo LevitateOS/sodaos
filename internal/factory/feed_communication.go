@@ -257,6 +257,22 @@ func (r CommentRecord) Validate() error {
 // source revision plus the separate intake/judgment/draft/effect
 // states, the assessed route, the linked native issue and the bounded
 // attempt count shared by judgment, draft and native retries.
+// CommentRouting is JEV's recorded routing Choice for one comment: every
+// option it weighed in plain words with its probability, the selection
+// and how sure it was. The feed draws it as JEV's own reply.
+type CommentRouting struct {
+	Selected   string                 `json:"selected"`
+	Confidence float64                `json:"confidence"`
+	Options    []CommentRoutingOption `json:"options"`
+}
+
+// CommentRoutingOption is one weighed outcome of a routing Choice.
+type CommentRoutingOption struct {
+	Key         string  `json:"key"`
+	Label       string  `json:"label"`
+	Probability float64 `json:"probability"`
+}
+
 type CommentPipeline struct {
 	Comment  string `json:"comment"`
 	Revision int64  `json:"revision"`

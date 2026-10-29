@@ -649,6 +649,31 @@ func (s *Store) NoteCommentProgress(ctx context.Context, id, detail string) erro
 	return err
 }
 
+// NoteCommentRouting keeps JEV's routing Choice beside the request.
+func (s *Store) NoteCommentRouting(ctx context.Context, id string, routing factory.CommentRouting) error {
+	body, err := json.Marshal(routing)
+	if err != nil {
+		return err
+	}
+	_, err = s.db.ExecContext(ctx, `UPDATE factory_feed_comment_requests
+		SET data=data || jsonb_build_object('routing',$2::jsonb) WHERE comment=$1`, id, string(body))
+	return err
+}
+
+// CommentRouting reads the recorded routing Choice, nil before JEV answers.
+func (s *Store) CommentRouting(ctx context.Context, id string) (*factory.CommentRouting, error) {
+	var body []byte
+	err := s.db.QueryRowContext(ctx, `SELECT data->'routing' FROM factory_feed_comment_requests WHERE comment=$1`, id).Scan(&body)
+	if err != nil || len(body) == 0 || string(body) == "null" {
+		return nil, err
+	}
+	var routing factory.CommentRouting
+	if err := json.Unmarshal(body, &routing); err != nil {
+		return nil, err
+	}
+	return &routing, nil
+}
+
 func (s *Store) CommentProgress(ctx context.Context, id string) (string, error) {
 	var detail string
 	err := s.db.QueryRowContext(ctx, `SELECT COALESCE(data->>'detail','') FROM factory_feed_comment_requests WHERE comment=$1`, id).Scan(&detail)

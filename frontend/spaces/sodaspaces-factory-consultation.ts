@@ -2,6 +2,7 @@ import {html} from 'lit';
 import type {FeedConsultation, FeedContribution} from './sodaspaces-factory-feed-response.js';
 import {object} from './sodaspaces-api.js';
 import {roleLabel} from './sodaspaces-factory-feed-thread.js';
+import {renderJevAnswer} from './sodaspaces-factory-jev-answer.js';
 
 function recorded(value: unknown): string {
   return typeof value === 'string' ? value : (JSON.stringify(value, null, 2) ?? '');
@@ -48,15 +49,6 @@ ${recorded({source: review.body, context: review.context, roles: review.roles, e
   </section>`;
 }
 
-function resultText(value: unknown): string {
-  const answer = object(value);
-  if (answer.type === 'choice' && typeof answer.choice === 'string') return `Selected: ${answer.choice}`;
-  if (answer.type === 'noul' && typeof answer.noul === 'number')
-    return `Probability of yes: ${Math.round(answer.noul * 100)}%`;
-  if (answer.type === 'score' && typeof answer.score === 'number') return `Score: ${answer.score}`;
-  return recorded(value);
-}
-
 // These are the actual recorded tool inputs and outputs. The worker's reason
 // and resulting decision are separate authored communications in the thread.
 export function renderConsultation(call: FeedConsultation) {
@@ -89,7 +81,7 @@ export function renderConsultation(call: FeedConsultation) {
       const answer = answers[id] ?? envelope.answer;
       return html`<div class="soda-feed-consultation-question">
         <p class="soda-feed-body-text">${recorded(question.instructions)}</p>
-        ${call.status === 'returned' && answer ? html`<p><strong>JEV result</strong> · ${resultText(answer)}</p>` : ''}
+        ${call.status === 'returned' && answer ? renderJevAnswer(answer, question.criteria) : ''}
         <details>
           <summary>Original question, options and result</summary>
           <pre>

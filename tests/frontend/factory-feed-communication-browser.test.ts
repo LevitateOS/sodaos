@@ -258,7 +258,8 @@ test('actual consultation states refresh in the work thread while filtered views
   await draft.fill('Keep the existing EUR 420 request after this update.');
   await feed.getByRole('button', {name: 'Refresh replies', exact: true}).click();
   await feed.getByText('JEV returned a result', {exact: true}).waitFor();
-  await feed.getByText('Selected: yes', {exact: false}).waitFor();
+  // JEV's Choice draws as weighed options with the pick marked.
+  await feed.locator('.soda-jev-choice li[data-picked=true]').getByText('Yes', {exact: true}).first().waitFor();
   assert.equal(await draft.inputValue(), 'Keep the existing EUR 420 request after this update.');
   await feed.getByRole('button', {name: 'Choices & approvals', exact: true}).click();
   await feed.getByRole('heading', {name: 'Finance gate retained', exact: true}).waitFor();
@@ -431,19 +432,23 @@ test('a failed consultation keeps scope-accurate copy while JEV result and expla
   );
   await feed.getByRole('button', {name: 'Refresh replies', exact: true}).click();
   await feed.getByText('JEV returned a result', {exact: true}).waitFor();
-  await feed.getByText('Selected: yes', {exact: false}).waitFor();
+  // JEV's Choice draws as weighed options with the pick marked.
+  await feed.locator('.soda-jev-choice li[data-picked=true]').getByText('Yes', {exact: true}).first().waitFor();
   await feed
     .locator(`#comment-${failCall}`)
     .getByText('No result was recorded for this request.', {exact: false})
     .waitFor();
   await feed.locator(`#comment-${failCall}`).getByText('Consulted JEV · choice', {exact: true}).waitFor();
   assert.equal(await feed.locator(`#comment-${failCall}`).getByText(replySummary, {exact: false}).count(), 0);
-  await feed.locator(`#comment-${okCall}`).getByText('Selected: yes', {exact: false}).waitFor();
+  await feed
+    .locator(`#comment-${okCall} .soda-jev-choice li[data-picked=true]`)
+    .getByText('Yes', {exact: true})
+    .waitFor();
   const replyCard = feed.locator(`#comment-${replyCall}`);
   await replyCard.getByRole('heading', {name: replyTitle, exact: true}).waitFor();
   await replyCard.getByText(replySummary, {exact: false}).waitFor();
   assert.equal(await replyCard.locator('.soda-feed-body-text').count(), 0);
-  await feed.getByText('JEV result', {exact: false}).waitFor();
+  await feed.locator('.soda-jev-choice').first().waitFor();
   assert.equal(await draft.inputValue(), 'Hold the EUR 420 request; do not submit yet.');
   assert.equal(await page.evaluate(() => window.drawerFixture.calls.filter((call) => call.method !== 'GET').length), 0);
   const readsAfter = await page.evaluate(

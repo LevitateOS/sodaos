@@ -4,8 +4,10 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"net/http"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/levitateos/sodaos/internal/factory"
@@ -33,6 +35,41 @@ type CommentJudgment struct {
 	Route    string
 	Issue    int64
 	Question string
+	// Routing is the Choice behind this outcome, kept for the feed.
+	Routing *factory.CommentRouting
+}
+
+// commentRoutingLabels names the base routing options for people.
+var commentRoutingLabels = map[string]string{
+	factory.CommentRouteNewIssue:   "New work",
+	factory.CommentRouteDiscussion: "Just discussion",
+	"clarify_target":               "Ask which app or issue",
+	"clarify_result":               "Ask what the result should be",
+	"clarify_conflict":             "Ask which requirement wins",
+}
+
+// commentRouting records one routing answer with every offered option.
+func commentRouting(answer factory.PriorityAnswer, keys []string, candidates []factory.CommentWorkCandidate) *factory.CommentRouting {
+	labels := make(map[string]string, len(keys))
+	for key, label := range commentRoutingLabels {
+		labels[key] = label
+	}
+	for _, candidate := range candidates {
+		label := fmt.Sprintf("Issue #%d", candidate.Issue)
+		if name := strings.TrimSpace(candidate.Title); name != "" {
+			label += " · " + name
+		} else if objective := strings.TrimSpace(candidate.Objective); objective != "" {
+			label += " · " + objective
+		}
+		labels[commentExistingChoice(candidate.Issue)] = store.TruncateFeedSummary(label)
+	}
+	routing := &factory.CommentRouting{Selected: answer.Selected, Confidence: answer.Confidence}
+	for _, key := range keys {
+		routing.Options = append(routing.Options, factory.CommentRoutingOption{
+			Key: key, Label: labels[key], Probability: answer.Probabilities[key],
+		})
+	}
+	return routing
 }
 
 var commentClarificationQuestions = map[string]string{
@@ -213,7 +250,12 @@ func (j *TypeSafeCommentJudge) JudgeComment(ctx context.Context, input CommentJu
 	if err := answer.Validate(request); err != nil {
 		return empty, err
 	}
-	return commentJudgmentFromSelection(answer.Selected, input.Candidates)
+	judgment, err := commentJudgmentFromSelection(answer.Selected, input.Candidates)
+	if err != nil {
+		return empty, err
+	}
+	judgment.Routing = commentRouting(answer, keys, input.Candidates)
+	return judgment, nil
 }
 
 // parseFeedCommentBody admits one comment POST body: scope, bounded
@@ -665,6 +707,11 @@ func applyCommentJudgment(ctx context.Context, st *store.Store, pipe factory.Com
 	}
 	if err := st.AdvanceCommentPipeline(ctx, pipe, next); err != nil {
 		return err
+	}
+	if judgment.Routing != nil {
+		if err := st.NoteCommentRouting(ctx, pipe.Comment, *judgment.Routing); err != nil {
+			return err
+		}
 	}
 	if judgment.Route == factory.CommentRouteClarify {
 		question := judgment.Question

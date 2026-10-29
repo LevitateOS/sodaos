@@ -18,6 +18,7 @@ import {renderFeedCommunication} from './sodaspaces-factory-feed-communication.j
 import type {FeedCardLinks} from './sodaspaces-factory-feed-communication.js';
 import type {SodaPlaces} from './soda-places.js';
 import {renderRecordAction} from './sodaspaces-factory-feed-record-actions.js';
+import {renderJevChoice} from './sodaspaces-factory-jev-answer.js';
 import type {FeedArtifactRequest} from './sodaspaces-factory-feed-artifact.js';
 
 // One render path for every Feed entry. Each entry becomes one card of one
@@ -81,6 +82,7 @@ export interface CommentOutcomeModel {
   readonly productChange: CommentPipelineState['productChange'];
   readonly productRepository: number;
   readonly busy: boolean;
+  readonly routing: CommentPipelineState['routing'];
 }
 
 function outcomeText(state: CommentPipelineState, issue: number): [string, CommentOutcomeTone] {
@@ -147,6 +149,14 @@ function outcomeText(state: CommentPipelineState, issue: number): [string, Comme
   return [`I created issue #${issue} for this.`, 'settled'];
 }
 
+function validRouting(value: CommentPipelineState['routing']): CommentPipelineState['routing'] {
+  if (!value || typeof value.selected !== 'string' || !Array.isArray(value.options)) return undefined;
+  const options = value.options.filter(
+    (option) => option && typeof option.key === 'string' && Number.isFinite(option.probability)
+  );
+  return options.length ? {...value, options} : undefined;
+}
+
 // describeCommentOutcome projects one stored comment request to its single
 // visible outcome line plus the controls the author or owner may use.
 export function describeCommentOutcome(
@@ -171,6 +181,7 @@ export function describeCommentOutcome(
     productChange: state.productChange,
     productRepository: repository.id,
     busy,
+    routing: validRouting(state.routing),
   };
 }
 
@@ -200,6 +211,19 @@ export function renderOutcome(outcome: CommentOutcomeModel, assetBase = ''): Tem
         ${outcome.text} ${outcome.issueLink ? html`<a href=${outcome.issueLink}>Open issue #${outcome.issue}</a>` : ''}
         ${outcome.factoryStatusLink ? html`<a href=${outcome.factoryStatusLink}>Factory status</a>` : ''}
       </p>
+      ${
+        outcome.routing
+          ? renderJevChoice(
+              outcome.routing.options.map((option) => ({
+                key: option.key,
+                label: option.label || option.key,
+                probability: option.probability,
+              })),
+              outcome.routing.selected,
+              Number.isFinite(outcome.routing.confidence) ? outcome.routing.confidence : undefined
+            )
+          : ''
+      }
       ${outcome.detail ? html`<p>${outcome.detail}</p>` : ''}
       ${
         productAction

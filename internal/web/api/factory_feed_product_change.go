@@ -76,6 +76,9 @@ func (s *API) canReviewCommentProduct(r *http.Request, v store.Session, reposito
 
 func (s *API) feedCommentWithProduct(r *http.Request, v store.Session, detail store.FeedCommentDetail, pipe factory.CommentPipeline, progress string) map[string]any {
 	response := feedCommentResponse(detail, pipe, progress, strconv.FormatInt(v.User.ID, 10))
+	if routing, err := s.Store.CommentRouting(r.Context(), detail.Record.ID); err == nil && routing != nil {
+		response["routing"] = routing
+	}
 	if view, err := s.Store.CommentProductChange(r.Context(), detail, pipe, v.User.ID); err == nil && view != nil {
 		view.CanReview = view.CanReview && s.canOpenCommentProduct(r, v, detail.Record.Repository, view)
 		response["product_change"] = view
