@@ -194,37 +194,6 @@ export class SodaIdentity extends LitElement {
       await this.loadSelected();
     });
   }
-  private launch = (event: SubmitEvent) => {
-    event.preventDefault();
-    const connection = String(new FormData(event.target as HTMLFormElement).get('connection_id') || '').trim();
-    if (!/^[A-Za-z0-9_-]{1,128}$/.test(connection)) {
-      this.message = 'Enter an authorized connection ID.';
-      return;
-    }
-    void this.startCodex(connection);
-  };
-  private async startCodex(connection: string) {
-    if (this.blocked() || !this.project) return;
-    const serial = this.contextSerial;
-    this.busy = true;
-    try {
-      const result = object(
-        await this.request('/environments/' + this.project + '/identity/launch', {
-          connection_id: connection,
-          cols: 80,
-          rows: 24,
-        })
-      );
-      check(typeof result.terminal_id === 'string' && /^[0-9a-f]{32}$/.test(result.terminal_id));
-      this.message = 'Codex started. Open project terminal and select Codex.';
-    } catch (error) {
-      if (serial === this.contextSerial)
-        this.message =
-          error instanceof Error ? error.message : 'Codex start was not confirmed. Refresh before retrying.';
-    } finally {
-      if (serial === this.contextSerial) this.busy = false;
-    }
-  }
   private selectedView() {
     const connection = this.connections.find((item) => item.id === this.selected);
     if (!connection) return '';
@@ -267,17 +236,9 @@ export class SodaIdentity extends LitElement {
         >
         <button ?disabled=${!this.selected}>Authorize named member</button>
       </form>
-      <form @submit=${this.launch}>
-        <p>Connected Muse subscriptions are used by the normal <code>muse</code> command in authorized containers.</p>
-        <h3>Start Codex</h3>
-        <label
-          >Authorized subscription
-          <select name="connection_id" required>
-            ${this.available.filter((connection) => connection.provider_id === 'codex').map((connection) => html`<option value=${connection.id}>${connection.label} · owner ${connection.owner_id}</option>`)}
-          </select></label
-        >
-        <button ?disabled=${this.available.length === 0}>Start Codex in this project's terminal</button>
-      </form>`;
+      <p>
+        Connected accounts sign in the <code>codex</code> and <code>muse</code> commands in this project's terminals.
+      </p>`;
   }
   protected render() {
     const title = this.sharingOnly ? 'AI accounts shared in this environment' : 'AI accounts';

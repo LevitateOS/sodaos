@@ -78,7 +78,7 @@ test('named grants and leases preserve decimal identities without exposing deliv
 });
 
 test(
-  'identity widget keeps stable context and starts Codex with protected metadata-only request',
+  'identity widget keeps stable context with protected metadata-only requests',
   {skip: process.env.SODA_IDENTITY_BROWSER !== '1'},
   async (t) => {
     const bundle = await Bun.build({entrypoints: ['frontend/spaces/soda-identity.ts'], target: 'browser'});
@@ -168,12 +168,7 @@ test(
       return widget.updateComplete;
     });
     assert.equal(requests.length, reads);
-    await page.getByRole('button', {name: "Start Codex in this project's terminal"}).click();
-    await page
-      .getByRole('status')
-      .filter({hasText: 'Codex started. Open project terminal and select Codex.'})
-      .waitFor();
-    assert.deepEqual(launches, [{connection_id: 'connection', cols: 80, rows: 24}]);
+    assert.deepEqual(launches, []);
     await page.evaluate(() => document.querySelector('soda-identity')?.remove());
   }
 );

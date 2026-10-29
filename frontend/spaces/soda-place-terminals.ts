@@ -1,4 +1,4 @@
-// Terminals place: shells and agent sessions for code writers (M16, M18,
+// Terminals place: shells for code writers (`codex` and `muse` run in any of them) (M16, M18,
 // lane D). The entry keeps this view alive while other places show (SPEC M2).
 //
 // Top to bottom: the environment card (status and the one next action: set
@@ -16,10 +16,7 @@ import type {MutationsInput} from './sodaspaces-project-mutations.js';
 import type {Connection} from './sodaspaces-project-view.js';
 import type {PlaceContext, PlaceMount} from './soda-place-view.js';
 import type {Place} from './soda-places.js';
-import {availableConnectionView, items} from './soda-identity-response.js';
-import type {Connection as AccountConnection} from './soda-identity-response.js';
 import {mountSodaspaces} from './sodaspaces-workspace.js';
-import {openProviders, providersChangedEvent} from './soda-providers-events.js';
 
 type State = 'loading' | 'none' | 'running' | 'stopped' | 'unknown';
 
@@ -731,141 +728,6 @@ class EnvironmentStrip {
   }
 }
 
-/**
- * New agent session ▾ Codex (SPEC M18): the existing launch API; the started
- * session opens in a pane. Muse runs from any terminal. Claude Code is not
- * offered (D13).
- */
-class AgentSessionMenu {
-  private connections: AccountConnection[] | undefined;
-  private busy = false;
-  private message = '';
-  private disposed = false;
-
-  constructor(
-    private readonly host: HTMLElement,
-    private readonly context: PlaceContext,
-    private readonly environmentId: () => string | undefined,
-    private readonly open: (terminalId: string) => Promise<void>
-  ) {
-    document.addEventListener(providersChangedEvent, this.invalidate);
-    this.draw();
-  }
-
-  private async request(path: string, body?: Record<string, unknown>) {
-    const response = await this.context.transport.request(path, {
-      method: body ? 'POST' : 'GET',
-      ...(body
-        ? {
-            headers: {'Content-Type': 'application/json'},
-            body: JSON.stringify(body),
-          }
-        : {}),
-      signal: AbortSignal.timeout(15000),
-    });
-    if (!response.ok) throw new SodaRequestError(response.status, await readSodaErrorCode(response));
-    return readSodaJSON(response);
-  }
-
-  /** Forget the list so the next open reads it again (AI accounts changed). */
-  invalidate = () => {
-    this.connections = undefined;
-    this.draw();
-  };
-
-  private async load() {
-    const environment = this.environmentId();
-    // Read on every open: a cached empty list would hide an account connected since.
-    if (this.busy || !environment) return;
-    this.busy = true;
-    this.draw();
-    try {
-      this.connections = items(
-        await this.request(`environments/${environment}/identity/connections`),
-        availableConnectionView
-      ).filter((connection) => connection.provider_id === 'codex');
-    } catch {
-      // The menu itself says so; reopening it tries again.
-    } finally {
-      this.busy = false;
-      this.draw();
-    }
-  }
-
-  private async start(connection: AccountConnection) {
-    const environment = this.environmentId();
-    if (this.busy || !environment) return;
-    this.busy = true;
-    this.message = 'Starting Codex…';
-    this.draw();
-    try {
-      const result = object(
-        await this.request(`environments/${environment}/identity/launch`, {
-          connection_id: connection.id,
-          cols: 80,
-          rows: 24,
-        })
-      );
-      if (typeof result.terminal_id !== 'string' || !/^[0-9a-f]{32}$/.test(result.terminal_id))
-        throw Error('Unconfirmed launch');
-      this.message = '';
-      this.host.querySelector('details')?.removeAttribute('open');
-      await this.open(result.terminal_id);
-    } catch {
-      this.message = 'Codex did not confirm the start. Check your terminals before trying again.';
-    } finally {
-      this.busy = false;
-      this.draw();
-    }
-  }
-
-  private renderChoices() {
-    if (!this.connections)
-      return html`<p>
-        ${this.busy ? 'Loading your AI accounts…' : 'Your AI accounts are unavailable. Close and open this menu to try again.'}
-      </p>`;
-    if (!this.connections.length)
-      return html`<p>No Codex account is connected yet.</p>
-        <button type="button" class="ui primary button" @click=${() => openProviders()}>Connect Codex</button>`;
-    return html`<ul>
-      ${this.connections.map(
-        (connection) =>
-          html`<li>
-            <button type="button" class="ui button" ?disabled=${this.busy} @click=${() => void this.start(connection)}>
-              Start Codex · ${connection.email || connection.label}${connection.plan ? ` (${connection.plan})` : ''}
-            </button>
-          </li>`
-      )}
-    </ul>`;
-  }
-
-  draw() {
-    if (this.disposed) return;
-    render(
-      html`<div class="soda-agent-sessions">
-        <details
-          class="soda-agent-session-menu"
-          @toggle=${(event: Event) => {
-            if ((event.target as HTMLDetailsElement).open) void this.load();
-          }}
-        >
-          <summary class="ui basic button">New Codex session ▾</summary>
-          ${this.renderChoices()}
-        </details>
-        <span class="soda-agent-hint">Muse: run <code>muse</code> in a terminal</span>
-        ${this.message ? html`<p class="soda-feedback" role="status">${this.message}</p>` : ''}
-      </div>`,
-      this.host
-    );
-  }
-
-  dispose() {
-    this.disposed = true;
-    document.removeEventListener(providersChangedEvent, this.invalidate);
-    render(html``, this.host);
-  }
-}
-
 const terminalsStyle = `
 .soda-terminals-place { display: flex; flex-direction: column; gap: 16px; max-width: 1200px; }
 .soda-terminals-card { border: 1px solid var(--soda-page-edge); background: var(--soda-page-surface); padding: 18px 20px; }
@@ -917,15 +779,6 @@ const terminalsStyle = `
 .soda-terminals-place .soda-agent-runs h2 { margin: 0; font: var(--soda-font-label); font-size: 14px; color: var(--soda-page-text); }
 .soda-terminals-place .soda-agent-runs p, .soda-terminals-place .soda-agent-runs ul { margin: 0; }
 .soda-terminals-workspace > .soda-spaces-page-mount { flex: 1; height: 100%; }
-.soda-agent-sessions { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; }
-.soda-agent-session-menu { position: relative; }
-.soda-agent-session-menu > summary { list-style: none; cursor: pointer; }
-.soda-agent-session-menu > summary::-webkit-details-marker { display: none; }
-.soda-agent-session-menu[open] > :not(summary) { position: absolute; right: 0; z-index: 5; margin-top: 6px; background: var(--soda-page-surface); border: 1px solid var(--soda-page-edge); padding: 10px; min-width: 260px; display: grid; gap: 8px; }
-.soda-agent-session-menu ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
-.soda-agent-session-menu[open] > :not(summary) { min-width: 340px; }
-.soda-agent-session-menu li > .ui.button { width: 100%; white-space: nowrap; text-align: left; }
-.soda-agent-hint { color: var(--soda-page-muted); font: var(--soda-font-meta); }
 @media (max-width: 640px) { .soda-terminals-ssh-body { padding-left: 20px; } }
 `;
 
@@ -945,8 +798,7 @@ export const mountTerminalsPlace: PlaceMount = (host, context, initial) => {
   benchHead.className = 'soda-terminals-bench-head';
   const compactHost = document.createElement('div');
   compactHost.className = 'soda-terminals-bench-status';
-  const sessionsHost = document.createElement('div');
-  benchHead.append(compactHost, sessionsHost);
+  benchHead.append(compactHost);
   const workspaceHost = document.createElement('div');
   workspaceHost.className = 'soda-terminals-workspace';
   bench.append(benchHead, workspaceHost);
@@ -957,7 +809,6 @@ export const mountTerminalsPlace: PlaceMount = (host, context, initial) => {
   let run = initial.place === 'terminals' ? initial.run : undefined;
   let active = true;
   let workspace: ReturnType<typeof mountSodaspaces> | undefined;
-  let sessions: AgentSessionMenu | undefined;
   const environment = new EnvironmentStrip(environmentHost, sshHost, compactHost, context);
 
   // The terminals mount once you can use them and then stay, with their
@@ -976,12 +827,6 @@ export const mountTerminalsPlace: PlaceMount = (host, context, initial) => {
     workspace.setVisible(active);
     void workspace.refresh();
     if (run) workspace.watchRun(run);
-    sessions = new AgentSessionMenu(
-      sessionsHost,
-      context,
-      () => environment.environmentId,
-      async (terminalId) => workspace?.openTerminal(terminalId)
-    );
   };
   environment.onChange = ensureTerminals;
 
@@ -998,7 +843,6 @@ export const mountTerminalsPlace: PlaceMount = (host, context, initial) => {
     },
     dispose() {
       environment.dispose();
-      sessions?.dispose();
       workspace?.dispose();
       host.replaceChildren();
       host.classList.remove('soda-terminals-place');
