@@ -248,6 +248,13 @@ func (c *Coordinator) observeDispatch(ctx context.Context, report DispatchReport
 	c.dispatchObservation.Store(&next)
 }
 
+// coderTimeWait reports whether a wait is a coder-time sponsorship
+// exhaustion: the owner fixes it by raising the allowance, apart from
+// attempt limits that need Retry.
+func coderTimeWait(reason, detail string) bool {
+	return reason == WaitAllowance && detail == "sponsorship allowance is exhausted"
+}
+
 func dispatchObservationReason(repository, issue int64, reason, detail string) DispatchObservationReason {
 	// Reason is whitelisted too: an unexpected producer string must not turn
 	// this diagnostic into an indirect error/provider text channel.
@@ -293,7 +300,7 @@ func dispatchObservationReason(repository, issue int64, reason, detail string) D
 		issue = 0
 	}
 	out := DispatchObservationReason{Repository: repository, Issue: issue, Reason: reason, Stage: stage}
-	out.CoderTime = reason == WaitAllowance && detail == "sponsorship allowance is exhausted"
+	out.CoderTime = coderTimeWait(reason, detail)
 	return out
 }
 
@@ -438,6 +445,23 @@ func (c *Coordinator) dispatchDeps() DispatchDeps {
 	}
 }
 
+// noteAllowanceWaits leaves one durable Feed card per issue waiting on
+// coder-time sponsorship. The transient dispatch observation is
+// owner/admin-only until restart; the card is visible to every authorized
+// reader. Best-effort by design: Dispatch never fails, and the observation
+// still carries the wait when the store write cannot land.
+func (c *Coordinator) noteAllowanceWaits(ctx context.Context, report DispatchReport) {
+	if c.Store == nil {
+		return
+	}
+	for _, wait := range report.Waits {
+		if !coderTimeWait(wait.Reason, wait.Detail) || wait.Repository <= 0 || wait.Issue <= 0 {
+			continue
+		}
+		_ = c.Store.NoteAllowanceExhausted(ctx, wait.Repository, wait.Issue, 0)
+	}
+}
+
 // activeDispatchKey marks the Coordinator whose Dispatch owns a context.
 type activeDispatchKey struct{}
 
@@ -459,6 +483,7 @@ func (c *Coordinator) Dispatch(ctx context.Context) DispatchReport {
 		report.Errors = append(report.Errors, DispatchError{Reason: DispatchErrHost, Detail: "retry preparation retirement is unconfirmed"})
 	}
 	c.observeDispatch(ctx, report)
+	c.noteAllowanceWaits(ctx, report)
 	c.observeProgressStage("publication")
 	c.publishAfterDispatch(ctx, report)
 	if ownsPass {
