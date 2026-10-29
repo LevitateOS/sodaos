@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"net/http"
+	"time"
 
 	"github.com/levitateos/sodaos/internal/factory"
 	"github.com/levitateos/sodaos/internal/factory/control"
@@ -117,7 +118,12 @@ func (s *API) apiIntentPlan(w http.ResponseWriter, r *http.Request, v store.Sess
 		auth.JSONError(w, 503, "planning_unavailable", "No enrolled model account can answer the staged prompt.")
 		return
 	}
-	plan, prep, wait, err := s.Coordinator.AssembleIntentPlanningInput(r.Context(), current, in.Operation)
+	// Reading the approved planning context can outlast Fountain's 30 s
+	// extension request limit. Detach admission from the browser request so a
+	// dropped response still admits the run; the page's status poll finds it.
+	opCtx, cancel := context.WithTimeout(context.WithoutCancel(r.Context()), 3*time.Minute)
+	defer cancel()
+	plan, prep, wait, err := s.Coordinator.AssembleIntentPlanningInput(opCtx, current, in.Operation)
 	if err != nil {
 		if errors.Is(err, control.ErrIntentPlanningPromptBound) {
 			auth.JSONError(w, 400, "planning_prompt_over_bound", "Approved planning context exceeds the staged prompt bound; narrow the approved source selection and plan again.")
@@ -130,7 +136,7 @@ func (s *API) apiIntentPlan(w http.ResponseWriter, r *http.Request, v store.Sess
 		auth.JSONResponse(w, 202, map[string]any{"launched": false, "waits": []control.DispatchWait{*wait}})
 		return
 	}
-	report := s.Coordinator.DispatchIntentPlan(r.Context(), current.Intent, v.User.ID, in.Operation, plan, prep.SourceCommit, prep.ID)
+	report := s.Coordinator.DispatchIntentPlan(opCtx, current.Intent, v.User.ID, in.Operation, plan, prep.SourceCommit, prep.ID)
 	if len(report.Errors) != 0 {
 		// A lost launch observation does not undo the funded packet. Return
 		// that exact admitted identity so the caller reads its status instead
@@ -140,7 +146,7 @@ func (s *API) apiIntentPlan(w http.ResponseWriter, r *http.Request, v store.Sess
 			return
 		}
 		if report.Errors[0].Reason == control.DispatchErrHost || report.Errors[0].Reason == control.DispatchErrFence {
-			a, readErr := s.Store.IntentPlanAttempt(r.Context(), current.Intent, current.ID)
+			a, readErr := s.Store.IntentPlanAttempt(opCtx, current.Intent, current.ID)
 			if readErr == nil && a.Validate() == nil && a.Subject.Intent != nil && a.Subject.Intent.OwnerID == v.User.ID && a.Subject.Intent.IntentID == current.Intent && a.Subject.Intent.RevisionID == current.ID && a.Subject.Intent.ScopeDigest == current.Digest() && a.SourceCommit == prep.SourceCommit && a.Preparation == prep.ID && a.PlanningContext != nil && a.PlanningContext.Operation == in.Operation {
 				confirmed := false
 				auth.JSONResponse(w, http.StatusAccepted, intentPlanResponse{AssignmentID: a.ID, RunID: a.Run, RevisionID: current.ID, LaunchConfirmed: &confirmed})
