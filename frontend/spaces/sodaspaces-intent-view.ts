@@ -6,7 +6,6 @@ import type {
   IntentPlanStatus,
   IntentRevision,
   ProductIdea,
-  SavedRequest,
 } from './sodaspaces-intent-response.js';
 import {explorationReview} from './sodaspaces-intent-walkthrough.js';
 
@@ -20,7 +19,6 @@ export interface IntentView {
   // Focus the review's Desired outcome field. No save and no planning spend.
   editRequest(): void;
   objective: string;
-  saveNote: string;
   exploration: Exploration | undefined;
   explorationStale: boolean;
   changeOpen: boolean;
@@ -30,10 +28,6 @@ export interface IntentView {
   generationNotice: string;
   unsavedCount: number;
   unsavedParts: string;
-  savedRequests: SavedRequest[];
-  savedLoaded: boolean;
-  savedError: string;
-  savedMore: boolean;
   department: string;
   departments: Department[];
   revision: IntentRevision | undefined;
@@ -64,11 +58,6 @@ export interface IntentView {
   refreshGeneration(): void;
   chooseApproach(approach: 'complete_first' | 'incremental'): void;
   describe(): void;
-  saveDraft(): void;
-  saveAndLeave(): void;
-  loadSaved(): void;
-  moreSaved(): void;
-  resumeRequest(intent: string): void;
   revise(): void;
   decline(): void;
   continue(): void;
@@ -102,9 +91,7 @@ function bounds(view: IntentView) {
 function entryActions(view: IntentView) {
   const locked = view.busy || view.blocked || !view.objective.trim();
   return html`<div class="actions">
-    <button ?disabled=${locked} @click=${view.saveDraft}>Save draft</button
-    ><button ?disabled=${locked} @click=${view.saveAndLeave}>Save and leave</button
-    ><button class="primary" ?disabled=${locked} @click=${view.describe}>Explore ideas</button>
+    <button class="primary" ?disabled=${locked} @click=${view.describe}>Explore ideas</button>
   </div>`;
 }
 function terminalNote(view: IntentView) {
@@ -115,50 +102,6 @@ function terminalNote(view: IntentView) {
   if (view.revision?.state === 'abandoned')
     return html`<p>This draft was abandoned. Revise the outcome and explore again to restart it.</p>`;
   return '';
-}
-function requestState(state: SavedRequest['state']): string {
-  if (state === 'accepted') return 'Accepted';
-  if (state === 'declined') return 'Declined';
-  if (state === 'rejected') return 'Rejected';
-  if (state === 'abandoned') return 'Abandoned';
-  return 'Draft';
-}
-function savedRequestItem(view: IntentView, item: SavedRequest) {
-  const work = item.task_count ? ` · ${plural(item.task_count, 'work item', 'work items')}` : '';
-  return html`<li>
-    <p class="saved-objective" title=${item.objective}>${item.objective}</p>
-    <p class="saved-state">${requestState(item.state)}${work}</p>
-    <button
-      aria-label=${'Resume ' + item.objective}
-      ?disabled=${view.busy || view.blocked}
-      @click=${() => view.resumeRequest(item.intent)}
-    >
-      Resume
-    </button>
-  </li>`;
-}
-function savedRequests(view: IntentView) {
-  if (!view.savedLoaded && !view.savedError)
-    return html`<section aria-label="Saved requests"><p>Loading saved requests…</p></section>`;
-  if (view.savedError)
-    return html`<section aria-label="Saved requests">
-      <p>${view.savedError}</p>
-      <button @click=${view.loadSaved}>Retry</button>
-    </section>`;
-  if (!view.savedRequests.length)
-    return html`<section aria-label="Saved requests">
-      <h3>Saved requests</h3>
-      <p>No saved requests yet.</p>
-    </section>`;
-  return html`<section aria-label="Saved requests">
-    <details class="saved">
-      <summary>Resume a saved request (${view.savedRequests.length}${view.savedMore ? '+' : ''})</summary>
-      <ul>
-        ${view.savedRequests.map((item) => savedRequestItem(view, item))}
-      </ul>
-      ${view.savedMore ? html`<button @click=${view.moreSaved}>Show more</button>` : ''}
-    </details>
-  </section>`;
 }
 export function describeIntent(view: IntentView) {
   return html`<section class="intent-entry">
@@ -179,11 +122,10 @@ export function describeIntent(view: IntentView) {
     ${entryActions(view)}
     ${
       !view.objective.trim() && !view.busy && !view.blocked
-        ? html`<p>Enter a description above to enable saving and exploring ideas.</p>`
+        ? html`<p>Enter a description above to explore ideas.</p>`
         : ''
     }
-    ${view.saveNote ? html`<p>${view.saveNote}</p>` : ''}
-    <p>Save a draft to return to it later. Explore ideas saves your description and uses the planning limits below.</p>
+    <p>Explore ideas uses the planning limits below.</p>
     <div class="context">
       <label
         >Department<select
@@ -204,7 +146,7 @@ export function describeIntent(view: IntentView) {
         New department
       </button>
     </div>
-    ${bounds(view)} ${savedRequests(view)}
+    ${bounds(view)}
   </section>`;
 }
 function ideaBasis(idea: ProductIdea): string {

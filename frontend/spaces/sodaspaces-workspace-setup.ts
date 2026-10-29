@@ -5,7 +5,6 @@ import {id, object} from './sodaspaces-api.js';
 import {renderWorkspaceIntro} from './sodaspaces-workspace-view.js';
 import './sodaspaces-intent.js';
 import type {SodaIntent} from './sodaspaces-intent.js';
-import {intentList} from './sodaspaces-intent-response.js';
 import type {SavedRequest} from './sodaspaces-intent-response.js';
 import './sodaspaces-factory-work.js';
 import type {WorkDetailContext, WorkOverviewContext, WorkPlanContext} from './sodaspaces-factory-work.js';
@@ -54,15 +53,6 @@ export function intentIdentity(event: Event): string {
   if (!detail || typeof detail !== 'object' || Array.isArray(detail)) return '';
   const intent = (detail as Record<string, unknown>).intent;
   return typeof intent === 'string' ? intent : '';
-}
-
-/** Saved requests carried by intent-inventory; malformed payloads yield []. */
-export function inventoryIntents(event: Event): SavedRequest[] {
-  try {
-    return intentList((event as CustomEvent).detail).intents;
-  } catch {
-    return [];
-  }
 }
 
 /** Authorized counts carried by intent-reviewed; malformed payloads yield undefined. */
@@ -572,7 +562,6 @@ export function renderSetup(reading: SetupReading, actions: SetupActions, host: 
           actions.syncIntentRoute(intentIdentity(event));
           void resumeCommittedOverview(event, read, actions);
         }}
-        @intent-inventory=${(event: Event) => actions.setSavedRequests(inventoryIntents(event))}
         @intent-reviewed=${(event: Event) => chooseIntentRepository(event, read(), actions, host)}
         @intent-preparation=${(event: CustomEvent<{intent: string; repository: string}>) => {
           if (actions.isStale() || !actions.isActiveSurface()) return;
@@ -586,7 +575,6 @@ export function renderSetup(reading: SetupReading, actions: SetupActions, host: 
           actions.setSetupCommitted(true);
           actions.setSetup('intent');
         }}
-        @intent-leave=${() => leaveSetup(read(), actions, host)}
       ></soda-intent>
       ${renderSetupBody(reading, actions, host, blocked, read)}
     </div>
@@ -686,14 +674,6 @@ export function inspectCommittedRequest(reading: SetupReading, actions: SetupAct
   if (reading.stale || !reading.canRestore || reading.setup !== 'configure' || !reading.activeSurface) return;
   actions.setSetup('intent');
   focusSetupIntent(host, actions.isStale, actions.isActiveSurface);
-}
-
-export function leaveSetup(reading: SetupReading, actions: SetupActions, host: SetupHost) {
-  if (reading.setupReturn) {
-    cancelSetup(reading, actions, host);
-    return;
-  }
-  if (reading.requestId !== '') actions.syncIntentRoute(null);
 }
 
 export function cancelSetup(reading: SetupReading, actions: SetupActions, host: SetupHost) {

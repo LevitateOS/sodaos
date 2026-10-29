@@ -65,7 +65,6 @@ tests/frontend/workspace-persistence.test.ts
 tests/frontend/workspace-recovery.test.ts
 tests/frontend/workspace-responsive.test.ts
 tests/frontend/workspace-setup-compact.test.ts
-tests/frontend/workspace-setup-inventory-resume.test.ts
 tests/frontend/workspace-setup.test.ts
 tests/frontend/workspace.test.ts
 tests/frontend/workspace-work.test.ts

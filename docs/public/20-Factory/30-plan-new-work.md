@@ -48,13 +48,11 @@ a [sourced research answer](40-issue-work-and-dependencies.md#example-answer-a-r
 [accepted text artifact](40-issue-work-and-dependencies.md#example-deliver-a-standalone-catalog-tip).
 Both need assessable criteria; neither request authorizes publication.
 
-Use **Save draft** to keep the direction, or **Save and leave** to return later.
-Only saved drafts survive reload; edits still in the form have not been saved.
-Use **Saved requests → Resume** in the request view, or **Saved plans → Continue
-planning** in Workspace, to reopen a draft. Accepted plans use **View progress**.
-A saved request records its current alternatives and decisions; it does not
-create accepted issues. If a submission response is uncertain, inspect the
-original request and native effects before trying again.
+The description is a one-time prompt: there is no separate save step.
+**Explore ideas** records the request, and it then appears in the repository's
+**Requests** list. A request records its current alternatives and decisions; it
+does not create accepted issues. If a submission response is uncertain, inspect
+the original request and native effects before trying again.
 
 Expand **Planning limits** to review **Maximum work items** and **Planning
 calls**, then select **Explore ideas**. In **Review your product direction**,

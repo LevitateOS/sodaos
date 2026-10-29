@@ -151,13 +151,11 @@ it cannot treat that revision as a fresh submission or casually change its
 repository. A repository change requires a separate reviewed request, without
 pretending previously created native work moved or vanished.
 
-Save drafts to the existing private server owner with an honest **Saved** or
-**Unsaved changes** indicator. Offer **Save and leave**; ask about losing edits
-only when they have not been saved. Do not add a confirmation to every step.
-An offline draft may remain in the current view, but reload recovery must not be
-promised for unsaved text. Restore saved requests after reload and native login
-under the same actor; an account change must not reopen another actor's flow.
-Browser navigation keeps the one retained Workspace/terminal owner.
+The description is a one-time prompt, not a document to keep: offer no Save
+draft, Save and leave, saved-request list or Resume, and no Saved / Unsaved
+changes indicator on entry (owner decision, 29 Oct 2026). Explore ideas records
+the request; from then on it is reached through the repository's Requests list.
+An account change must not reopen another actor's flow.
 
 ### Screen and action inventory
 
@@ -165,7 +163,7 @@ Browser navigation keeps the one retained Workspace/terminal owner.
 | --- | --- | --- |
 | Global Workspace | Search, Projects, saved requests, human sessions and work needing a decision; loading/failure distinct from an empty inventory | New Project, resume a draft, open existing work or terminal; navigation only |
 | Repository Workspace | Native repository header, exact associated Project, accepted requests, current work and recent activity | Plan new work, inspect work, explicitly create/reuse/start/join the correct Project when permitted |
-| New Project | Centered objective textarea, optional Department, saved state | Explore ideas, Save and leave; no opening repository picker or automatic provisioning |
+| New Project | Centered objective textarea, optional Department | Explore ideas; no opening repository picker or automatic provisioning |
 | New department dialog | Name, description and private-context explanation | Save/select or Cancel; preserves the objective and grants no access |
 | Exploring | The retained objective and the bounded operation being performed | Leave safely; stop a pending request only if its cancellation contract exists; no fake ETA |
 | Product alternatives | System One's supplied comparisons, consolidated recommendation and consequential unknowns | Inspect or correct if useful; no required vote on each alternative |
@@ -208,8 +206,7 @@ Fountain native navigation                              Account
               └────────────────────────────────┘
               Department ▾  New department
               Planning allowance ▾
-              Save and leave        Explore ideas
-              Saved
+                                    Explore ideas
 ```
 
 The text drawing is a design composition, not a new navbar implementation or an

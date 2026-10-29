@@ -7,7 +7,6 @@ import {
   departments,
   exploration as parseExploration,
   intentGeneration,
-  intentList,
   intentPlanStatus,
   intentRevision,
   planActionBody,
@@ -28,7 +27,6 @@ import type {
   IntentRevision,
   IntentTask,
   ProductIdea,
-  SavedRequest,
   SavedReviewRead,
 } from './sodaspaces-intent-response.js';
 import {
@@ -64,10 +62,6 @@ export class SodaIntent extends LitElement {
     project: {type: String},
     exploration: {state: true},
     objective: {state: true},
-    savedRequests: {state: true},
-    savedLoaded: {state: true},
-    savedError: {state: true},
-    savedNext: {state: true},
     department: {state: true},
     departments: {state: true},
     revision: {state: true},
@@ -183,39 +177,6 @@ export class SodaIntent extends LitElement {
     .bounds {
       margin-block: 1rem;
     }
-    .saved {
-      text-align: left;
-      margin-block: 1rem;
-    }
-    .saved > summary {
-      cursor: pointer;
-      padding-block: 0.5rem;
-    }
-    .saved ul {
-      list-style: none;
-      margin: 0;
-      padding: 0;
-    }
-    .saved li {
-      display: flex;
-      align-items: center;
-      gap: 1rem;
-      padding-block: 0.25rem;
-      border-block-end: 1px solid var(--soda-page-edge);
-    }
-    .saved li > p {
-      margin: 0;
-      white-space: nowrap;
-    }
-    .saved .saved-objective {
-      flex: 1;
-      min-width: 0;
-      overflow: hidden;
-      text-overflow: ellipsis;
-    }
-    .saved .saved-state {
-      color: var(--soda-page-muted);
-    }
     article {
       border-block-end: 1px solid var(--soda-page-edge);
       padding-block: 1rem;
@@ -276,10 +237,6 @@ export class SodaIntent extends LitElement {
   declare request: string;
   declare project: string;
   declare exploration: Exploration | undefined;
-  declare savedRequests: SavedRequest[];
-  declare savedLoaded: boolean;
-  declare savedError: string;
-  declare savedNext: string | undefined;
   declare objective: string;
   declare department: string;
   declare departments: Department[];
@@ -360,10 +317,6 @@ export class SodaIntent extends LitElement {
     this.request = '';
     this.project = '';
     this.exploration = undefined;
-    this.savedRequests = [];
-    this.savedLoaded = false;
-    this.savedError = '';
-    this.savedNext = undefined;
     this.objective = '';
     this.department = '';
     this.departments = [];
@@ -388,9 +341,8 @@ export class SodaIntent extends LitElement {
       this.busy = false;
       this.loadedRequest = '';
       this.revision = this.savedSnapshot = undefined;
-      this.savedRequests = [];
-      this.savedLoaded = this.departmentsLoaded = false;
-      this.savedError = this.error = '';
+      this.departmentsLoaded = false;
+      this.error = '';
       this.departments = [];
       this.dirty = this.changeOpen = this.departmentDialog = false;
       this.scopeGateArmed = false;
@@ -578,12 +530,8 @@ export class SodaIntent extends LitElement {
   private activate() {
     if (!this.active || this.blocked || !this.api) return;
     if (!this.departmentsLoaded) {
-      void this.loadDepartments().then((ok) => {
-        if (ok) this.fetchSaved(false);
-      });
-      return;
+      void this.loadDepartments();
     }
-    if (!this.savedLoaded && !this.savedError) this.fetchSaved(false);
   }
   private resumeReady(changed: PropertyValues<this>) {
     return changed.has('request') || changed.has('api') || changed.has('active') || (changed.has('busy') && !this.busy);
@@ -691,31 +639,6 @@ export class SodaIntent extends LitElement {
       this.departments = departments(await this.call('/api/factory/departments', undefined, signal));
       this.departmentsLoaded = true;
     }, 'Loading…');
-  }
-  private fetchSaved(more: boolean) {
-    if (more && this.savedNext === undefined) return;
-    const prior = this.error;
-    void this.perform(async (signal) => {
-      const query = more && this.savedNext ? `?cursor=${this.savedNext}&limit=20` : '?limit=20';
-      try {
-        const page = intentList(await this.call('/api/factory/intents' + query, undefined, signal));
-        this.savedRequests = more ? [...this.savedRequests, ...page.intents] : page.intents;
-        this.savedNext = page.next_cursor;
-        this.savedLoaded = true;
-        this.savedError = '';
-        this.dispatchEvent(
-          new CustomEvent('intent-inventory', {
-            detail: {intents: [...this.savedRequests]},
-            bubbles: true,
-            composed: true,
-          })
-        );
-      } catch {
-        if (!signal.aborted) this.savedError = 'Could not load saved requests. Your edits are kept; try again.';
-      }
-    }, 'Loading saved requests…').then(() => {
-      if (this.error === '') this.error = prior;
-    });
   }
   private resumeSuperseded(id: string): boolean {
     if (!this.resumeController) return this.busy;
@@ -2061,8 +1984,6 @@ export class SodaIntent extends LitElement {
     this.shelveDroppedTasks(next);
     this.revision = saved;
     this.savedSnapshot = structuredClone(saved);
-    this.savedLoaded = false;
-    this.savedError = '';
     // Advance the draft to the saved revision so a reload resumes the same
     // base with the same shelf: save→reload→recovery keeps the Re-accept
     // path with dependencies intact.
@@ -2136,16 +2057,6 @@ export class SodaIntent extends LitElement {
         composed: true,
       })
     );
-  };
-  private saveDraft = () => {
-    if (this.objective.trim()) void this.perform(this.saveCurrent, 'Saving…');
-  };
-  private saveAndLeave = () => {
-    if (!this.objective.trim()) return;
-    void this.perform(async (signal) => {
-      await this.saveCurrent(signal);
-      this.dispatchEvent(new CustomEvent('intent-leave', {bubbles: true, composed: true}));
-    }, 'Saving…');
   };
   private revise = () => {
     const saved = this.savedSnapshot;
@@ -2543,12 +2454,6 @@ export class SodaIntent extends LitElement {
     event.preventDefault();
     (event.shiftKey ? controls.at(-1) : controls[0])?.focus();
   }
-  private saveNote(): string {
-    if (!this.revision) return '';
-    if (!this.objective.trim() && !this.dirty) return '';
-    if (this.revision && !this.dirty && this.objective.trim() === this.revision.objective) return 'Saved';
-    return 'Unsaved changes';
-  }
   private ideaChanged(idea: ProductIdea): boolean {
     const saved = this.savedSnapshot?.ideas.find((entry) => entry.id === idea.id);
     return !saved || saved.decision !== idea.decision || (saved.correction || '') !== (idea.correction || '');
@@ -2589,11 +2494,6 @@ export class SodaIntent extends LitElement {
       planningUnavailable: false,
       editRequest: this.editRequest,
       objective: this.objective,
-      saveNote: this.saveNote(),
-      savedRequests: this.savedRequests,
-      savedLoaded: this.savedLoaded,
-      savedError: this.savedError,
-      savedMore: this.savedLoaded && this.savedNext !== undefined,
       department: this.department,
       departments: this.departments,
       revision: this.revision,
@@ -2636,15 +2536,6 @@ export class SodaIntent extends LitElement {
         this.rememberDraft();
       },
       describe: this.describe,
-      saveDraft: this.saveDraft,
-      saveAndLeave: this.saveAndLeave,
-      loadSaved: () => this.fetchSaved(false),
-      moreSaved: () => this.fetchSaved(true),
-      resumeRequest: (intent: string) => {
-        if (intent !== this.revision?.intent) this.loadedRequest = '';
-        this.request = intent;
-        this.resume();
-      },
       revise: this.revise,
       decline: this.decline,
       continue: this.continue,

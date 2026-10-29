@@ -303,8 +303,6 @@ export const mountRequestPlace: PlaceMount = (host, context, initial) => {
   function onResumed(event: Event) {
     const detail = (event as CustomEvent).detail as Record<string, unknown> | undefined;
     if (!detail || typeof detail.intent !== 'string') return;
-    // Resuming from the composer's own saved list on New request.
-    if (fresh) becomeRequest(detail.intent);
     if (detail.intent !== request) return;
     applyRepository(typeof detail.repository === 'string' ? detail.repository : '0', detail.state === 'accepted');
   }
@@ -407,7 +405,6 @@ export const mountRequestPlace: PlaceMount = (host, context, initial) => {
                     void loadSummary();
                   }}
                   @intent-preparation=${() => context.navigate(places.settings('environment'))}
-                  @intent-leave=${() => context.navigate(places.requests())}
                 ></soda-intent>
                 ${notice ? html`<p class="soda-request-notice" role="status">${notice}</p>` : ''}
                 ${
