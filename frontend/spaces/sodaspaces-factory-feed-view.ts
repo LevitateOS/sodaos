@@ -15,6 +15,8 @@ import type {
   FeedThreadItem,
 } from './sodaspaces-factory-feed-thread.js';
 import {renderFeedCommunication} from './sodaspaces-factory-feed-communication.js';
+import type {FeedCardLinks} from './sodaspaces-factory-feed-communication.js';
+import type {SodaPlaces} from './soda-places.js';
 import {renderRecordAction} from './sodaspaces-factory-feed-record-actions.js';
 import type {FeedArtifactRequest} from './sodaspaces-factory-feed-artifact.js';
 
@@ -28,6 +30,8 @@ export interface FeedRepositoryRef {
   readonly id: number;
   readonly path: string | undefined;
   readonly label: string;
+  /** The repository's SodaOS places, when its owner/repo name is known. */
+  readonly places?: SodaPlaces;
 }
 
 export type FeedCardType = 'work' | 'message' | 'event' | 'comment';
@@ -64,6 +68,7 @@ export interface CommentOutcomeModel {
   readonly text: string;
   readonly tone: CommentOutcomeTone;
   readonly issueLink: string | undefined;
+  readonly factoryStatusLink?: string | undefined;
   // Still advancing on the server: the feed refresh picks up its next state.
   readonly pending: boolean;
   readonly canRetry: boolean;
@@ -146,6 +151,7 @@ export function describeCommentOutcome(
     text,
     tone,
     issueLink: issue > 0 && repository.path !== undefined ? nativeIssueLink(repository.path, String(issue)) : undefined,
+    factoryStatusLink: issue > 0 && repository.path !== undefined ? repository.places?.factoryStatus(issue) : undefined,
     pending: commentUnsettled(state) || state.productChange?.state === 'unavailable',
     canRetry: state.canRetry === true,
     needsClarification: state.route === 'clarify',
@@ -169,6 +175,7 @@ export function renderOutcome(outcome: CommentOutcomeModel): TemplateResult {
   return html`<div class="soda-feed-outcome">
     <p role=${outcome.tone === 'failed' ? 'alert' : 'status'}>
       ${outcome.text} ${outcome.issueLink ? html`<a href=${outcome.issueLink}>Open linked issue</a>` : ''}
+      ${outcome.factoryStatusLink ? html`<a href=${outcome.factoryStatusLink}>Factory status</a>` : ''}
       ${
         outcome.pending
           ? html`<button type="button" class="ui button" data-comment-retry=${outcome.commentId}>
@@ -195,7 +202,7 @@ export function renderOutcome(outcome: CommentOutcomeModel): TemplateResult {
     ${
       outcome.canRetry
         ? html`<button type="button" data-comment-revise=${outcome.commentId}>
-            ${outcome.needsClarification ? 'Answer clarification' : 'Revise or retry request'}
+            ${outcome.needsClarification ? 'Answer clarification' : 'Edit comment and retry'}
           </button>`
         : ''
     }
@@ -210,23 +217,26 @@ export interface ComposerModel {
   readonly submitLabel?: string;
   readonly compact?: boolean;
   readonly discussionLink?: string | undefined;
+  readonly discussionFactoryStatus?: string | undefined;
+  /** One line until focused (the repository comment box). */
+  readonly collapsed?: boolean;
 }
 
 export function renderComposer(model: ComposerModel): TemplateResult {
-  const project = model.label === 'Project comment';
+  const project = model.label === 'Comment';
   return html`<section aria-label="Discussion">
     <label
-      >${model.compact ? html`<span class="soda-visually-hidden">${model.label ?? 'Reply draft'}</span>` : (model.label ?? 'Reply draft')}
+      >${model.compact || project ? html`<span class="soda-visually-hidden">${model.label ?? 'Reply draft'}</span>` : (model.label ?? 'Reply draft')}
       <textarea
         name="reply"
         data-feed-draft=${model.key}
-        rows=${model.compact ? '1' : '3'}
+        rows=${model.compact || model.collapsed ? '1' : '3'}
         maxlength="4000"
-        placeholder=${project ? 'Ask a question, share feedback, or request a change…' : 'Write a reply…'}
+        placeholder=${project ? 'Ask a question or suggest a change' : 'Write a reply…'}
         .value=${live(model.draft)}
       ></textarea>
     </label>
-    <p class="soda-feed-compose-actions">
+    ${model.collapsed ? '' : html`<p class="soda-feed-compose-actions">
       <button
         type="button"
         class="ui primary button"
@@ -238,7 +248,8 @@ export function renderComposer(model: ComposerModel): TemplateResult {
       </button>
       ${project ? html`<span class="soda-feed-compose-hint">JEV reviews your comment and routes the next step.</span>` : ''}
       ${model.discussionLink ? html`<a href=${model.discussionLink}>Open issue discussion</a>` : ''}
-    </p>
+      ${model.discussionFactoryStatus ? html`<a href=${model.discussionFactoryStatus}>Factory status</a>` : ''}
+    </p>`}
   </section>`;
 }
 
@@ -295,7 +306,10 @@ function sourceLinks(entry: FeedEntry, repository: FeedRepositoryRef): {label: s
   if (repository.path === undefined) return [];
   const links = [{label: `Open ${repository.label}`, href: repository.path}];
   const issue = entry.issue ? nativeIssueLink(repository.path, String(entry.issue)) : undefined;
-  if (issue) links.push({label: `Open issue #${entry.issue}`, href: issue});
+  if (issue) {
+    links.push({label: `Open issue #${entry.issue}`, href: issue});
+    if (repository.places && entry.issue) links.push({label: 'Factory status', href: repository.places.factoryStatus(entry.issue)});
+  }
   const pull = entry.pr ? nativePullLink(repository.path, String(entry.pr)) : undefined;
   if (pull) links.push({label: `Open pull request #${entry.pr}`, href: pull});
   return links;
@@ -345,6 +359,8 @@ export function describeFeedPost(
       submitAvailable: draft.trim() !== '' && !busy.includes(key),
       discussionLink:
         repository.path === undefined || !entry.issue ? undefined : `${repository.path}/issues/${entry.issue}`,
+      discussionFactoryStatus:
+        repository.path === undefined || !entry.issue ? undefined : repository.places?.factoryStatus(entry.issue),
     },
     comments,
     thread: {
@@ -520,12 +536,16 @@ function renderCommentBody(comment: CommentDetail | undefined): TemplateResult {
 }
 
 // The card's own content, chosen by card type.
-function renderCardContent(model: FeedPostModel, request: FeedArtifactRequest | undefined): TemplateResult | string {
+function renderCardContent(
+  model: FeedPostModel,
+  request: FeedArtifactRequest | undefined,
+  links: FeedCardLinks
+): TemplateResult | string {
   const entry = model.entry;
   if (model.type === 'comment')
     return html`${renderCommentBody(model.comment)}${model.outcome ? renderOutcome(model.outcome) : ''}`;
   const communication = entry.payload?.communication;
-  if (communication) return renderFeedCommunication(communication, model.key, request);
+  if (communication) return renderFeedCommunication(communication, model.key, request, links);
   const judgment = entry.payload?.judgment;
   const typed = renderRecordAction(entry.payload);
   return html`${judgment ? renderJudgment(judgment) : ''}${
@@ -589,7 +609,8 @@ export function renderFeedPost(
   model: FeedPostModel,
   replies: TemplateResult | string = '',
   request?: FeedArtifactRequest,
-  assetBase = ''
+  assetBase = '',
+  links: FeedCardLinks = {}
 ): TemplateResult {
   const comment = model.type === 'comment';
   return html`<article
@@ -611,7 +632,7 @@ export function renderFeedPost(
           </p>
           ${model.detail && !comment ? html`<p class="soda-feed-dt">${model.detail}</p>` : ''}
         </div>
-        ${renderCardContent(model, request)}
+        ${renderCardContent(model, request, links)}
         ${
           comment
             ? ''

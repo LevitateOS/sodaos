@@ -1,0 +1,140 @@
+{
+  "protocol": 1,
+  "id": "soda",
+  "name": "Soda",
+  "version": "0.1.0",
+  "executable": "run",
+  "pages": [
+    {
+      "id": "repository-feed",
+      "route": "feed",
+      "title": "Feed",
+      "scope": "repository",
+      "permission": "read",
+      "entry": "soda-repository-entry.js",
+      "routes": [
+        {
+          "route": "requests",
+          "title": "Requests"
+        },
+        {
+          "route": "app",
+          "title": "App"
+        },
+        {
+          "route": "terminals",
+          "title": "Terminals",
+          "persist": true
+        },
+        {
+          "route": "knowledge",
+          "title": "Knowledge"
+        },
+        {
+          "route": "issue-factory",
+          "title": "Factory status"
+        },
+        {
+          "route": "workspace",
+          "title": "SodaOS",
+          "hidden": true
+        }
+      ],
+      "subroutes": [
+        {
+          "route": "requests",
+          "pattern": "new",
+          "title": "New request"
+        },
+        {
+          "route": "requests",
+          "pattern": "{request}",
+          "title": "Request"
+        },
+        {
+          "route": "workspace",
+          "pattern": "requests",
+          "title": "Requests"
+        },
+        {
+          "route": "workspace",
+          "pattern": "requests/{request}",
+          "title": "Request"
+        },
+        {
+          "route": "workspace",
+          "pattern": "app",
+          "title": "App"
+        },
+        {
+          "route": "workspace",
+          "pattern": "knowledge",
+          "title": "Knowledge"
+        },
+        {
+          "route": "workspace",
+          "pattern": "terminals",
+          "title": "Terminals"
+        },
+        {
+          "route": "workspace",
+          "pattern": "settings/{section}",
+          "title": "SodaOS settings"
+        },
+        {
+          "route": "workspace",
+          "pattern": "issues",
+          "title": "Factory status"
+        },
+        {
+          "route": "workspace",
+          "pattern": "issues/{issue}",
+          "title": "Factory status"
+        }
+      ]
+    },
+    {
+      "id": "repository-settings",
+      "route": "settings",
+      "title": "SodaOS",
+      "scope": "repository",
+      "permission": "admin",
+      "entry": "soda-repository-entry.js",
+      "subroutes": [
+        {
+          "pattern": "{section}",
+          "title": "SodaOS settings"
+        }
+      ]
+    },
+    {
+      "id": "feed",
+      "route": "feed",
+      "title": "Feed",
+      "scope": "global",
+      "entry": "soda-feed-entry.js"
+    },
+    {
+      "id": "applications",
+      "route": "applications",
+      "title": "Applications",
+      "scope": "global",
+      "entry": "soda-feed-entry.js"
+    }
+  ],
+  "capabilities": [
+    "native.actor.read",
+    "native.repository.read",
+    "native.repositories.owned.search",
+    "native.organization.ownership",
+    "native.user.public_keys.read",
+    "native.contribution.authorize",
+    "native.service.bridge",
+    "native.background.operations",
+    "native.extension.lifecycle"
+  ],
+  "policies": [
+    "forgejo.username"
+  ],
+  "preferred_workspace": true
+}

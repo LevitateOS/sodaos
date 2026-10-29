@@ -101,7 +101,7 @@ export class SodaFactoryLibrary extends LitElement {
   private sourceLink(item: LibraryItem) {
     if (!/^[a-f0-9]{32}$/.test(item.source)) return '';
     const pending = this.pendingSource === item.source;
-    return html`<button type="button" ?disabled=${pending} @click=${() => this.dispatchEvent(new CustomEvent('library-source-open', {bubbles: true, composed: true, detail: {repository: this.repository, id: item.source, item: item.id, revision: item.revision}}))}>${pending ? 'Opening source…' : 'Open source conversation'}</button>`;
+    return html`<button type="button" ?disabled=${pending} @click=${() => this.dispatchEvent(new CustomEvent('library-source-open', {bubbles: true, composed: true, detail: {repository: this.repository, id: item.source, item: item.id, revision: item.revision}}))}>${pending ? 'Opening source…' : 'Open source post'}</button>`;
   }
   protected render() {
     const item = this.view.item;

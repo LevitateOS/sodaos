@@ -995,6 +995,50 @@ html[data-theme^="soda-"] body soda-providers > .ui.basic.button,
 html[data-theme^="soda-"] body .soda-providers-dialog > header .ui.basic.button { background: var(--soda-page-surface) !important; color: var(--soda-page-text) !important; border: 2px solid var(--soda-page-text); }
 html[data-theme^="soda-"] body .soda-repository-header .ui.button:not(.disabled):not(:disabled) { color: var(--soda-page-text) !important; background: transparent; }
 
+/* SodaOS repository places (soda-repository-entry.ts). The place bar shows
+   only when the repository header has no Soda tabs. */
+.soda-repository-page { padding-top: 12px; }
+.soda-place-bar { display: flex; flex-wrap: wrap; gap: 4px 18px; margin: 0 0 20px; padding-bottom: 8px; border-bottom: 1px solid var(--soda-page-edge); font: var(--soda-font-button); }
+.soda-place-bar a { color: var(--soda-page-muted); padding: 4px 0; border-bottom: 2px solid transparent; text-decoration: none; }
+.soda-place-bar a:hover { color: var(--soda-page-text); }
+.soda-place-bar a.active { color: var(--soda-page-text); border-bottom-color: var(--soda-page-link); }
+.soda-place-placeholder, .soda-place-notice { padding: 24px 0; }
+.soda-place-placeholder h2, .soda-place-notice h2 { font: var(--soda-font-title); font-size: 22px; margin: 0 0 8px; }
+.soda-place-placeholder p, .soda-place-notice p { color: var(--soda-page-muted); margin: 0; }
+
+/* Requests and the Request page (soda-place-requests.ts, soda-place-request.ts). */
+.soda-requests-header { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px; }
+.soda-requests-header h2, .soda-request-title { font: var(--soda-font-title); font-size: 22px; margin: 0; }
+.soda-requests-note, .soda-requests-help, .soda-request-for, .soda-build-muted { color: var(--soda-page-muted); }
+.soda-request-rows { list-style: none; margin: 16px 0; padding: 0; }
+.soda-request-row { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px 16px; padding: 12px 0; border-bottom: 1px solid var(--soda-page-edge); }
+.soda-request-row a { min-width: 0; overflow-wrap: anywhere; font: var(--soda-font-label); }
+.soda-request-crumbs { display: flex; flex-wrap: wrap; gap: 12px; margin-bottom: 12px; color: var(--soda-page-muted); }
+.soda-request-page { max-width: 720px; }
+.soda-request-picker { margin-block: 16px; }
+.soda-build-summary { margin-top: 24px; padding-top: 16px; border-top: 1px solid var(--soda-page-edge); }
+.soda-build-rows { list-style: none; margin: 12px 0; padding: 0; }
+.soda-build-rows li, .soda-build-links { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 20px; padding: 6px 0; }
+.soda-factory-status h2 { font: var(--soda-font-title); font-size: 22px; margin: 0 0 12px; }
+.soda-factory-status h3 { margin: 20px 0 8px; }
+.soda-factory-status-lookup { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.soda-factory-status-lookup input { width: 8em; }
+.soda-factory-status-issues { margin: 0; padding-left: 20px; }
+/* Settings → SodaOS (M19): the native settings list at the side, one section in the main column. */
+.soda-settings-place { display: grid; grid-template-columns: minmax(160px, 200px) minmax(0, 1fr); gap: 24px; align-items: start; }
+.soda-settings-place-side ul { list-style: none; margin: 8px 0 16px; padding: 0; }
+.soda-settings-place-side li a { display: block; padding: 4px 8px; border-left: 2px solid transparent; color: var(--soda-page-muted); text-decoration: none; }
+.soda-settings-place-side li a:hover { color: var(--soda-page-text); }
+.soda-settings-place-side li a.active { color: var(--soda-page-text); border-left-color: var(--soda-page-link); }
+.soda-settings-place-side h3 { font: var(--soda-font-button); margin: 0; padding: 0 8px; }
+.soda-settings-place-main > h2 { font: var(--soda-font-title); font-size: 22px; margin: 0 0 12px; }
+.soda-settings-place-main > h2 span { color: var(--soda-page-muted); }
+@media (max-width: 760px) { .soda-settings-place { grid-template-columns: minmax(0, 1fr); } }
+/* App tab (M13) and navbar Apps (M14). */
+.soda-applications-place > section > h2, .soda-app-attention > h2 { font: var(--soda-font-heading); font-size: 22px; margin: 32px 0 8px; }
+.soda-applications-toolbar { display: flex; justify-content: flex-end; }
+.soda-applications-place .soda-application-built-from { color: var(--soda-page-muted); }
+.soda-app-attention:not(:has(soda-factory-verification-retry > section)) { display: none; }
 /* Feed post kit version 2: the byline above the card, a state edge and pill
    before a one-sentence headline, the Next line, and small steps as one-line
    comments under the post. Role colour stays on the avatar only. */

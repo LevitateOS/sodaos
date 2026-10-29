@@ -16,8 +16,26 @@ import type {
   ApplicationEnvironment,
 } from './sodaspaces-application-response.js';
 import {check, object, id, SodaRequestError} from './sodaspaces-api.js';
+import {repositoryPlaces} from './soda-places.js';
+import type {SodaPlaces} from './soda-places.js';
 
 type ApplicationState = ApplicationLaunchRecord['state'];
+
+/**
+ * Where the list is drawn. '' is the Workspace App view (until install E);
+ * 'repository' is a repository's App tab (M13); 'apps' is the navbar Apps
+ * page (M14).
+ */
+export type ApplicationsLayout = '' | 'repository' | 'apps';
+
+/** One launch card: a launch-only row, or an administered record that is Ready at its origin. */
+interface LaunchCard {
+  application: ApplicationLaunchRecord['application'];
+  environment: ApplicationEnvironment;
+  state: ApplicationState;
+  project?: {repository: string; name: string; path: string};
+  canInspect: boolean;
+}
 
 export type ApplicationRequest = (
   path: string,
@@ -35,6 +53,9 @@ export class SodaApplications extends LitElement {
     repository: {type: String},
     requestedDelivery: {type: String},
     requestedCompanyScope: {type: Boolean},
+    layout: {type: String},
+    prefix: {type: String},
+    places: {attribute: false},
     companyScope: {state: true},
     projects: {state: true},
     sessionKey: {attribute: false},
@@ -56,6 +77,11 @@ export class SodaApplications extends LitElement {
   declare repository: string;
   declare requestedDelivery: string;
   declare requestedCompanyScope: boolean;
+  declare layout: ApplicationsLayout;
+  /** Installation prefix (appSubUrl) for repository links. */
+  declare prefix: string;
+  /** This repository's SodaOS places (the App tab only). */
+  declare places: SodaPlaces | undefined;
   declare private companyScope: boolean;
   declare private projects: {repository: string; name: string}[];
   declare sessionKey: string;
@@ -86,6 +112,9 @@ export class SodaApplications extends LitElement {
     this.repository = '';
     this.requestedDelivery = '';
     this.requestedCompanyScope = false;
+    this.layout = '';
+    this.prefix = '';
+    this.places = undefined;
     this.companyScope = false;
     this.sessionKey = '';
     this.records = [];
@@ -537,7 +566,25 @@ export class SodaApplications extends LitElement {
         ? 'Company application'
         : 'Application environment unconfirmed';
   }
+  /** The App tab of the repository an app was built from. */
+  private projectHref(project: {path: string}) {
+    try {
+      return repositoryPlaces(this.prefix, project.path.replace(/^\//, '')).app();
+    } catch {
+      return '';
+    }
+  }
+  private builtFrom(project: ApplicationRecord['project']) {
+    if (!project) return '';
+    const href = this.projectHref(project);
+    return html`<p class="soda-application-built-from">
+      Built from ${href ? html`<a href=${href}>${project.name}</a>` : project.name}
+    </p>`;
+  }
   private row(record: ApplicationRecord) {
+    // On the App tab and the Apps page the launch card sits above, and the
+    // operator's version and backup tools sit in their own section.
+    const place = this.layout !== '';
     return html`<li>
       <header class="soda-application-heading">
         <h2>${record.application.name}</h2>
@@ -551,28 +598,32 @@ export class SodaApplications extends LitElement {
         Accounts and saved data live with this application at its address, separate from Soda Forge.
         ${record.operator ? 'You are an operator of this application.' : 'An operator manages its setup and updates.'}
       </p>
-      ${this.appCard(record.application, this.appState(record), record.environment, true)}
-      ${record.project ? html`<p>Project: <a href=${record.project.path + '/workspace'}>${record.project.name}</a></p>` : html`<p>No project linked.</p>`}
-      <details
-        @toggle=${(event: Event) => {
-          if ((event.currentTarget as HTMLDetailsElement).open && !this.projects.length) void this.loadProjects();
-        }}
-      >
-        <summary>${record.project ? 'Change project' : 'Link to a project'}</summary>
-        <label
-          >Project<select
-            aria-label=${'Project for ' + record.application.name}
-            ?disabled=${this.blocked()}
-            @change=${(event: Event) => {
-              const select = event.target;
-              if (select instanceof HTMLSelectElement && select.value) void this.linkProject(record, select.value);
-            }}
-          >
-            <option value="">Choose a project</option>
-            ${this.projects.map((project) => html`<option value=${project.repository} .selected=${project.repository === record.project?.repository}>${project.name}</option>`)}
-          </select></label
-        >
-      </details>
+      ${place && this.appState(record) === 'ready' ? '' : this.appCard(record.application, this.appState(record), record.environment, true)}
+      ${this.layout === 'repository' ? '' : record.project ? this.builtFrom(record.project) : html`<p>Not linked to a repository.</p>`}
+      ${
+        this.layout === 'repository'
+          ? ''
+          : html`<details
+              @toggle=${(event: Event) => {
+                if ((event.currentTarget as HTMLDetailsElement).open && !this.projects.length) void this.loadProjects();
+              }}
+            >
+              <summary>${record.project ? 'Change repository' : 'Link to a repository'}</summary>
+              <label
+                >Repository<select
+                  aria-label=${'Repository for ' + record.application.name}
+                  ?disabled=${this.blocked()}
+                  @change=${(event: Event) => {
+                    const select = event.target;
+                    if (select instanceof HTMLSelectElement && select.value) void this.linkProject(record, select.value);
+                  }}
+                >
+                  <option value="">Choose a repository</option>
+                  ${this.projects.map((project) => html`<option value=${project.repository} .selected=${project.repository === record.project?.repository}>${project.name}</option>`)}
+                </select></label
+              >
+            </details>`
+      }
       <div class="soda-application-actions">
         ${record.operator && record.observation && !record.observation.container ? html`<button type="button" class="ui button" ?disabled=${this.blocked()} @click=${() => void this.act(record, 'install')}>Install ${record.application.name}</button>` : ''}
         <button
@@ -628,6 +679,14 @@ export class SodaApplications extends LitElement {
           </button>
         </div>
       </details>
+      ${place ? '' : html`${this.replaceView(record)} ${this.backupView(record)}`}
+    </li>`;
+  }
+  /** The operator's version and backup tools for one app, in the Operator only section. */
+  private operatorRow(record: ApplicationRecord) {
+    if (!record.operator) return '';
+    return html`<li>
+      <h3>${record.application.name}</h3>
       ${this.replaceView(record)} ${this.backupView(record)}
     </li>`;
   }
@@ -699,7 +758,13 @@ export class SodaApplications extends LitElement {
         ${application.name} · version ${application.revision} · ${this.environmentLabel(environment)} ·
         <span class="soda-application-status">${readiness}</span>
       </p>
-      <p>Runs at its own address with its own accounts and data.</p>
+      <p>
+        ${
+          environment === 'preview'
+            ? 'Runs at its own address with its own accounts and sample data, separate from the company version.'
+            : 'Runs at its own address with its own accounts and data.'
+        }
+      </p>
       ${
         usable
           ? html`<div class="soda-application-actions">${this.openApplication(application)}</div>`
@@ -736,7 +801,7 @@ export class SodaApplications extends LitElement {
       ready: 'Ready',
       running: 'Running; readiness unconfirmed',
       stopped: 'Stopped',
-      'not-installed': 'Release pending',
+      'not-installed': 'Ready to release',
       unknown: 'State unknown',
     }[state];
     return html`<li>
@@ -749,8 +814,7 @@ export class SodaApplications extends LitElement {
         Accounts and saved data live with this application at its address, separate from Soda Forge. An operator manages
         its setup and updates.
       </p>
-      ${record.project ? html`<p>Project: <a href=${record.project.path + '/workspace'}>${record.project.name}</a></p>` : ''}
-      ${this.appCard(record.application, state, record.environment, false)}
+      ${this.builtFrom(record.project)} ${this.appCard(record.application, state, record.environment, false)}
     </li>`;
   }
   private replaceApplication(record: ApplicationRecord, event: SubmitEvent) {
@@ -842,7 +906,7 @@ export class SodaApplications extends LitElement {
         this.projects = projects;
       },
       () => {
-        this.notice = 'Could not load projects. Reopen the project selector to retry.';
+        this.notice = 'Could not load repositories. Reopen the repository selector to retry.';
       }
     );
   }
@@ -855,10 +919,10 @@ export class SodaApplications extends LitElement {
         ),
       (result) => {
         this.records = this.records.map((row) => (row.application.id === record.application.id ? result : row));
-        this.notice = 'Project linked.';
+        this.notice = 'Repository linked.';
       },
       () => {
-        this.notice = 'Could not link the project. Refresh and try again.';
+        this.notice = 'Could not link the repository. Refresh and try again.';
       }
     );
   }
@@ -1015,7 +1079,161 @@ export class SodaApplications extends LitElement {
       })
     );
   }
+  private launchCards(records: ApplicationRecord[], launches: ApplicationLaunchRecord[]): LaunchCard[] {
+    // The operator's and app administrators' own apps are not in the launch
+    // projection (internal/web/api/applications.go launchableApplications), so
+    // their Ready records with an origin join the launch cards here.
+    const cards: LaunchCard[] = [
+      ...launches.map((record) => ({
+        application: record.application,
+        environment: record.environment,
+        state: record.state,
+        ...(record.project ? {project: record.project} : {}),
+        canInspect: false,
+      })),
+      ...records
+        .filter(
+          (record) =>
+            this.appState(record) === 'ready' && record.environment !== 'unknown' && !!record.application.origin
+        )
+        .map((record) => ({
+          application: record.application,
+          environment: record.environment,
+          state: 'ready' as const,
+          ...(record.project ? {project: record.project} : {}),
+          canInspect: true,
+        })),
+    ];
+    const order: Record<ApplicationEnvironment, number> = {company: 0, preview: 1, unknown: 2};
+    return cards.sort((a, b) => order[a.environment] - order[b.environment]);
+  }
+  private launchCard(card: LaunchCard) {
+    const version =
+      card.environment === 'company' ? 'Company' : card.environment === 'preview' ? 'Preview' : 'Version unconfirmed';
+    return html`<li class="soda-application-launch">
+      <header class="soda-application-heading">
+        <h2>${card.application.name}</h2>
+        <span class="soda-application-status">${version}</span>
+      </header>
+      ${this.layout === 'apps' ? this.builtFrom(card.project) : ''}
+      ${this.appCard(card.application, card.state, card.environment, card.canInspect)}
+    </li>`;
+  }
+  /** The App tab (M13) and the navbar Apps page (M14). */
+  private renderPlace() {
+    const repository = this.layout === 'repository' ? this.repository : '';
+    const records = repository
+      ? this.records.filter((record) => record.project?.repository === repository)
+      : this.records;
+    const launches = repository
+      ? this.launchable.filter((record) => record.project?.repository === repository)
+      : this.launchable;
+    const delivery = this.layout === 'repository' ? this.requestedDelivery : '';
+    const buildRecords = delivery ? records.filter((record) => record.delivery?.delivery_id === delivery) : records;
+    const buildLaunches = delivery ? launches.filter((record) => record.delivery_id === delivery) : launches;
+    const cards = this.launchCards(buildRecords, buildLaunches);
+    const settled = this.loaded && this.complete && !this.busy && !this.notice;
+    const confirmedEmpty = settled && !records.length && !launches.length;
+    const buildMissing = !!delivery && settled && !cards.length && !buildRecords.length;
+    const places = this.places;
+    return html`<section
+      class="soda-applications soda-applications-place"
+      aria-busy=${this.busy ? 'true' : 'false'}
+    >
+      <div class="soda-applications-toolbar">
+        <button
+          type="button"
+          class="ui button"
+          ?disabled=${this.busy || !this.active}
+          @click=${() => void this.refresh()}
+        >
+          Refresh apps
+        </button>
+      </div>
+      ${this.statusRegion()}
+      ${
+        delivery
+          ? html`<p>This is the verified build from the Feed.${places ? html` <a href=${places.app()}>All app versions</a>` : ''}</p>
+              ${buildMissing ? html`<p role="status">No app runs this build yet. ${this.canSetup ? 'Release it below.' : 'The SodaOS operator releases verified builds.'}</p>` : ''}`
+          : ''
+      }
+      ${
+        !delivery && confirmedEmpty
+          ? this.layout === 'repository'
+            ? html`<div class="soda-applications-empty">
+                <p>No app is available here yet. Apps appear once a build is verified and released.</p>
+                ${places ? html`<p><a href=${places.requests()}>Requests</a> · <a href=${places.feed()}>Feed</a></p>` : ''}
+              </div>`
+            : html`<div class="soda-applications-empty">
+                <p>No apps are available for your repositories yet. An app appears here once a build is verified and released.</p>
+                <p><a href=${this.prefix + '/feed'}>Feed</a></p>
+              </div>`
+          : ''
+      }
+      ${!this.complete ? html`<p>Some app details could not be loaded. Refresh to try again.</p>` : ''}
+      ${
+        cards.length
+          ? html`<ul class="soda-application-launches" aria-label="Open an app">
+              ${cards.map((card) => this.launchCard(card))}
+            </ul>`
+          : ''
+      }
+      ${
+        buildRecords.length
+          ? html`<section class="soda-applications-manage" aria-label=${this.layout === 'apps' ? 'Apps you administer' : 'Manage this app'}>
+              <h2>${this.layout === 'apps' ? 'Apps you administer' : 'Manage this app'}</h2>
+              <ul>
+                ${repeat(
+                  buildRecords,
+                  (record) => record.application.id,
+                  (record) => this.row(record)
+                )}
+              </ul>
+            </section>`
+          : ''
+      }
+      ${
+        this.canSetup
+          ? html`<div
+              class="soda-applications-operator-tools"
+              @application-setup-complete=${(event: Event) => this.onSetupComplete(event)}
+            >
+              ${delivery ? html`<section class="soda-applications-release" aria-label="Release this build"><h2>Release this build</h2>${this.deliveryView()}</section>` : ''}
+              <section class="soda-applications-operator" aria-label="Operator only">
+                <h2>Operator only</h2>
+                ${delivery ? '' : this.deliveryView()}
+                <soda-application-setup
+                  .request=${this.request}
+                  .active=${this.active}
+                  .sessionKey=${this.sessionKey}
+                ></soda-application-setup>
+                <ul>
+                  ${repeat(
+                    buildRecords.filter((record) => record.operator),
+                    (record) => record.application.id,
+                    (record) => this.operatorRow(record)
+                  )}
+                </ul>
+              </section>
+            </div>`
+          : ''
+      }
+    </section>`;
+  }
+  private deliveryView() {
+    return html`<soda-application-delivery
+      .request=${this.request}
+      .active=${this.active}
+      .sessionKey=${this.sessionKey}
+      .repository=${this.layout === 'repository' ? this.repository : ''}
+      .requestedDelivery=${this.layout === 'repository' ? this.requestedDelivery : ''}
+      .applications=${this.records}
+      @application-build-setup-ready=${(event: Event) => this.beginPreparedSetup(event)}
+      @application-build-applied=${() => void this.refresh()}
+    ></soda-application-delivery>`;
+  }
   protected render() {
+    if (this.layout) return this.renderPlace();
     const projectRecords = this.repository
       ? this.records.filter((record) => record.project?.repository === this.repository)
       : this.records;

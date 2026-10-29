@@ -11,7 +11,19 @@ import {
   renderFeedAction,
   sourceExcerpt,
 } from './sodaspaces-factory-feed-actions.js';
+import type {SodaPlaces} from './soda-places.js';
 import './sodaspaces-factory-feed-artifact.js';
+
+/** One card's real links: hrefs come only from the repository's SodaOS places. */
+export interface FeedCardLinks {
+  places?: SodaPlaces;
+  /** The viewer's native user id: Open request shows only on their own requests. */
+  viewer?: string;
+  /** The entry's verified delivery id (the result card's event identity). */
+  delivery?: string;
+  /** Origin of a Ready app the viewer may open for that delivery. */
+  appOrigin?: string;
+}
 
 // Controller-written Factory events carry their event kind (stored as
 // component_id). Each has its presentation, its caption in the reader's words
@@ -81,9 +93,12 @@ function componentSummary(summary: string): TemplateResult {
 export function renderFeedCommunication(
   communication: FeedCommunication,
   entryKey: string,
-  request?: FeedArtifactRequest
+  request?: FeedArtifactRequest,
+  links: FeedCardLinks = {}
 ): TemplateResult {
   const c = filledCommunication(communication);
+  const {places} = links;
+  const ownRequest = c.intentSource !== undefined && links.viewer !== undefined && c.intentSource.owner === links.viewer;
   const event = factoryEvent(c.componentId);
   const presentation = event?.presentation ?? defaultPresentation[c.kind];
   const action = communicationAction(c, presentation);
@@ -131,18 +146,11 @@ export function renderFeedCommunication(
           </details>`
         : ''
     }
-    ${c.libraryItemId ? html`<p class="soda-feed-library-reference"><button type="button" data-library-item=${c.libraryItemId} data-library-entry=${entryKey}>Open in project library${c.libraryRevision ? ` · revision ${c.libraryRevision}` : ''}</button></p>` : ''}
+    ${c.libraryItemId && places ? html`<p class="soda-feed-library-reference"><a href=${places.knowledge(c.libraryItemId)}>Open in Knowledge</a>${c.libraryRevision ? ` · revision ${c.libraryRevision}` : ''}</p>` : ''}
     ${
       c.intentSource
         ? html`<div class="soda-feed-source-reference">
-            ${c.intentSource.state === 'draft' ? 'Proposed choice' : 'Recorded choice'} · ${c.intentSource.state}<br /><button
-              type="button"
-              data-intent-source=${c.intentSource.intent}
-              data-intent-revision=${c.intentSource.revision}
-              data-source-entry=${entryKey}
-            >
-              Open build request
-            </button>
+            ${c.intentSource.state === 'draft' ? 'Proposed choice' : 'Recorded choice'} · ${c.intentSource.state}${ownRequest && places ? html`<br /><a href=${places.request(c.intentSource.intent)}>Open request</a>` : ''}
             <details>
               <summary>Source revision</summary>
               <code>${c.intentSource.revision}</code
@@ -161,6 +169,14 @@ export function renderFeedCommunication(
             <p>Plan digest: <code>${c.planSource.digest}</code></p>
             <p>Recording this revision does not itself admit or implement the plan.</p>
           </details>`
+        : ''
+    }
+    ${
+      c.componentId === 'F10'
+        ? html`<p class="soda-feed-app-links">
+            ${links.appOrigin ? html`<a class="ui primary button" href=${links.appOrigin} target="_blank" rel="noopener" data-feed-open-app=${entryKey}>Open app ↗</a>` : ''}
+            ${places && links.delivery ? html`<a href=${places.app(links.delivery)}>App versions</a>` : ''}
+          </p>`
         : ''
     }
   </div>`;

@@ -221,7 +221,7 @@ export interface FeedCommunication {
   libraryRevision?: number;
   before?: string;
   after?: string;
-  intentSource?: {intent: string; revision: string; predecessor?: string; state: string};
+  intentSource?: {intent: string; revision: string; predecessor?: string; state: string; owner?: string};
   planSource?: {attemptRoot: string; plan: string; digest: string; sourceCommit: string; generation?: number};
 }
 

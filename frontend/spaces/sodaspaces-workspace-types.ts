@@ -23,8 +23,15 @@ export type WorkspaceContext = {
   | {
       kind: 'page';
       repositoryId?: string;
+      /** The SodaOS Terminals place: this repository's environment only, terminals and agent runs only. */
+      terminalsOnly?: TerminalsOnly;
     }
 );
+/** What the Terminals place (soda-place-terminals.ts) gives a terminals-only workspace. */
+export interface TerminalsOnly {
+  /** Address of a run's record (its Feed card). */
+  runLink: (run: string) => string;
+}
 /** Host-supplied presentation facts (H-ROUTE): display routing only, never authority. */
 export interface WorkspacePresentation {
   mode: 'page' | 'panel';

@@ -405,7 +405,7 @@ test(
       window.drawerFixture.api.setPresentation('settings');
       await window.drawerFixture.api.refresh();
     });
-    await page.getByRole('heading', {name: 'Identity connections'}).waitFor();
+    await page.getByRole('heading', {name: 'AI accounts'}).waitFor();
     const at1x = await page.evaluate(() => {
       const aside = document.querySelector('.extension-workspace-panels')!.getBoundingClientRect();
       const mount = document.querySelector('[data-extension-panel]')!.getBoundingClientRect();

@@ -63,13 +63,8 @@ import {
   inspectCommittedRequest,
   renderSetup,
 } from './sodaspaces-workspace-setup.js';
-import {
-  isNewRouteLocation,
-  newRouteFor,
-  requestIdFromLocation,
-  requestIDPattern,
-  requestRouteFor,
-} from './sodaspaces-workspace-setup.js';
+import {isNewRouteLocation, requestIdFromLocation, requestIDPattern} from './sodaspaces-workspace-setup.js';
+import {newRouteFor, requestRouteFor} from './soda-places.js';
 import {resolveWatchTarget, resumeSetup} from './sodaspaces-workspace-setup.js';
 import type {FactoryWatchRequest, SetupActions, SetupReading} from './sodaspaces-workspace-setup.js';
 import type {OverviewScope} from './sodaspaces-factory-progress-view.js';
@@ -88,7 +83,16 @@ import {
   renderProjectTerminals,
   rows,
 } from './sodaspaces-workspace-navigation.js';
-import {displayFactoryWatches, factorySection, factoryWatching, watchRun} from './sodaspaces-workspace-factory.js';
+import {
+  displayFactoryWatches,
+  factoryRowDisabled,
+  factorySection,
+  factoryWatching,
+  toggleFactoryWatch,
+  unwatchRun,
+  watchRun,
+} from './sodaspaces-workspace-factory.js';
+import {factoryRunLabel, factoryRunText} from './sodaspaces-factory-response.js';
 import {paneChrome} from './sodaspaces-workspace-pane-view.js';
 import type {PaneChromeInput} from './sodaspaces-workspace-pane-view.js';
 import {
@@ -300,6 +304,7 @@ export class SodaSpaces extends LitElement {
   private pendingWorkspaceRoute = false;
   private invoker: HTMLElement | undefined;
   private lastMinimum = 0;
+  private pendingRun: string | undefined;
   constructor() {
     super();
     this.deliveryTarget = '';
@@ -333,9 +338,14 @@ export class SodaSpaces extends LitElement {
   private get selectedSpace() {
     return this.spaces.find((s) => s.environment.repository_id === this.project);
   }
+  /** The SodaOS Terminals place: one environment, terminals and agent runs only (SPEC M16). */
+  private get terminalsOnly() {
+    return this.binding?.kind === 'page' ? this.binding.terminalsOnly : undefined;
+  }
   private get setupScreen() {
     return (
       this.binding?.kind === 'page' &&
+      !this.binding.terminalsOnly &&
       (!!this.setup ||
         (!this.spaces.length && !this.binding.repositoryId) ||
         requestIdFromLocation(this.routePathname, this.repositoryPrefix()) !== '')
@@ -423,8 +433,9 @@ export class SodaSpaces extends LitElement {
     };
     if (context.kind === 'page' && context.repositoryId) this.project = context.repositoryId;
     const requestedProject = new URLSearchParams(location.search).get('repository');
-    if (context.kind === 'page' && requestedProject && id(requestedProject)) this.project = requestedProject;
-    this.view = context.kind === 'page' ? 'feed' : 'terminal';
+    if (context.kind === 'page' && !context.terminalsOnly && requestedProject && id(requestedProject))
+      this.project = requestedProject;
+    this.view = context.kind === 'page' && !context.terminalsOnly ? 'feed' : 'terminal';
     this.factory = factory;
     this.storageKey = '';
     this.routePathname = window.location.pathname;
@@ -515,6 +526,7 @@ export class SodaSpaces extends LitElement {
     this.requestUpdate();
   }
   private presentView(kind: 'page' | 'native', entered: boolean, repositoryId?: string) {
+    if (this.terminalsOnly) return;
     if (repositoryId) this.project = repositoryId;
     if (kind === 'native') {
       if (['feed', 'app', 'work', 'plans'].includes(this.view)) this.view = 'terminal';
@@ -575,6 +587,7 @@ export class SodaSpaces extends LitElement {
   }
   protected updated() {
     this.activateNewRoute();
+    this.applyPendingRun();
     this.display();
   }
   private activateNewRoute() {
@@ -744,6 +757,7 @@ export class SodaSpaces extends LitElement {
     }
   }
   private restoreProjectView() {
+    if (this.terminalsOnly) return;
     if (this.binding?.kind !== 'page' || !this.actor || !id(this.project) || this.setup || this.view === 'project')
       return;
     const key = `soda-project-view:v1:${this.actor.id}:${this.project}`;
@@ -1103,6 +1117,95 @@ export class SodaSpaces extends LitElement {
       </section>`
     );
   }
+  /** Terminals place: this repository's Factory runs beside its terminals, each linked to its record. */
+  private renderAgentRuns() {
+    const terminalsOnly = this.terminalsOnly,
+      space = this.selectedSpace;
+    if (!terminalsOnly || !space || this.stale) return '';
+    const runs = space.factory_runs.filter((run) => run.outcome === undefined);
+    const watches = this.watches.filter((watch) => watch.environmentId === space.environment.id);
+    const mutation = this.watchMutation();
+    return html`<section class="soda-agent-runs" aria-label="Agent runs">
+      <h2>Agent runs</h2>
+      ${runs.length
+        ? html`<ul class="soda-agent-run-links">
+            ${repeat(
+              runs,
+              (run) => run.id,
+              (run) =>
+                html`<li>
+                  <span title=${factoryRunText(run)}>${factoryRunLabel(run)}</span>
+                  <button
+                    class="ui button"
+                    data-run-id=${run.id}
+                    aria-pressed=${factoryWatching(this.watches, run.id) ? 'true' : 'false'}
+                    ?disabled=${factoryRowDisabled(
+                      {stale: this.stale, available: this.available},
+                      space,
+                      run,
+                      this.watches
+                    )}
+                    @click=${() => toggleFactoryWatch(mutation, space, run)}
+                  >
+                    ${factoryWatching(this.watches, run.id) ? 'Watching' : 'Watch'}
+                  </button>
+                  <a href=${terminalsOnly.runLink(run.id)}>Feed card</a>
+                </li>`
+            )}
+          </ul>`
+        : html`<p>No agent is running in this repository now.</p>`}
+      ${repeat(
+        watches,
+        (watch) => watch.run,
+        (watch) =>
+          html`<div class="soda-factory-box" ?hidden=${watch.hidden}>
+            <div class="soda-factory-owner" data-factory-owner=${watch.run}></div>
+            <button class="ui button" @click=${() => unwatchRun(mutation, watch.run)}>Close view</button>
+          </div>`
+      )}
+    </section>`;
+  }
+  private watchMutation() {
+    return {
+      readWatches: () => this.watches,
+      isStale: () => this.stale,
+      pushWatch: (watch: FactoryWatch) => {
+        this.watches.push(watch);
+      },
+      replaceWatches: (watches: FactoryWatch[]) => {
+        this.watches = watches;
+      },
+      updated: () => this.requestUpdate(),
+    };
+  }
+  /** Terminals place ?run={id}: open that run's read-only view. */
+  watchRunById(runId: string) {
+    this.pendingRun = runId;
+    this.applyPendingRun();
+  }
+  private applyPendingRun() {
+    const runId = this.pendingRun,
+      space = this.selectedSpace;
+    if (!runId || !space || this.stale) return;
+    const run = space.factory_runs.find((entry) => entry.id === runId);
+    if (!run) return;
+    this.pendingRun = undefined;
+    if (!factoryWatching(this.watches, run.id)) watchRun(this.watchMutation(), space, run);
+    const watch = this.watches.find((entry) => entry.run === run.id);
+    if (watch) watch.hidden = false;
+    this.requestUpdate();
+  }
+  /** Terminals place: open one existing terminal (a started agent session) in the focused pane. */
+  async openTerminal(terminalId: string) {
+    await this.refresh();
+    const space = this.selectedSpace,
+      metadata = space?.terminals.find((terminal) => terminal.id === terminalId);
+    if (!space || !metadata) {
+      this.status = 'The session started. Refresh to find it among your terminals.';
+      return;
+    }
+    await openExisting(this.createInput(), space, metadata);
+  }
   private factoryActivityVisible(space: Space) {
     if (this.stale || this.setupScreen) return false;
     if (this.binding?.kind === 'native') return this.view === 'sessions';
@@ -1150,12 +1253,18 @@ export class SodaSpaces extends LitElement {
     const topbar = renderSetupTopbar(this.setup, this.stale, this.canRestore, this.onCancelSetup, this.onSetupBack);
     const bodyHidden = hideWorkspaceBody(this.setupScreen, this.setup);
     const bodyClass = workspaceBodyClass(this.view);
-    const bodyStyle = workspaceBodyStyle(this.setupScreen, this.compact, this.layout.sidebar, this.view);
+    const terminalsOnly = !!this.terminalsOnly;
+    const bodyStyle = workspaceBodyStyle(
+      this.setupScreen,
+      this.compact,
+      terminalsOnly ? null : this.layout.sidebar,
+      this.view
+    );
     return html`<div class="soda-workspace-frame">
         ${topbar}
         ${this.setupScreen ? renderSetup(this.setupReading(), this.setupActions(), this, () => this.setupReading()) : ''}
         <div ?hidden=${bodyHidden} class=${bodyClass} style=${bodyStyle}>
-          ${this.renderNavigation()}
+          ${terminalsOnly ? '' : this.renderNavigation()}
           <div
             class="soda-sidebar-divider"
             role="separator"
@@ -1165,7 +1274,7 @@ export class SodaSpaces extends LitElement {
             aria-valuemin="220"
             aria-valuemax="360"
             aria-valuenow=${this.layout.sidebar || 256}
-            ?hidden=${hideSidebarDivider(this.setupScreen, this.compact, this.view, this.layout.sidebar)}
+            ?hidden=${terminalsOnly || hideSidebarDivider(this.setupScreen, this.compact, this.view, this.layout.sidebar)}
             @pointerdown=${this.onCapturePointer}
             @pointermove=${this.onResizeSidebar}
             @pointerup=${this.onReleasePointer}
@@ -1177,9 +1286,9 @@ export class SodaSpaces extends LitElement {
               class="soda-project-content"
               ?hidden=${!['feed', 'app', 'work', 'plans'].includes(this.view) && !(this.binding?.kind === 'native' && this.view === 'sessions')}
             >
-              ${this.renderProjectWork()} ${this.renderApplications()} ${this.renderFactoryActivity()}
+              ${terminalsOnly ? '' : html`${this.renderProjectWork()} ${this.renderApplications()} ${this.renderFactoryActivity()}`}
             </div>
-            ${this.renderCanvas()}
+            ${this.renderCanvas()} ${this.renderAgentRuns()}
             <div class="soda-workspace-management" ?hidden=${hideManagement(this.view, this.stale)}></div>
           </div>
         </div>
@@ -1264,17 +1373,18 @@ export class SodaSpaces extends LitElement {
             this.showManagement(this.project)
           );
     const back = renderBackButton(this.view, kind, this.managementMode, () => this.back());
+    const terminalsOnly = !!this.terminalsOnly;
     return html`<header class="soda-workspace-toolbar" ?hidden=${this.setupScreen}>
       <button
         class="ui button"
         data-workspace="sessions"
-        ?hidden=${sessionsButtonHidden(kind, this.compact, this.layout.sidebar, this.view)}
+        ?hidden=${terminalsOnly || sessionsButtonHidden(kind, this.compact, this.layout.sidebar, this.view)}
         ?disabled=${workspaceBlocked(this.stale, this.available)}
         @click=${this.onShowSessions}
       >
         ${sessionsButtonLabel(kind)}
       </button>
-      ${this.renderToolbarTitle()} ${this.renderProjectViews()}
+      ${terminalsOnly ? '' : html`${this.renderToolbarTitle()} ${this.renderProjectViews()}`}
       <button
         class=${newTerminalButtonClass(kind)}
         data-environment-id=${this.selectedSpace?.environment.id || ''}
@@ -1287,7 +1397,7 @@ export class SodaSpaces extends LitElement {
       >
         ${newTerminalButtonLabel(kind)}
       </button>
-      ${settings} ${back} ${this.renderToolbarMenu()} ${renderSpacesLink()}
+      ${terminalsOnly ? '' : html`${settings} ${back} ${this.renderToolbarMenu()} ${renderSpacesLink()}`}
     </header>`;
   }
   private repositoryPrefix() {
@@ -1467,7 +1577,7 @@ export class SodaSpaces extends LitElement {
     this.requestUpdate();
   }
   private selectProject(space: Space) {
-    if (this.stale || !this.available || !this.canRestore) return;
+    if (this.stale || !this.available || !this.canRestore || this.terminalsOnly) return;
     this.project = space.environment.repository_id;
     if (this.binding?.kind === 'page') {
       this.restoreProjectView();
@@ -1746,7 +1856,9 @@ export class SodaSpaces extends LitElement {
         this.request = request;
       },
       setSpaces: (spaces) => {
-        this.spaces = spaces;
+        // The Terminals place holds this repository's environment only.
+        const repository = this.terminalsOnly ? this.binding?.repositoryId : undefined;
+        this.spaces = repository ? spaces.filter((space) => space.environment.repository_id === repository) : spaces;
       },
       setComplete: (complete) => {
         this.complete = complete;
@@ -1775,7 +1887,8 @@ export class SodaSpaces extends LitElement {
         this.restoreProjectView();
       },
       setStorageKey: (storageKey) => {
-        this.storageKey = storageKey;
+        // The Terminals place keeps its own layout for its one repository.
+        this.storageKey = this.terminalsOnly ? `${storageKey}:repository:${this.binding?.repositoryId}` : storageKey;
       },
       setSetup: (setup) => {
         this.setup = setup;
@@ -2133,6 +2246,8 @@ export class SodaSpaces extends LitElement {
       );
   }
   private async showManagement(repositoryId: string, mode?: 'standard' | 'journey' | 'settings') {
+    // The Terminals place shows Join and the environment itself, never project management.
+    if (this.terminalsOnly) return;
     if (!this.managementAdmitted(repositoryId)) return;
     await this.presentManagement(repositoryId, mode || this.defaultManagementMode());
   }
@@ -2243,7 +2358,9 @@ function workspacePresentation(
     ...(context.navigate ? {navigate: context.navigate} : {}),
     ...(repositoryId ? {repositoryId} : {}),
   };
-  return kind === 'page' ? {...base, kind} : {...base, kind, ...(repositoryId ? {pageRepositoryId: repositoryId} : {})};
+  if (kind === 'page')
+    return {...base, kind, ...(context.kind === 'page' && context.terminalsOnly ? {terminalsOnly: context.terminalsOnly} : {})};
+  return {...base, kind, ...(repositoryId ? {pageRepositoryId: repositoryId} : {})};
 }
 function workspaceContextValid(context: WorkspaceContext) {
   if (context.kind === 'page') return context.repositoryId === undefined || id(context.repositoryId);
@@ -2275,6 +2392,8 @@ export function mountSodaspaces(
     resume: (validation?: ResumeValidation) => box.resume(validation),
     retire: () => box.retire(),
     refresh: () => box.refresh(),
+    watchRun: (runId: string) => box.watchRunById(runId),
+    openTerminal: (terminalId: string) => box.openTerminal(terminalId),
     invalidate: () => box.invalidate(),
     get ready() {
       return box.updateComplete;

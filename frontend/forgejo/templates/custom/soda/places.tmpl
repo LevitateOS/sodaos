@@ -1,0 +1,102 @@
+{{- /* SodaOS repository places, shared by repo/header, repo/settings/navbar,
+     repo/issue/view and custom/extra_links (attribute text is in
+     custom/soda/places_attr, which repeats the derivation). Call with
+     (dict "Page" $ "Part" "<part>"); every call derives the places again.
+
+     Two gates, both on the repository-feed links the host lists:
+     - Pinned host (one "workspace" route per page, links without .Route):
+       the link titled "SodaOS" at {RepoLink}/workspace. The page URL is the
+       Feed and every other place is its subroute (…/workspace/requests,
+       …/workspace/settings/{section}, …/workspace/issues/{n}).
+     - Named-route host: a repository-feed link at {RepoLink}/feed. Only that
+       host can list it, so only then are .Route fields read: each place is
+       the URL of Soda's link with that route (requests, app, terminals,
+       knowledge, and settings from the separate repository-settings page).
+       Factory status sits at the host's issues/{n}/factory slot, which has
+       no link. The settings route never becomes a header tab.
+     Any other package (a rollback) gets the generic extension loop, so no
+     tab points at a missing route, and no tab carries the RSS icon.
+     Active places: StringUtils.HasPrefix on ExtensionPageURL (Forgejo's Link
+     on an extension page if a host ever stops setting it). */ -}}
+{{- $p := .Page -}}{{- $part := .Part -}}
+{{- $soda := "" -}}{{- $sodaExtension := "" -}}{{- $named := false -}}
+{{- with $p.ExtensionPages}}{{range index . "repository"}}{{if eq .ID "repository-feed" -}}
+	{{- if and (eq .Title "SodaOS") (eq .URL (print $p.RepoLink "/workspace"))}}{{$soda = .URL}}{{$sodaExtension = .ExtensionID}}{{end -}}
+	{{- if eq .URL (print $p.RepoLink "/feed")}}{{$soda = .URL}}{{$sodaExtension = .ExtensionID}}{{$named = true}}{{end -}}
+{{- end}}{{end}}{{end -}}
+{{- $here := $p.ExtensionPageURL -}}{{- if and (not $here) $p.PageIsExtension}}{{$here = $p.Link}}{{end -}}
+{{- $feed := $soda -}}{{- $requests := "" -}}{{- $app := "" -}}{{- $terminals := "" -}}{{- $knowledge := "" -}}{{- $settings := "" -}}{{- $issues := "" -}}{{- $factory := "" -}}
+{{- if $named -}}
+	{{- range index $p.ExtensionPages "repository"}}{{if eq .ExtensionID $sodaExtension -}}
+		{{- if eq .Route "requests"}}{{$requests = .URL}}{{end -}}
+		{{- if eq .Route "app"}}{{$app = .URL}}{{end -}}
+		{{- if eq .Route "terminals"}}{{$terminals = .URL}}{{end -}}
+		{{- if eq .Route "knowledge"}}{{$knowledge = .URL}}{{end -}}
+		{{- if eq .Route "settings"}}{{$settings = .URL}}{{end -}}
+	{{- end}}{{end -}}
+	{{- $issues = print $p.RepoLink "/issues/" -}}
+	{{- with $p.Issue}}{{$factory = print $p.RepoLink "/issues/" .Index "/factory"}}{{end -}}
+{{- else if $soda -}}
+	{{- $requests = print $soda "/requests"}}{{$app = print $soda "/app"}}{{$terminals = print $soda "/terminals"}}{{$knowledge = print $soda "/knowledge"}}{{$settings = print $soda "/settings"}}{{$issues = print $soda "/issues" -}}
+	{{- with $p.Issue}}{{$factory = print $soda "/issues/" .Index}}{{end -}}
+{{- end -}}
+
+{{- if eq $part "generic" -}}
+	{{- with $p.ExtensionPages}}{{range index . "repository"}}{{if $named}}{{if and (ne .Route "settings") (ne .ExtensionID $sodaExtension)}}
+					<a class="{{if eq .URL $here}}active {{end}}item" href="{{.URL}}">{{.Title}}</a>
+	{{- end}}{{else if and (ne .Permission "admin") (not (and $soda (eq .ExtensionID $sodaExtension)))}}
+					<a class="{{if eq .URL $here}}active {{end}}item" href="{{.URL}}">{{.Title}}</a>
+	{{- end}}{{end}}{{end -}}
+
+{{- else if eq $part "lead" -}}
+	{{- if $soda -}}
+		{{- if $requests}}
+					<a class="{{if StringUtils.HasPrefix $here $requests}}active {{end}}item" href="{{$requests}}" data-soda-place="requests">
+						{{svg "octicon-inbox"}} Requests
+					</a>
+		{{- end}}
+					<a class="{{if eq $here $feed}}active {{end}}item" href="{{$feed}}" data-soda-place="feed">
+						{{svg "octicon-comment-discussion"}} Feed
+					</a>
+		{{- if $app}}
+					<a class="{{if StringUtils.HasPrefix $here $app}}active {{end}}item" href="{{$app}}" data-soda-place="app">
+						{{svg "octicon-browser"}} App
+					</a>
+		{{- end -}}
+	{{- end -}}
+
+{{- else if eq $part "trail" -}}
+	{{- if $soda -}}
+		{{- if and $terminals ($p.Permission.CanWrite $p.UnitTypeCode)}}
+					<a class="{{if StringUtils.HasPrefix $here $terminals}}active {{end}}item" href="{{$terminals}}" data-soda-place="terminals">
+						{{svg "octicon-terminal"}} Terminals
+					</a>
+		{{- end -}}
+		{{- if $knowledge}}
+					<a class="{{if StringUtils.HasPrefix $here $knowledge}}active {{end}}item" href="{{$knowledge}}" data-soda-place="knowledge">
+						{{svg "octicon-light-bulb"}} Knowledge
+					</a>
+		{{- end -}}
+	{{- end -}}
+
+{{- else if eq $part "settings-generic" -}}
+	{{- with $p.ExtensionPages}}{{range index . "repository"}}{{if $named}}{{if and (eq .Route "settings") (ne .ExtensionID $sodaExtension)}}<a class="soda-settings-nav-link" href="{{.URL}}"{{if eq .URL $here}} aria-current="page"{{end}}>{{.Title}}</a>{{end}}{{else if and (eq .Permission "admin") (not (and $soda (eq .ExtensionID $sodaExtension)))}}<a class="soda-settings-nav-link" href="{{.URL}}"{{if eq .URL $here}} aria-current="page"{{end}}>{{.Title}}</a>{{end}}{{end}}{{end -}}
+
+{{- else if eq $part "settings-group" -}}
+	{{- if and $settings $p.Permission.IsAdmin}}
+<section class="soda-settings-nav-group" data-soda-place="settings">
+<button type="button" class="soda-settings-nav-trigger" aria-expanded="true" aria-controls="soda-settings-sodaos">SodaOS {{svg "octicon-chevron-down" 16}}</button>
+<div id="soda-settings-sodaos" class="soda-settings-menu">
+<span class="soda-settings-group-label">SodaOS</span>
+<a href="{{$settings}}/environment"{{if StringUtils.HasPrefix $here (print $settings "/environment")}} aria-current="page"{{end}}>Development environment</a>
+<a href="{{$settings}}/access"{{if StringUtils.HasPrefix $here (print $settings "/access")}} aria-current="page"{{end}}>Members &amp; access</a>
+<a href="{{$settings}}/network"{{if StringUtils.HasPrefix $here (print $settings "/network")}} aria-current="page"{{end}}>Network</a>
+<a href="{{$settings}}/factory"{{if StringUtils.HasPrefix $here (print $settings "/factory")}} aria-current="page"{{end}}>Factory</a>
+</div></section>
+	{{- end -}}
+
+{{- else if eq $part "factory-status" -}}
+	{{- if $factory}}
+		<p class="soda-repo-thread-factory"><a href="{{$factory}}" data-soda-place="factory-status">{{svg "octicon-cpu"}} Factory status</a></p>
+	{{- end -}}
+{{- end -}}

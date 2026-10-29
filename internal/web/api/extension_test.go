@@ -349,6 +349,8 @@ func TestNativeTerminalContributionScopes(t *testing.T) {
 		{"admin runners page", extensions.Contribution{Kind: "page", ID: "runners", Scope: "admin"}, false},
 		{"other global page", extensions.Contribution{Kind: "page", ID: "runners", Scope: "global"}, false},
 		{"spaces admin scope", extensions.Contribution{Kind: "page", ID: "spaces", Scope: "admin"}, false},
+		{"repository page", extensions.Contribution{Kind: "page", ID: "repository-feed", Scope: "repository"}, true},
+		{"repository page global scope", extensions.Contribution{Kind: "page", ID: "repository-feed", Scope: "global"}, false},
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			got := nativeTerminalContribution(extensions.Authority{Contribution: test.contribution})
@@ -356,6 +358,16 @@ func TestNativeTerminalContributionScopes(t *testing.T) {
 				t.Fatalf("nativeTerminalContribution(%+v) = %t, want %t", test.contribution, got, test.allowed)
 			}
 		})
+	}
+	repositoryPage := extensions.Contribution{Kind: "page", ID: "repository-feed", Scope: "repository"}
+	if nativeTerminalRepositoryBound(extensions.Authority{Contribution: repositoryPage, Repository: &extensions.Repository{ID: "7"}}, 8) {
+		t.Fatal("repository page admitted another repository's environment")
+	}
+	if nativeTerminalRepositoryBound(extensions.Authority{Contribution: repositoryPage}, 7) {
+		t.Fatal("repository page admitted without a repository")
+	}
+	if !nativeTerminalRepositoryBound(extensions.Authority{Contribution: repositoryPage, Repository: &extensions.Repository{ID: "7"}}, 7) {
+		t.Fatal("repository page refused its own environment")
 	}
 }
 

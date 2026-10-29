@@ -87,6 +87,8 @@ function lifecycleCaption(lifecycle: Lifecycle | undefined): string {
 export interface SettingsViewInput {
   readBindingSettings: () => boolean;
   readBindingPage: () => boolean;
+  /** Settings → SodaOS place: no tablist, link row or personal key editor. */
+  readBindingPlace: () => boolean;
   readBindingRepository: () => string;
   readFactoryTransport: () => PreparedExtensionMount | undefined;
   readRepository: () => string;
@@ -160,7 +162,7 @@ function canJoin(input: SettingsViewInput) {
 }
 
 export function renderRepositoryContext(input: SettingsViewInput) {
-  if (!input.readBindingSettings() || !input.readRepositoryURL()) return html``;
+  if (input.readBindingPlace() || !input.readBindingSettings() || !input.readRepositoryURL()) return html``;
   return html`<div class="soda-repository-context">
     <h2>${input.readRepository()}</h2>
     <nav aria-label="Repository destinations">
@@ -176,7 +178,8 @@ export function renderRepositoryContext(input: SettingsViewInput) {
 }
 
 export function renderViewTabs(input: SettingsViewInput) {
-  return html`<div class="soda-spaces-tabs" role="tablist" aria-label="Workspace views">
+  if (input.readBindingPlace()) return html``;
+  return html`<div class="soda-spaces-tabs" role="tablist" aria-label="SodaOS settings">
     ${views.map(
       (view) => html` <button
         type="button"
@@ -224,7 +227,7 @@ function accessReadiness(input: SettingsViewInput): string {
   return input.readExecutionAllowed() ? 'Not joined' : 'Repository write access required';
 }
 function renderReadinessLinks(input: SettingsViewInput) {
-  if (!input.readEnvironment()) return html``;
+  if (input.readBindingPlace() || !input.readEnvironment()) return html``;
   const factory = input.readFactoryTransport();
   return html`<nav class="soda-settings-readiness" aria-label="Settings readiness">
     <ul>
@@ -250,6 +253,14 @@ function renderReadinessLinks(input: SettingsViewInput) {
   </nav>`;
 }
 
+// Settings → SodaOS says who may create before anyone looks for the button.
+function renderCreateOwnerOnly(input: SettingsViewInput) {
+  if (!input.readBindingPlace() || input.readEnvironment() || input.canCreate()) return html``;
+  return html`<p data-create-owner-only>
+    Only the repository owner can create the development environment. Not available for organization repositories.
+  </p>`;
+}
+
 export function renderEnvironmentView(input: SettingsViewInput) {
   return html`<section
     id=${'soda-project-' + input.readBindingRepository() + '-environment'}
@@ -258,7 +269,7 @@ export function renderEnvironmentView(input: SettingsViewInput) {
     aria-label="Environment"
     ?hidden=${input.readSelected() !== 'environment'}
   >
-    ${renderReadinessLinks(input)}
+    ${renderReadinessLinks(input)} ${renderCreateOwnerOnly(input)}
     ${renderProjectOS(
       input.readProfiles(),
       input.readSelectedProfile(),
@@ -329,7 +340,15 @@ export function renderAccessView(input: SettingsViewInput) {
         input.copyConnection();
       }
     )}
-    ${renderKeys(
+    ${input.readBindingPlace() ? '' : renderPersonalKeys(input)}
+    ${input.readBindingPlace() ? '' : renderForgejoKeyReview(input)}
+    ${input.readEnvironment() && input.readFactoryTransport() ? html`<soda-project-members .context=${{project: input.readEnvironment()!.id, transport: input.readFactoryTransport()!, active: input.readSelected() === 'access' && !input.isStale()}}></soda-project-members>` : ''}
+  </section>`;
+}
+
+// "Your development keys": personal, so Settings → SodaOS leaves it to Terminals.
+function renderPersonalKeys(input: SettingsViewInput) {
+  return renderKeys(
       {
         saved: input.readSavedKeys(),
         preview: input.readKeyPreview(),
@@ -348,10 +367,7 @@ export function renderAccessView(input: SettingsViewInput) {
         confirmEmpty: (checked) => input.setConfirmEmpty(checked),
         apply: (event) => input.requestApplyKeys(event),
       }
-    )}
-    ${renderForgejoKeyReview(input)}
-    ${input.readEnvironment() && input.readFactoryTransport() ? html`<soda-project-members .context=${{project: input.readEnvironment()!.id, transport: input.readFactoryTransport()!, active: input.readSelected() === 'access' && !input.isStale()}}></soda-project-members>` : ''}
-  </section>`;
+    );
 }
 
 function renderForgejoKeyReview(input: SettingsViewInput) {
@@ -419,6 +435,7 @@ export function renderFactoryView(input: SettingsViewInput) {
         environment: input.readEnvironment()?.id || '',
         profile: input.readProfiles().find((profile) => profile.id === input.readSelectedProfile()),
         repositoryURL: input.readRepositoryURL(),
+        place: input.readBindingPlace(),
       }}
       .active=${input.readSelected() === 'factory' && !input.isStale()}
     ></soda-factory-settings>

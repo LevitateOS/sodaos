@@ -29,7 +29,7 @@ interface IntentStore {
   planStatusFail: number;
   planStatusMismatch: boolean;
   planOutcome: string;
-  setPlanState(id: string, state: string): void;
+  setPlanState(id: string, state: string, attention?: string): void;
   reviewCalls: string[];
   seedAllowance(entry: Record<string, unknown>): void;
   seedHistory(intent: string, revisions: Record<string, unknown>[]): void;
@@ -193,9 +193,9 @@ async function installIntentStore(page: Page) {
       seedHistory(intent: string, revisions: Record<string, unknown>[]) {
         histories.set(String(intent), revisions);
       },
-      setPlanState(id: string, state: string) {
+      setPlanState(id: string, state: string, attention?: string) {
         const entry = plans.get(String(id));
-        if (entry) plans.set(String(id), {...entry, state});
+        if (entry) plans.set(String(id), {...entry, state, ...(attention ? {attention} : {})});
       },
     };
     (window as unknown as {intentStore: typeof store}).intentStore = store;
@@ -1203,12 +1203,20 @@ test('explicit retry against live attention posts nothing and asks for the decis
   // The cached failure is stale: the run now waits on a product decision,
   // so the retry must surface that instead of planning directly.
   await page.evaluate(
-    (id: string) => (window as unknown as {intentStore: IntentStore}).intentStore.setPlanState(id, 'attention'),
+    (id: string) =>
+      (window as unknown as {intentStore: IntentStore}).intentStore.setPlanState(
+        id,
+        'attention',
+        'Choose who approves equipment requests'
+      ),
     revision
   );
   await planning.getByText('Planning details', {exact: true}).click();
   await planning.getByRole('button', {name: 'Plan work', exact: true}).click();
-  await planning.getByText('Planning stopped before it could propose work. Your request is saved.', {exact: true}).waitFor();
+  await planning
+    .getByText('Planning needs a product decision: Choose who approves equipment requests', {exact: true})
+    .first()
+    .waitFor();
   // In attention Plan work would only duplicate the primary, so it is gone.
   assert.equal(await planning.getByRole('button', {name: 'Plan work', exact: true}).count(), 0);
   assert.equal(
@@ -1216,6 +1224,14 @@ test('explicit retry against live attention posts nothing and asks for the decis
     postsBefore
   );
   assert.equal(await revisionPostCount(page), draftsBefore);
+  // A product question keeps Edit request as the primary: it only focuses
+  // the Desired outcome, with no save and no planning call.
+  const callsBefore = await page.evaluate(() => window.workspaceFixture.calls.length);
+  await planning.getByRole('button', {name: 'Edit request', exact: true}).click();
+  await page.waitForFunction(
+    () => document.querySelector('soda-intent')?.shadowRoot?.activeElement?.tagName === 'TEXTAREA'
+  );
+  assert.equal(await page.evaluate(() => window.workspaceFixture.calls.length), callsBefore);
 });
 
 test('immediate cancelled plan reports cancellation without a running text', async (t) => {
@@ -1317,7 +1333,7 @@ test('immediate completed plan clears the notice without a running text', async 
   );
 });
 
-test('immediate attention plan asks for the decision without a running text', async (t) => {
+test('immediate stopped plan retries from a successor draft without a running text', async (t) => {
   const page = await fixture(t, 'page', undefined, true);
   await installIntentStore(page);
   await page.evaluate(() => {
@@ -1335,14 +1351,24 @@ test('immediate attention plan asks for the decision without a running text', as
     await planning.getByText('Planning is running. The status below follows the run.', {exact: true}).count(),
     0
   );
-  // The primary stays usable: Edit request only focuses the Desired outcome,
-  // with no save and no planning call.
-  const callsBefore = await page.evaluate(() => window.workspaceFixture.calls.length);
-  await planning.getByRole('button', {name: 'Edit request', exact: true}).click();
-  await page.waitForFunction(
-    () => document.querySelector('soda-intent')?.shadowRoot?.activeElement?.tagName === 'TEXTAREA'
+  // The planner asked nothing, so the primary retries like a failed plan:
+  // one successor draft, then one planning call for its new revision.
+  assert.equal(await planning.getByRole('button', {name: 'Edit request', exact: true}).count(), 0);
+  const draftsBefore = await revisionPostCount(page);
+  const postsBefore = await page.evaluate(
+    () => (window as unknown as {intentStore: IntentStore}).intentStore.planCalls.length
   );
-  assert.equal(await page.evaluate(() => window.workspaceFixture.calls.length), callsBefore);
+  await planning.getByRole('button', {name: 'Continue to planning', exact: true}).click();
+  await page.waitForFunction(
+    (before: number) => (window as unknown as {intentStore: IntentStore}).intentStore.planCalls.length > before,
+    postsBefore
+  );
+  assert.equal(await revisionPostCount(page), draftsBefore + 1);
+  const successor = String((await lastPostedBody(page, 'draft')).id);
+  assert.equal(
+    await page.evaluate(() => (window as unknown as {intentStore: IntentStore}).intentStore.planCalls.at(-1)?.revision),
+    successor
+  );
 });
 
 test('walkthrough findings block acceptance until the direction is corrected', async (t) => {

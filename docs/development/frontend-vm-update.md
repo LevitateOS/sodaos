@@ -92,6 +92,14 @@ bun scripts/build-soda-extension.ts --package=soda \
   --terminal-assets .artifacts/browser-terminal/vendor
 ```
 
+Track 2 (Fountain F1-F4 named repository routes: `/feed`, `/requests`,
+`/settings/sodaos/…`) builds from the same source with `--track=2`. It uses
+`system/containers/extension/extension.track2.json` and also writes it to the
+output as `extension.json`; that manifest replaces the package's one, so it
+only installs together with a Forgejo image on that Fountain (the pinned
+loader rejects `routes`). Its new `repository-settings` page also needs the
+`soda-extension` backend and the Soda dashboard built from the same commit.
+
 Only the `soda` package is installed on this VM (there is no tailnet
 extension directory). Do not merge tailnet assets in — a 2026-10-19-morning
 recipe did that for an older manifest; it no longer applies.

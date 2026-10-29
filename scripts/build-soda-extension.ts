@@ -9,6 +9,7 @@ const root = resolve(import.meta.dir, '..');
 const allEntries = {
   'soda-spaces-entry.js': 'frontend/spaces/soda-spaces-entry.ts',
   'soda-feed-entry.js': 'frontend/spaces/soda-feed-entry.ts',
+  'soda-repository-entry.js': 'frontend/spaces/soda-repository-entry.ts',
   'soda-tailnet-entry.js': 'frontend/tailnet/soda-tailnet-entry.ts',
 } as const;
 export const styles = {
@@ -22,6 +23,19 @@ export const styles = {
 } as const;
 
 export type ExtensionPackage = 'soda' | 'tailnet';
+/**
+ * The Soda package's address set. Track 1 (default) uses extension.json and the
+ * pinned Fountain's single `workspace` repository route. Track 2 uses
+ * extension.track2.json (Fountain F1-F4 named routes) and builds soda-places.ts
+ * with SODA_PLACES_TRACK = "2"; it also writes that manifest to the output as
+ * extension.json, since the package must ship it in place of the default one.
+ */
+export type PlacesTrack = 1 | 2;
+
+function manifestPath(packageID: ExtensionPackage, track: PlacesTrack) {
+  if (packageID === 'tailnet') return 'system/containers/extension/tailnet-package/extension.json';
+  return `system/containers/extension/${track === 2 ? 'extension.track2.json' : 'extension.json'}`;
+}
 function packageAssets(packageID: ExtensionPackage) {
   assert(packageID === 'soda' || packageID === 'tailnet', 'Exact extension package required');
   const entry = packageID === 'soda' ? 'soda-spaces-entry.js' : 'soda-tailnet-entry.js';
@@ -31,13 +45,15 @@ function packageAssets(packageID: ExtensionPackage) {
         name === 'components.css' || (packageID === 'soda' ? name.startsWith('sodaspaces') : name.startsWith('soda-'))
     )
   );
-  return {
-    entries:
-      packageID === 'soda'
-        ? {[entry]: allEntries[entry], 'soda-feed-entry.js': allEntries['soda-feed-entry.js']}
-        : {[entry]: allEntries[entry]},
-    selectedStyles,
-  };
+  const entries =
+    packageID === 'soda'
+      ? {
+          [entry]: allEntries[entry],
+          'soda-feed-entry.js': allEntries['soda-feed-entry.js'],
+          'soda-repository-entry.js': allEntries['soda-repository-entry.js'],
+        }
+      : {[entry]: allEntries[entry]};
+  return {entries, selectedStyles};
 }
 
 function source(path: string) {
@@ -62,13 +78,8 @@ async function checkStylesUsedByEntries(entries: Record<string, string>, selecte
   );
 }
 
-async function checkManifestEntries(packageID: ExtensionPackage, entries: Record<string, string>) {
-  const manifest = JSON.parse(
-    await readFile(
-      source(`system/containers/extension/${packageID === 'tailnet' ? 'tailnet-package/' : ''}extension.json`),
-      'utf8'
-    )
-  ) as {
+async function checkManifestEntries(manifestFile: string, entries: Record<string, string>) {
+  const manifest = JSON.parse(await readFile(source(manifestFile), 'utf8')) as {
     pages: Array<{entry: string}>;
     panels: Array<{entry: string}>;
   };
@@ -78,7 +89,7 @@ async function checkManifestEntries(packageID: ExtensionPackage, entries: Record
   assert.deepEqual(declared.sort(), Object.keys(entries).sort(), 'Soda manifest entries and browser source differ');
 }
 
-async function buildScripts(assets: string, entries: Record<string, string>) {
+async function buildScripts(assets: string, entries: Record<string, string>, track: PlacesTrack) {
   const result = await Bun.build({
     entrypoints: Object.values(entries).map(source),
     outdir: assets,
@@ -87,7 +98,7 @@ async function buildScripts(assets: string, entries: Record<string, string>) {
     splitting: true,
     minify: true,
     naming: {entry: '[name].js', chunk: 'chunk-[hash].js'},
-    define: {'process.env.NODE_ENV': '"production"'},
+    define: {'process.env.NODE_ENV': '"production"', ...(track === 2 ? {SODA_PLACES_TRACK: '"2"'} : {})},
     plugins: [
       {
         name: 'extension-terminal-imports',
@@ -291,7 +302,13 @@ async function filesUnder(path: string, prefix = ''): Promise<string[]> {
   return files;
 }
 
-export async function buildSodaExtensionAssets(out: string, terminal: string, packageID: ExtensionPackage) {
+export async function buildSodaExtensionAssets(
+  out: string,
+  terminal: string,
+  packageID: ExtensionPackage,
+  track: PlacesTrack = 1
+) {
+  assert(track === 1 || packageID === 'soda', 'Only the Soda package has a track 2');
   assert(
     (await stat(out).then(
       () => true,
@@ -301,10 +318,11 @@ export async function buildSodaExtensionAssets(out: string, terminal: string, pa
   );
   const {entries, selectedStyles} = packageAssets(packageID);
   await checkStylesUsedByEntries(entries, selectedStyles);
-  await checkManifestEntries(packageID, entries);
+  const manifestFile = manifestPath(packageID, track);
+  await checkManifestEntries(manifestFile, entries);
   const assets = resolve(out, 'assets');
   await mkdir(assets, {recursive: true});
-  await buildScripts(assets, entries);
+  await buildScripts(assets, entries, track);
   await buildExtensionStylesheets(assets, selectedStyles);
   if (packageID === 'soda') {
     await copyLockedTerminal(assets, terminal);
@@ -313,15 +331,27 @@ export async function buildSodaExtensionAssets(out: string, terminal: string, pa
   await copyNotices(assets);
   const files = (await filesUnder(assets)).sort();
   assert(files.length > Object.keys(entries).length + Object.keys(selectedStyles).length);
+  if (track === 2) await copyFile(source(manifestFile), resolve(out, 'extension.json'));
   return files;
 }
 
 if (import.meta.main) {
   const {values} = parseArgs({
     args: Bun.argv.slice(2),
-    options: {package: {type: 'string'}, out: {type: 'string'}, 'terminal-assets': {type: 'string'}},
+    options: {
+      package: {type: 'string'},
+      out: {type: 'string'},
+      'terminal-assets': {type: 'string'},
+      track: {type: 'string', default: '1'},
+    },
   });
   assert(values.out && values['terminal-assets'], 'Explicit output and locked terminal assets required');
   assert(values.package === 'soda' || values.package === 'tailnet', 'Explicit --package=soda|tailnet required');
-  await buildSodaExtensionAssets(resolve(values.out), resolve(values['terminal-assets']), values.package);
+  assert(values.track === '1' || values.track === '2', 'Explicit --track=1|2 required');
+  await buildSodaExtensionAssets(
+    resolve(values.out),
+    resolve(values['terminal-assets']),
+    values.package,
+    values.track === '2' ? 2 : 1
+  );
 }

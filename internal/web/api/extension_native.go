@@ -137,7 +137,7 @@ func extensionProductContribution(path string, contribution extensions.Contribut
 		return auth.ExtensionContribution("tailnet", contribution)
 	}
 	return extensionPageContribution(contribution, "spaces") || extensionPageContribution(contribution, "feed") || extensionPageContribution(contribution, "applications") ||
-		contribution.Kind == "page" && contribution.ID == "repository-feed" && contribution.Scope == "repository" || extensionWorkspacePanelContribution(contribution)
+		contribution.Kind == "page" && (contribution.ID == "repository-feed" || contribution.ID == "repository-settings") && contribution.Scope == "repository" || extensionWorkspacePanelContribution(contribution)
 }
 
 func extensionPageContribution(contribution extensions.Contribution, id string) bool {
