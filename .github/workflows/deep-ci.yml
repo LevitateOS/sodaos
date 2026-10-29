@@ -38,7 +38,7 @@ jobs:
         working-directory: sodaos
     services:
       postgres:
-        image: postgres:17@sha256:67f41722b7a8cbdb868a44a4995c846eddfdc2973bccb291ce937dce88ad5675
+        image: postgres:18@sha256:979bccfde35445db618c65107d27d08c6c21339d8dc3ad4c830c6633947be0e4
         env:
           POSTGRES_PASSWORD: soda-ci-fixture
         ports:
@@ -214,6 +214,8 @@ jobs:
           restore-keys: ${{ runner.os }}-cargo-
       - name: Install locked source dependencies
         run: bun install --frozen-lockfile
+      - name: Create the boot-owned Project admission fixture
+        run: sudo install -d -o root -g root -m 0755 /var/lib/soda/project-maintenance
       - name: Run Rust tests including Docker provenance, packaging and admission contracts
         # Only the controller crate's process-environment and TCP lifetime
         # fixtures require serialization; other workspace tests stay parallel.

@@ -34,7 +34,7 @@ podman --remote=false pull --quiet --platform=linux/amd64 docker.io/library/cadd
 podman --remote=false image inspect --format {{.Digest}} sha256:9265b4ccf05645aeded07db50e8b29fd99e83b6b4994a4ae9e952aca54c3f691
 podman --remote=false pull --quiet --platform=linux/amd64 docker.io/library/postgres:17
 podman --remote=false image inspect --format {{.Digest}} sha256:9265b4ccf05645aeded07db50e8b29fd99e83b6b4994a4ae9e952aca54c3f691
-podman --remote=false pull --quiet --platform=linux/amd64 docker.io/tailscale/tailscale@sha256:99691662a2e82fbfd2bf55db0fd52bacd2f4664ce6fd1deca3746a024144a2b7
+podman --remote=false pull --quiet --platform=linux/amd64 docker.io/tailscale/tailscale@sha256:ed6480b33c6eb67c9cbd203ed42b9fb57e361986725b6856def71b7a3d9e276c
 podman --remote=false image inspect --format {{.Digest}} sha256:9265b4ccf05645aeded07db50e8b29fd99e83b6b4994a4ae9e952aca54c3f691
 cargo build --release --locked --offline --config profile.release.strip="symbols" --manifest-path $ROOT/Cargo.toml -p soda-muse --bin soda-muse
 cargo build --release --locked --offline --config profile.release.strip="symbols" --manifest-path $ROOT/Cargo.toml -p soda-identity-compose --bin soda-identity-compose

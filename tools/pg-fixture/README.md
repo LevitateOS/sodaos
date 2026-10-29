@@ -1,6 +1,6 @@
 # soda-pg-fixture
 
-Start a disposable PostgreSQL 17 container for Soda and Forgejo development
+Start a disposable PostgreSQL 18 container for Soda and Forgejo development
 tests. Each run gets random passwords, a loopback-only port and separate roles
 and databases. This tool is for test authors who need a local database fixture.
 

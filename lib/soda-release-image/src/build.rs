@@ -25,10 +25,6 @@ pub use crate::build_context::{
     freeze_base_image_config, link_prepared_assets, prepare_build_host_context,
 };
 
-/// Pinned Go toolchain (`go1.26.7`): the controller shells to it for Soda
-/// command compilation, and `GOTOOLCHAIN` forces the same version for every
-/// child `go` invocation.
-
 /// Computed production inputs (`build.Production` fields set by `runBuild`).
 #[derive(Debug, Clone, Default)]
 pub struct ProductionInputs {

@@ -1,6 +1,6 @@
 # Appliance PostgreSQL runtime
 
-Single PostgreSQL 17 container serving both Forgejo and the Soda store,
+Single PostgreSQL 18 container serving both Forgejo and the Soda store,
 per the owner-selected default (volume-backed, nightly backup). Topology is
 established by the units in this directory; this file records the contracts
 other lanes build on.
@@ -10,7 +10,7 @@ other lanes build on.
 | Unit | Role |
 | --- | --- |
 | `soda.network` | Appliance container network (`systemd-soda`) |
-| `soda-postgres.container` | PostgreSQL 17.11, digest-pinned, data at `/var/lib/soda/postgres`, no published ports |
+| `soda-postgres.container` | PostgreSQL 18.6, digest-pinned, data at `/var/lib/soda/postgres`, no published ports |
 | `soda-pg-provision.service` | First-boot database credential generation, runs before PostgreSQL |
 | `soda-postgres-init.service` | Idempotent role/database provisioning, runs before Forgejo |
 | `soda-forgejo-migrate.service` | One-shot config migration before Forgejo (drops legacy inline `[database] PASSWD`) |
@@ -23,8 +23,10 @@ the same way; backup runs after it so globals always hold both roles.
 
 No data transfer is in scope: the recorded lab state is one Forgejo user
 with zero repositories and a Soda store with zero projects, so appliances
-initialize fresh databases. Protected-data obligations stay with the owner
-if that changes.
+initialize fresh databases. PostgreSQL 18 uses the image's versioned
+`18/docker` data directory beneath the mounted `/var/lib/postgresql`.
+Retained PostgreSQL 17 data requires an explicit dump/restore upgrade; this
+release does not migrate or replace an existing cluster.
 
 ## Secrets
 

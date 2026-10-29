@@ -11,8 +11,8 @@ use crate::digest::hash_file;
 use crate::progress::BuildProgress;
 
 use super::config::{
-    worker_runtime_ids, Worker, WorkerConfig, PINNED_GO_ROOT, WORKER_CONTROLLER, WORKER_FORGEJO,
-    WORKER_HOME, WORKER_RUNTIME, WORKER_SOURCE, WORKER_TOOLS,
+    worker_runtime_ids, Worker, WorkerConfig, WORKER_CONTROLLER, WORKER_FORGEJO, WORKER_HOME,
+    WORKER_RUNTIME, WORKER_SOURCE, WORKER_TOOLS,
 };
 use super::execution::{run_worker, WorkerError, WorkerUnitCustody};
 
@@ -190,10 +190,10 @@ pub fn build_worker(c: &WorkerConfig, r: &Request) -> Result<Worker, String> {
         environment: vec![
             format!("HOME={WORKER_HOME}"),
             "GIT_OPTIONAL_LOCKS=0".to_owned(),
-            format!("PATH={PINNED_GO_ROOT}/bin:{WORKER_TOOLS}/rust/bin:{WORKER_TOOLS}/bin:/usr/sbin:/usr/bin:/sbin:/bin"),
+            format!("PATH={WORKER_TOOLS}/go/bin:{WORKER_TOOLS}/rust/bin:{WORKER_TOOLS}/bin:/usr/sbin:/usr/bin:/sbin:/bin"),
             format!("XDG_RUNTIME_DIR={WORKER_RUNTIME}"),
             format!("TMPDIR={WORKER_HOME}/tmp"),
-            "GOTOOLCHAIN=go1.26.7".to_owned(),
+            "GOTOOLCHAIN=local".to_owned(),
             format!("GOCACHE={WORKER_HOME}/go-build"),
             format!("GOMODCACHE={WORKER_HOME}/go-mod"),
             format!("CARGO_HOME={WORKER_HOME}/cargo"),

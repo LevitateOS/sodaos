@@ -117,7 +117,7 @@ func TestRuntimeComposeDatabaseImageIsDigestPinned(t *testing.T) {
 		}
 	}
 	Require(t, len(images) == 1, "image entries = %d", len(images))
-	matched, err := regexp.MatchString(`^docker\.io/library/postgres:17@sha256:[0-9a-f]{64}$`, images[0])
+	matched, err := regexp.MatchString(`^docker\.io/library/postgres:18@sha256:[0-9a-f]{64}$`, images[0])
 	Require(t, err == nil, "regex: %v", err)
 	Check(t, matched, "compose image %q is not digest-pinned", images[0])
 }

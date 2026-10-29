@@ -16,7 +16,7 @@ use std::path::PathBuf;
 /// The one pinned official Tailscale image: the only Tailnet OCI identity,
 /// admitted by immutable digest. No RPM, daemon, or custom image in the
 /// default install; G-T proves the runtime behavior separately.
-pub const TAILSCALE_OFFICIAL_IMAGE: &str = "docker.io/tailscale/tailscale@sha256:99691662a2e82fbfd2bf55db0fd52bacd2f4664ce6fd1deca3746a024144a2b7";
+pub const TAILSCALE_OFFICIAL_IMAGE: &str = "docker.io/tailscale/tailscale@sha256:ed6480b33c6eb67c9cbd203ed42b9fb57e361986725b6856def71b7a3d9e276c";
 pub const FOUNTAIN_IDENTITY: &str = r#"{"os":{{json .Os}},"architecture":{{json .Architecture}},"revision":{{json (index .Labels "org.opencontainers.image.revision")}},"version":{{json (index .Labels "org.opencontainers.image.version")}}}"#;
 
 /// One frozen upstream input: requested ref, pinned ref, config ID.

@@ -15,7 +15,6 @@ pub const WORKER_TOOLS: &str = "/run/soda-build-tools";
 // Sibling of WORKER_SOURCE: go.mod resolves ../forgejo-ext/sdk here.
 pub const WORKER_FORGEJO: &str = "/run/forgejo-ext";
 pub const WORKER_CONTROLLER: &str = "/run/soda-build-controller";
-pub const PINNED_GO_ROOT: &str = "/usr/local/lib/soda/pinned-go";
 
 #[derive(Debug, Clone, Default)]
 pub struct WorkerConfig {

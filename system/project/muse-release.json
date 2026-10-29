@@ -1,10 +1,10 @@
 {
-  "version": "1.4.13-R6996.1",
   "artifacts": {
     "x86_64": {
       "file": "muse-x86-linux",
-      "sha256": "51e97f8de0aa175080e6576cbc055510a95dfe0ededf175c7f6b34fc8e3bf524",
-      "size": 400902488
+      "sha256": "0809aac7cb58d18f5022b6d05e02aa1974683c0ec430e5f04d25b60ed17de2da",
+      "size": 414927192
     }
-  }
+  },
+  "version": "1.4.14-R7309.1"
 }

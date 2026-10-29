@@ -230,7 +230,7 @@ fn oracle_production_sequence() {
         "ghcr.io/example/fountain@sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
         "docker.io/library/caddy:2",
         "docker.io/library/postgres:17",
-        "docker.io/tailscale/tailscale@sha256:99691662a2e82fbfd2bf55db0fd52bacd2f4664ce6fd1deca3746a024144a2b7",
+        "docker.io/tailscale/tailscale@sha256:ed6480b33c6eb67c9cbd203ed42b9fb57e361986725b6856def71b7a3d9e276c",
     ];
     for (entry, request) in entries.iter().zip(requests) {
         assert_eq!(entry["Requested"], request);

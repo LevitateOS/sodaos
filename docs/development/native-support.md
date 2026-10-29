@@ -116,7 +116,7 @@ The configuration names `Executable`, exact checkout `Source`, canonical
 `ForgejoSource` for the local SDK dependency, `FountainReleaseURL` for the selected
 immutable HTTPS `/vVERSION/release.json`, and an existing private
 `OutputParent` below `.artifacts/releases/`, and `BuildHome`, `Runtime` and `Tools`. `OutputParent`, `BuildHome` and `Runtime` belong to
-`soda-build-worker`; setup stages installed Go, the repository-selected stable Rust
+`soda-build-worker`; setup stages installed Go under `Tools/go`, the repository-selected stable Rust
 sysroot under `Tools/rust`, and `Tools/bin/bun`. Cargo dependencies are fetched
 with the committed lockfile during setup. The worker builds offline with
 `CARGO_HOME` and `CARGO_TARGET_DIR` in its writable build home; source and compiler

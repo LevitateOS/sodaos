@@ -120,7 +120,7 @@ fn muse_help_usage_and_offline_refusals() {
     assert_eq!(code, 0);
     assert_eq!(
         out,
-        "usage: soda-fetch-muse [--arch ARCH] [--manifest PATH] [--out PATH]\n"
+        "usage: soda-fetch-muse [--arch ARCH] [--manifest PATH] [--out PATH] [--check] [--refresh]\n"
     );
     let (code, _, err) = run(&muse_bin(), &scratch.path, &["--bogus"]);
     assert_eq!(code, 1);

@@ -130,8 +130,8 @@ fn label_published_tools(rust_final: &str) -> Result<(), Exit> {
             "find", PINNED_GO, "-type", "f", "-exec", "chmod", "a+r", "{}", "+",
         ],
     )?;
-    if !selinux_has_type(&format!("{PINNED_GO}/bin/go"), ":lib_t:") {
-        return fail("pinned GOROOT is not lib_t; the sandboxed worker could not execute it");
+    if !selinux_has_type(&format!("{PINNED_GO}/bin/go"), ":bin_t:") {
+        return fail("pinned GOROOT is not bin_t; the sandboxed worker could not execute it");
     }
     if !selinux_has_type(&format!("{rust_final}/bin/rustc"), ":bin_t:") {
         return fail(
@@ -174,8 +174,7 @@ fn publish_staged_tools(
     bun_new: &str,
 ) -> Result<String, Exit> {
     refuse_active_build()?;
-    let tools_go = format!("{TOOLS}/go");
-    run("sudo", &["rm", "-rf", &tools_go, PINNED_GO, rust_final])?;
+    run("sudo", &["rm", "-rf", PINNED_GO, rust_final])?;
     run("sudo", &["mv", pinned_new, PINNED_GO])?;
     run("sudo", &["mv", rust_new, rust_final])?;
     let bun_final = format!("{tools_bin}/bun");

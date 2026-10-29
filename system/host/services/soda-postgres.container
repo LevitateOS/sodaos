@@ -1,5 +1,5 @@
 [Unit]
-Description=Soda appliance PostgreSQL 17 (Forgejo and Soda stores)
+Description=Soda appliance PostgreSQL 18 (Forgejo and Soda stores)
 After=network-online.target
 Wants=network-online.target
 # First boot provisions secrets through this dependency. The provision unit
@@ -10,7 +10,7 @@ After=soda-image-import.service soda-pg-provision.service
 ConditionPathExists=/etc/soda/postgres/super.passwd
 
 [Container]
-Image=docker.io/library/postgres:17@sha256:67f41722b7a8cbdb868a44a4995c846eddfdc2973bccb291ce937dce88ad5675
+Image=docker.io/library/postgres:18@sha256:979bccfde35445db618c65107d27d08c6c21339d8dc3ad4c830c6633947be0e4
 ContainerName=soda-postgres
 Pull=never
 Network=soda.network
@@ -19,7 +19,7 @@ Network=soda.network
 # socket below; Forgejo uses TCP inside the appliance container network.
 # Host operators reach it through the backup/restore tools, which use
 # podman exec with container-local peer authentication.
-Volume=/var/lib/soda/postgres:/var/lib/postgresql/data:Z
+Volume=/var/lib/soda/postgres:/var/lib/postgresql:Z
 Volume=/run/soda/postgres:/var/run/postgresql:z
 Volume=/etc/soda/postgres/super.passwd:/run/secrets/soda-pg-super:ro,Z
 Environment=POSTGRES_PASSWORD_FILE=/run/secrets/soda-pg-super

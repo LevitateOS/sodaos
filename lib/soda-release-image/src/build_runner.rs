@@ -169,8 +169,8 @@ pub fn build_environment_pairs() -> Vec<(String, String)> {
             env.push((key.to_string(), value));
         }
     }
-    // A -trimpath controller can have no embedded GOROOT. Use Go's pinned
-    // upstream toolchain selection, not a relative bin/go or the ambient version.
+    // The worker PATH selects the admitted Go toolchain. Keep every child on
+    // those installed bytes instead of downloading another compiler.
     env.push(("GOTOOLCHAIN".to_string(), "local".to_string()));
     env.push(("GOWORK".to_string(), "off".to_string()));
     env.push(("GOFLAGS".to_string(), "-mod=readonly".to_string()));

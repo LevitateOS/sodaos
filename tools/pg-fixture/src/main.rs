@@ -1,4 +1,4 @@
-//! Ephemeral PostgreSQL 17 for Soda/Forgejo tests (A10 runtime fixture).
+//! Ephemeral PostgreSQL 18 for Soda/Forgejo tests (A10 runtime fixture).
 //! Same pinned image and role==database shape as the appliance cluster, with
 //! random per-run passwords that never appear in argv, stdout or logs.
 //!
@@ -40,7 +40,7 @@ use std::time::{Duration, Instant};
 
 // Must match Image= in system/host/services/soda-postgres.container.
 const IMAGE: &str =
-    "docker.io/library/postgres:17@sha256:67f41722b7a8cbdb868a44a4995c846eddfdc2973bccb291ce937dce88ad5675";
+    "docker.io/library/postgres:18@sha256:979bccfde35445db618c65107d27d08c6c21339d8dc3ad4c830c6633947be0e4";
 const READY_TIMEOUT: Duration = Duration::from_secs(90);
 
 fn main() {
