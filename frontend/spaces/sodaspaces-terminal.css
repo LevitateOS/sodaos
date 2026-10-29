@@ -15,10 +15,9 @@ soda-terminal { display: flex; flex: 1; min-height: 0; min-width: 0; }
 .soda-terminal-confirm { position: absolute; top: 36px; left: var(--soda-space-2); right: var(--soda-space-2); max-height: calc(100% - 44px); overflow: auto; z-index: 25; background: var(--soda-page-warning-bg); color: var(--soda-page-warning); padding: var(--soda-space-3); border: 1px solid var(--soda-page-warning-edge); box-shadow: var(--soda-elevation-dialog); }
 /* Controls stay attached to the exact terminal owner across Project navigation. */
 .soda-workspace[data-workspace-kind=page] .soda-terminal-context { font: var(--soda-font-button); padding-left: var(--soda-space-4); border-bottom: 0; background: var(--soda-page-canvas); }
-.soda-workspace[data-workspace-kind=page] .soda-terminal-screen { padding: var(--soda-space-4); }
+.soda-workspace[data-workspace-kind=page] .soda-terminal-screen { padding: 0; }
 @media (max-width: 640px) {
   .soda-workspace[data-workspace-kind=page] .soda-terminal-context { padding-left: var(--soda-space-2); }
-  .soda-workspace[data-workspace-kind=page] .soda-terminal-screen { padding: var(--soda-space-2); }
 }
 /* Factory watches retain their run heading and separate watch/status controls. */
 .soda-factory > .soda-terminal-context { padding-block: 0; padding-right: 0; }
