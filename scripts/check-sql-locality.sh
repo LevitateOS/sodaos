@@ -92,4 +92,21 @@ if [ -n "$violations" ]; then
   printf 'SQL locality failed: database/sql, sql.Open, and SQL verb literals require internal/store or a named test fixture exception (docs/development/go.md).\n'
   exit 1
 fi
+# Null-array guard: every jsonb_array_elements in product SQL must expand
+# through a jsonb_typeof guard on the same line, because Go nil slices
+# marshal as JSON null and COALESCE(x,'[]') does not catch null.
+unguarded=""
+while IFS= read -r -d '' file; do
+  while IFS= read -r line; do
+    case "$line" in
+      *jsonb_typeof*) ;;
+      *) unguarded+="${file}:${line}"$'\n' ;;
+    esac
+  done < <(grep -n 'jsonb_array_elements(' "$file" 2>/dev/null || true)
+done < <(find ./internal/store -name '*.go' -print0)
+if [ -n "$unguarded" ]; then
+  printf '%s' "$unguarded"
+  printf 'SQL locality failed: jsonb_array_elements without a same-line jsonb_typeof guard expands JSON null; guard with CASE WHEN jsonb_typeof(...)=%s.\n' "'array'"
+  exit 1
+fi
 printf 'SQL locality passed: product SQL stays in internal/store; named fixture exceptions only.\n'

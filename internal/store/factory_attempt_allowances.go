@@ -556,10 +556,22 @@ func sameAttemptAllowanceScope(stored, next factory.AttemptAllowance) bool {
 	return *stored.Intent == *next.Intent
 }
 
+// normalizeAllowanceSlices keeps stored allowance JSON free of null
+// arrays: Go nil slices marshal as JSON null, which jsonb array expansion
+// does not treat as empty. Queries guard with jsonb_typeof, and writes
+// normalize to [] so old and new rows read back identically.
+func normalizeAllowanceSlices(allowance factory.AttemptAllowance) factory.AttemptAllowance {
+	if allowance.Corrections == nil {
+		allowance.Corrections = []string{}
+	}
+	return allowance
+}
+
 func saveAttemptAllowanceTx(ctx context.Context, tx *sql.Tx, allowance factory.AttemptAllowance) error {
 	if err := allowance.Validate(); err != nil {
 		return err
 	}
+	allowance = normalizeAllowanceSlices(allowance)
 	var storedData []byte
 	var storedRevision int64
 	if err := tx.QueryRowContext(ctx, `SELECT revision,data FROM factory_attempt_allowances WHERE repository=$1 AND issue=$2 AND root_assignment=$3 FOR UPDATE`,
@@ -1070,6 +1082,7 @@ func insertIntentAttemptAllowanceTx(ctx context.Context, tx *sql.Tx, a factory.A
 	if !deadline.After(now) || remaining == 0 || deadline.After(time.Unix(now.Unix()+remaining, 0)) {
 		return factory.ErrAttemptTimeExhausted
 	}
+	allowance = normalizeAllowanceSlices(allowance)
 	data, err := json.Marshal(allowance)
 	if err != nil {
 		return err
@@ -1187,6 +1200,7 @@ func insertAttemptAllowanceTx(ctx context.Context, tx *sql.Tx, repository, issue
 	if !deadline.After(now) || remaining == 0 || deadline.After(time.Unix(now.Unix()+remaining, 0)) {
 		return factory.ErrAttemptTimeExhausted
 	}
+	allowance = normalizeAllowanceSlices(allowance)
 	data, err := json.Marshal(allowance)
 	if err != nil {
 		return err

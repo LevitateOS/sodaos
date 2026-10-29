@@ -83,6 +83,14 @@ fn main() {
 }
 
 fn run() -> Result<(), String> {
+    // The broker holds subscription credentials and binds private sockets:
+    // it must run as the dedicated soda-identity service user, never as
+    // root. The systemd unit confines it with User=soda-identity; this
+    // refuses a mistaken privileged launch before any socket or key file
+    // is touched.
+    if unsafe { libc::geteuid() } == 0 {
+        return Err("identity broker must not run as root; run it as the soda-identity service user".to_string());
+    }
     let config_path = parse_args()?;
     let settings = load(&config_path)?;
     let (admin, runtime) = service_listeners(&settings)?;

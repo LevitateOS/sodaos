@@ -8,7 +8,7 @@ export interface AllowanceHold {
   readonly issue?: string;
 }
 
-const settingsPath = 'Settings → SodaOS → Factory control';
+const settingsPath = 'Settings → Factory authority → Provider allowance and sponsorship';
 
 // allowanceHolds reads the allowance holds from one factory status body.
 // Anything malformed is skipped: the notice is advisory, never a gate.

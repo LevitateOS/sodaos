@@ -53,7 +53,10 @@ func CaptureAcceptedContext(in PromptInputs) *AcceptedContext {
 	for key, value := range in.Control.Satisfied {
 		satisfied[key] = value
 	}
-	return &AcceptedContext{AcceptanceID: in.AcceptanceID, Repository: in.Repository, Issue: in.Issue, NativeRevision: in.NativeRev, SourceCommit: in.SourceCommit, Preparation: in.Preparation, Title: in.Title, Body: in.Body, Sources: sources, Resolutions: resolutions, RepositoryContext: in.RepositoryContext, RequiredChecks: append([]string(nil), in.RequiredChecks...), Prerequisites: append([]AcceptedPrerequisite(nil), in.Prerequisites...), PrerequisiteHeads: heads, Satisfied: satisfied, PlanPrerequisites: append([]string(nil), in.PlanPrerequisites...), CheckAssessment: in.CheckAssessment}
+	requiredChecks := append([]string{}, in.RequiredChecks...)
+	prerequisites := append([]AcceptedPrerequisite{}, in.Prerequisites...)
+	planPrerequisites := append([]string{}, in.PlanPrerequisites...)
+	return &AcceptedContext{AcceptanceID: in.AcceptanceID, Repository: in.Repository, Issue: in.Issue, NativeRevision: in.NativeRev, SourceCommit: in.SourceCommit, Preparation: in.Preparation, Title: in.Title, Body: in.Body, Sources: sources, Resolutions: resolutions, RepositoryContext: in.RepositoryContext, RequiredChecks: requiredChecks, Prerequisites: prerequisites, PrerequisiteHeads: heads, Satisfied: satisfied, PlanPrerequisites: planPrerequisites, CheckAssessment: in.CheckAssessment}
 }
 
 func (c AcceptedContext) ValidateFor(a Assignment) error {

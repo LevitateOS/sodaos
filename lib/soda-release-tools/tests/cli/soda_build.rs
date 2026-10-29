@@ -25,6 +25,7 @@ fn docker_inputs_are_admitted_before_worker_dispatch() {
     for (args, expected) in [
         (vec!["--distribution", "docker"], "Payload v4 requires an explicit version --release-tag"),
         (vec!["--distribution", "docker", "--release-tag", "latest"], "Payload v4 requires an explicit version --release-tag"),
+        (vec!["--distribution", "docker", "--release-tag", "v0.1.0"], "Payload v4 requires an explicit version --release-tag"),
         (vec!["--distribution", "docker", "--release-tag", "v1.2.3", "--rootfs-base-url", "https://example.invalid"], "candidate target refuses media-only inputs"),
         (vec!["--development", "--target", "docker"], "development media requires appliance; development docker requires docker; development all requires all; candidate selects no packaging"),
         // The combined development target pairs only with the all
