@@ -44,6 +44,12 @@ func admitPriorityCandidates(choices map[string]any) (factory.PriorityRequest, e
 	return request, nil
 }
 
+// TypeSafeKeyReadable reports whether a usable JEV key is stored at path.
+func TypeSafeKeyReadable(path string) bool {
+	_, err := readPriorityKeyFile(path)
+	return err == nil
+}
+
 func readPriorityKeyFile(path string) (string, error) {
 	file, err := os.Open(path)
 	if err != nil {

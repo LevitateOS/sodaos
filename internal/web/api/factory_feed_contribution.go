@@ -21,7 +21,7 @@ func (s *API) driveContributions(ctx context.Context) {
 	if err := s.Store.ExpireContributionReviews(ctx); err != nil {
 		return
 	}
-	if s.Config.TypeSafeAPIKeyFile == "" {
+	if !s.jevConnected() {
 		return
 	}
 	ids, err := s.Store.ContributionSources(ctx)

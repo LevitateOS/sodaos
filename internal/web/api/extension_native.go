@@ -139,7 +139,7 @@ func extensionProductContribution(path string, contribution extensions.Contribut
 	// The AI accounts panel mounts on every page, so it reaches only the
 	// person's own provider connections and sign-ins.
 	if extensionProvidersPanelContribution(contribution) {
-		for _, family := range []string{"/api/identity/connections", "/api/identity/enrollments"} {
+		for _, family := range []string{"/api/identity/connections", "/api/identity/enrollments", "/api/identity/jev"} {
 			if path == family || strings.HasPrefix(path, family+"/") {
 				return true
 			}
@@ -277,6 +277,9 @@ func (s *API) registerExtensionProductRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("GET /api/environments/{id}/identity/connections", protect(s.apiIdentityAvailable, http.MethodGet))
 	mux.HandleFunc("POST /api/environments/{id}/identity/grants", protect(s.apiIdentityCreateGrant, http.MethodPost))
 	mux.HandleFunc("GET /api/identity/connections", protect(s.apiIdentityConnections, http.MethodGet))
+	mux.HandleFunc("GET /api/identity/jev", protect(s.apiJEVStatus, http.MethodGet))
+	mux.HandleFunc("POST /api/identity/jev", protect(s.apiJEVConnect, http.MethodPost))
+	mux.HandleFunc("POST /api/identity/jev/disconnect", protect(s.apiJEVDisconnect, http.MethodPost))
 	mux.HandleFunc("GET /api/identity/enrollments", protect(s.apiIdentityEnrollments, http.MethodGet))
 	mux.HandleFunc("POST /api/identity/enrollments", protect(s.apiIdentityStartEnrollment, http.MethodPost))
 	mux.HandleFunc("GET /api/identity/enrollments/{identityID}", protect(s.apiIdentityEnrollment, http.MethodGet))

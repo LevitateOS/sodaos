@@ -6,12 +6,18 @@ import (
 	extensions "forgejo.org/extension-sdk"
 	"github.com/levitateos/sodaos/internal/factory"
 	"github.com/levitateos/sodaos/internal/forgejo"
+	forgejopublish "github.com/levitateos/sodaos/internal/forgejo/publish"
 	"github.com/levitateos/sodaos/internal/store"
+	"net/http"
 	"strconv"
 )
 
 // Comment matching reads issue meaning from the native issue owner. Worker
 // summaries remain execution context and cannot substitute for an objective.
+// errCommentFactoryAccess: Factory's accounts cannot read this repository,
+// so its issues cannot be offered as routing options.
+var errCommentFactoryAccess = errors.New("Factory isn’t set up for this repository, so its issues can’t be read.")
+
 func (s *API) prepareCommentJudgeInput(ctx context.Context, in CommentJudgeInput) (CommentJudgeInput, error) {
 	var observer *forgejo.ServiceObserver
 	if s.Coordinator != nil {
@@ -44,8 +50,12 @@ func prepareNativeCommentInput(ctx context.Context, reader forgejo.SnapshotReade
 	cursor := ""
 	for {
 		page, err := reader.ReadSnapshot(ctx, credential, forgejo.SnapshotRequest{RepositoryID: repository, Families: []forgejo.SnapshotFamily{forgejo.FamilyRepositoryIssues}, Limit: 50, Cursor: cursor})
+		var status *forgejopublish.StatusError
+		if errors.As(err, &status) && (status.Status == http.StatusForbidden || status.Status == http.StatusNotFound) {
+			return in, errCommentFactoryAccess
+		}
 		if err != nil || page.RepositoryIssues == nil {
-			return in, errors.New("Could not read this project's issues. Assessment will need a retry.")
+			return in, errors.New("Could not read this project's issues yet. They are read again shortly.")
 		}
 		if err := forgejo.ValidateRepositoryIssuesPage(page.RepositoryIssues, repository, cursor); err != nil {
 			return in, err

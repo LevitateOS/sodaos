@@ -91,6 +91,7 @@ export interface CommentOutcomeModel {
 // each phase owns its words, its tone and whether JEV is actually working.
 export type CommentPhase =
   | 'stalled_jev'
+  | 'stalled_factory'
   | 'reading'
   | 'assess_failed'
   | 'exhausted'
@@ -110,7 +111,8 @@ export type CommentPhase =
 
 export function commentPhase(state: CommentPipelineState): CommentPhase {
   if (commentAttemptsExhausted(state)) return 'exhausted';
-  if (state.judgment === 'pending') return state.stalled === 'jev' ? 'stalled_jev' : 'reading';
+  if (state.judgment === 'pending')
+    return state.stalled === 'jev' ? 'stalled_jev' : state.stalled === 'factory' ? 'stalled_factory' : 'reading';
   if (state.judgment === 'failed') return 'assess_failed';
   switch (state.route) {
     case 'discussion':
@@ -134,6 +136,12 @@ const commentPhases: Readonly<
 > = {
   stalled_jev: {
     text: () => 'I’m not connected on this server yet, so I can’t read this. An administrator needs to connect JEV.',
+    tone: 'blocked',
+    working: false,
+  },
+  stalled_factory: {
+    text: () =>
+      'Factory isn’t set up for this repository, so I can’t see its issues to tell whether this is new work. Turn on Factory for it first.',
     tone: 'blocked',
     working: false,
   },
@@ -309,7 +317,7 @@ export function renderOutcome(outcome: CommentOutcomeModel, assetBase = ''): Tem
             )
           : ''
       }
-      ${outcome.detail ? html`<p>${outcome.detail}</p>` : ''}
+      ${outcome.detail && !outcome.phase?.startsWith('stalled') ? html`<p>${outcome.detail}</p>` : ''}
       ${
         productAction
           ? html`<button

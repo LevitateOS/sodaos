@@ -391,3 +391,9 @@ html[data-theme^="soda-"] body .soda-providers-dialog .soda-provider-refreshing:
 html[data-theme^="soda-"] body .soda-providers-dialog :focus-visible { outline: 2px solid var(--soda-page-focus); outline-offset: 2px; }
 html[data-theme^="soda-"] body .soda-providers-dialog h2:focus-visible { outline: none !important; }
 @media (max-width: 480px) { html[data-theme^="soda-"] body .soda-providers-dialog .soda-providers-head, html[data-theme^="soda-"] body .soda-providers-dialog .soda-providers-content { padding-inline: 16px; } }
+/* JEV connects with a TypeSafe key: one labelled password field and its action. */
+html[data-theme^="soda-"] body .soda-providers-dialog .soda-provider-key { display: grid; gap: 8px; margin: 0; }
+html[data-theme^="soda-"] body .soda-providers-dialog .soda-provider-key label { font: var(--soda-font-label); }
+html[data-theme^="soda-"] body .soda-providers-dialog .soda-provider-key-row { display: flex; gap: 8px; flex-wrap: wrap; }
+html[data-theme^="soda-"] body .soda-providers-dialog .soda-provider-key-row input { flex: 1 1 220px; min-width: 0; min-height: var(--soda-control-height); padding: 8px 12px; border: 1px solid var(--soda-page-edge); background: var(--soda-page-surface); color: var(--soda-page-text); font: var(--soda-font-body); }
+html[data-theme^="soda-"] body .soda-providers-dialog .soda-provider-key .soda-provider-hint { margin: 0; }

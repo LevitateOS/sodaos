@@ -186,3 +186,51 @@ export function settled(state: ProvidersState, provider: ProviderID): ProvidersS
   if (current.kind === 'disconnecting') return update(state, provider, {kind: 'disconnected', previous: true});
   return state;
 }
+
+/**
+ * JEV is connected once for the whole installation (by its operator) with a
+ * TypeSafe key, not by a device sign-in, so it has its own small machine.
+ */
+export type JevView =
+  | {kind: 'unknown'}
+  | {kind: 'disconnected'; canManage: boolean}
+  | {kind: 'checking'; since: number}
+  | {kind: 'connected'; canManage: boolean}
+  | {kind: 'disconnecting'}
+  | {kind: 'failed'; reason: string; canManage: boolean};
+
+export type JevEvent =
+  | {type: 'loaded'; connected: boolean; canManage: boolean}
+  | {type: 'load-failed'; reason: string}
+  | {type: 'connect-requested'; now: number}
+  | {type: 'connect-failed'; reason: string}
+  | {type: 'disconnect-requested'}
+  | {type: 'disconnect-failed'; reason: string}
+  | {type: 'dismissed'};
+
+function jevManager(view: JevView): boolean {
+  return 'canManage' in view ? view.canManage : true;
+}
+
+export function jevTransition(view: JevView, event: JevEvent): JevView {
+  switch (event.type) {
+    case 'loaded':
+      // A key check or disconnect in flight owns the card until it answers.
+      if (view.kind === 'checking' || view.kind === 'disconnecting') return view;
+      return event.connected
+        ? {kind: 'connected', canManage: event.canManage}
+        : {kind: 'disconnected', canManage: event.canManage};
+    case 'load-failed':
+      return view.kind === 'unknown' ? {kind: 'failed', reason: event.reason, canManage: false} : view;
+    case 'connect-requested':
+      return {kind: 'checking', since: event.now};
+    case 'connect-failed':
+      return {kind: 'failed', reason: event.reason, canManage: true};
+    case 'disconnect-requested':
+      return view.kind === 'connected' ? {kind: 'disconnecting'} : view;
+    case 'disconnect-failed':
+      return {kind: 'failed', reason: event.reason, canManage: true};
+    case 'dismissed':
+      return view.kind === 'failed' ? {kind: 'disconnected', canManage: jevManager(view)} : view;
+  }
+}

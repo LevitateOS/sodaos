@@ -82,6 +82,8 @@ func (s *API) feedCommentWithProduct(r *http.Request, v store.Session, detail st
 	if !detail.Record.Deleted && !detail.Record.Revoked {
 		if stalled := commentStalled(pipe, s.commentCollaborators()); stalled != "" {
 			response["stalled"] = stalled
+		} else if stall, err := s.Store.CommentStall(r.Context(), detail.Record.ID); err == nil && stall != "" && pipe.AdmitCommentJudgment() {
+			response["stalled"] = stall
 		}
 	}
 	if view, err := s.Store.CommentProductChange(r.Context(), detail, pipe, v.User.ID); err == nil && view != nil {

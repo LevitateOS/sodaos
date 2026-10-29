@@ -8,12 +8,13 @@ import {providersChangedEvent} from './soda-providers-events.js';
 import {
   hasClock,
   initialProvidersState,
+  jevTransition,
   needsPolling,
   providerIDs,
   settled,
   transition,
 } from './soda-providers-machine.js';
-import type {ProviderView, ProvidersEvent, ProvidersState} from './soda-providers-machine.js';
+import type {JevEvent, JevView, ProviderView, ProvidersEvent, ProvidersState} from './soda-providers-machine.js';
 
 const providerInfo: Record<ProviderID, {name: string; plan: string}> = {
   codex: {name: 'Codex', plan: 'OpenAI Codex with your ChatGPT plan'},
@@ -33,9 +34,11 @@ function seconds(since: number, now: number): string {
 export class SodaProviders extends LitElement {
   static properties = {
     machine: {state: true},
+    jev: {state: true},
     copied: {state: true},
   };
   declare private machine: ProvidersState;
+  declare private jev: JevView;
   declare private copied: ProviderID | '';
   private current: PreparedExtensionMount | undefined;
   /** Bumped whenever the transport changes; late replies from an older one are ignored. */
@@ -49,6 +52,7 @@ export class SodaProviders extends LitElement {
   constructor() {
     super();
     this.machine = initialProvidersState();
+    this.jev = {kind: 'unknown'};
     this.copied = '';
   }
 
@@ -68,6 +72,7 @@ export class SodaProviders extends LitElement {
     this.current = value;
     this.reading = undefined;
     this.dispatch({type: 'reset'});
+    this.jev = {kind: 'unknown'};
     if (!value) this.dialog()?.close();
     // Read in the background so opening the dialog shows status at once.
     else void this.refresh();
@@ -95,6 +100,10 @@ export class SodaProviders extends LitElement {
 
   private dialog() {
     return this.querySelector<HTMLDialogElement>('dialog.soda-providers-dialog');
+  }
+
+  private jevDispatch(event: JevEvent) {
+    this.jev = jevTransition(this.jev, event);
   }
 
   private dispatch(event: ProvidersEvent) {
@@ -160,12 +169,15 @@ export class SodaProviders extends LitElement {
     this.dispatch({type: 'load-started'});
     this.reading = (async () => {
       try {
+        // JEV's status is read alongside; its own failure stays on its card.
+        const jev = this.readJev(serial);
         const [enrollments, connections] = await Promise.all([
           this.request('identity/enrollments').then((value) => items(value, enrollmentView)),
           this.request('identity/connections').then((value) => items(value, availableConnectionView)),
         ]);
         this.dispatch({type: 'loaded', enrollments, connections, now: Date.now()});
         this.announce(connections);
+        await jev;
       } catch (error) {
         if (!(error instanceof Superseded) && serial === this.serial)
           this.dispatch({type: 'load-failed', reason: this.reason(error, 'Could not read your AI accounts.')});
@@ -174,6 +186,155 @@ export class SodaProviders extends LitElement {
       }
     })();
     return this.reading;
+  }
+
+  private async readJev(serial: number) {
+    try {
+      const status = (await this.request('identity/jev')) as {connected?: unknown; can_manage?: unknown};
+      if (serial === this.serial)
+        this.jevDispatch({type: 'loaded', connected: status.connected === true, canManage: status.can_manage === true});
+    } catch (error) {
+      if (!(error instanceof Superseded) && serial === this.serial)
+        this.jevDispatch({type: 'load-failed', reason: this.reason(error, 'Could not read the JEV connection.')});
+    }
+  }
+
+  private async connectJev(event: SubmitEvent) {
+    event.preventDefault();
+    const form = event.currentTarget as HTMLFormElement;
+    const input = form.elements.namedItem('key') as HTMLInputElement | null;
+    const key = input?.value.trim() ?? '';
+    if (!key) return;
+    const serial = this.serial;
+    this.jevDispatch({type: 'connect-requested', now: Date.now()});
+    try {
+      // Checking the key makes one small JEV call.
+      await this.request('identity/jev', {key}, startTimeoutMs);
+      if (input) input.value = '';
+      if (serial !== this.serial) return;
+      this.jev = {kind: 'connected', canManage: true};
+      document.dispatchEvent(new CustomEvent(providersChangedEvent));
+    } catch (error) {
+      if (!(error instanceof Superseded) && serial === this.serial)
+        this.jevDispatch({
+          type: 'connect-failed',
+          reason: this.reason(error, 'JEV could not be connected. Try again.'),
+        });
+    }
+  }
+
+  private async disconnectJev() {
+    const serial = this.serial;
+    this.jevDispatch({type: 'disconnect-requested'});
+    try {
+      await this.request('identity/jev/disconnect', {});
+      if (serial !== this.serial) return;
+      this.jev = {kind: 'disconnected', canManage: true};
+      document.dispatchEvent(new CustomEvent(providersChangedEvent));
+    } catch (error) {
+      if (!(error instanceof Superseded) && serial === this.serial)
+        this.jevDispatch({type: 'disconnect-failed', reason: this.reason(error, 'JEV could not be disconnected.')});
+    }
+  }
+
+  private jevStatus(): {label: string; tone: string} {
+    switch (this.jev.kind) {
+      case 'unknown':
+        return {label: 'Checking…', tone: 'quiet'};
+      case 'disconnected':
+        return {label: 'Not connected', tone: 'quiet'};
+      case 'checking':
+        return {label: 'Checking key…', tone: 'busy'};
+      case 'connected':
+        return {label: 'Connected', tone: 'good'};
+      case 'disconnecting':
+        return {label: 'Disconnecting…', tone: 'busy'};
+      case 'failed':
+        return {label: 'Needs attention', tone: 'bad'};
+    }
+  }
+
+  private jevForm() {
+    return html`<form class="soda-provider-key" @submit=${(event: SubmitEvent) => this.connectJev(event)}>
+      <label for="soda-jev-key">TypeSafe API key</label>
+      <span class="soda-provider-key-row">
+        <input
+          id="soda-jev-key"
+          name="key"
+          type="password"
+          autocomplete="off"
+          spellcheck="false"
+          required
+          placeholder="Paste your key"
+        />
+        <button type="submit" class="ui primary button">Connect JEV</button>
+      </span>
+      <p class="soda-provider-hint">
+        Get a key on
+        <a href="https://typesafe.ai" target="_blank" rel="noopener noreferrer">typesafe.ai</a>. SodaOS checks it with
+        one small JEV question, then keeps it on this server only.
+      </p>
+    </form>`;
+  }
+
+  private jevBody(now: number): TemplateResult | typeof nothing {
+    const view = this.jev;
+    switch (view.kind) {
+      case 'unknown':
+        return nothing;
+      case 'disconnected':
+        return view.canManage
+          ? this.jevForm()
+          : html`<p class="soda-provider-hint">
+              JEV isn’t connected on this server. Ask the installation operator to connect it.
+            </p>`;
+      case 'checking':
+        return html`<div class="soda-provider-progress" role="status">
+          <span class="soda-provider-spinner" aria-hidden="true"></span>
+          <div>
+            <p><strong>Checking your key with JEV</strong> · ${seconds(view.since, now)}</p>
+            <p class="soda-provider-hint">This asks JEV one small question and usually takes a few seconds.</p>
+          </div>
+        </div>`;
+      case 'connected':
+      case 'disconnecting': {
+        const busy = view.kind === 'disconnecting';
+        return html`<p class="soda-provider-account">Connected for this whole installation</p>
+          ${
+            view.kind === 'disconnecting' || view.canManage
+              ? html`<details class="soda-provider-manage">
+                  <summary>Disconnect</summary>
+                  <p>Factory stops routing posts and choosing work with JEV until it is connected again.</p>
+                  <button
+                    type="button"
+                    class="ui red basic button"
+                    ?disabled=${busy}
+                    @click=${() => this.disconnectJev()}
+                  >
+                    ${busy ? 'Disconnecting…' : 'Disconnect JEV'}
+                  </button>
+                </details>`
+              : nothing
+          }`;
+      }
+      case 'failed':
+        return html`<p class="soda-provider-error" role="alert">${view.reason}</p>
+          ${view.canManage ? this.jevForm() : nothing}`;
+    }
+  }
+
+  private jevCard(now: number) {
+    const status = this.jevStatus();
+    return html`<li class="soda-provider-card" data-state=${this.jev.kind} data-provider="jev">
+      <div class="soda-provider-head">
+        <div>
+          <h3>JEV</h3>
+          <p class="soda-provider-hint">TypeSafe System One · routes posts and makes Factory’s choices</p>
+        </div>
+        <span class="soda-provider-pill" data-tone=${status.tone}>${status.label}</span>
+      </div>
+      ${this.jevBody(now)}
+    </li>`;
   }
 
   private announce(connections: Connection[]) {
@@ -422,7 +583,7 @@ export class SodaProviders extends LitElement {
           <div>
             <h2 id="soda-providers-title" tabindex="-1">AI accounts</h2>
             <p class="soda-provider-intro">
-              Connect a subscription so Factory and your terminals can use it. You sign in on the provider’s own page.
+              Connect a subscription so Factory and your terminals can use it, and JEV so Factory can make its choices.
             </p>
           </div>
           <button type="button" class="soda-providers-close" aria-label="Close" @click=${() => this.dialog()?.close()}>
@@ -434,7 +595,7 @@ export class SodaProviders extends LitElement {
         <div class="soda-providers-content">
           ${this.loadNotice()}
           <ul class="soda-provider-cards">
-            ${providerIDs.map((provider) => this.card(provider, now))}
+            ${providerIDs.map((provider) => this.card(provider, now))} ${this.jevCard(now)}
           </ul>
         </div>
       </dialog>`;

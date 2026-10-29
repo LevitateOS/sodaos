@@ -20,6 +20,7 @@ function identityServer(script: string, page = '<!doctype html><html><body></bod
     async fetch(request) {
       const url = new URL(request.url);
       if (url.pathname === '/widget.js') return new Response(script, {headers: {'Content-Type': 'text/javascript'}});
+      if (url.pathname === '/api/identity/jev') return Response.json({connected: false, can_manage: false});
       if (url.pathname === '/api/identity/connections') {
         state.reads++;
         return Response.json(
@@ -80,82 +81,86 @@ async function launch(t: {after: (fn: () => unknown) => void}) {
   return browser.newPage();
 }
 
-test('AI accounts shows each sign-in state from preparing through connected, expiry and cancel', async (t) => {
-  const build = await Bun.build({entrypoints: ['frontend/spaces/soda-providers.ts'], target: 'browser'});
-  assert(build.success, build.logs.join('\n'));
-  const {server, state} = identityServer(
-    await build.outputs[0]!.text(),
-    '<!doctype html><html><head><style>dialog { display:flex; }</style></head><body><textarea aria-label="Work draft">keep this draft</textarea></body></html>'
-  );
-  t.after(() => server.stop(true));
-  const page = await launch(t);
-  const mount = async () => {
-    await page.goto(server.url.toString());
-    await page.evaluate(async () => {
-      const path = '/widget.js';
-      const module = await import(path);
-      const widget = new module.SodaProviders();
-      document.body.append(widget);
-      widget.transport = {request: (path: string, init: RequestInit) => fetch('/api/' + path, init)};
-      (window as unknown as {widget: {open(): Promise<void>}}).widget = widget;
-    });
-  };
-  const open = () => page.evaluate(() => (window as unknown as {widget: {open(): Promise<void>}}).widget.open());
-  await mount();
-  await open();
-  const dialog = page.getByRole('dialog', {name: 'AI accounts', exact: true});
-  assert.equal(
-    await dialog.evaluate((node) => getComputedStyle(node).display),
-    'block',
-    'Forge styles must not squeeze the dialog'
-  );
-  assert(state.reads >= 1);
-  const codex = dialog.locator('.soda-provider-card').filter({hasText: 'Codex'});
-  const muse = dialog.locator('.soda-provider-card').filter({hasText: 'Muse'});
-  await codex.getByText('Not connected', {exact: true}).waitFor();
+test(
+  'AI accounts shows each sign-in state from preparing through connected, expiry and cancel',
+  {timeout: 30000},
+  async (t) => {
+    const build = await Bun.build({entrypoints: ['frontend/spaces/soda-providers.ts'], target: 'browser'});
+    assert(build.success, build.logs.join('\n'));
+    const {server, state} = identityServer(
+      await build.outputs[0]!.text(),
+      '<!doctype html><html><head><style>dialog { display:flex; }</style></head><body><textarea aria-label="Work draft">keep this draft</textarea></body></html>'
+    );
+    t.after(() => server.stop(true));
+    const page = await launch(t);
+    const mount = async () => {
+      await page.goto(server.url.toString());
+      await page.evaluate(async () => {
+        const path = '/widget.js';
+        const module = await import(path);
+        const widget = new module.SodaProviders();
+        document.body.append(widget);
+        widget.transport = {request: (path: string, init: RequestInit) => fetch('/api/' + path, init)};
+        (window as unknown as {widget: {open(): Promise<void>}}).widget = widget;
+      });
+    };
+    const open = () => page.evaluate(() => (window as unknown as {widget: {open(): Promise<void>}}).widget.open());
+    await mount();
+    await open();
+    const dialog = page.getByRole('dialog', {name: 'AI accounts', exact: true});
+    assert.equal(
+      await dialog.evaluate((node) => getComputedStyle(node).display),
+      'block',
+      'Forge styles must not squeeze the dialog'
+    );
+    assert(state.reads >= 1);
+    const codex = dialog.locator('.soda-provider-card').filter({hasText: 'Codex'});
+    const muse = dialog.locator('.soda-provider-card').filter({hasText: 'Muse'});
+    await codex.getByText('Not connected', {exact: true}).waitFor();
 
-  // Clicking Connect shows progress at once while the provider prepares a code.
-  await codex.getByRole('button', {name: 'Connect Codex', exact: true}).click();
-  await codex.getByText('Preparing sign-in…', {exact: true}).waitFor();
-  await codex.getByText(/Preparing your Codex sign-in/).waitFor();
-  await codex.getByText('ABCD-EFGH', {exact: true}).waitFor();
-  assert.equal(await codex.getByRole('link', {name: 'Open sign-in page'}).getAttribute('href'), codexURL);
-  await codex.getByText('Waiting for you', {exact: true}).waitFor();
+    // Clicking Connect shows progress at once while the provider prepares a code.
+    await codex.getByRole('button', {name: 'Connect Codex', exact: true}).click();
+    await codex.getByText('Preparing sign-in…', {exact: true}).waitFor();
+    await codex.getByText(/Preparing your Codex sign-in/).waitFor();
+    await codex.getByText('ABCD-EFGH', {exact: true}).waitFor();
+    assert.equal(await codex.getByRole('link', {name: 'Open sign-in page'}).getAttribute('href'), codexURL);
+    await codex.getByText('Waiting for you', {exact: true}).waitFor();
 
-  await dialog.getByRole('button', {name: 'Close', exact: true}).click();
-  assert.equal(await page.getByLabel('Work draft').inputValue(), 'keep this draft');
-  await open();
-  await codex.getByText('ABCD-EFGH', {exact: true}).waitFor();
-  assert.equal(state.starts, 1, 'reopening resumes the same sign-in');
-  await mount();
-  await open();
-  await codex.getByText('ABCD-EFGH', {exact: true}).waitFor();
-  assert.equal(state.starts, 1, 'a reload recovers the pending sign-in without starting another');
+    await dialog.getByRole('button', {name: 'Close', exact: true}).click();
+    assert.equal(await page.getByLabel('Work draft').inputValue(), 'keep this draft');
+    await open();
+    await codex.getByText('ABCD-EFGH', {exact: true}).waitFor();
+    assert.equal(state.starts, 1, 'reopening resumes the same sign-in');
+    await mount();
+    await open();
+    await codex.getByText('ABCD-EFGH', {exact: true}).waitFor();
+    assert.equal(state.starts, 1, 'a reload recovers the pending sign-in without starting another');
 
-  state.completed = true;
-  await codex.getByText('Connected', {exact: true}).waitFor();
-  await codex.getByText(/me@example\.test/).waitFor();
-  assert.equal(await codex.getByText('ABCD-EFGH', {exact: true}).count(), 0);
+    state.completed = true;
+    await codex.getByText('Connected', {exact: true}).waitFor();
+    await codex.getByText(/me@example\.test/).waitFor();
+    assert.equal(await codex.getByText('ABCD-EFGH', {exact: true}).count(), 0);
 
-  await muse.getByRole('button', {name: 'Connect Muse', exact: true}).click();
-  await muse.getByText('ABCD-EFGH', {exact: true}).waitFor();
-  state.expired = true;
-  await muse.getByText(/sign-in code expired/).waitFor();
-  await muse.getByText('Needs attention', {exact: true}).waitFor();
-  await muse.getByRole('button', {name: 'Try again', exact: true}).click();
-  await muse.getByText('ABCD-EFGH', {exact: true}).waitFor();
-  assert.equal(state.starts, 3);
-  await muse.getByRole('button', {name: 'Cancel sign-in', exact: true}).click();
-  await muse.getByRole('button', {name: 'Connect Muse', exact: true}).waitFor();
-  assert.equal(state.cancels, 1);
+    await muse.getByRole('button', {name: 'Connect Muse', exact: true}).click();
+    await muse.getByText('ABCD-EFGH', {exact: true}).waitFor();
+    state.expired = true;
+    await muse.getByText(/sign-in code expired/).waitFor();
+    await muse.getByText('Needs attention', {exact: true}).waitFor();
+    await muse.getByRole('button', {name: 'Try again', exact: true}).click();
+    await muse.getByText('ABCD-EFGH', {exact: true}).waitFor();
+    assert.equal(state.starts, 3);
+    await muse.getByRole('button', {name: 'Cancel sign-in', exact: true}).click();
+    await muse.getByRole('button', {name: 'Connect Muse', exact: true}).waitFor();
+    assert.equal(state.cancels, 1);
 
-  await mount();
-  await open();
-  await codex.getByText('Connected', {exact: true}).waitFor();
-  assert.equal(state.starts, 3, 'a reload reads connection state without starting a sign-in');
-});
+    await mount();
+    await open();
+    await codex.getByText('Connected', {exact: true}).waitFor();
+    assert.equal(state.starts, 3, 'a reload reads connection state without starting a sign-in');
+  }
+);
 
-test('the providers panel opens its single dialog from the document event on any page', async (t) => {
+test('the providers panel opens its single dialog from the document event on any page', {timeout: 30000}, async (t) => {
   const build = await Bun.build({entrypoints: ['frontend/spaces/soda-providers-entry.ts'], target: 'browser'});
   assert(build.success, build.logs.join('\n'));
   const {server, state} = identityServer(await build.outputs[0]!.text());

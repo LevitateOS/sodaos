@@ -502,7 +502,7 @@ func commentBodyFor(detail store.FeedCommentDetail) string {
 // stages wait in pending.
 func (s *API) commentCollaborators() *CommentCollaborators {
 	wired := &CommentCollaborators{}
-	if s.Config.TypeSafeAPIKeyFile != "" {
+	if s.jevConnected() {
 		wired.Judge = &TypeSafeCommentJudge{Priority: &control.TypeSafePriority{
 			APIKeyFile: s.Config.TypeSafeAPIKeyFile, Model: s.Config.TypeSafeModel,
 		}}
@@ -523,6 +523,8 @@ const (
 	commentStalledJEV         = "jev"
 	commentStalledProductLead = "product_lead"
 	commentStalledForge       = "forge"
+	// commentStalledFactory: Factory has no access to the repository.
+	commentStalledFactory = "factory"
 )
 
 // commentStalled names the collaborator the request is waiting for, or ""
@@ -752,17 +754,26 @@ func applyCommentJudgment(ctx context.Context, st *store.Store, pipe factory.Com
 // the answer on the request row. A failed call retries on a later pass,
 // bounded by the attempt count.
 func driveCommentJudgment(ctx context.Context, st *store.Store, wired *CommentCollaborators, pipe factory.CommentPipeline, detail store.FeedCommentDetail) (bool, error) {
+	// Gathering context reads this server and Forge only; a failure there
+	// (Forge restarting, say) spends no JEV attempt. The request waits
+	// with the reason visible and the next pass reads again.
 	input, err := collectCommentJudgeInput(ctx, st, detail)
 	if err != nil {
-		_ = st.NoteCommentProgress(ctx, pipe.Comment, "The original request context could not be read. Refresh the project and retry assessment.")
-		return false, noteCommentFailure(ctx, st, pipe, true)
+		_ = st.NoteCommentProgress(ctx, pipe.Comment, "The original request context could not be read yet. It is read again shortly.")
+		return false, nil
 	}
 	if wired.Prepare != nil {
 		if input, err = wired.Prepare(ctx, input); err != nil {
 			_ = st.NoteCommentProgress(ctx, pipe.Comment, err.Error())
-			return false, noteCommentFailure(ctx, st, pipe, true)
+			stall := ""
+			if errors.Is(err, errCommentFactoryAccess) {
+				stall = commentStalledFactory
+			}
+			_ = st.NoteCommentStall(ctx, pipe.Comment, stall)
+			return false, nil
 		}
 	}
+	_ = st.NoteCommentStall(ctx, pipe.Comment, "")
 	judgment, err := wired.Judge.JudgeComment(ctx, input)
 	if err != nil {
 		_ = st.NoteCommentProgress(ctx, pipe.Comment, "JEV could not assess this request. Check the System One connection and retry assessment.")

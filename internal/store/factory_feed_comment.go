@@ -674,6 +674,19 @@ func (s *Store) CommentRouting(ctx context.Context, id string) (*factory.Comment
 	return &routing, nil
 }
 
+// NoteCommentStall records why a request cannot move on its own (empty clears).
+func (s *Store) NoteCommentStall(ctx context.Context, id, reason string) error {
+	_, err := s.db.ExecContext(ctx, `UPDATE factory_feed_comment_requests
+		SET data=CASE WHEN $2='' THEN data - 'stalled' ELSE data || jsonb_build_object('stalled',$2::text) END WHERE comment=$1`, id, reason)
+	return err
+}
+
+func (s *Store) CommentStall(ctx context.Context, id string) (string, error) {
+	var reason string
+	err := s.db.QueryRowContext(ctx, `SELECT COALESCE(data->>'stalled','') FROM factory_feed_comment_requests WHERE comment=$1`, id).Scan(&reason)
+	return reason, err
+}
+
 func (s *Store) CommentProgress(ctx context.Context, id string) (string, error) {
 	var detail string
 	err := s.db.QueryRowContext(ctx, `SELECT COALESCE(data->>'detail','') FROM factory_feed_comment_requests WHERE comment=$1`, id).Scan(&detail)

@@ -243,6 +243,10 @@ func validateConfigPaths(c Config) error {
 	return validateBackgroundService(c)
 }
 
+// DefaultTypeSafeKeyFile is where the installation's JEV (TypeSafe) key lives
+// once an operator connects JEV.
+const DefaultTypeSafeKeyFile = "/etc/soda/factory/typesafe.key"
+
 func Load(path string) (Config, error) {
 	c, err := decodeConfig(path)
 	if err != nil {
@@ -256,6 +260,10 @@ func Load(path string) (Config, error) {
 	}
 	if c.IdentitySocket == "" {
 		c.IdentitySocket = "/run/soda/identity/admin.sock"
+	}
+	// JEV is connected from the AI accounts dialog, which saves the key here.
+	if c.TypeSafeAPIKeyFile == "" {
+		c.TypeSafeAPIKeyFile = DefaultTypeSafeKeyFile
 	}
 	if err = validateConfigPaths(c); err != nil {
 		return c, err
