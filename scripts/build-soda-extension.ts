@@ -83,10 +83,11 @@ async function checkManifestEntries(manifestFile: string, entries: Record<string
     pages: Array<{entry: string}>;
     panels: Array<{entry: string}>;
   };
-  // One shared Workspace owner (NFX-D02/H-OWNER) declares the same entry
-  // for its page and panel, so manifest entries are compared as a set.
-  const declared = [...new Set([...manifest.pages, ...(manifest.panels || [])].map((item) => item.entry))];
-  assert.deepEqual(declared.sort(), Object.keys(entries).sort(), 'Soda manifest entries and browser source differ');
+  // Several pages may share one entry, so manifest entries are compared as a
+  // set. The retired Workspace entry stays in the package unreferenced (SPEC M22).
+  const declared = new Set([...manifest.pages, ...(manifest.panels || [])].map((item) => item.entry));
+  const built = Object.keys(entries).filter((entry) => declared.has(entry) || entry !== 'soda-spaces-entry.js');
+  assert.deepEqual([...declared].sort(), built.sort(), 'Soda manifest entries and browser source differ');
 }
 
 async function buildScripts(assets: string, entries: Record<string, string>, track: PlacesTrack) {

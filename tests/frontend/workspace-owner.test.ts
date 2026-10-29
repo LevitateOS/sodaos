@@ -5,23 +5,12 @@ import {setupWorkspaceDriver, fixture, openSession} from './fixtures/workspace-d
 
 setupWorkspaceDriver();
 
-test('Workspace declares one shared owner with one entry and declared subroutes', async () => {
+test('the manifest declares no global Workspace page or panel', async () => {
   const manifest = JSON.parse(
     await readFile(new URL('../../system/containers/extension/extension.json', import.meta.url), 'utf8')
-  ) as {
-    pages: Array<{id: string; entry: string; owner?: string; subroutes?: Array<{pattern: string; title?: string}>}>;
-    panels: Array<{id: string; entry: string; owner?: string}>;
-  };
-  const page = manifest.pages.find((item) => item.id === 'spaces');
-  const panel = manifest.panels.find((item) => item.id === 'workspace');
-  assert(page && panel, 'Workspace page and panel are declared');
-  assert.equal(page.owner, 'workspace');
-  assert.equal(panel.owner, 'workspace');
-  assert.equal(page.entry, panel.entry, 'shared owner uses one entry');
-  assert.deepEqual(
-    page.subroutes?.map((route) => route.pattern),
-    ['new', 'requests/{request}']
-  );
+  ) as {pages: Array<{id: string; title: string}>; panels?: unknown[]};
+  assert(!manifest.pages.some((page) => page.id === 'spaces' || page.title === 'Workspace'));
+  assert.equal(manifest.panels, undefined);
 });
 
 test('shared Workspace entry returns a real MountHandle without host-ancestor workarounds', async () => {

@@ -33,20 +33,15 @@ func stageBinary(t *testing.T) string {
 	return CargoBinary(t, "soda-release-assets", "soda-stage", "--bin", "soda-stage")
 }
 
-func TestSodaspacesSpacesEntryIsPackagedByTheExtension(t *testing.T) {
+func TestSodaspacesManifestDeclaresNoWorkspace(t *testing.T) {
 	extension := ReadJSON(t, "system/containers/extension/extension.json").(map[string]any)
 	manifest := payloadFiles(t)
-	var spaces map[string]any
 	for _, entry := range extension["pages"].([]any) {
 		page := entry.(map[string]any)
-		if page["id"] == "spaces" {
-			spaces = page
-		}
+		Check(t, page["id"] != "spaces" && page["title"] != "Workspace", "Workspace page declared: %v", page)
 	}
-	Require(t, spaces != nil, "spaces page missing")
-	Check(t, spaces["entry"] == "soda-spaces-entry.js", "entry = %v", spaces["entry"])
-	info, err := os.Stat(filepath.Join(RepoRoot, "frontend/spaces/soda-spaces-entry.ts"))
-	Check(t, err == nil && !info.IsDir(), "spaces entry missing")
+	_, panels := extension["panels"]
+	Check(t, !panels, "panels declared: %v", extension["panels"])
 	_, present := manifest["public/assets/sodaspaces.js"]
 	Check(t, !present, "retired sodaspaces.js in manifest")
 	_, present = manifest["public/assets/soda-spaces-entry.js"]
