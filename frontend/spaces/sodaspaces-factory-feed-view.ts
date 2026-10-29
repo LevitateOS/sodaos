@@ -32,6 +32,8 @@ export interface FeedRepositoryRef {
   readonly label: string;
   /** The repository's SodaOS places, when its owner/repo name is known. */
   readonly places?: SodaPlaces;
+  /** Shown inside this repository's own feed. */
+  readonly current?: boolean;
 }
 
 export type FeedCardType = 'work' | 'message' | 'event' | 'comment';
@@ -222,34 +224,80 @@ export interface ComposerModel {
   readonly collapsed?: boolean;
 }
 
-export function renderComposer(model: ComposerModel): TemplateResult {
-  const project = model.label === 'Comment';
-  return html`<section aria-label="Discussion">
+// Ctrl/Cmd+Enter posts from any composer.
+function submitShortcut(event: KeyboardEvent) {
+  if (event.key !== 'Enter' || !(event.ctrlKey || event.metaKey) || !(event.target instanceof HTMLElement)) return;
+  const button = event.target
+    .closest('section[aria-label=Discussion]')
+    ?.querySelector<HTMLButtonElement>('button[data-comment-submit]');
+  if (!button || button.disabled) return;
+  event.preventDefault();
+  button.click();
+}
+
+// The repository request box: one card holding the text and its Post action.
+function renderRequestComposer(model: ComposerModel): TemplateResult {
+  const open = !model.collapsed;
+  return html`<section aria-label="Discussion" class="soda-feed-composer" data-open=${open ? 'true' : 'false'}>
     <label
-      >${model.compact || project ? html`<span class="soda-visually-hidden">${model.label ?? 'Reply draft'}</span>` : (model.label ?? 'Reply draft')}
+      ><span class="soda-visually-hidden">${model.label ?? 'Comment'}</span>
       <textarea
         name="reply"
         data-feed-draft=${model.key}
-        rows=${model.compact || model.collapsed ? '1' : '3'}
+        rows=${open ? '3' : '1'}
         maxlength="4000"
-        placeholder=${project ? 'What do you want built or changed? Or ask a question.' : 'Write a reply…'}
+        placeholder="Ask for a change, report a problem, or ask a question…"
         .value=${live(model.draft)}
+        @keydown=${submitShortcut}
       ></textarea>
     </label>
-    ${model.collapsed ? '' : html`<p class="soda-feed-compose-actions">
+    <div class="soda-feed-composer-foot">
+      <span class="soda-feed-compose-hint">JEV turns it into new work, feedback on an issue, or a discussion.</span>
       <button
         type="button"
         class="ui primary button"
         data-comment-submit=${model.key}
         .disabled=${live(!model.submitAvailable)}
-        title="Submit persists the comment and starts its JEV assessment."
+        title="Post (Ctrl+Enter)"
       >
-        ${model.submitLabel ?? (model.compact ? 'Post' : 'Submit reply')}
+        ${model.submitLabel ?? 'Post'}
       </button>
-      ${project ? html`<span class="soda-feed-compose-hint">JEV reads your post and routes it: new work, feedback on an existing issue, or discussion.</span>` : ''}
-      ${model.discussionLink ? html`<a href=${model.discussionLink}>Open issue discussion</a>` : ''}
-      ${model.discussionFactoryStatus ? html`<a href=${model.discussionFactoryStatus}>Factory status</a>` : ''}
-    </p>`}
+    </div>
+  </section>`;
+}
+
+export function renderComposer(model: ComposerModel): TemplateResult {
+  if (model.label === 'Comment') return renderRequestComposer(model);
+  return html`<section aria-label="Discussion">
+    <label
+      >${model.compact ? html`<span class="soda-visually-hidden">${model.label ?? 'Reply draft'}</span>` : (model.label ?? 'Reply draft')}
+      <textarea
+        name="reply"
+        data-feed-draft=${model.key}
+        rows=${model.compact || model.collapsed ? '1' : '3'}
+        maxlength="4000"
+        placeholder="Write a reply…"
+        .value=${live(model.draft)}
+        @keydown=${submitShortcut}
+      ></textarea>
+    </label>
+    ${
+      model.collapsed
+        ? ''
+        : html`<p class="soda-feed-compose-actions">
+            <button
+              type="button"
+              class="ui primary button"
+              data-comment-submit=${model.key}
+              .disabled=${live(!model.submitAvailable)}
+              title="Post (Ctrl+Enter)"
+            >
+              ${model.submitLabel ?? (model.compact ? 'Post' : 'Submit reply')}
+            </button>
+            ${model.discussionLink ? html`<a href=${model.discussionLink}>Open issue discussion</a>` : ''}
+            ${model.discussionFactoryStatus ? html`<a href=${model.discussionFactoryStatus}>Factory status</a>` : ''}
+          </p>`
+    }
   </section>`;
 }
 
@@ -304,11 +352,12 @@ export interface FeedPostModel {
 
 function sourceLinks(entry: FeedEntry, repository: FeedRepositoryRef): {label: string; href: string}[] {
   if (repository.path === undefined) return [];
-  const links = [{label: `Open ${repository.label}`, href: repository.path}];
+  const links = repository.current ? [] : [{label: `Open ${repository.label}`, href: repository.path}];
   const issue = entry.issue ? nativeIssueLink(repository.path, String(entry.issue)) : undefined;
   if (issue) {
     links.push({label: `Open issue #${entry.issue}`, href: issue});
-    if (repository.places && entry.issue) links.push({label: 'Factory status', href: repository.places.factoryStatus(entry.issue)});
+    if (repository.places && entry.issue)
+      links.push({label: 'Factory status', href: repository.places.factoryStatus(entry.issue)});
   }
   const pull = entry.pr ? nativePullLink(repository.path, String(entry.pr)) : undefined;
   if (pull) links.push({label: `Open pull request #${entry.pr}`, href: pull});
@@ -342,7 +391,8 @@ export function describeFeedPost(
     name,
     role,
     avatarFile: feedRolePortraits[role],
-    project: entry.project ?? repository.label,
+    // Inside a repository's own feed its name is implied.
+    project: repository.current ? '' : (entry.project ?? repository.label),
     timeText: entry.at ? formatStamp(entry.at) : `recorded order #${entry.seq}, newest first`,
     pill: type === 'comment' ? 'Comment' : feedStateWords[state],
     headline: line.headline,
@@ -574,7 +624,7 @@ function renderByline(model: FeedPostModel, assetBase: string): TemplateResult {
       <strong>${model.name}</strong
       >${model.role !== model.name ? html`<span class="soda-feed-by-role"> · ${model.role}</span>` : ''}
       <span class="soda-feed-by-meta"
-        >${model.workItem ?? model.project}<i>·</i>${changed}${model.timeText}${
+        >${(model.workItem ?? model.project) ? html`${model.workItem ?? model.project}<i>·</i>` : ''}${changed}${model.timeText}${
           model.thread?.from
             ? html`<i>·</i
                 ><a href=${'#feed-' + model.thread.from.key.replace(':', '-')}>from ${model.thread.from.label}</a>`
@@ -624,14 +674,19 @@ export function renderFeedPost(
     ${renderByline(model, assetBase)}
     <div class="soda-feed-stack">
       <div class="soda-feed-card" data-state=${model.state}>
-        <div class="soda-feed-hgroup">
-          <p class="soda-feed-hl">
-            <span class="soda-feed-status soda-feed-pill" data-state=${model.state}
-              >${icon(stateIcons[model.state])}${model.pill}</span
-            >${comment ? '' : model.headline}
-          </p>
-          ${model.detail && !comment ? html`<p class="soda-feed-dt">${model.detail}</p>` : ''}
-        </div>
+        ${
+          // A comment's byline already says so: no pill or headline row.
+          comment
+            ? ''
+            : html`<div class="soda-feed-hgroup">
+                <p class="soda-feed-hl">
+                  <span class="soda-feed-status soda-feed-pill" data-state=${model.state}
+                    >${icon(stateIcons[model.state])}${model.pill}</span
+                  >${model.headline}
+                </p>
+                ${model.detail ? html`<p class="soda-feed-dt">${model.detail}</p>` : ''}
+              </div>`
+        }
         ${renderCardContent(model, request, links)}
         ${
           comment

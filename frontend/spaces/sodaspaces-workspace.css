@@ -1198,3 +1198,51 @@ html[data-theme^="soda-"] body .soda-repository-header .ui.button:not(.disabled)
 @media (prefers-reduced-motion: reduce) { .soda-toast { animation: none; } }
 .soda-feedback-dismiss { margin-left: auto; padding: 0 6px; border: 0; background: none; color: inherit; font-size: 18px; line-height: 1; cursor: pointer; opacity: 0.7; }
 .soda-feedback-dismiss:hover { opacity: 1; }
+/* Feed header: the request card comes first, then one toolbar (views on the
+   left; last update, refresh and Knowledge on the right) and a quiet search
+   row. Views are underline tabs, not buttons. */
+.soda-feed-composer { margin: 0 0 24px; border: 1px solid var(--soda-feed-edge); border-radius: 10px; background: var(--soda-page-surface); transition: border-color .15s ease; }
+.soda-feed-composer:focus-within { border-color: var(--soda-page-muted); }
+.soda-feed-composer > label { display: block; margin: 0; min-width: 0; }
+.soda-feed .soda-feed-composer textarea { display: block; margin: 0; padding: 14px 16px; border: 0; background: transparent; min-height: 0; max-height: 40dvh; resize: none; field-sizing: content; font: var(--soda-font-body); line-height: 1.5; }
+.soda-feed .soda-feed-composer[data-open=true] textarea { min-height: calc(4.5em + 28px); }
+.soda-feed .soda-feed-composer textarea:focus-visible { outline: none; }
+.soda-feed-composer-foot { display: flex; align-items: center; gap: 12px; padding: 8px 8px 8px 16px; border-top: 1px solid var(--soda-feed-edge); }
+.soda-feed-composer .soda-feed-compose-hint { flex: 1 1 auto; min-width: 0; font: var(--soda-font-caption); color: var(--soda-page-muted); }
+.soda-feed-composer[data-open=false] { display: flex; align-items: center; }
+.soda-feed-composer[data-open=false] > label { flex: 1 1 auto; }
+.soda-feed-composer[data-open=false] .soda-feed-composer-foot { border-top: 0; padding-left: 0; }
+.soda-feed-composer[data-open=false] .soda-feed-compose-hint { display: none; }
+html[data-theme^="soda-"] body .soda-feed .soda-feed-composer button[data-comment-submit], .soda-feed .soda-feed-composer button[data-comment-submit] { min-height: 40px !important; padding: 8px 20px !important; border-radius: 6px; flex-shrink: 0; }
+
+.soda-feed .soda-feed-toolbar { display: flex; align-items: flex-end; justify-content: space-between; flex-wrap: wrap; gap: 4px 16px; margin: 0; padding: 0; border-bottom: 1px solid var(--soda-feed-edge); }
+.soda-feed-tabs { display: flex; gap: 2px; min-width: 0; overflow-x: auto; scrollbar-width: none; }
+html[data-theme^="soda-"] body .soda-feed .soda-feed-tabs button, .soda-feed .soda-feed-tabs button { min-height: 40px !important; margin-bottom: -1px; padding: 8px 12px !important; border: 0; border-bottom: 2px solid transparent; border-radius: 0; background: transparent; color: var(--soda-page-muted); font: var(--soda-font-label) !important; text-transform: none; letter-spacing: 0; white-space: nowrap; }
+html[data-theme^="soda-"] body .soda-feed .soda-feed-tabs button:hover, .soda-feed .soda-feed-tabs button:hover { background: transparent; color: var(--soda-page-text); }
+html[data-theme^="soda-"] body .soda-feed .soda-feed-tabs button[aria-pressed=true], .soda-feed .soda-feed-tabs button[aria-pressed=true] { background: transparent; color: var(--soda-page-text); border-bottom-color: var(--soda-page-action); }
+.soda-feed .soda-feed-toolbar-actions { display: inline-flex; align-items: center; gap: 2px; margin-left: auto; padding-bottom: 2px; }
+.soda-feed .soda-feed-toolbar .soda-feed-updated { margin: 0 4px 0 0; white-space: nowrap; }
+
+.soda-feed .soda-feed-filters { margin: 12px 0 20px; }
+.soda-feed .soda-feed-filters form { gap: 8px 16px; }
+.soda-feed-search { position: relative; display: flex; flex: 1 1 260px; max-width: 420px; }
+.soda-feed-search svg { position: absolute; left: 11px; top: 50%; width: 16px; height: 16px; translate: 0 -50%; color: var(--soda-page-muted); pointer-events: none; }
+.soda-feed .soda-feed-filters .soda-feed-search input { flex: 1; width: 100%; max-width: none; min-height: 36px; padding-left: 34px; }
+.soda-feed .soda-feed-filters select { min-height: 36px; }
+.soda-feed .soda-feed-filters label { font: var(--soda-font-meta); color: var(--soda-page-muted); cursor: pointer; }
+.soda-feed .soda-feed-filters label:hover { color: var(--soda-page-text); }
+@media (max-width: 640px) {
+  .soda-feed .soda-feed-toolbar-actions { order: -1; width: 100%; justify-content: flex-end; }
+  .soda-feed-search { flex-basis: 100%; max-width: none; }
+}
+/* A comment's outcome is one quiet status line, not a boxed panel. */
+.soda-feed .soda-feed-card .soda-feed-outcome { margin: 0; padding: 0 0 0 12px; border: 0; border-left: 2px solid var(--soda-feed-edge); background: transparent; font: var(--soda-font-meta); color: var(--soda-page-muted); }
+.soda-feed .soda-feed-card .soda-feed-outcome:has([role=alert]) { border-left-color: var(--soda-page-warning-edge); }
+.soda-feed .soda-feed-card .soda-feed-outcome > p { margin: 0; }
+.soda-feed .soda-feed-card .soda-feed-outcome a { margin-left: 8px; }
+.soda-feed .soda-feed-body-text { margin: 0; font-size: 15px; line-height: 1.55; }
+html[data-theme^="soda-"] body .soda-feed .soda-feed-pull-tab, .soda-feed .soda-feed-pull-tab { font: var(--soda-font-caption) !important; text-transform: none; letter-spacing: 0; }
+/* The whole request card shows focus; its borderless text box does not. */
+.soda-feed .soda-feed-composer textarea:focus-visible { outline: none !important; }
+.soda-feed .soda-feed-composer:has(textarea:focus-visible) { outline: 2px solid var(--soda-page-focus); outline-offset: 2px; }
+html[data-theme^="soda-"] body .soda-feed .soda-feed-composer button[data-comment-submit], .soda-feed .soda-feed-composer button[data-comment-submit] { white-space: nowrap; overflow-wrap: normal; min-width: max-content; }

@@ -264,7 +264,7 @@ test('Project feed reads newest-first with enriched posts and live comment outco
   await feed.getByText('Recorded work').first().waitFor();
   await feed.getByText('Ada').first().waitFor();
   await feed.locator('.soda-feed-header').getByText('Product Lead').first().waitFor();
-  await feed.locator('.soda-feed-status').getByText('Comment', {exact: true}).waitFor();
+  await feed.locator('.soda-feed-post[data-card=comment]').first().waitFor();
   await feed.getByText('Kept as discussion.', {exact: true}).waitFor();
   await feed.getByText('Should the demo cover substitute approvers?').waitFor();
   // Cursor history: older entries append behind the confirmed page.
@@ -362,10 +362,10 @@ test('a project comment works before the first worker post', async (t) => {
   const feed = page.locator('soda-factory-feed');
   await feed.getByText('No activity yet.').waitFor();
   await feed.getByLabel('Comment', {exact: true}).fill('Thanks for the update.');
-  await feed.getByRole('button', {name: 'Post request', exact: true}).click();
+  await feed.locator('.soda-feed-composer').getByRole('button', {name: 'Post', exact: true}).click();
   await feed.getByText('Kept as discussion.').waitFor();
   assert.equal(await feed.getByLabel('Comment', {exact: true}).inputValue(), '');
-  assert(await feed.getByRole('button', {name: 'Post request', exact: true}).isDisabled());
+  assert(await feed.locator('.soda-feed-composer').getByRole('button', {name: 'Post', exact: true}).isDisabled());
   const posts = await page.evaluate(() =>
     window.drawerFixture.calls
       .filter((c) => c.url.endsWith('/api/factory/feed/comments') && c.method === 'POST')
@@ -413,7 +413,10 @@ test('Project switch during feed loading starts the new read and releases Refres
   const feed = page.locator('soda-factory-feed[data-feed-race="true"]');
   await feed.getByRole('button', {name: 'Refresh feed', exact: true}).waitFor();
   await page.waitForFunction(
-    () => !document.querySelector<HTMLButtonElement>('soda-factory-feed[data-feed-race="true"] button')?.disabled
+    () =>
+      !document.querySelector<HTMLButtonElement>(
+        'soda-factory-feed[data-feed-race="true"] button[aria-label="Refresh feed"]'
+      )?.disabled
   );
   await feed.evaluate((el) => (el as HTMLElement & {releaseFirst(): void}).releaseFirst());
   await feed.getByRole('button', {name: 'Refresh feed', exact: true}).click();
@@ -466,10 +469,10 @@ test('an uncertain comment retry resends the original payload and keeps newer wr
   await feed.getByText('No activity yet.').waitFor();
   const draft = feed.getByLabel('Comment', {exact: true});
   await draft.fill('Original request');
-  await feed.getByRole('button', {name: 'Post request', exact: true}).click();
+  await feed.locator('.soda-feed-composer').getByRole('button', {name: 'Post', exact: true}).click();
   await feed.locator('[data-feed-message]').filter({hasText: 'draft is kept'}).waitFor();
   await draft.fill('New writing after the uncertain reply');
-  await feed.getByRole('button', {name: 'Post request', exact: true}).click();
+  await feed.locator('.soda-feed-composer').getByRole('button', {name: 'Post', exact: true}).click();
   await feed.getByText('Previous comment saved. Your newer edits are kept, ready to send.', {exact: true}).waitFor();
   assert.equal(await draft.inputValue(), 'New writing after the uncertain reply');
   const posts = await page.evaluate(() =>

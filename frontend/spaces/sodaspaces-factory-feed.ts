@@ -131,6 +131,16 @@ async function readJSON(transport: PreparedExtensionMount, path: string, init?: 
   return readSodaJSON(response, large ? 4 * 1024 * 1024 : 65536);
 }
 
+/** Today's clock time, otherwise a short date and time. */
+function shortTime(unix: number): string {
+  const date = new Date(unix * 1000);
+  const today = new Date().toDateString() === date.toDateString();
+  return date.toLocaleString(
+    undefined,
+    today ? {hour: 'numeric', minute: '2-digit'} : {month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit'}
+  );
+}
+
 export class SodaFactoryFeed extends LitElement {
   static properties = {view: {state: true}};
   declare private view: {
@@ -707,8 +717,9 @@ export class SodaFactoryFeed extends LitElement {
   // repository feed reads it only to know which requests are the viewer's.
   private async readViewerID(context: FactoryFeedContext) {
     try {
-      const subscriber = parseFeedSubscriptionView(await readJSON(context.transport, 'factory/feed/subscription'))
-        .subscriber;
+      const subscriber = parseFeedSubscriptionView(
+        await readJSON(context.transport, 'factory/feed/subscription')
+      ).subscriber;
       if (this.current !== context) return;
       this.viewerID = subscriber;
       this.requestUpdate();
@@ -1209,11 +1220,18 @@ export class SodaFactoryFeed extends LitElement {
   protected render() {
     const confirmed = activityTimestamp(this.view.confirmedUnix);
     return html`<section class="soda-feed" aria-label="Feed" @click=${this.onFeedClick} @input=${this.onDraft}>
+      ${this.current?.global ? '' : this.renderProjectComment()}
       <header class="soda-feed-toolbar">
+        ${this.renderViews()}
         <span class="soda-feed-toolbar-actions">
           ${
-            this.ownPlaces()
-              ? html`<a class="soda-feed-utility" href=${this.ownPlaces()?.knowledge() ?? ''}>Knowledge</a>`
+            confirmed
+              ? html`<span class="soda-feed-updated"
+                  >Updated
+                  <time datetime=${confirmed.iso} title=${confirmed.text}
+                    >${shortTime(this.view.confirmedUnix)}</time
+                  ></span
+                >`
               : ''
           }
           <button
@@ -1236,6 +1254,11 @@ export class SodaFactoryFeed extends LitElement {
               <path d="M20 12a8 8 0 1 1-2.34-5.66M20 3v4h-4" />
             </svg>
           </button>
+          ${
+            this.ownPlaces()
+              ? html`<a class="soda-feed-utility" href=${this.ownPlaces()?.knowledge() ?? ''}>Knowledge</a>`
+              : ''
+          }
         </span>
       </header>
       ${this.renderFilters()}
@@ -1267,7 +1290,6 @@ export class SodaFactoryFeed extends LitElement {
       }
       ${this.view.readFailed && this.view.entries.length ? html`<p class="soda-feed-updated">Showing the last loaded activity. Refresh to check for updates.</p>` : ''}
       ${this.renderRevision()}
-      ${confirmed ? html`<p class="soda-feed-updated">Updated <time datetime=${confirmed.iso}>${confirmed.text}</time></p>` : ''}
       ${
         this.view.pagedBack
           ? html`<button type="button" class="ui button" ?disabled=${this.view.busy} @click=${this.backToLatest}>
@@ -1275,17 +1297,31 @@ export class SodaFactoryFeed extends LitElement {
             </button>`
           : ''
       }
-      ${this.current?.global ? this.renderSubscription() : this.renderProjectComment()} ${this.renderList()}
+      ${this.current?.global ? this.renderSubscription() : ''} ${this.renderList()}
     </section>`;
   }
 
-  private renderFilters() {
+  private renderViews() {
     const views = [
       ['all', 'All'],
       ['attention', 'Needs me'],
       ['decisions', 'Choices & approvals'],
       ['evidence', 'Evidence'],
     ];
+    return html`<nav class="soda-feed-tabs" aria-label="Filter conversation">
+      ${views.map(
+        ([value, label]) => html`<button
+          type="button"
+          aria-pressed=${this.filters.view === value ? 'true' : 'false'}
+          @click=${() => this.changeFilters({view: value ?? 'all'})}
+        >
+          ${label}
+        </button>`
+      )}
+    </nav>`;
+  }
+
+  private renderFilters() {
     const roles = [
       'human',
       'product_lead',
@@ -1299,17 +1335,6 @@ export class SodaFactoryFeed extends LitElement {
       'factory',
     ];
     return html`<div class="soda-feed-filters">
-      <nav aria-label="Filter conversation">
-        ${views.map(
-          ([value, label]) => html`<button
-            type="button"
-            aria-pressed=${this.filters.view === value ? 'true' : 'false'}
-            @click=${() => this.changeFilters({view: value ?? 'all'})}
-          >
-            ${label}
-          </button>`
-        )}
-      </nav>
       <form
         @submit=${(event: SubmitEvent) => {
           event.preventDefault();
@@ -1317,15 +1342,28 @@ export class SodaFactoryFeed extends LitElement {
             this.changeFilters({search: String(new FormData(event.currentTarget).get('search') ?? '').trim()});
         }}
       >
-        <input
-          type="search"
-          name="search"
-          aria-label="Search conversation"
-          placeholder="Search posts"
-          maxlength="256"
-          .value=${this.filters.search}
-        />
-        <button type="submit">Search</button>
+        <span class="soda-feed-search">
+          <svg
+            viewBox="0 0 24 24"
+            aria-hidden="true"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="1.8"
+            stroke-linecap="round"
+          >
+            <circle cx="11" cy="11" r="6.5" />
+            <path d="m16 16 4.5 4.5" />
+          </svg>
+          <input
+            type="search"
+            name="search"
+            aria-label="Search conversation"
+            placeholder="Search posts"
+            maxlength="256"
+            .value=${this.filters.search}
+          />
+        </span>
+        <button type="submit" class="soda-visually-hidden">Search</button>
         <select
           aria-label="Filter by role"
           .value=${this.filters.role}
@@ -1399,7 +1437,7 @@ export class SodaFactoryFeed extends LitElement {
         key,
         draft,
         label: 'Comment',
-        submitLabel: 'Post request',
+        submitLabel: 'Post',
         submitAvailable: draft.trim() !== '' && !this.view.commentBusy.includes(key),
         collapsed: !this.commentOpen && draft.trim() === '',
       })}
@@ -1417,39 +1455,35 @@ export class SodaFactoryFeed extends LitElement {
     return html`<details class="soda-feed-subscription">
       <summary>Choose repositories</summary>
       <form @submit=${this.save}>
-      <fieldset>
-        <legend>Followed repositories</legend>
-        <input type="hidden" name="expected_revision" value=${String(subscription.revision)} />
-        ${
-          subscription.revision === 0
-            ? html`<p>Showing every repository you can read until you choose.</p>`
-            : ''
-        }
-        ${candidates.map(
-          ([repository, ref]) => html`<label
-            ><input
-              type="checkbox"
-              name="repository"
-              value=${String(repository)}
-              .checked=${member.has(repository)}
-              ?disabled=${this.view.busy}
-            />${ref.label}</label
-          >`
-        )}
-      </fieldset>
-      <fieldset>
-        <legend>Show</legend>
-        <select name="kind" aria-label="Activity type" ?disabled=${this.view.busy}>
-          <option value="all" .selected=${subscription.kinds.length !== 1}>All activity</option>
-          <option value="record" .selected=${subscription.kinds.length === 1 && subscription.kinds[0] === 'record'}>
-            Worker activity
-          </option>
-          <option value="post" .selected=${subscription.kinds.length === 1 && subscription.kinds[0] === 'post'}>
-            Comments
-          </option>
-        </select>
-      </fieldset>
-      <button class="ui button" type="submit" ?disabled=${this.view.busy}>Save feed subscription</button>
+        <fieldset>
+          <legend>Followed repositories</legend>
+          <input type="hidden" name="expected_revision" value=${String(subscription.revision)} />
+          ${subscription.revision === 0 ? html`<p>Showing every repository you can read until you choose.</p>` : ''}
+          ${candidates.map(
+            ([repository, ref]) => html`<label
+              ><input
+                type="checkbox"
+                name="repository"
+                value=${String(repository)}
+                .checked=${member.has(repository)}
+                ?disabled=${this.view.busy}
+              />${ref.label}</label
+            >`
+          )}
+        </fieldset>
+        <fieldset>
+          <legend>Show</legend>
+          <select name="kind" aria-label="Activity type" ?disabled=${this.view.busy}>
+            <option value="all" .selected=${subscription.kinds.length !== 1}>All activity</option>
+            <option value="record" .selected=${subscription.kinds.length === 1 && subscription.kinds[0] === 'record'}>
+              Worker activity
+            </option>
+            <option value="post" .selected=${subscription.kinds.length === 1 && subscription.kinds[0] === 'post'}>
+              Comments
+            </option>
+          </select>
+        </fieldset>
+        <button class="ui button" type="submit" ?disabled=${this.view.busy}>Save feed subscription</button>
       </form>
     </details>`;
   }
@@ -1457,7 +1491,14 @@ export class SodaFactoryFeed extends LitElement {
   private repositoryRef(repository: number) {
     const ref = this.view.labels.refs.get(repository);
     const places = this.placesFor(repository);
-    return {id: repository, path: ref?.path, label: ref?.label ?? `repository ${repository}`, ...(places ? {places} : {})};
+    return {
+      id: repository,
+      path: ref?.path,
+      label: ref?.label ?? `repository ${repository}`,
+      // A repository's own feed needs no link back to itself.
+      current: !this.current?.global,
+      ...(places ? {places} : {}),
+    };
   }
 
   private renderList() {
