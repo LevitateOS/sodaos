@@ -1,7 +1,7 @@
 // Founder-demo end-to-end journey: Describe → Decide → Build → Use → Improve.
 // Installed script (not a *.test.ts unit test). Runs phase by phase against the
 // demo VM, with screenshots per phase and a clear failure naming the exact state.
-// Resumes from a saved request id without repeating spends.
+// Resumes from a recorded request id without repeating spends.
 // Usage:
 //   bun tests/installed/founder-demo-e2e.ts [--resume <intentId>] [--out <dir>] [--phase <describe|explore|decide|plan|check|accept|build|app|improve|all>]
 // Run artifacts stay outside the repo under ~/Projects/.soda-demo-checks/e2e/run-*/.
@@ -48,8 +48,8 @@ const OBJECTIVE = `Replace our equipment-request spreadsheet with a small web ap
 const MAX_ISSUES = 1;
 const PLAN_TIMEOUT_MS = 20 * 60 * 1000;
 
-type Phase = 'describe' | 'explore' | 'decide' | 'answers' | 'plan' | 'retry' | 'poll' | 'check' | 'correct' | 'accept' | 'build' | 'retry-build' | 'allowance' | 'places' | 'policy-minutes' | 'new-request' | 'bounds' | 'ready-explore' | 'app' | 'improve';
-const PHASES: Phase[] = ['describe', 'explore', 'decide', 'answers', 'plan', 'retry', 'poll', 'check', 'correct', 'accept', 'build', 'retry-build', 'allowance', 'places', 'policy-minutes', 'new-request', 'bounds', 'ready-explore', 'app', 'improve'];
+type Phase = 'describe' | 'explore' | 'decide' | 'answers' | 'plan' | 'retry' | 'poll' | 'check' | 'correct' | 'accept' | 'build' | 'retry-build' | 'allowance' | 'places' | 'policy-minutes' | 'new-request' | 'app' | 'improve';
+const PHASES: Phase[] = ['describe', 'explore', 'decide', 'answers', 'plan', 'retry', 'poll', 'check', 'correct', 'accept', 'build', 'retry-build', 'allowance', 'places', 'policy-minutes', 'new-request', 'app', 'improve'];
 
 function args() {
   const out: {resume?: string | undefined; out?: string | undefined; phase?: string | undefined} = {};
@@ -206,18 +206,40 @@ async function phaseDescribe(page: Page, out: string, resume?: string): Promise<
   await spaces.locator('details.bounds > summary').first().click();
   await spaces.getByLabel('Maximum work items', {exact: true}).fill(String(MAX_ISSUES));
   await shot(page, `${out}/describe-typed.png`);
-  const saving = page.waitForResponse(
+  // No separate save step: Explore ideas records the request, then explores it.
+  const intent = await exploreNewRequest(page, 'Describe');
+  await page.waitForURL((u) => new URL(u).pathname.endsWith(`/requests/${intent}`), {timeout: 60000});
+  await spaces.getByRole('heading', {name: 'Review your product direction'}).waitFor({timeout: 60000});
+  await shot(page, `${out}/explore-proposal.png`);
+  return intent;
+}
+
+/** Click Explore ideas on a filled composer: the first POST records the
+ * request (201 with its intent id), the second explores it (201). */
+async function exploreNewRequest(page: Page, step: string): Promise<string> {
+  const recording = page.waitForResponse(
     (r) => r.url().endsWith('/api/factory/intents') && r.request().method() === 'POST',
     {timeout: 60000}
   );
-  await spaces.getByRole('button', {name: 'Save draft', exact: true}).click();
-  const saved = await saving;
-  assert.equal(saved.status(), 201, `Describe: Save draft must return 201, got ${saved.status()}`);
-  const body = (await saved.json()) as {intent?: string; id?: string};
-  assert.match(String(body.intent ?? ''), /^d[0-9a-f]{24}$/, 'Describe: saved draft must report its intent');
-  await page.waitForURL((u) => new URL(u).pathname.endsWith(`/workspace/requests/${body.intent}`), {timeout: 60000});
-  await shot(page, `${out}/describe-saved.png`);
-  return String(body.intent);
+  const exploring = page.waitForResponse(
+    (r) => /\/api\/factory\/intents\/d[0-9a-f]{24}\/explore$/.test(r.url()) && r.request().method() === 'POST',
+    {timeout: 300000}
+  );
+  await page.getByRole('button', {name: 'Explore ideas', exact: true}).first().click();
+  const recorded = await recording;
+  assert.equal(recorded.status(), 201, `${step}: recording the request must return 201, got ${recorded.status()}`);
+  const body = (await recorded.json()) as {intent?: string};
+  const intent = String(body.intent ?? '');
+  assert.match(intent, /^d[0-9a-f]{24}$/, `${step}: the recorded request must report its intent`);
+  const done = await exploring;
+  const explored = await done.json().catch(() => ({}));
+  assert.equal(
+    done.status(),
+    201,
+    `${step}: explore must return 201, got ${done.status()}: ${JSON.stringify(explored).slice(0, 300)}`
+  );
+  assert(done.url().includes(`/intents/${intent}/explore`), `${step}: explored a different request than it recorded`);
+  return intent;
 }
 
 async function phaseExplore(page: Page, out: string, intent: string): Promise<void> {
@@ -862,125 +884,11 @@ async function phaseNewRequest(page: Page, out: string): Promise<string> {
   const fields: Record<string, string> = {};
   fields['max'] = await setNumber(/Maximum work items/i, '1');
   await shot(page, `${out}/new-request-typed.png`);
-  const saving = page.waitForResponse(
-    (r) => r.url().endsWith('/api/factory/intents') && r.request().method() === 'POST',
-    {timeout: 60000}
-  );
-  await page.getByRole('button', {name: 'Save draft', exact: true}).first().click();
-  const saved = await saving;
-  assert.equal(saved.status(), 201, `New request: Save draft must return 201, got ${saved.status()}`);
-  const body = (await saved.json()) as {intent?: string; id?: string};
-  const newIntent = String(body.intent ?? '');
-  assert.match(newIntent, /^d[0-9a-f]{24}$/, 'New request: saved draft must report its intent');
+  const newIntent = await exploreNewRequest(page, 'New request');
   assert(newIntent !== INTENT_DD00 && !newIntent.startsWith('d4014235'), 'New request: must not reuse a protected request');
   await writeFile(`${out}/new-intent.json`, JSON.stringify({intent: newIntent, fields}, null, 2));
-  return newIntent;
-}
-
-/** Rehearsal bounds fix: the synthetic fills at creation did not take, so
- * the draft saved defaults (Max 20, Planning 1). Set both through the
- * page with read-back verification, then Save draft (POST intents, already
- * allow-listed) so the next Explore can authorize its allowance. */
-async function phaseBounds(page: Page, out: string): Promise<void> {
-  // Bounds live in a collapsed section: pierce shadow roots, find the
-  // input by its label, and open the enclosing disclosure first.
-  await page.evaluate(() => {
-    const roots: (Document | ShadowRoot)[] = [document];
-    for (let i = 0; i < roots.length; i++) {
-      for (const el of Array.from((roots[i] as Document | ShadowRoot).querySelectorAll('*'))) {
-        if ((el as Element).shadowRoot) roots.push((el as Element).shadowRoot as ShadowRoot);
-      }
-    }
-    for (const root of roots) {
-      for (const el of Array.from(root.querySelectorAll('input'))) {
-        const input = el as HTMLInputElement;
-        const id = input.id;
-        const label = id ? root.querySelector(`label[for="${id}"]`)?.textContent ?? '' : '';
-        const wrap = input.closest('label')?.textContent ?? '';
-        const aria = input.getAttribute('aria-label') ?? '';
-        if (!/Maximum work items/i.test(label + ' ' + wrap + ' ' + aria)) continue;
-        const details = input.closest('details');
-        const summary = details?.querySelector(':scope > summary');
-        if (details && !(details as HTMLDetailsElement).open) (summary as HTMLElement)?.click();
-      }
-    }
-  });
-  const setNumber = async (match: RegExp, value: string) => {
-    const field = page.getByLabel(match);
-    assert((await field.count()) === 1, `Bounds: expected exactly one ${match}, found ${await field.count()}`);
-    await field.first().fill(value);
-    const readBack = await field.first().inputValue();
-    assert(readBack === value, `Bounds: ${match} did not take (want ${value}, shows ${readBack})`);
-    return `${match}: ${value} (verified)`;
-  };
-  const applied: Record<string, string> = {};
-  applied['max'] = await setNumber(/Maximum work items/i, '1');
-  await shot(page, `${out}/bounds-set.png`);
-  const saving = page.waitForResponse(
-    (r) => r.url().endsWith('/api/factory/intents') && r.request().method() === 'POST',
-    {timeout: 60000}
-  );
-  await page.getByRole('button', {name: 'Save draft', exact: true}).first().click();
-  const saved = await saving;
-  assert.equal(saved.status(), 201, `Bounds: Save draft must return 201, got ${saved.status()}`);
-  await writeFile(`${out}/bounds.json`, JSON.stringify(applied, null, 2));
-}
-
-/** Rehearsal: fix bounds AND explore in one browser session, the way a
- * presenter would. Separate processes lose component state (each launch
- * rehydrates from the server head), so the explore run kept re-saving
- * stale limits. Fills verified, saves, then Explore ideas through the
- * page: 201 means the allowance posted and exploration ran. */
-async function phaseReadyExplore(page: Page, out: string, intent: string): Promise<void> {
-  const expandBounds = () =>
-    page.evaluate(() => {
-      const roots: (Document | ShadowRoot)[] = [document];
-      for (let i = 0; i < roots.length; i++) {
-        for (const el of Array.from((roots[i] as Document | ShadowRoot).querySelectorAll('*'))) {
-          if ((el as Element).shadowRoot) roots.push((el as Element).shadowRoot as ShadowRoot);
-        }
-      }
-      for (const root of roots) {
-        for (const el of Array.from(root.querySelectorAll('input'))) {
-          const input = el as HTMLInputElement;
-          const id = input.id;
-          const label = id ? root.querySelector(`label[for="${id}"]`)?.textContent ?? '' : '';
-          const wrap = input.closest('label')?.textContent ?? '';
-          const aria = input.getAttribute('aria-label') ?? '';
-          if (!/Maximum work items/i.test(label + ' ' + wrap + ' ' + aria)) continue;
-          const details = input.closest('details');
-          const summary = details?.querySelector(':scope > summary');
-          if (details && !(details as HTMLDetailsElement).open) (summary as HTMLElement)?.click();
-        }
-      }
-    });
-  await expandBounds();
-  for (const [match, value] of [[/Maximum work items/i, '1']] as [RegExp, string][]) {
-    const field = page.getByLabel(match);
-    assert((await field.count()) === 1, `ReadyExplore: expected exactly one ${match}`);
-    await field.first().fill(value);
-    assert((await field.first().inputValue()) === value, `ReadyExplore: ${match} did not take`);
-  }
-  await shot(page, `${out}/ready-bounds.png`);
-  const saving = page.waitForResponse(
-    (r) => r.url().endsWith('/api/factory/intents') && r.request().method() === 'POST',
-    {timeout: 60000}
-  );
-  await page.getByRole('button', {name: 'Save draft', exact: true}).first().click();
-  const saved = await saving;
-  assert.equal(saved.status(), 201, `ReadyExplore: Save draft must return 201, got ${saved.status()}`);
-  // Explore in the same session so component state (limits 1/12) is fresh:
-  // the page authorizes the allowance itself, then explores.
-  const explored = page.waitForResponse(
-    (r) => r.url().endsWith(`/api/factory/intents/${intent}/explore`) && r.request().method() === 'POST',
-    {timeout: 300000}
-  );
-  await page.getByRole('button', {name: 'Explore ideas'}).first().click();
-  const done = await explored;
-  const body = await done.json().catch(() => ({}));
-  await writeFile(`${out}/explore.json`, JSON.stringify({status: done.status(), revision: (body as {id?: string}).id}, null, 2));
   await shot(page, `${out}/explore-done.png`);
-  assert.equal(done.status(), 201, `ReadyExplore: explore must return 201, got ${done.status()}: ${JSON.stringify(body).slice(0, 300)}`);
+  return newIntent;
 }
 
 /** Read-only migration check (UI installs A–E): visits each repo-first
@@ -1465,7 +1373,8 @@ async function main() {
       await mountRepoPage(s.page, null);
       await shot(s.page, `${dir}/resumed-${only}.png`);
     }
-    if (only === 'all' || only === 'explore') await phaseExplore(s.page, dir, intent);
+    // describe already explores; standalone explore retries a recorded request whose exploration failed.
+    if (only === 'explore') await phaseExplore(s.page, dir, intent);
     if (only === 'all' || only === 'decide') await phaseDecide(s.page, dir);
     if (only === 'all' || only === 'answers') await phaseAnswerQuestions(s.page, dir);
     let revision: string | null = null;
@@ -1519,14 +1428,6 @@ async function main() {
       intent = await phaseNewRequest(s.page, dir);
       report.intent = intent;
       await writeFile(`${dir}/intent.json`, JSON.stringify({intent}, null, 2));
-    }
-    // Standalone only: fix Max work items on a saved draft.
-    if (only === 'bounds') {
-      await phaseBounds(s.page, dir);
-    }
-    // Standalone rehearsal step: bounds fix + Explore ideas in one session.
-    if (only === 'ready-explore') {
-      await phaseReadyExplore(s.page, dir, intent);
     }
     if (only === 'all' || only === 'app') await phaseAppUse(s.page, dir);
     if (only === 'all' || only === 'improve') {

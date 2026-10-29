@@ -73,7 +73,8 @@ export async function exerciseFirstUse(
     evidence.stage = 'intent entry';
     assert(input.objective.trim(), 'First use needs a declared finite objective');
     let intent = '',
-      revision = '';
+      revision = '',
+      entry: URL | undefined;
     if (input.savedDraft) {
       intent = input.savedDraft.intent;
       revision = input.savedDraft.revision;
@@ -127,46 +128,18 @@ export async function exerciseFirstUse(
       await spaces.locator('details.bounds summary').click();
       await spaces.getByLabel('Maximum work items', {exact: true}).fill(String(input.maxIssues));
       await spaces.getByLabel('Planning calls', {exact: true}).fill(String(input.planningCalls));
-      evidence.stage = 'saved draft';
-      const entry = new URL(page.url());
-      const saving = page.waitForRequest(
-        (request) => request.url().endsWith('/api/factory/intents') && request.method() === 'POST',
-        {timeout: 60000}
-      );
-      const savedReply = page.waitForResponse(
-        (r) => r.url().endsWith('/api/factory/intents') && r.request().method() === 'POST',
-        {timeout: 60000}
-      );
-      await spaces.getByRole('button', {name: 'Save draft'}).click();
-      const saveRequest = await saving,
-        saveBody = object(saveRequest.postDataJSON());
-      recordWrite(new URL(saveRequest.url()).pathname, saveBody);
-      assert.equal(saveBody.state, 'draft');
-      assert.equal(saveBody.repository, '0');
-      assert.equal(saveBody.objective, input.objective.trim());
-      assert.equal(saveBody.planning_calls, input.planningCalls);
-      assert.equal(saveBody.max_issues, input.maxIssues);
-      assert(Array.isArray(saveBody.ideas) && saveBody.ideas.length === 0);
-      assert(Array.isArray(saveBody.tasks) && saveBody.tasks.length === 0);
-      const saveResponse = await savedReply;
-      assert.equal(saveResponse.status(), 201);
-      const saved = object(await saveResponse.json());
-      intent = String(saved.intent ?? '');
-      assert(/^d[0-9a-f]{24}$/.test(intent), 'Saved draft must report its intent');
-      revision = String(saved.id ?? '');
-      assert(revision, 'Saved draft must report its revision');
-      await page.waitForURL((u) => new URL(u).pathname === `${subURL}/workspace/requests/${intent}`, {
-        timeout: 60000,
-      });
-      const routed = new URL(page.url());
-      assert.equal(routed.pathname, `${subURL}/workspace/requests/${intent}`);
-      assert.equal(routed.search, entry.search, 'Native query must be preserved');
-      assert.equal(routed.hash, entry.hash, 'Native fragment must be preserved');
+      // No separate save step: the first Explore ideas records the request.
+      entry = new URL(page.url());
     }
-    evidence.intent = intent;
     await native.capture?.('draft');
     evidence.stage = 'funded design exploration';
+    // Until the first Explore ideas records it, the request has no id yet.
+    const intentURL = (url: string, suffix: string) =>
+      intent
+        ? url.endsWith(`/api/factory/intents/${intent}${suffix}`)
+        : new RegExp(`/api/factory/intents/d[0-9a-f]{24}${suffix}$`).test(url);
     const exploreRound = async (button: string) => {
+      const fresh = intent === '';
       const roundSaving = page.waitForRequest(
         (request) => request.url().endsWith('/api/factory/intents') && request.method() === 'POST',
         {timeout: 300000}
@@ -175,18 +148,16 @@ export async function exerciseFirstUse(
         (r) => r.url().endsWith('/api/factory/intents') && r.request().method() === 'POST',
         {timeout: 300000}
       );
-      const funding = page.waitForResponse(
-        (r) => r.url().endsWith(`/api/factory/intents/${intent}/allowance`) && r.request().method() === 'GET',
-        {timeout: 300000}
-      );
+      const funding = page.waitForResponse((r) => intentURL(r.url(), '/allowance') && r.request().method() === 'GET', {
+        timeout: 300000,
+      });
       const consulting = page.waitForRequest(
-        (request) => request.url().endsWith(`/api/factory/intents/${intent}/explore`) && request.method() === 'POST',
+        (request) => intentURL(request.url(), '/explore') && request.method() === 'POST',
         {timeout: 300000}
       );
-      const consulted = page.waitForResponse(
-        (r) => r.url().endsWith(`/api/factory/intents/${intent}/explore`) && r.request().method() === 'POST',
-        {timeout: 300000}
-      );
+      const consulted = page.waitForResponse((r) => intentURL(r.url(), '/explore') && r.request().method() === 'POST', {
+        timeout: 300000,
+      });
       const creating = page
         .waitForRequest(
           (request) => request.url().endsWith('/api/factory/intent-allowances') && request.method() === 'POST',
@@ -203,11 +174,25 @@ export async function exerciseFirstUse(
         roundSaveBody = object(roundSaveRequest.postDataJSON());
       recordWrite(new URL(roundSaveRequest.url()).pathname, roundSaveBody);
       assert.equal(roundSaveBody.state, 'draft');
-      assert.equal(roundSaveBody.intent, intent);
-      assert.equal(roundSaveBody.predecessor, revision);
+      if (fresh) {
+        assert.equal(roundSaveBody.repository, '0');
+        assert.equal(roundSaveBody.objective, input.objective.trim());
+        assert.equal(roundSaveBody.planning_calls, input.planningCalls);
+        assert.equal(roundSaveBody.max_issues, input.maxIssues);
+        assert(Array.isArray(roundSaveBody.ideas) && roundSaveBody.ideas.length === 0);
+        assert(Array.isArray(roundSaveBody.tasks) && roundSaveBody.tasks.length === 0);
+      } else {
+        assert.equal(roundSaveBody.intent, intent);
+        assert.equal(roundSaveBody.predecessor, revision);
+      }
       const roundSaveResponse = await roundSaved;
       assert.equal(roundSaveResponse.status(), 201);
       const roundSavedBody = object(await roundSaveResponse.json());
+      if (fresh) {
+        intent = String(roundSavedBody.intent ?? '');
+        assert(/^d[0-9a-f]{24}$/.test(intent), 'The recorded request must report its intent');
+        evidence.intent = intent;
+      }
       revision = String(roundSavedBody.id ?? '');
       assert(revision, 'Explore must save its draft revision');
       const fundingReply = await funding;
@@ -255,6 +240,13 @@ export async function exerciseFirstUse(
       revision = String(proposal.id ?? '');
     };
     if (!input.savedDraft?.explored) await exploreRound('Explore ideas');
+    evidence.intent = intent;
+    if (entry) {
+      await page.waitForURL((u) => new URL(u).pathname.endsWith(`/requests/${intent}`), {timeout: 60000});
+      const routed = new URL(page.url());
+      assert.equal(routed.search, entry.search, 'Native query must be preserved');
+      assert.equal(routed.hash, entry.hash, 'Native fragment must be preserved');
+    }
     await spaces.getByRole('heading', {name: 'Review your product direction'}).waitFor({timeout: 60000});
     evidence.stage = 'consequential review decisions';
     const applied: string[] = [];
