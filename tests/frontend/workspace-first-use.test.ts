@@ -7,6 +7,7 @@ import {
   fixture,
   openSession,
   textContents,
+  openTerminalMenu,
 } from './fixtures/workspace-driver';
 import {captureSpacesComponent} from '../../scripts/screenshot';
 setupWorkspaceDriver();
@@ -352,7 +353,7 @@ for (const theme of ['light', 'dark'])
         calls: window.workspaceFixture.calls.length,
         sockets: window.workspaceFixture.sockets.length,
       }));
-      await page.locator('.soda-workspace-terminal:visible').getByLabel('Terminal actions', {exact: true}).click();
+      await openTerminalMenu(page);
       const terminalMenu = page.locator('.soda-workspace-terminal:visible .soda-menu[open] > div');
       assert.equal(await terminalMenu.locator('.soda-menu-heading').innerText(), 'Terminal 1');
       assert.deepEqual(await textContents(terminalMenu.getByRole('button')), [

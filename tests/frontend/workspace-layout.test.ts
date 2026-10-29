@@ -155,6 +155,22 @@ test('tab strip: + opens, Ctrl+Shift+arrows move, the close button and Delete en
   );
   assert.equal(await page.evaluate(() => document.activeElement?.getAttribute('aria-label')), 'Build · alice/Alpha');
 
+  // Right-click a tab: its terminal's actions open at the pointer; Escape closes.
+  const box = (await build.boundingBox())!;
+  await build.click({button: 'right', position: {x: 12, y: 8}});
+  const rename = page.getByRole('button', {name: 'Rename terminal', exact: true});
+  await rename.waitFor();
+  assert.equal(await page.evaluate(() => document.activeElement?.textContent?.trim()), 'Rename terminal');
+  const menu = (await rename.boundingBox())!;
+  assert(Math.abs(menu.x - box.x) < 80 && menu.y > box.y, 'menu opens beside the pointer');
+  await page.keyboard.press('Escape');
+  assert.equal(await rename.isVisible(), false);
+  await build.focus();
+  await page.keyboard.press('Shift+F10');
+  await rename.waitFor();
+  await page.keyboard.press('Escape');
+  await build.focus();
+
   await page.getByRole('button', {name: 'End Build', exact: true}).click();
   const confirm = page.getByRole('alertdialog', {name: 'End Build', exact: true});
   await confirm.waitFor();

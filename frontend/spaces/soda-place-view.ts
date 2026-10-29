@@ -40,12 +40,6 @@ export interface PlaceContext {
 export interface PlaceView {
   update?(place: Place): void;
   setActive?(active: boolean): void;
-  /**
-   * True when this live view already shows `place` under a different key
-   * (New request after its first save becomes that request's page); the
-   * entry then keeps the same instance under the new key.
-   */
-  claim?(place: Place): boolean;
   dispose(): void;
 }
 

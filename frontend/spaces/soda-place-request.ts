@@ -1,8 +1,6 @@
-// Request place: New request (the composer, M9) and one request's page (M11),
-// lane B. The entry keeps this view alive per request id while other places
-// show (SPEC M2), so the composer and its polls survive a place switch. After
-// the first save, New request claims its request's address (replace), so the
-// same composer continues as that request's page.
+// Request place: one request's page (M11), lane B. The entry keeps this view
+// alive per request id while other places show (SPEC M2), so the composer and
+// its polls survive a place switch. New requests start as a Feed post.
 import {html, render} from 'lit';
 import type {TemplateResult} from 'lit';
 import {id, object, readSodaErrorCode, readSodaJSON, SodaRequestError} from './sodaspaces-api.js';
@@ -16,9 +14,7 @@ import {renderRepositoryPicker} from './sodaspaces-repository-picker-view.js';
 import {repositoryChoices} from './sodaspaces-repository-response.js';
 import type {RepositoryChoices} from './sodaspaces-repository-response.js';
 import type {PreparedExtensionMount} from './soda-extension.js';
-import {newRequestID, repositoryPlaces} from './soda-places.js';
-import type {Place} from './soda-places.js';
-import {recordStartedRequest} from './soda-place-requests.js';
+import {repositoryPlaces} from './soda-places.js';
 import type {PlaceContext, PlaceMount} from './soda-place-view.js';
 
 type IntentAPI = (path: string, body?: Record<string, unknown>, signal?: AbortSignal) => Promise<unknown>;
@@ -106,9 +102,7 @@ function repositoryPath(context: PlaceContext): string {
 export const mountRequestPlace: PlaceMount = (host, context, initial) => {
   const api = intentAPI(context.transport);
   const places = context.places;
-  let request = initial.place === 'request' ? initial.request : '';
-  const startedNew = request === newRequestID;
-  let fresh = startedNew;
+  const request = initial.place === 'request' ? initial.request : '';
   let active = true;
   let disposed = false;
   let actor = '';
@@ -291,15 +285,6 @@ export const mountRequestPlace: PlaceMount = (host, context, initial) => {
   }
 
   // ---- Composer events ----
-  function becomeRequest(intent: string) {
-    if (!fresh || !decisionID(intent)) return;
-    fresh = false;
-    request = intent;
-    recordStartedRequest(context.repository, intent);
-    draw();
-    context.navigate(places.to({place: 'request', request: intent}), {replace: true});
-  }
-
   function onResumed(event: Event) {
     const detail = (event as CustomEvent).detail as Record<string, unknown> | undefined;
     if (!detail || typeof detail.intent !== 'string') return;
@@ -329,10 +314,7 @@ export const mountRequestPlace: PlaceMount = (host, context, initial) => {
   }
 
   function onOperation() {
-    const intent = composer();
-    // Explore ideas saves the first draft without an intent-saved event.
-    if (fresh && intent?.revision?.intent) becomeRequest(intent.revision.intent);
-    const revision = intent?.revision;
+    const revision = composer()?.revision;
     if (revision && revision.intent === request) {
       const wasAccepted = accepted;
       bound = revision.repository;
@@ -377,12 +359,11 @@ export const mountRequestPlace: PlaceMount = (host, context, initial) => {
     const ready = phase.kind === 'ready';
     const unbound = bound === '0';
     render(
-      html`<section class="soda-request-page" aria-label=${fresh ? 'New request' : 'Request'}>
+      html`<section class="soda-request-page" aria-label="Request">
         <nav class="soda-request-crumbs" aria-label="Request">
           <a href=${places.requests()}>← Requests</a>
           <span>${context.slug}</span>
         </nav>
-        ${fresh && ready ? html`<h2 class="soda-request-title">New request</h2>` : ''}
         ${ready && unbound && !picker.open ? html`<p class="soda-request-for">This request is for ${context.slug}</p>` : ''}
         ${renderNotice()}
         ${
@@ -391,11 +372,10 @@ export const mountRequestPlace: PlaceMount = (host, context, initial) => {
                 <soda-intent
                   .api=${api}
                   .actor=${actor}
-                  .request=${fresh ? '' : request}
+                  .request=${request}
                   .project=${context.slug}
                   .blocked=${false}
                   .active=${active && !picker.open}
-                  @intent-saved=${(event: Event) => becomeRequest(String((event as CustomEvent).detail?.intent ?? ''))}
                   @soda-intent-operation=${onOperation}
                   @intent-resumed=${onResumed}
                   @intent-reviewed=${openPicker}
@@ -461,13 +441,6 @@ export const mountRequestPlace: PlaceMount = (host, context, initial) => {
     phase = {kind: 'loading'};
     draw();
     try {
-      if (fresh) {
-        actor = await readActor(context.transport);
-        if (disposed) return;
-        phase = {kind: 'ready'};
-        draw();
-        return;
-      }
       if (!decisionID(request)) {
         phase = {kind: 'missing'};
         draw();
@@ -506,9 +479,6 @@ export const mountRequestPlace: PlaceMount = (host, context, initial) => {
     setActive(value: boolean) {
       active = value;
       draw();
-    },
-    claim(place: Place) {
-      return place.place === 'request' && !fresh && startedNew && place.request === request;
     },
     dispose() {
       disposed = true;

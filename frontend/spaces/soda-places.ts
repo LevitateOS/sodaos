@@ -48,12 +48,12 @@ export const REQUESTS_IN_REPOSITORY = true;
 export const settingsSections = ['environment', 'access', 'network', 'factory'] as const;
 export type SettingsSection = (typeof settingsSections)[number];
 
-/** The value of the request subroute that opens the composer. */
+/** The old New request subroute; it now opens the Feed composer. */
 export const newRequestID = 'new';
 
 /** One SodaOS place on a repository page, as parsed from or built into an address. */
 export type Place =
-  | {place: 'feed'; post?: string}
+  | {place: 'feed'; post?: string; compose?: true}
   | {place: 'requests'}
   | {place: 'request'; request: string}
   | {place: 'app'; delivery?: string}
@@ -71,7 +71,7 @@ export interface SodaPlaces {
   requests(): string;
   /** A saved request's page. Points at the global Workspace until REQUESTS_IN_REPOSITORY. */
   request(id: string): string;
-  /** The composer. Points at the global Workspace until REQUESTS_IN_REPOSITORY. */
+  /** The Feed with its composer open: a post is how a request starts. */
   newRequest(): string;
   app(delivery?: string): string;
   knowledge(item?: string): string;
@@ -104,7 +104,7 @@ export function repositoryPlaces(prefix: string, slug: string): SodaPlaces {
     requests: () => `${root}/requests`,
     request: (id) =>
       REQUESTS_IN_REPOSITORY ? `${root}/requests/${encodeURIComponent(id)}` : requestRouteFor(prefix, id),
-    newRequest: () => (REQUESTS_IN_REPOSITORY ? `${root}/requests/${newRequestID}` : newRouteFor(prefix)),
+    newRequest: () => `${places.feed()}?compose=1`,
     app: (delivery) => `${root}/app${query('delivery', delivery)}`,
     knowledge: (item) => `${root}/knowledge${query('item', item)}`,
     terminals: (run) => `${root}/terminals${query('run', run)}`,
@@ -120,7 +120,7 @@ export function repositoryPlaces(prefix: string, slug: string): SodaPlaces {
     to(place) {
       switch (place.place) {
         case 'feed':
-          return places.feed(place.post);
+          return place.compose ? places.newRequest() : places.feed(place.post);
         case 'requests':
           return places.requests();
         // A parsed request place is on this repository page already, so its
@@ -177,11 +177,20 @@ function optional<K extends string>(key: K, value: string | undefined) {
   return (value === undefined ? {} : {[key]: value}) as {[P in K]?: string};
 }
 
+function feedPlace(param: Param): Place {
+  return param('compose') ? {place: 'feed', compose: true} : {place: 'feed', ...optional('post', param('post'))};
+}
+
+// The old New request address opens the Feed composer instead.
+function requestPlace(request: string): Place {
+  return request === newRequestID ? {place: 'feed', compose: true} : {place: 'request', request};
+}
+
 /** A place under the `workspace` segment (track 1; the hidden route on track 2). */
 function workspacePlace([first, second, ...rest]: string[], param: Param): Place | undefined {
   if (rest.length) return undefined;
-  if (first === undefined) return {place: 'feed', ...optional('post', param('post'))};
-  if (first === 'requests') return second === undefined ? {place: 'requests'} : {place: 'request', request: second};
+  if (first === undefined) return feedPlace(param);
+  if (first === 'requests') return second === undefined ? {place: 'requests'} : requestPlace(second);
   if (second !== undefined) {
     if (first === 'settings') return {place: 'settings', section: second};
     if (first === 'issues') return {place: 'factory-status', issue: second};
@@ -199,10 +208,10 @@ function namedPlace(route: string, path: string[], param: Param): Place | undefi
   const [first, second, ...rest] = path;
   switch (route) {
     case 'feed':
-      return path.length ? undefined : {place: 'feed', ...optional('post', param('post'))};
+      return path.length ? undefined : feedPlace(param);
     case 'requests':
       if (second !== undefined) return undefined;
-      return first === undefined ? {place: 'requests'} : {place: 'request', request: first};
+      return first === undefined ? {place: 'requests'} : requestPlace(first);
     case 'app':
       return path.length ? undefined : {place: 'app', ...optional('delivery', param('delivery'))};
     case 'knowledge':

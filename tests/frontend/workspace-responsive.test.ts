@@ -6,6 +6,7 @@ import {
   enterCreatedProjectTerminals,
   fixture,
   openSession,
+  openTerminalMenu,
 } from './fixtures/workspace-driver';
 import {captureSpacesComponent} from '../../scripts/screenshot';
 setupWorkspaceDriver();
@@ -96,7 +97,7 @@ for (const theme of ['light', 'dark'])
       writes: window.workspaceFixture.calls.filter((c) => c.method !== 'GET').length,
       sockets: window.workspaceFixture.sockets.length,
     }));
-    await page.locator('.soda-workspace-terminal:visible').getByLabel('Terminal actions', {exact: true}).click();
+    await openTerminalMenu(page);
     await captureSpacesComponent(page, `short-menu-${theme}-390`);
     const menu = page.locator('.soda-workspace-terminal:visible .soda-menu[open] > div');
     const bounds = await menu.boundingBox();

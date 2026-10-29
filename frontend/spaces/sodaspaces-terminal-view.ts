@@ -193,7 +193,14 @@ export function renderTerminal(view: TerminalPresentation, commands: TerminalCom
           ${view.message}
         </p>
         ${!view.ready && view.canConnect ? html`<button type="button" class="ui button soda-terminal-connect" @click=${commands.connect}>${view.connectLabel}</button>` : ''}
-        <details class="soda-menu" @keydown=${commands.menuKey}>
+        <details
+          class="soda-menu"
+          @keydown=${commands.menuKey}
+          @toggle=${(event: Event) => {
+            const menu = event.currentTarget as HTMLDetailsElement;
+            if (!menu.open) delete menu.dataset.at;
+          }}
+        >
           <summary aria-label="Terminal actions" data-action="controls">⋯</summary>
           <div>
             <p class="soda-menu-heading" title=${view.name}><span>${view.name}</span></p>

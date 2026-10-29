@@ -2,14 +2,13 @@
 // row per request with one status and a plain link to its Request page. The
 // list pages through every saved request bound here, and adds the viewer's
 // drafts started here that are not yet bound ("repository not yet
-// confirmed"), which the composer records in this browser.
+// confirmed"), which the old composer recorded in this browser.
 import {html, render} from 'lit';
 import type {TemplateResult} from 'lit';
 import {readSodaJSON} from './sodaspaces-api.js';
 import {intentList, intentPlanStatus, intentRevision} from './sodaspaces-intent-response.js';
 import type {SavedRequest} from './sodaspaces-intent-response.js';
 import {requestOverview} from './sodaspaces-factory-progress-response.js';
-import {REQUESTS_IN_REPOSITORY} from './soda-places.js';
 import type {PlaceContext, PlaceMount} from './soda-place-view.js';
 
 export type RequestStatus =
@@ -53,13 +52,6 @@ function writeStarted(repository: string, intents: string[]) {
   } catch {
     /* Storage is a convenience only. */
   }
-}
-
-/** Remember that a request was started in this repository (the composer calls this). */
-export function recordStartedRequest(repository: string, intent: string) {
-  const started = readStarted(repository).filter((entry) => entry !== intent);
-  started.push(intent);
-  writeStarted(repository, started);
 }
 
 function forgetStarted(repository: string, intents: ReadonlySet<string>) {
@@ -190,19 +182,12 @@ async function pooled<T, R>(items: readonly T[], width: number, read: (item: T) 
   return out;
 }
 
-function newRequestHref(context: PlaceContext): string {
-  // Until install B the composer is the global Workspace one, seeded with
-  // this repository through its ?repository= parameter.
-  const href = context.places.newRequest();
-  return REQUESTS_IN_REPOSITORY ? href : `${href}?${new URLSearchParams({repository: context.repository})}`;
-}
-
 function startLine(context: PlaceContext): TemplateResult {
   const viewer = context.viewer;
   if (!viewer.loaded) return html``;
   const feed = html`<a href=${context.places.feed()}>Follow the work in Feed.</a>`;
   if (viewer.admin)
-    return html`<a class="ui primary button" href=${newRequestHref(context)}
+    return html`<a class="ui primary button" href=${context.places.newRequest()}
       ><span aria-hidden="true">＋</span> New request</a
     >`;
   if (viewer.codeWrite)

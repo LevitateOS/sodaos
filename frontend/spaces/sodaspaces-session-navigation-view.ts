@@ -18,13 +18,16 @@ export interface SessionTab {
   /** Page tabs: end the terminal (asks first). */
   readonly close?: () => void;
   readonly rename?: () => void;
+  /** Page tabs: the terminal's actions menu, at the pointer when given. */
+  readonly menu?: (at?: {x: number; y: number}) => void;
   readonly dragging?: boolean;
   /** Where the drop insertion line shows while another tab is dragged. */
   readonly dropSide?: 'before' | 'after' | '';
 }
 /**
  * A page tab: the tab button plus its own close button (a button cannot hold
- * another). Middle-click or Delete also close; double-click renames.
+ * another). Middle-click or Delete also close; double-click renames;
+ * right-click (or Shift+F10 / the Menu key) opens the terminal's actions.
  */
 function renderPageTab(tab: SessionTab, draggable: boolean): TemplateResult {
   return html`<div
@@ -34,21 +37,34 @@ function renderPageTab(tab: SessionTab, draggable: boolean): TemplateResult {
     data-drop=${tab.dropSide || ''}
     @dragover=${tab.dragover}
     @drop=${tab.drop}
+    @contextmenu=${(event: MouseEvent) => {
+      if (!tab.menu) return;
+      event.preventDefault();
+      tab.menu({x: event.clientX, y: event.clientY});
+    }}
   >
     <button
       id=${'soda-tab-' + tab.key}
       role="tab"
       class="soda-tab-main"
       draggable=${draggable ? 'true' : 'false'}
-      title=${tab.name + ' · ' + tab.project + ' — double-click to rename'}
+      title=${tab.name + ' · ' + tab.project + ' — double-click to rename, right-click for actions'}
       aria-label=${tab.name + ' · ' + tab.project}
       aria-controls=${'soda-owner-' + tab.key}
-      aria-keyshortcuts="Delete Control+Shift+ArrowLeft Control+Shift+ArrowRight"
+      aria-keyshortcuts="Delete Shift+F10 Control+Shift+ArrowLeft Control+Shift+ArrowRight"
+      aria-haspopup="menu"
       tabindex=${tab.selected ? '0' : '-1'}
       aria-selected=${tab.selected ? 'true' : 'false'}
       @dragstart=${tab.dragstart}
       @dragend=${tab.dragend}
-      @keydown=${tab.keydown}
+      @keydown=${(event: KeyboardEvent) => {
+        if (tab.menu && (event.key === 'ContextMenu' || (event.shiftKey && event.key === 'F10'))) {
+          event.preventDefault();
+          tab.menu();
+          return;
+        }
+        tab.keydown(event);
+      }}
       @click=${tab.select}
       @dblclick=${tab.rename}
       @mouseup=${(event: MouseEvent) => {

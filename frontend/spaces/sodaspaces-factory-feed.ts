@@ -166,6 +166,7 @@ export class SodaFactoryFeed extends LitElement {
   private appOrigins = new Map<string, string>();
   // The repository comment box stays one line until focused.
   private commentOpen = false;
+  private composeRequested = false;
   // A post to show alone (the Feed place's ?post=, e.g. a Knowledge item's source).
   private focusPost: string | undefined;
   private librarySourcePending: string | undefined;
@@ -634,6 +635,18 @@ export class SodaFactoryFeed extends LitElement {
       }
     })();
   };
+
+  /** New request (the Feed place's ?compose=): open the comment box and focus it. */
+  set compose(compose: boolean) {
+    if (compose === this.composeRequested) return;
+    this.composeRequested = compose;
+    if (!compose) return;
+    this.commentOpen = true;
+    this.requestUpdate();
+    void this.updateComplete.then(() =>
+      this.querySelector<HTMLTextAreaElement>('.soda-feed-comment-box textarea')?.focus()
+    );
+  }
 
   /** The post shown alone: the Feed place's ?post= (Knowledge's "Open source post"). */
   set post(post: string | undefined) {
@@ -1386,7 +1399,7 @@ export class SodaFactoryFeed extends LitElement {
         key,
         draft,
         label: 'Comment',
-        submitLabel: 'Post comment',
+        submitLabel: 'Post request',
         submitAvailable: draft.trim() !== '' && !this.view.commentBusy.includes(key),
         collapsed: !this.commentOpen && draft.trim() === '',
       })}

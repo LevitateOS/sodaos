@@ -7,7 +7,7 @@ import {mountProjectControls} from './sodaspaces-project.js';
 import {resumeGenerationRefused} from './soda-extension.js';
 import type {ContributionPresentation, ResumeValidation} from './fountain-browser-contract.js';
 import {mountTerminal} from './sodaspaces-terminal.js';
-import type {TerminalContext} from './sodaspaces-terminal.js';
+import type {SodaTerminal, TerminalContext} from './sodaspaces-terminal.js';
 import {emptyLayout, focusedPane, hideTab, panes} from './sodaspaces-layout.js';
 import type {WorkspaceLayout, LayoutEntry, Area} from './sodaspaces-layout.js';
 import {check, id, object, projectId} from './sodaspaces-api.js';
@@ -1706,6 +1706,15 @@ export class SodaSpaces extends LitElement {
       rename: (key) => {
         const slot = this.slots.find((s) => s.key === key);
         if (slot && !this.stale) this.beginRename(key, slot);
+      },
+      terminalMenu: (key, at) => {
+        this.closeMenus();
+        // The tab is selected first so its terminal (and menu) is on screen.
+        void this.updateComplete.then(() =>
+          requestAnimationFrame(() =>
+            this.querySelector<SodaTerminal>('#soda-owner-' + key + ' soda-terminal')?.openMenu(at)
+          )
+        );
       },
       binding: this.binding,
       spaces: this.spaces,

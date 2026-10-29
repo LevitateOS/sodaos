@@ -28,3 +28,9 @@ soda-terminal { display: flex; flex: 1; min-height: 0; min-width: 0; }
 .soda-workspace .soda-factory > .ui.primary.button { align-self: flex-start; min-height: var(--soda-control-height) !important; margin: var(--soda-space-2); padding: var(--soda-space-2) var(--soda-space-4) !important; }
 .soda-workspace .soda-terminal-context .soda-menu > div { max-height: min(60dvh, calc(var(--soda-terminal-height, 70dvh) - 60px), var(--soda-menu-available-height, 60dvh)); }
 .soda-terminal-confirm { box-sizing: border-box; overflow-wrap: anywhere; }
+/* Page terminals: actions open from the tab (right-click, Shift+F10). The
+   controls toggle stays for keyboard use (Ctrl+Shift+Enter) but only shows
+   while focused, and the row collapses when it has nothing else to say. */
+.soda-workspace[data-workspace-kind=page] .soda-terminal:not(.soda-factory) > .soda-terminal-context > .soda-menu > summary:not(:focus-visible) { position: absolute; width: 1px; min-width: 0; height: 1px; min-height: 0; padding: 0; overflow: hidden; clip-path: inset(50%); }
+.soda-workspace[data-workspace-kind=page] .soda-terminal:not(.soda-factory) > .soda-terminal-context:not(:has(> .soda-terminal-status:not(.soda-visually-hidden), > .soda-terminal-connect, > .soda-menu[open], > .soda-menu > summary:focus-visible)) { min-height: 0; padding-block: 0; }
+.soda-menu[data-at=pointer] > div { position: fixed; top: var(--soda-menu-y); left: var(--soda-menu-x); right: auto; }

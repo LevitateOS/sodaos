@@ -362,10 +362,10 @@ test('a project comment works before the first worker post', async (t) => {
   const feed = page.locator('soda-factory-feed');
   await feed.getByText('No activity yet.').waitFor();
   await feed.getByLabel('Comment', {exact: true}).fill('Thanks for the update.');
-  await feed.getByRole('button', {name: 'Post comment', exact: true}).click();
+  await feed.getByRole('button', {name: 'Post request', exact: true}).click();
   await feed.getByText('Kept as discussion.').waitFor();
   assert.equal(await feed.getByLabel('Comment', {exact: true}).inputValue(), '');
-  assert(await feed.getByRole('button', {name: 'Post comment', exact: true}).isDisabled());
+  assert(await feed.getByRole('button', {name: 'Post request', exact: true}).isDisabled());
   const posts = await page.evaluate(() =>
     window.drawerFixture.calls
       .filter((c) => c.url.endsWith('/api/factory/feed/comments') && c.method === 'POST')
@@ -466,10 +466,10 @@ test('an uncertain comment retry resends the original payload and keeps newer wr
   await feed.getByText('No activity yet.').waitFor();
   const draft = feed.getByLabel('Comment', {exact: true});
   await draft.fill('Original request');
-  await feed.getByRole('button', {name: 'Post comment', exact: true}).click();
+  await feed.getByRole('button', {name: 'Post request', exact: true}).click();
   await feed.locator('[data-feed-message]').filter({hasText: 'draft is kept'}).waitFor();
   await draft.fill('New writing after the uncertain reply');
-  await feed.getByRole('button', {name: 'Post comment', exact: true}).click();
+  await feed.getByRole('button', {name: 'Post request', exact: true}).click();
   await feed.getByText('Previous comment saved. Your newer edits are kept, ready to send.', {exact: true}).waitFor();
   assert.equal(await draft.inputValue(), 'New writing after the uncertain reply');
   const posts = await page.evaluate(() =>

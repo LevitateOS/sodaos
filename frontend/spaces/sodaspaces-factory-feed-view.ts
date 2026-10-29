@@ -232,7 +232,7 @@ export function renderComposer(model: ComposerModel): TemplateResult {
         data-feed-draft=${model.key}
         rows=${model.compact || model.collapsed ? '1' : '3'}
         maxlength="4000"
-        placeholder=${project ? 'Ask a question or suggest a change' : 'Write a reply…'}
+        placeholder=${project ? 'What do you want built or changed? Or ask a question.' : 'Write a reply…'}
         .value=${live(model.draft)}
       ></textarea>
     </label>
@@ -246,7 +246,7 @@ export function renderComposer(model: ComposerModel): TemplateResult {
       >
         ${model.submitLabel ?? (model.compact ? 'Post' : 'Submit reply')}
       </button>
-      ${project ? html`<span class="soda-feed-compose-hint">JEV reviews your comment and routes the next step.</span>` : ''}
+      ${project ? html`<span class="soda-feed-compose-hint">JEV reads your post and routes it: new work, feedback on an existing issue, or discussion.</span>` : ''}
       ${model.discussionLink ? html`<a href=${model.discussionLink}>Open issue discussion</a>` : ''}
       ${model.discussionFactoryStatus ? html`<a href=${model.discussionFactoryStatus}>Factory status</a>` : ''}
     </p>`}

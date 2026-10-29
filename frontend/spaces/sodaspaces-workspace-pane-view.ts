@@ -62,6 +62,7 @@ export interface PaneChromeInput {
   cancelClose: () => void;
   confirmClose: () => void;
   rename: (key: string) => void;
+  terminalMenu: (key: string, at?: {x: number; y: number}) => void;
   binding: WorkspaceContext | undefined;
   spaces: Space[];
   slots: Slot[];
@@ -241,7 +242,15 @@ export function sessionTabProps(input: PaneChromeInput, item: PaneSession, keys:
     dragover: (event: DragEvent) => onTabDragOver(input, event, pane, entry.key),
     drop: (event: DragEvent) => onTabDrop(input, event, pane.key, entry.key),
     // Page tabs carry their own close button; docked (native) tabs keep the menu.
-    ...(input.binding?.kind === 'page' ? {close: () => input.requestClose(entry.key)} : {}),
+    ...(input.binding?.kind === 'page'
+      ? {
+          close: () => input.requestClose(entry.key),
+          menu: (at?: {x: number; y: number}) => {
+            void input.openSaved(entry);
+            input.terminalMenu(entry.key, at);
+          },
+        }
+      : {}),
     rename: () => input.rename(entry.key),
     dragging: input.readDragged() === entry.key,
     dropSide: dropSide(input, pane, entry.key),

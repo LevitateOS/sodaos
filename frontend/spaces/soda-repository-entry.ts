@@ -15,7 +15,7 @@ import type {ContributionPresentation, MountHandle, ResumeValidation} from './fo
 import type {ExtensionMountContext} from './soda-extension.js';
 import {prepareExtensionMount} from './soda-extension.js';
 import {nativeAppSubUrl} from './soda-native-paths.js';
-import {forwardedAddress, newRequestID, placeFromPath, repositoryPlaces} from './soda-places.js';
+import {forwardedAddress, placeFromPath, repositoryPlaces} from './soda-places.js';
 import type {Place, PlaceName, SodaPlaces} from './soda-places.js';
 import {noticePlace} from './soda-place-view.js';
 import type {PlaceContext, PlaceMount, PlaceView, PlaceViewer} from './soda-place-view.js';
@@ -45,10 +45,6 @@ const placeDefinitions: Record<PlaceName, PlaceDefinition> = {
     title: 'Request',
     mount: mountRequestPlace,
     retainKey: (place) => `request:${place.place === 'request' ? place.request : ''}`,
-    refusal: (viewer, place) =>
-      place.place === 'request' && place.request === newRequestID && !viewer.admin
-        ? 'Only repository administrators can start Factory work here. Follow the work in Feed.'
-        : undefined,
   },
   app: {title: 'App', mount: mountAppPlace},
   knowledge: {title: 'Knowledge', mount: mountKnowledgePlace},
@@ -252,17 +248,6 @@ export function mount(root: HTMLElement, context: ExtensionMountContext): MountH
       });
       return;
     }
-    if (current?.retained && refusal === undefined && current.view.claim?.(next)) {
-      // The composer saved its first draft: the same live view becomes that
-      // request's page, so nothing reloads and New request starts fresh.
-      const live = current;
-      const stale = retained.get(key);
-      if (stale && stale !== live) release(stale);
-      retained.delete(live.key);
-      live.key = key;
-      retained.set(key, live);
-      return;
-    }
     if (current) hide(current);
     const kept = retained.get(key);
     if (kept) {
@@ -303,6 +288,14 @@ export function mount(root: HTMLElement, context: ExtensionMountContext): MountH
       address = forward;
     }
     const parsed = placeFromPath(address, prefix);
+    // The old New request address: requests start as a Feed post now.
+    if (parsed?.place.place === 'feed' && parsed.place.compose) {
+      const feed = repositoryPlaces(prefix, parsed.slug).newRequest();
+      if (new URL(address, location.href).pathname !== new URL(feed, location.href).pathname) {
+        location.replace(feed);
+        return;
+      }
+    }
     if (parsed && parsed.slug !== slug) {
       // A different repository's place: nothing of this one may stay alive.
       for (const live of retained.values()) release(live);

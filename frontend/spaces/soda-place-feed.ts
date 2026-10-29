@@ -7,6 +7,8 @@ import type {PlaceMount} from './soda-place-view.js';
 
 export const mountFeedPlace: PlaceMount = (host, context, initial) => {
   let post = initial.place === 'feed' ? initial.post : undefined;
+  // New request lands here: a post is how a request starts.
+  let compose = initial.place === 'feed' && initial.compose === true;
   let active = true;
   // The feed polls only while it has a context; a hidden feed has none.
   const draw = () =>
@@ -24,6 +26,7 @@ export const mountFeedPlace: PlaceMount = (host, context, initial) => {
             : undefined
         }
         .post=${post}
+        .compose=${compose}
       ></soda-factory-feed>`,
       host
     );
@@ -32,6 +35,7 @@ export const mountFeedPlace: PlaceMount = (host, context, initial) => {
     update(place: Place) {
       if (place.place !== 'feed') return;
       post = place.post;
+      compose = place.compose === true;
       draw();
     },
     setActive(value: boolean) {

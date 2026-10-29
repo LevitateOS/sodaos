@@ -183,8 +183,16 @@ export async function openSession(page: Page, name: string) {
   await page.locator('.soda-session-list button').filter({hasText: name}).click();
   await page.locator('.soda-workspace-terminal:not([hidden]) .is-connected').waitFor();
 }
+/** Open the visible terminal's actions: right-click its tab on the page, ⋯ when docked. */
+export async function openTerminalMenu(page: Page) {
+  const summary = page.locator('.soda-workspace-terminal:not([hidden]) summary[aria-label="Terminal actions"]');
+  const box = (await summary.isVisible()) ? await summary.boundingBox() : null;
+  if (box && box.width > 4) await summary.click();
+  else await page.locator('.soda-workspace-tabs [role=tab][aria-selected=true]:visible').click({button: 'right'});
+  await page.locator('.soda-workspace-terminal:not([hidden]) .soda-menu[open] > div').waitFor();
+}
 export async function action(page: Page, name: string) {
-  await page.locator('.soda-workspace-terminal:not([hidden]) summary[aria-label="Terminal actions"]').click();
+  await openTerminalMenu(page);
   await page.locator('.soda-workspace-terminal:not([hidden])').getByRole('button', {name, exact: true}).click();
 }
 export async function create(page: Page, name = 'New build') {

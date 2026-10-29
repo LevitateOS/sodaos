@@ -216,6 +216,28 @@ export class SodaTerminal extends LitElement {
     const menu = this.querySelector('details');
     if (menu) menu.open = false;
   }
+  /**
+   * Open the actions menu from its tab: at the pointer for a right-click,
+   * under the controls otherwise. Focus lands on the first action.
+   */
+  openMenu(at?: {x: number; y: number}) {
+    const menu = this.querySelector<HTMLDetailsElement>('.soda-terminal-context > .soda-menu');
+    if (!menu || this.disposed || this.closest('[hidden], [inert]')) return;
+    if (at) {
+      menu.dataset.at = 'pointer';
+      menu.style.setProperty('--soda-menu-x', at.x + 'px');
+      menu.style.setProperty('--soda-menu-y', at.y + 'px');
+    } else delete menu.dataset.at;
+    menu.open = true;
+    const panel = menu.querySelector<HTMLElement>(':scope > div');
+    if (at && panel) {
+      // Keep the whole menu on screen near the pointer.
+      const rect = panel.getBoundingClientRect();
+      menu.style.setProperty('--soda-menu-x', Math.max(4, Math.min(at.x, innerWidth - rect.width - 4)) + 'px');
+      menu.style.setProperty('--soda-menu-y', Math.max(4, Math.min(at.y, innerHeight - rect.height - 4)) + 'px');
+    }
+    panel?.querySelector<HTMLElement>('button:not([disabled])')?.focus();
+  }
   private remember(value: string | null) {
     if (value === null) this.managedEnded = true;
     this.dispatchEvent(
