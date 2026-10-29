@@ -34,6 +34,7 @@ const factoryEvents: Readonly<Record<string, FactoryEvent>> = {
   F10: {presentation: 'result', caption: 'App ready', level: 'post'},
   // Drafts are captioned as proposals below; recorded F11 posts are decisions.
   F11: {presentation: 'decision', caption: 'Decision', level: 'post'},
+  F12: {presentation: 'blocker', caption: 'Waiting on allowance', level: 'post'},
 };
 
 export function factoryEvent(id: string | undefined): FactoryEvent | undefined {
