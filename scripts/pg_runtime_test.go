@@ -31,11 +31,11 @@ func requireContains(t *testing.T, body string, wants ...string) {
 func TestPostgresUnitTopology(t *testing.T) {
 	body := readRuntimeFile(t, "system/host/services/soda-postgres.container")
 	requireContains(t, body,
-		"Image=docker.io/library/postgres:17@sha256:67f41722b7a8cbdb868a44a4995c846eddfdc2973bccb291ce937dce88ad5675",
+		"Image=docker.io/library/postgres:18@sha256:979bccfde35445db618c65107d27d08c6c21339d8dc3ad4c830c6633947be0e4",
 		"ContainerName=soda-postgres",
 		"Pull=never",
 		"Network=soda.network",
-		"Volume=/var/lib/soda/postgres:/var/lib/postgresql/data:Z",
+		"Volume=/var/lib/soda/postgres:/var/lib/postgresql:Z",
 		"Volume=/run/soda/postgres:/var/run/postgresql:z",
 		"Volume=/etc/soda/postgres/super.passwd:/run/secrets/soda-pg-super:ro,Z",
 		"Environment=POSTGRES_PASSWORD_FILE=/run/secrets/soda-pg-super",

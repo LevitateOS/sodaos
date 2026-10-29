@@ -15,7 +15,7 @@ func TestProxyImageIsDigestPinned(t *testing.T) {
 		}
 	}
 	Require(t, len(images) == 1, "Image= entries = %d, want 1", len(images))
-	matched, err := regexp.MatchString(`^docker\.io/library/caddy:2\.10\.2@sha256:[0-9a-f]{64}$`, images[0])
+	matched, err := regexp.MatchString(`^docker\.io/library/caddy:2\.11\.7@sha256:[0-9a-f]{64}$`, images[0])
 	Require(t, err == nil, "regex: %v", err)
 	Check(t, matched, "proxy image %q is not digest-pinned", images[0])
 }
