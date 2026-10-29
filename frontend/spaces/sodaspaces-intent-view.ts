@@ -352,10 +352,7 @@ function blockedCheckSummary(view: IntentView) {
 function refreshExploration(view: IntentView) {
   if (view.revision?.state !== 'draft') return '';
   // A live planning run would be superseded by re-exploring, so wait for it.
-  return html`<button
-    ?disabled=${view.busy || view.blocked || view.plan?.state === 'pending'}
-    @click=${view.revise}
-  >
+  return html`<button ?disabled=${view.busy || view.blocked || view.plan?.state === 'pending'} @click=${view.revise}>
     Re-explore ideas
   </button>`;
 }

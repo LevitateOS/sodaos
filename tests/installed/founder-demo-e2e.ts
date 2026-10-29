@@ -7,7 +7,6 @@
 // Run artifacts stay outside the repo under ~/Projects/.soda-demo-checks/e2e/run-*/.
 import assert from 'node:assert/strict';
 import {appendFile, mkdir, readFile, writeFile} from 'node:fs/promises';
-import path from 'node:path';
 import type {Page} from 'playwright';
 import {launchNativeBrowser} from './native-browser.ts';
 import {loginNativeForgejo} from './sodaspaces-controls.ts';

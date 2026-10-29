@@ -410,8 +410,7 @@ export class SodaApplicationDelivery extends LitElement {
               ...(applicationId ? {detail: {applicationId}} : {}),
             })
           );
-        }
-        else
+        } else
           this.notice =
             'This setup was cancelled. Its reserved address and data are retained; inspect its existing operation before preparing another version.';
       },
@@ -568,11 +567,18 @@ export class SodaApplicationDelivery extends LitElement {
         Refresh prepared versions
       </button>
       ${this.notice ? html`<p role="status">${this.notice}</p>` : ''}
-      ${this.deliveryRefused && !this.busy
-        ? html`<button type="button" class="ui button" ?disabled=${!this.active} @click=${() => this.openProjectFeed()}>
-            Follow this delivery in Feed
-          </button>`
-        : ''}
+      ${
+        this.deliveryRefused && !this.busy
+          ? html`<button
+              type="button"
+              class="ui button"
+              ?disabled=${!this.active}
+              @click=${() => this.openProjectFeed()}
+            >
+              Follow this delivery in Feed
+            </button>`
+          : ''
+      }
       <ul>
         ${this.builds.map((build) => this.buildView(build))}
       </ul>

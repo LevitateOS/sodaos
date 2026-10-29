@@ -84,9 +84,7 @@ export interface FactorySectionInput extends FactoryWatchMutation {
 export function factorySection(input: FactorySectionInput): TemplateResult | string {
   const current = input.readWatches();
   const rows = input.space.factory_runs.filter(
-    (run) =>
-      !input.query ||
-      `${factoryRunText(run)} ${factoryRunLabel(run)}`.toLocaleLowerCase().includes(input.query)
+    (run) => !input.query || `${factoryRunText(run)} ${factoryRunLabel(run)}`.toLocaleLowerCase().includes(input.query)
   );
   const watches = current.filter((watch) => watch.environmentId === input.space.environment.id);
   if (!rows.length && !watches.length) return '';

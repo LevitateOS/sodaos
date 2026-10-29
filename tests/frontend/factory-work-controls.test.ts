@@ -738,7 +738,7 @@ test('work detail retries the same completion command after lost replies and run
   );
   assert.equal(retries.length, 2);
   assert.deepEqual(retries[1]?.body, firstRetry?.body);
-  assert.deepEqual((firstRetry?.body as {completion: unknown}).completion, {
+  assert.deepEqual((firstRetry?.body as {completion: unknown} | undefined)?.completion, {
     event_id: attentionCompletion.completion_id,
     expected_prior_cycle: attentionCompletion.cycle_id,
   });
@@ -782,7 +782,7 @@ test('work detail retries the same completion command after lost replies and run
   const posts = calls.filter((call) => call.method === 'POST');
   assert.equal(posts.length, 9);
   const currentChoice = posts.find((call) => (call.body as {action?: string}).action === 'use_current_context');
-  assert.deepEqual((currentChoice?.body as {context: unknown}).context, {
+  assert.deepEqual((currentChoice?.body as {context: unknown} | undefined)?.context, {
     fingerprint: SNAPSHOT,
     scope_digest: SNAPSHOT,
     required_digest: SNAPSHOT,
@@ -884,7 +884,7 @@ test('held context refresh with the same run ID enables use-current from the new
   const currentChoice = (await workCalls(page)).find(
     (call) => (call.body as {action?: string} | undefined)?.action === 'use_current_context'
   );
-  assert.deepEqual((currentChoice?.body as {context: unknown}).context, {
+  assert.deepEqual((currentChoice?.body as {context: unknown} | undefined)?.context, {
     fingerprint: FRESH,
     scope_digest: FRESH,
     required_digest: FRESH,
@@ -1436,11 +1436,10 @@ test('same-issue project refresh during a delayed use-current unbinds the stale 
     host.surface = 'work';
     const sleep = (ms: number) => new Promise((done) => setTimeout(done, ms));
     const buttonByName = (name: string) =>
-      ([...host.querySelectorAll('button')].find((entry) => entry.textContent?.trim() === name) ?? null) as
-        | HTMLButtonElement
-        | null;
+      ([...host.querySelectorAll('button')].find((entry) => entry.textContent?.trim() === name) ??
+        null) as HTMLButtonElement | null;
     const childStatus = () =>
-      (host.querySelector('soda-factory-context-resolution')?.querySelector('p[role="status"]')?.textContent ?? '');
+      host.querySelector('soda-factory-context-resolution')?.querySelector('p[role="status"]')?.textContent ?? '';
     for (let attempt = 0; attempt < 100 && !buttonByName('Open requirements review'); attempt++) {
       await sleep(10);
       await host.updateComplete;
@@ -1641,10 +1640,7 @@ test('work journey dedups delivered evidence on unchanged rebind with preserved 
   await workJourney.getByText('1 delivered tasks').waitFor();
   await workJourney.getByText('1 verified applications').waitFor();
   assert.equal(await workJourney.getByText('Task task-plan delivered on native issue #12').count(), 1);
-  assert.equal(
-    await workJourney.getByText(`Verified application revision ${REVISION.slice(0, 9)}`).count(),
-    1
-  );
+  assert.equal(await workJourney.getByText(`Verified application revision ${REVISION.slice(0, 9)}`).count(), 1);
   await workJourney.getByText(`at revision ${REVISION.slice(0, 9)}`).waitFor();
   await workJourney.getByText(`at revision ${successor.slice(0, 9)}`).waitFor();
   assert.equal(await workCalls(page).then((calls) => calls.filter((call) => call.method === 'POST').length), 0);
@@ -1682,17 +1678,11 @@ test('work journey dedups delivered evidence on unchanged rebind with preserved 
       {method: 'GET', path: 'repositories/7/factory/access', status: 200, json: access},
     ]
   );
-  await page
-    .locator('soda-factory-work-journey')
-    .getByRole('button', {name: 'Refresh journey', exact: true})
-    .click();
+  await page.locator('soda-factory-work-journey').getByRole('button', {name: 'Refresh journey', exact: true}).click();
   await page.waitForFunction(() => window.factoryWork.calls().length >= 1);
   await workJourney.getByText('1 delivered tasks').waitFor();
   const refreshCalls = await workCalls(page);
   assert.ok(refreshCalls.length >= 1);
   assert.ok(refreshCalls.some((call) => call.path === 'repositories/7/factory/issues/12'));
-  assert.equal(
-    refreshCalls.filter((call) => call.method !== 'GET').length,
-    0
-  );
+  assert.equal(refreshCalls.filter((call) => call.method !== 'GET').length, 0);
 });

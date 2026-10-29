@@ -980,9 +980,7 @@ export class SodaIntent extends LitElement {
   // revision records one, else every decided idea in revision order.
   // Pending/declined ideas never resolve in.
   private resolvedScope(revision: IntentRevision): ProductIdea[] {
-    const decided = (revision.ideas || []).filter(
-      (idea) => idea.decision === 'accept' || idea.decision === 'edit'
-    );
+    const decided = (revision.ideas || []).filter((idea) => idea.decision === 'accept' || idea.decision === 'edit');
     const explicit = revision.effective_outcomes;
     if (explicit && explicit.length > 0) {
       const decidedByID = new Map(decided.map((idea) => [idea.id, idea]));
@@ -1007,9 +1005,7 @@ export class SodaIntent extends LitElement {
     const stored = this.revision?.effective_outcomes;
     if (!stored || stored.length === 0) return false;
     if (next.effective_outcomes === undefined) return false;
-    const decided = (next.ideas || []).some(
-      (idea) => idea.decision === 'accept' || idea.decision === 'edit'
-    );
+    const decided = (next.ideas || []).some((idea) => idea.decision === 'accept' || idea.decision === 'edit');
     return decided && next.effective_outcomes.length === 0;
   }
   // Decided ideas needing an explicit review after a refused narrowing
@@ -1024,9 +1020,7 @@ export class SodaIntent extends LitElement {
     if (!revision || !stored || stored.length === 0) return undefined;
     const byID = new Map(revision.ideas.map((idea) => [idea.id, idea]));
     const decidedIDs = new Set(
-      revision.ideas
-        .filter((idea) => idea.decision === 'accept' || idea.decision === 'edit')
-        .map((idea) => idea.id)
+      revision.ideas.filter((idea) => idea.decision === 'accept' || idea.decision === 'edit').map((idea) => idea.id)
     );
     const resolvedIDs = new Set(this.resolvedScope(revision).map((idea) => idea.id));
     return {
@@ -1043,7 +1037,8 @@ export class SodaIntent extends LitElement {
     return html`<div class="scope-gate" role="group" aria-label="Narrowed scope recovery">
       <p>Decide each listed idea explicitly, then save again.</p>
       ${gate.removed.map(
-        (idea) => html`<p>${idea.description}
+        (idea) => html`<p>
+          ${idea.description}
           <button
             aria-label="Re-accept narrowed idea ${idea.id}"
             ?disabled=${this.busy || this.blocked}
@@ -1054,7 +1049,8 @@ export class SodaIntent extends LitElement {
         </p>`
       )}
       ${gate.remaining.map(
-        (idea) => html`<p>${idea.description}
+        (idea) => html`<p>
+          ${idea.description}
           <button
             aria-label="Decline remaining idea ${idea.id}"
             ?disabled=${this.busy || this.blocked}
@@ -1165,14 +1161,10 @@ export class SodaIntent extends LitElement {
       // entry while an edge points at shelved work or a lineage target has
       // not come back live.
       if (shelved.has(key)) {
-        if (repair.deps.length > 0 || Object.keys(repair.depIdeas || {}).length > 0)
-          recorded[key] = copyRepair(repair);
+        if (repair.deps.length > 0 || Object.keys(repair.depIdeas || {}).length > 0) recorded[key] = copyRepair(repair);
         continue;
       }
-      if (
-        !repair.deps.some((dep) => shelved.has(dep)) &&
-        pendingRepairLineage(repair, saved, shelved).length === 0
-      )
+      if (!repair.deps.some((dep) => shelved.has(dep)) && pendingRepairLineage(repair, saved, shelved).length === 0)
         continue;
       recorded[key] = copyRepair(repair);
     }
@@ -1249,12 +1241,13 @@ export class SodaIntent extends LitElement {
     return html`<div class="declined-work-gate" role="group" aria-label="Declined work recovery">
       <p>
         ${count} proposed work item${count === 1 ? ' was' : 's were'} removed because
-        ${declined.length ? 'a linked idea was declined' : 'the linked ideas changed'}; your other work is kept and
-        the proposal saved. Re-accept an idea below to restore its work on the next save, use Change something to
-        regenerate work from the remaining direction, or leave the ideas declined to keep the work out.
+        ${declined.length ? 'a linked idea was declined' : 'the linked ideas changed'}; your other work is kept and the
+        proposal saved. Re-accept an idea below to restore its work on the next save, use Change something to regenerate
+        work from the remaining direction, or leave the ideas declined to keep the work out.
       </p>
       ${declined.map(
-        (idea) => html`<p>${idea.description}
+        (idea) => html`<p>
+          ${idea.description}
           <button
             aria-label="Re-accept declined idea ${idea.id}"
             ?disabled=${this.busy || this.blocked}
@@ -1426,8 +1419,7 @@ export class SodaIntent extends LitElement {
                   const lineageOK =
                     liveTarget !== undefined &&
                     liveTarget.idea_ids.length === pastTarget.idea_ids.length &&
-                    [...liveTarget.idea_ids].sort().join('\0') ===
-                      [...pastTarget.idea_ids].sort().join('\0');
+                    [...liveTarget.idea_ids].sort().join('\0') === [...pastTarget.idea_ids].sort().join('\0');
                   const targetOK =
                     lineageOK &&
                     pastTarget.idea_ids.every((link) => {
@@ -1631,9 +1623,7 @@ export class SodaIntent extends LitElement {
           return past !== undefined && now !== undefined && sameIdeaMeaning(past, now);
         });
       });
-      this.shelvedTasks.push(
-        deps.length === (task.depends_on || []).length ? {...task} : {...task, depends_on: deps}
-      );
+      this.shelvedTasks.push(deps.length === (task.depends_on || []).length ? {...task} : {...task, depends_on: deps});
     }
     for (const repair of entry.repairs) {
       // Narrowed staging (FJ-444): merge ONLY justified edges into the
@@ -1770,28 +1760,30 @@ export class SodaIntent extends LitElement {
     }
     return html`<div class="declined-work-gate" role="group" aria-label="Saved history recovery">
       <p>
-        Saved history holds work for re-accept consideration. Only saved revisions are shown; unsent edits stay on
-        this device, and work that was never saved cannot be recovered.
+        Saved history holds work for re-accept consideration. Only saved revisions are shown; unsent edits stay on this
+        device, and work that was never saved cannot be recovered.
       </p>
       ${rows.map(({idea, entry, tasks, repairs}) => {
         const returning = repairs.filter((repair) => repair.targets.some((dep) => !live.has(dep)));
         return html`<p>
-          Saved revision ${entry.revision} records ${tasks.length} work item${tasks.length === 1 ? '' : 's'}
-          for “${idea.description}”: ${tasks
+          Saved revision ${entry.revision} records ${tasks.length} work item${tasks.length === 1 ? '' : 's'} for
+          “${idea.description}”:
+          ${tasks
             .map(
               (task) =>
                 `${task.objective}${task.depends_on?.length ? ` (depends on ${task.depends_on.join(', ')})` : ''}`
             )
             .join('; ')}
-          ${returning.length > 0
-            ? html`Recorded ${returning.length === 1 ? 'dependency' : 'dependencies'}
-              ${returning.map((repair) => repair.targets.join(', ')).join('; ')}
-              return${returning.length === 1 ? 's' : ''} on re-accept.`
-            : ''}
+          ${
+            returning.length > 0
+              ? html`Recorded ${returning.length === 1 ? 'dependency' : 'dependencies'}
+                ${returning.map((repair) => repair.targets.join(', ')).join('; ')}
+                return${returning.length === 1 ? 's' : ''} on re-accept.`
+              : ''
+          }
           ${entry.cutEdges.map(
             (cut) =>
-              html`Recorded edge ${cut.objective} → ${cut.dep} stays cut instead of being guessed. No edge was
-                invented.`
+              html`Recorded edge ${cut.objective} → ${cut.dep} stays cut instead of being guessed. No edge was invented.`
           )}
           <button
             aria-label="Re-accept declined idea from saved history ${entry.idea}"
@@ -1802,21 +1794,25 @@ export class SodaIntent extends LitElement {
           </button>
         </p>`;
       })}
-      ${pending > 0
-        ? html`<p>
-            ${pending} recorded dependenc${pending === 1 ? 'y has' : 'ies have'} no unique live successor yet, so
-            ${pending === 1 ? 'it waits' : 'they wait'} unassigned instead of being guessed.
-          </p>`
-        : ''}
-      ${this.savedHistorySkipped > 0
-        ? html`<p>
-            ${this.savedHistorySkipped} other recorded work item${this.savedHistorySkipped === 1 ? '' : 's'} were
-            left out: their linked ideas changed or are declined in the current head. Nothing was guessed.
-          </p>`
-        : ''}
+      ${
+        pending > 0
+          ? html`<p>
+              ${pending} recorded dependenc${pending === 1 ? 'y has' : 'ies have'} no unique live successor yet, so
+              ${pending === 1 ? 'it waits' : 'they wait'} unassigned instead of being guessed.
+            </p>`
+          : ''
+      }
+      ${
+        this.savedHistorySkipped > 0
+          ? html`<p>
+              ${this.savedHistorySkipped} other recorded work item${this.savedHistorySkipped === 1 ? '' : 's'} were left
+              out: their linked ideas changed or are declined in the current head. Nothing was guessed.
+            </p>`
+          : ''
+      }
       ${this.savedHistoryNote ? html`<p>${this.savedHistoryNote}</p>` : ''}
     </div>`;
-  };
+  }
   // Unresolved repair review: a recorded dependency whose work has no
   // unique successor yet stays visible — across saves, reloads and leaves
   // — instead of being silently erased. No edge is invented while it waits:
@@ -1831,12 +1827,13 @@ export class SodaIntent extends LitElement {
     const byID = new Map((this.revision?.ideas || []).map((idea) => [idea.id, idea]));
     return html`<div class="unresolved-repair-gate" role="group" aria-label="Unresolved dependency repair">
       <p>
-        A recorded dependency has no unique successor to re-attach to, so it is kept unassigned rather than
-        guessed. No dependency was invented. It resolves on its own when its work reappears uniquely (Change
-        something can regenerate the work), or confirm below that the recorded repair should be dropped.
+        A recorded dependency has no unique successor to re-attach to, so it is kept unassigned rather than guessed. No
+        dependency was invented. It resolves on its own when its work reappears uniquely (Change something can
+        regenerate the work), or confirm below that the recorded repair should be dropped.
       </p>
       ${pending.map(
-        ({key, repair}) => html`<p>${repair.ideas.map((id) => byID.get(id)?.description || id).join('; ')}
+        ({key, repair}) => html`<p>
+          ${repair.ideas.map((id) => byID.get(id)?.description || id).join('; ')}
           <button
             aria-label="Confirm drop of unassigned repair ${key}"
             ?disabled=${this.busy || this.blocked}
@@ -2676,7 +2673,8 @@ export class SodaIntent extends LitElement {
         ${this.reviewing() ? reviewIntent(view) : describeIntent(view)}
       </div>
       <p role="status" class="intent-live-status">${status ? html`<span>${status}</span>` : ''}</p>
-      ${this.scopeRecovery()} ${this.declinedWorkRecovery()} ${this.savedHistoryRecovery()} ${this.unresolvedRepairReview()} ${departmentDialog(view)}`;
+      ${this.scopeRecovery()} ${this.declinedWorkRecovery()} ${this.savedHistoryRecovery()}
+      ${this.unresolvedRepairReview()} ${departmentDialog(view)}`;
   }
 }
 customElements.define('soda-intent', SodaIntent);
@@ -2821,11 +2819,7 @@ function isShelvedDeps(value: unknown): value is Record<string, ShelvedDepRepair
     if (!depIdeas || typeof depIdeas !== 'object' || Array.isArray(depIdeas)) return false;
     return Object.entries(depIdeas).every(
       ([dep, ids]) =>
-        decisionID(dep) &&
-        Array.isArray(ids) &&
-        ids.length > 0 &&
-        ids.length <= 50 &&
-        ids.every((id) => decisionID(id))
+        decisionID(dep) && Array.isArray(ids) && ids.length > 0 && ids.length <= 50 && ids.every((id) => decisionID(id))
     );
   });
 }
@@ -2833,11 +2827,7 @@ function isShelvedDeps(value: unknown): value is Record<string, ShelvedDepRepair
 // Lineage entries whose target is neither live nor shelved: the edge's
 // successor has not (or not yet) come back, so the lineage stays pending
 // for a later regeneration instead of being forgotten.
-function pendingRepairLineage(
-  repair: ShelvedDepRepair,
-  live: Set<string>,
-  shelved: Set<string>
-): string[] {
+function pendingRepairLineage(repair: ShelvedDepRepair, live: Set<string>, shelved: Set<string>): string[] {
   return Object.keys(repair.depIdeas || {}).filter((dep) => !live.has(dep) && !shelved.has(dep));
 }
 
