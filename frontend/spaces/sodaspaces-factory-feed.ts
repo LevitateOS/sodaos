@@ -39,7 +39,6 @@ import {renderFeedCommunication} from './sodaspaces-factory-feed-communication.j
 import {renderConsultation, renderContribution} from './sodaspaces-factory-consultation.js';
 import {roleLabel, threadFeed} from './sodaspaces-factory-feed-thread.js';
 import {feedRolePortraits} from './sodaspaces-factory-feed-portraits.js';
-import {fakeFeedFilter, fakeTodoFeed} from './sodaspaces-factory-feed-fake.js';
 
 export interface FactoryFeedContext {
   transport: PreparedExtensionMount;
@@ -186,12 +185,6 @@ export class SodaFactoryFeed extends LitElement {
   private focusedEntry: FeedEntry | undefined;
   private filters = {view: 'all', search: '', role: '', current: false};
 
-  // The Fake feed tab shows a made-up todo-app feed instead of the served
-  // one; nothing is read or written while it is selected.
-  private get fake() {
-    return this.filters.view === 'fake';
-  }
-
   protected createRenderRoot() {
     return this;
   }
@@ -288,7 +281,7 @@ export class SodaFactoryFeed extends LitElement {
 
   private async reload() {
     const context = this.current;
-    if (!context || this.fake || this.view.busy) return;
+    if (!context || this.view.busy) return;
     if (!context.global && !id(context.repository)) {
       this.view = {...this.view, message: 'The combined feed needs its current project binding.'};
       return;
@@ -400,7 +393,7 @@ export class SodaFactoryFeed extends LitElement {
   // re-read their newest replies alongside.
   private async readLatest(announce: boolean) {
     const context = this.current;
-    if (!context || this.fake || this.reading === this.serial) return;
+    if (!context || this.reading === this.serial) return;
     const serial = this.serial;
     if (this.scopeRepositories().length === 0) {
       this.view = {
@@ -472,7 +465,7 @@ export class SodaFactoryFeed extends LitElement {
 
   private async readOlder() {
     const context = this.current;
-    if (!context || this.fake || this.view.busy || this.view.next === '') return;
+    if (!context || this.view.busy || this.view.next === '') return;
     const serial = this.serial;
     this.view = {...this.view, busy: true};
     try {
@@ -519,12 +512,6 @@ export class SodaFactoryFeed extends LitElement {
 
   private changeFilters(next: Partial<typeof this.filters>) {
     this.focusedEntry = undefined;
-    if (next.view !== undefined && (next.view === 'fake') !== this.fake) {
-      // Switching between the fake and served feed drops open threads.
-      this.threads.clear();
-      this.openDrawers.clear();
-      this.revising = undefined;
-    }
     this.filters = {...this.filters, ...next};
     this.serial++;
     this.reading = undefined;
@@ -538,14 +525,7 @@ export class SodaFactoryFeed extends LitElement {
       truncated: false,
       pagedBack: false,
     };
-    if (this.fake)
-      this.view = {
-        ...this.view,
-        entries: fakeFeedFilter(fakeTodoFeed(Number(this.current?.repository) || 0), this.filters),
-        confirmedUnix: Math.floor(Date.now() / 1000),
-        message: 'Fake feed: a made-up todo app. Pick another tab for the real feed.',
-      };
-    else void this.readLatest(false);
+    void this.readLatest(false);
   }
 
   private backToLatest = () => {
@@ -1109,19 +1089,6 @@ export class SodaFactoryFeed extends LitElement {
     const target = event.target;
     if (!(target instanceof HTMLElement)) return;
     const closest = (selector: string) => target.closest<HTMLElement>(selector);
-    if (
-      this.fake &&
-      closest(
-        '[data-comment-submit], [data-comment-product-change], [data-comment-revise], [data-revision-submit], [data-role-reply-open]'
-      )
-    ) {
-      // Nothing written in the fake feed reaches the project.
-      this.view = {
-        ...this.view,
-        message: 'This is the fake feed: nothing is sent. Pick another tab for the real feed.',
-      };
-      return;
-    }
     const productChange = closest('[data-comment-product-change]');
     if (productChange) {
       void this.reviewProductChange(
@@ -1339,7 +1306,6 @@ export class SodaFactoryFeed extends LitElement {
       ['attention', 'Needs me'],
       ['decisions', 'Choices & approvals'],
       ['evidence', 'Evidence'],
-      ['fake', 'Fake feed'],
     ];
     return html`<nav class="soda-feed-tabs" aria-label="Filter conversation">
       ${views.map(
