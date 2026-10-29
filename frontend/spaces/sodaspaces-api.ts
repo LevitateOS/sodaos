@@ -12,7 +12,8 @@ async function sodaJSONReader(response: Response, maxBytes: number) {
 }
 
 export async function readSodaJSON(response: Response, maxBytes = 4 * 1024 * 1024): Promise<unknown> {
-  if (!Number.isSafeInteger(maxBytes) || maxBytes < 1 || maxBytes > 4 * 1024 * 1024) throw Error('Invalid Soda response bound');
+  if (!Number.isSafeInteger(maxBytes) || maxBytes < 1 || maxBytes > 4 * 1024 * 1024)
+    throw Error('Invalid Soda response bound');
   const reader = await sodaJSONReader(response, maxBytes),
     decoder = new TextDecoder('utf-8', {fatal: true});
   let size = 0,

@@ -115,7 +115,7 @@ func (c *Coordinator) buildInitialAcceptance(ctx context.Context, hint IntakeHin
 	}
 	view := evidence.Issue
 	decision := factory.Acceptance{
-		ID: factory.InitialAcceptanceID(hint.Repository, strconv.FormatInt(hint.NativeIssueID, 10)),
+		ID:         factory.InitialAcceptanceID(hint.Repository, strconv.FormatInt(hint.NativeIssueID, 10)),
 		Repository: hint.Repository, IssueIndex: strconv.FormatInt(hint.Issue, 10),
 		Approver: hint.Creator, NativeRev: evidence.Revision, Initial: true,
 		TitleDigest: view.TitleDigest, TitleOccurrence: view.TitleOccurrence, ContentDigest: view.ContentDigest, ContentVersion: view.ContentVer,

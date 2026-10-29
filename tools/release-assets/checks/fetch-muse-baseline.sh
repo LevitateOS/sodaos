@@ -46,7 +46,7 @@ MTIME_BEFORE="$(stat -c%Y "$WORK/out-current")"
 # Unknown upstream: well-formed HTTP, malformed channel document.
 printf 'not-json{' > "$WORK/bad.json"
 
-python3 -m http.server "$PORT" --bind 127.0.0.1 --directory "$WORK" >/dev/null 2>&1 &
+PORT="$PORT" WORK="$WORK" bun -e 'const root=Bun.env.WORK as string; const port=Number(Bun.env.PORT); Bun.serve({port, hostname:"127.0.0.1", fetch(req){ const u=new URL(req.url); let p=u.pathname; if(p==="/download") p="/payload-new"; const f=Bun.file(root+p); return new Response(f); }}); await new Promise(()=>{});' >/dev/null 2>&1 &
 SRV=$!
 trap 'kill $SRV 2>/dev/null' EXIT
 sleep 1

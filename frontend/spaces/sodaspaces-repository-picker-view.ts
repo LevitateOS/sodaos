@@ -138,8 +138,7 @@ export function renderRepositoryPicker(view: RepositoryPickerView, actions: Repo
       /></label>
       <button class="ui button" ?disabled=${pickerLocked(view)}>Search</button>
     </form>
-    ${repositoryNotice(view)}
-    ${repositoryResults(view, actions.select)} ${repositoryPages(view, actions.search)}
+    ${repositoryNotice(view)} ${repositoryResults(view, actions.select)} ${repositoryPages(view, actions.search)}
     <div class="soda-setup-actions">
       <a href=${view.createURL} target="_blank" rel="noopener">Create a new repository</a
       ><button class="ui button" ?disabled=${pickerLocked(view)} @click=${() => actions.search(1)}>

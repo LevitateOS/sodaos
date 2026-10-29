@@ -1208,7 +1208,9 @@ test('explicit retry against live attention posts nothing and asks for the decis
   );
   await planning.getByText('Planning details', {exact: true}).click();
   await planning.getByRole('button', {name: 'Plan work', exact: true}).click();
-  await planning.getByText('Planning stopped before it could propose work. Your request is saved.', {exact: true}).waitFor();
+  await planning
+    .getByText('Planning stopped before it could propose work. Your request is saved.', {exact: true})
+    .waitFor();
   // In attention Plan work would only duplicate the primary, so it is gone.
   assert.equal(await planning.getByRole('button', {name: 'Plan work', exact: true}).count(), 0);
   assert.equal(
@@ -1330,7 +1332,9 @@ test('immediate attention plan asks for the decision without a running text', as
   await page.getByRole('heading', {name: 'Review your product direction', exact: true}).waitFor();
   await page.waitForFunction(() => (window as unknown as {intentStore: IntentStore}).intentStore.planCalls.length > 0);
   const planning = page.locator('section[aria-label="Draft planning"]');
-  await planning.getByText('Planning stopped before it could propose work. Your request is saved.', {exact: true}).waitFor();
+  await planning
+    .getByText('Planning stopped before it could propose work. Your request is saved.', {exact: true})
+    .waitFor();
   assert.equal(
     await planning.getByText('Planning is running. The status below follows the run.', {exact: true}).count(),
     0
@@ -1433,11 +1437,12 @@ test('explicit check on a blocked plan summarizes state near the top and focuses
   await page.getByRole('button', {name: 'Check walkthrough', exact: true}).click();
   // The state/action summary sits near the top, directly under the review
   // heading and its state chip.
-  await page.locator('section.intent-review > h2 + .state-chip').getByText('Checked · needs correction', {exact: true}).waitFor();
-  const summary = page.locator('section.intent-review > h2 + .state-chip + p');
-  await summary
-    .getByText('Check found 1 walkthrough finding blocking acceptance.', {exact: false})
+  await page
+    .locator('section.intent-review > h2 + .state-chip')
+    .getByText('Checked · needs correction', {exact: true})
     .waitFor();
+  const summary = page.locator('section.intent-review > h2 + .state-chip + p');
+  await summary.getByText('Check found 1 walkthrough finding blocking acceptance.', {exact: false}).waitFor();
   await summary
     .getByText(
       'Correct or clarify the request above for the walkthrough findings (your objective and choices stay), then plan again and check before authorizing work.',
@@ -1635,10 +1640,7 @@ test('proposal refusals name the task limit only for task-limit failures', async
     )
     .waitFor();
   // Both failures came from explicit clicks; the UI never retried on its own.
-  assert.equal(
-    await page.evaluate(() => (window as unknown as {refusedExplores: number}).refusedExplores),
-    2
-  );
+  assert.equal(await page.evaluate(() => (window as unknown as {refusedExplores: number}).refusedExplores), 2);
   assert.equal(
     await page.getByLabel('Describe what you want to build', {exact: true}).inputValue(),
     'Build a leave tracker'
@@ -2418,7 +2420,10 @@ async function resumeExplicitSubset(
   await page.getByLabel('Describe what you want to build', {exact: true}).fill('Build a leave tracker');
   await page.getByRole('button', {name: 'Explore ideas', exact: true}).click();
   await page.getByRole('heading', {name: 'Review your product direction'}).waitFor();
-  await page.getByRole('combobox', {name: /^Choice:/}).first().selectOption('accept');
+  await page
+    .getByRole('combobox', {name: /^Choice:/})
+    .first()
+    .selectOption('accept');
   await updateProposal(page);
   for (const change of ['Track overtime too', 'Summarize nightly state']) {
     const before = await page.evaluate(
@@ -2465,8 +2470,7 @@ async function resumeExplicitSubset(
         // mirroring the backend resolved-scope contract.
         tasks: (current.tasks as {idea_ids: string[]}[]).filter(
           (task) =>
-            task.idea_ids.every((id) => subsetIDs.includes(id)) &&
-            !task.idea_ids.some((id) => declinedIDs.includes(id))
+            task.idea_ids.every((id) => subsetIDs.includes(id)) && !task.idea_ids.some((id) => declinedIDs.includes(id))
         ),
         effective_outcomes: subsetIDs.filter((id) => !declinedIDs.includes(id)),
       },
@@ -2485,7 +2489,10 @@ test('explicit subset with a removed idea stays narrowed instead of broadening',
   const page = await fixture(t, 'page', undefined, true);
   await installIntentStore(page);
   const {ids} = await resumeExplicitSubset(page, [0, 1]);
-  await page.getByRole('combobox', {name: /^Choice:/}).nth(1).selectOption('decline');
+  await page
+    .getByRole('combobox', {name: /^Choice:/})
+    .nth(1)
+    .selectOption('decline');
   await updateProposal(page);
   const saved = await lastPostedBody(page, 'draft');
   assert.deepEqual(saved.effective_outcomes, [ids[0]]);
@@ -2504,7 +2511,10 @@ test('narrowing an explicit subset to empty refuses the silent save until explic
   // Canonical stored shape: only the subset idea carries a work-linked
   // choice, so the excluded decided ideas have no control of their own.
   assert.equal(await page.getByRole('combobox', {name: /^Choice:/}).count(), 1);
-  await page.getByRole('combobox', {name: /^Choice:/}).first().selectOption('decline');
+  await page
+    .getByRole('combobox', {name: /^Choice:/})
+    .first()
+    .selectOption('decline');
   const before = await page.evaluate(
     () => (document.querySelector('soda-intent') as unknown as {revision?: {id: string}}).revision?.id || ''
   );
@@ -2524,12 +2534,16 @@ test('narrowing an explicit subset to empty refuses the silent save until explic
     before
   );
   assert.equal(
-    await page.evaluate(
-      () => window.workspaceFixture.calls.filter((call) => call.body?.state === 'draft').length
-    ),
+    await page.evaluate(() => window.workspaceFixture.calls.filter((call) => call.body?.state === 'draft').length),
     draftsBefore
   );
-  assert.equal(await page.getByRole('combobox', {name: /^Choice:/}).first().inputValue(), 'decline');
+  assert.equal(
+    await page
+      .getByRole('combobox', {name: /^Choice:/})
+      .first()
+      .inputValue(),
+    'decline'
+  );
   // The refusal renders the excluded decided ideas with direct controls:
   // the removed member offers re-acceptance, the remaining ones decline.
   await page.getByRole('button', {name: `Re-accept narrowed idea ${ids[0]}`, exact: true}).waitFor();
@@ -2573,7 +2587,10 @@ test('a changed objective saves a cleared new request freely despite an emptied 
   const page = await fixture(t, 'page', undefined, true);
   await installIntentStore(page);
   await resumeExplicitSubset(page, [0]);
-  await page.getByRole('combobox', {name: /^Choice:/}).first().selectOption('decline');
+  await page
+    .getByRole('combobox', {name: /^Choice:/})
+    .first()
+    .selectOption('decline');
   await page.getByLabel('Desired outcome', {exact: true}).fill('Build a shift scheduler');
   await updateProposal(page);
   const saved = await lastPostedBody(page, 'draft');
@@ -2648,7 +2665,10 @@ async function driveTaskLinkedDraft(page: Page): Promise<{intent: string; ids: s
   await page.getByLabel('Describe what you want to build', {exact: true}).fill('Build a leave tracker');
   await page.getByRole('button', {name: 'Explore ideas', exact: true}).click();
   await page.getByRole('heading', {name: 'Review your product direction'}).waitFor();
-  await page.getByRole('combobox', {name: /^Choice:/}).first().selectOption('accept');
+  await page
+    .getByRole('combobox', {name: /^Choice:/})
+    .first()
+    .selectOption('accept');
   await updateProposal(page);
   for (const change of ['Track overtime too', 'Summarize nightly state']) {
     const before = await page.evaluate(
@@ -2672,7 +2692,10 @@ async function driveTaskLinkedDraft(page: Page): Promise<{intent: string; ids: s
   assert.equal(ids.length, 3);
   const first = ids[0];
   assert.ok(first);
-  assert.ok(tasks.some((task) => task.idea_ids.includes(first)), 'idea A must carry linked work');
+  assert.ok(
+    tasks.some((task) => task.idea_ids.includes(first)),
+    'idea A must carry linked work'
+  );
   return {intent: String(current.intent), ids};
 }
 
@@ -2688,7 +2711,10 @@ test('declining a task-linked idea drops its work, saves canonically valid state
   });
   const linked = fullTasks.filter((task) => task.idea_ids.includes(declinedA));
   assert.ok(linked.length > 0);
-  await page.getByRole('combobox', {name: /^Choice:/}).first().selectOption('decline');
+  await page
+    .getByRole('combobox', {name: /^Choice:/})
+    .first()
+    .selectOption('decline');
   await updateProposal(page);
   const saved = await lastPostedBody(page, 'draft');
   const ideas = saved.ideas as {id: string; decision: string}[];
@@ -2700,7 +2726,10 @@ test('declining a task-linked idea drops its work, saves canonically valid state
     'the proposal must carry no work referencing declined A'
   );
   for (const task of fullTasks.filter((task) => !task.idea_ids.includes(declinedA)))
-    assert.ok(tasks.some((kept) => kept.key === task.key), `unrelated work ${task.key} must survive the decline`);
+    assert.ok(
+      tasks.some((kept) => kept.key === task.key),
+      `unrelated work ${task.key} must survive the decline`
+    );
   // Negative control: the pre-fix shape (declined idea, unchanged tasks)
   // violates the canonical declined-outcome rule.
   expectCanonicalInvalid('prefix-shape', {...saved, tasks: fullTasks}, /task references declined outcome/);
@@ -2735,7 +2764,10 @@ test('partial narrowing with a declined task-linked idea drops its work and reco
   const narrowedIdea = ids[1];
   assert.ok(keptIdea);
   assert.ok(narrowedIdea);
-  await page.getByRole('combobox', {name: /^Choice:/}).nth(1).selectOption('decline');
+  await page
+    .getByRole('combobox', {name: /^Choice:/})
+    .nth(1)
+    .selectOption('decline');
   await updateProposal(page);
   const saved = await lastPostedBody(page, 'draft');
   assert.deepEqual(saved.effective_outcomes, [keptIdea]);
@@ -2774,7 +2806,10 @@ test('a terminal seed with a declined idea carries no declined effective or task
   const ideas = loaded.ideas as {id: string; decision: string}[];
   const declined = new Set(ideas.filter((idea) => idea.decision === 'decline').map((idea) => idea.id));
   assert.ok(declined.has(terminalIdea));
-  assert.equal(((loaded.effective_outcomes as string[]) || []).some((id) => declined.has(id)), false);
+  assert.equal(
+    ((loaded.effective_outcomes as string[]) || []).some((id) => declined.has(id)),
+    false
+  );
   assert.equal(
     ((loaded.tasks as {idea_ids: string[]}[]) || []).some((task) => task.idea_ids.some((id) => declined.has(id))),
     false
@@ -2842,7 +2877,10 @@ test('declining chained work prunes the kept edge and re-accept restores it with
   // keys: locate work by idea linkage, never by pre-save key.
   const aKey = await chainKeptOntoDeclined(page);
   assert.ok(aKey, 'the draft must carry three work items to chain');
-  await page.getByRole('combobox', {name: /^Choice:/}).first().selectOption('decline');
+  await page
+    .getByRole('combobox', {name: /^Choice:/})
+    .first()
+    .selectOption('decline');
   await updateProposal(page);
   const saved = await lastPostedBody(page, 'draft');
   const tasks = saved.tasks as {key: string; idea_ids: string[]; depends_on?: string[]}[];
@@ -2867,9 +2905,13 @@ test('declining chained work prunes the kept edge and re-accept restores it with
   );
   assert.ok(shelved.length > 0, 'the declined A work must persist in the same-browser shelf');
   const shelvedKeys = new Set(shelved.map((task) => task.key));
-  const repairs = Object.values((entry?.shelfDeps as Record<string, {deps: string[]; ideas: string[]}> | undefined) || {});
+  const repairs = Object.values(
+    (entry?.shelfDeps as Record<string, {deps: string[]; ideas: string[]}> | undefined) || {}
+  );
   assert.ok(
-    repairs.some((repair) => (repair.ideas || []).includes(keptIdea) && (repair.deps || []).some((dep) => shelvedKeys.has(dep))),
+    repairs.some(
+      (repair) => (repair.ideas || []).includes(keptIdea) && (repair.deps || []).some((dep) => shelvedKeys.has(dep))
+    ),
     'the cut B→A edge must persist as a repair record'
   );
   await page.getByRole('button', {name: `Re-accept declined idea ${declinedA}`, exact: true}).click();
@@ -2885,8 +2927,7 @@ test('declining chained work prunes the kept edge and re-accept restores it with
   assert.deepEqual(revivedB.depends_on || [], [aKey], 're-accept must restore the recorded B→A edge');
   const live = new Set(revived.map((task) => task.key));
   for (const task of revived)
-    for (const dep of task.depends_on || [])
-      assert.ok(live.has(dep), `no invented edges: ${dep} must be live work`);
+    for (const dep of task.depends_on || []) assert.ok(live.has(dep), `no invented edges: ${dep} must be live work`);
   checkCanonical('shelf-decline-restored-edge', restored);
   assert.equal(await page.getByRole('group', {name: 'Declined work recovery'}).count(), 0);
 });
@@ -2901,7 +2942,10 @@ test('saved decline recovery survives a same-browser reload with dependencies in
   assert.ok(keptIdea);
   const aKey = await chainKeptOntoDeclined(page);
   assert.ok(aKey, 'the draft must carry three work items to chain');
-  await page.getByRole('combobox', {name: /^Choice:/}).first().selectOption('decline');
+  await page
+    .getByRole('combobox', {name: /^Choice:/})
+    .first()
+    .selectOption('decline');
   await updateProposal(page);
   checkCanonical('shelf-reload-decline-drop', await lastPostedBody(page, 'draft'));
   // Settle the shelf against a saved head before reloading: the decline
@@ -2926,9 +2970,13 @@ test('saved decline recovery survives a same-browser reload with dependencies in
   );
   assert.ok(shelved.length > 0, 'reload must re-offer the shelved A work');
   const shelvedKeys = new Set(shelved.map((task) => task.key));
-  const repairs = Object.values((entry?.shelfDeps as Record<string, {deps: string[]; ideas: string[]}> | undefined) || {});
+  const repairs = Object.values(
+    (entry?.shelfDeps as Record<string, {deps: string[]; ideas: string[]}> | undefined) || {}
+  );
   assert.ok(
-    repairs.some((repair) => (repair.ideas || []).includes(keptIdea) && (repair.deps || []).some((dep) => shelvedKeys.has(dep))),
+    repairs.some(
+      (repair) => (repair.ideas || []).includes(keptIdea) && (repair.deps || []).some((dep) => shelvedKeys.has(dep))
+    ),
     'reload must keep the recorded B→A repair'
   );
   await page.getByRole('button', {name: `Re-accept declined idea ${declinedA}`, exact: true}).click();
@@ -2956,7 +3004,10 @@ test('save explore reload keeps the shelf at the advanced head', async (t) => {
   assert.ok(keptIdea);
   const aKey = await chainKeptOntoDeclined(page);
   assert.ok(aKey, 'the draft must carry three work items to chain');
-  await page.getByRole('combobox', {name: /^Choice:/}).first().selectOption('decline');
+  await page
+    .getByRole('combobox', {name: /^Choice:/})
+    .first()
+    .selectOption('decline');
   await updateProposal(page);
   const declinedEntry = await draftShelfEntry(page, intent);
   assert.ok(shelfKeys(declinedEntry).length > 0, 'the decline save must persist a shelf');
@@ -3013,7 +3064,10 @@ test('reset preserves the recovery record instead of clearing it', async (t) => 
   assert.ok(keptIdea);
   const aKey = await chainKeptOntoDeclined(page);
   assert.ok(aKey, 'the draft must carry three work items to chain');
-  await page.getByRole('combobox', {name: /^Choice:/}).first().selectOption('decline');
+  await page
+    .getByRole('combobox', {name: /^Choice:/})
+    .first()
+    .selectOption('decline');
   await updateProposal(page);
   // Settle the shelf against a saved head so the reset record matches the
   // resume head exactly.
@@ -3024,9 +3078,13 @@ test('reset preserves the recovery record instead of clearing it', async (t) => 
   );
   assert.ok(shelved.length > 0, 'the decline save must persist the A work');
   const shelvedKeys = new Set(shelved.map((task) => task.key));
-  const savedRepairs = Object.values((savedEntry?.shelfDeps as Record<string, {deps: string[]; ideas: string[]}> | undefined) || {});
+  const savedRepairs = Object.values(
+    (savedEntry?.shelfDeps as Record<string, {deps: string[]; ideas: string[]}> | undefined) || {}
+  );
   assert.ok(
-    savedRepairs.some((repair) => (repair.ideas || []).includes(keptIdea) && (repair.deps || []).some((dep) => shelvedKeys.has(dep))),
+    savedRepairs.some(
+      (repair) => (repair.ideas || []).includes(keptIdea) && (repair.deps || []).some((dep) => shelvedKeys.has(dep))
+    ),
     'the decline save must record the B→A repair'
   );
   await resetIntent(page);
@@ -3036,9 +3094,13 @@ test('reset preserves the recovery record instead of clearing it', async (t) => 
     shelfKeys(resetEntry).some((key) => shelvedKeys.has(key)),
     'reset must persist the recovery record before clearing'
   );
-  const resetRepairs = Object.values((resetEntry?.shelfDeps as Record<string, {deps: string[]; ideas: string[]}> | undefined) || {});
+  const resetRepairs = Object.values(
+    (resetEntry?.shelfDeps as Record<string, {deps: string[]; ideas: string[]}> | undefined) || {}
+  );
   assert.ok(
-    resetRepairs.some((repair) => (repair.ideas || []).includes(keptIdea) && (repair.deps || []).some((dep) => shelvedKeys.has(dep))),
+    resetRepairs.some(
+      (repair) => (repair.ideas || []).includes(keptIdea) && (repair.deps || []).some((dep) => shelvedKeys.has(dep))
+    ),
     'reset must keep the recorded repair instead of overwriting it'
   );
   await resumeIntent(page, intent);
@@ -3065,7 +3127,10 @@ test('canonical validator probe proves a declined-task drop against the real Go 
   const {ids} = await driveTaskLinkedDraft(page);
   const declinedA = ids[0];
   assert.ok(declinedA);
-  await page.getByRole('combobox', {name: /^Choice:/}).first().selectOption('decline');
+  await page
+    .getByRole('combobox', {name: /^Choice:/})
+    .first()
+    .selectOption('decline');
   await updateProposal(page);
   const saved = await lastPostedBody(page, 'draft');
   checkCanonical('probe-declined-task-drop', saved);
@@ -3134,7 +3199,9 @@ async function chainAOntoB(page: Page, ids: string[]): Promise<{aKey: string; bK
 async function revisionTasks(page: Page): Promise<PostedTask[]> {
   const revision = await page.evaluate(
     () =>
-      JSON.parse(JSON.stringify((document.querySelector('soda-intent') as unknown as {revision: unknown}).revision)) as {
+      JSON.parse(
+        JSON.stringify((document.querySelector('soda-intent') as unknown as {revision: unknown}).revision)
+      ) as {
         tasks: PostedTask[];
       }
   );
@@ -3144,16 +3211,20 @@ async function revisionTasks(page: Page): Promise<PostedTask[]> {
 // Decline by current description: card order and keys shift across backend
 // re-exploration, while descriptions stay stable.
 async function declineIdeaByDescription(page: Page, id: string) {
-  const descs = await page.evaluate(
-    () =>
+  const descs = await page.evaluate(() =>
+    (
       (
-        (document.querySelector('soda-intent') as unknown as {
+        document.querySelector('soda-intent') as unknown as {
           revision?: {ideas?: {id: string; description: string}[]};
-        }).revision?.ideas || []
-      ).map((idea) => ({id: idea.id, description: idea.description}))
+        }
+      ).revision?.ideas || []
+    ).map((idea) => ({id: idea.id, description: idea.description}))
   );
   const desc = descs.find((idea) => idea.id === id)?.description || id;
-  await page.locator('article', {hasText: desc.slice(0, 40)}).getByRole('combobox').selectOption('decline');
+  await page
+    .locator('article', {hasText: desc.slice(0, 40)})
+    .getByRole('combobox')
+    .selectOption('decline');
 }
 
 function taskForIdea(tasks: PostedTask[], idea: string): PostedTask | undefined {
@@ -3249,8 +3320,15 @@ test('repeated declines accumulate the cut edges and each re-accept restores onl
   entry = await draftShelfEntry(page, intent);
   shelf = shelfOf(entry);
   live = await revisionTasks(page);
-  assert.ok(tasks.some((task) => task.idea_ids.includes(ideaA)), 'shelved A work must return on re-accept');
-  assert.equal(tasks.some((task) => task.idea_ids.includes(ideaC)), false, 'C work stays out while declined');
+  assert.ok(
+    tasks.some((task) => task.idea_ids.includes(ideaA)),
+    'shelved A work must return on re-accept'
+  );
+  assert.equal(
+    tasks.some((task) => task.idea_ids.includes(ideaC)),
+    false,
+    'C work stays out while declined'
+  );
   keptB = taskForIdea(tasks, ideaB);
   assert.ok(keptB, 'kept B work must still be proposed after re-accepting A');
   assert.deepEqual(
@@ -3278,7 +3356,8 @@ test('repeated declines accumulate the cut edges and each re-accept restores onl
   );
   const liveKeys = new Set(tasks.map((task) => task.key));
   for (const task of tasks)
-    for (const dep of task.depends_on || []) assert.ok(liveKeys.has(dep), `no invented edges: ${dep} must be live work`);
+    for (const dep of task.depends_on || [])
+      assert.ok(liveKeys.has(dep), `no invented edges: ${dep} must be live work`);
   assert.equal(await page.getByRole('group', {name: 'Declined work recovery'}).count(), 0);
 });
 
@@ -3309,7 +3388,13 @@ test('recordPrunedDeps merges a later decline against the exact originals instea
       // Keep the live revision shape intact (Lit renders from it) and swap
       // only the task list between the two faithful save states.
       const base = host.revision;
-      const taskB = (deps: string[]) => ({key: bKey, idea_ids: [bIdea], objective: 'b', outcomes: ['o'], depends_on: deps});
+      const taskB = (deps: string[]) => ({
+        key: bKey,
+        idea_ids: [bIdea],
+        objective: 'b',
+        outcomes: ['o'],
+        depends_on: deps,
+      });
       const taskA = () => ({key: aKey, idea_ids: ['idea-a'], objective: 'a', outcomes: ['o']});
       const taskC = () => ({key: cKey, idea_ids: ['idea-c'], objective: 'c', outcomes: ['o']});
       // First decline save: B→[A,C] pruned to B→[C], A shelved.
@@ -3349,15 +3434,18 @@ test('shelf validation keeps a 26+ link task yet still rejects an over-length li
   // allows up to 64 entries of up to 25 chars each, so the count side of
   // reload validation must keep it (a single shared 25 limit would discard
   // the entire shelf here).
-  const wide = await page.evaluate(([storageKey, count]: [string, number]) => {
-    const raw = localStorage.getItem(storageKey);
-    const entry = raw ? (JSON.parse(raw) as {shelf?: {key: string; depends_on?: string[]}[]}) : null;
-    if (!entry || !Array.isArray(entry.shelf) || entry.shelf.length === 0) return null;
-    const links = Array.from({length: count}, (_, i) => 'd' + (100 + i).toString(16).padStart(24, '0'));
-    entry.shelf[0] = {...entry.shelf[0], depends_on: links} as {key: string; depends_on?: string[]};
-    localStorage.setItem(storageKey, JSON.stringify(entry));
-    return {shelfTask: entry.shelf[0]?.key || '', linkCount: links.length};
-  }, [key, 30] as [string, number]);
+  const wide = await page.evaluate(
+    ([storageKey, count]: [string, number]) => {
+      const raw = localStorage.getItem(storageKey);
+      const entry = raw ? (JSON.parse(raw) as {shelf?: {key: string; depends_on?: string[]}[]}) : null;
+      if (!entry || !Array.isArray(entry.shelf) || entry.shelf.length === 0) return null;
+      const links = Array.from({length: count}, (_, i) => 'd' + (100 + i).toString(16).padStart(24, '0'));
+      entry.shelf[0] = {...entry.shelf[0], depends_on: links} as {key: string; depends_on?: string[]};
+      localStorage.setItem(storageKey, JSON.stringify(entry));
+      return {shelfTask: entry.shelf[0]?.key || '', linkCount: links.length};
+    },
+    [key, 30] as [string, number]
+  );
   assert.ok(wide, 'the decline save must persist a shelf to widen');
   assert.equal(wide.linkCount, 30);
   // Simulate the reload leg through the real restore path (reset+resume in
@@ -3417,7 +3505,11 @@ test('cross-explore remaps a shelved edge onto the regenerated successor key', a
   let live = await revisionTasks(page);
   let shelvedA = shelf.find((task) => task.idea_ids.includes(ideaA));
   assert.ok(shelvedA, 'shelved A work must persist with its edge');
-  assert.deepEqual(edgeIdeaSets(shelvedA.depends_on, live, shelf), [[ideaB]], 'the update must remap the edge onto live B');
+  assert.deepEqual(
+    edgeIdeaSets(shelvedA.depends_on, live, shelf),
+    [[ideaB]],
+    'the update must remap the edge onto live B'
+  );
   const freshB = live.find((task) => task.idea_ids.includes(ideaB));
   assert.ok(freshB && (shelvedA.depends_on || [])[0] === freshB.key, 'the remapped edge must track the current B key');
   // Update re-explores and regenerates kept work under fresh keys.
@@ -3459,7 +3551,8 @@ test('cross-explore remaps a shelved edge onto the regenerated successor key', a
   assert.deepEqual(edgeIdeaSets(revivedA.depends_on, tasks, fresh), [[ideaB]], 're-accept restores A→successor-B');
   const liveKeys = new Set(tasks.map((task) => task.key));
   for (const task of tasks)
-    for (const dep of task.depends_on || []) assert.ok(liveKeys.has(dep), `no invented edges: ${dep} must be live work`);
+    for (const dep of task.depends_on || [])
+      assert.ok(liveKeys.has(dep), `no invented edges: ${dep} must be live work`);
 });
 
 test('ambiguous regenerated lineage keeps the edge cut with recovery intact', async (t) => {
@@ -3546,12 +3639,20 @@ test('ambiguous regenerated lineage keeps the edge cut with recovery intact', as
   checkCanonical('ambiguous-reaccept-A', saved);
   const tasks = saved.tasks as PostedTask[];
   const shelf = shelfOf(await draftShelfEntry(page, intent));
-  assert.ok(tasks.some((task) => task.idea_ids.includes(ideaA)), 'shelved A work must return on re-accept');
+  assert.ok(
+    tasks.some((task) => task.idea_ids.includes(ideaA)),
+    'shelved A work must return on re-accept'
+  );
   const revivedA = taskForIdea(tasks, ideaA);
-  assert.deepEqual(edgeIdeaSets(revivedA?.depends_on, tasks, shelf), [[ideaB]], 're-accept restores A→B onto live work');
+  assert.deepEqual(
+    edgeIdeaSets(revivedA?.depends_on, tasks, shelf),
+    [[ideaB]],
+    're-accept restores A→B onto live work'
+  );
   const liveKeys = new Set(tasks.map((task) => task.key));
   for (const task of tasks)
-    for (const dep of task.depends_on || []) assert.ok(liveKeys.has(dep), `no invented edges: ${dep} must be live work`);
+    for (const dep of task.depends_on || [])
+      assert.ok(liveKeys.has(dep), `no invented edges: ${dep} must be live work`);
 });
 
 test('staggered re-accept records the restored edge and recovers it on the later return', async (t) => {
@@ -3589,7 +3690,11 @@ test('staggered re-accept records the restored edge and recovers it on the later
   const loneA = taskForIdea(tasks, ideaA);
   assert.ok(loneA, 'shelved A work must return on re-accept');
   assert.deepEqual(edgeIdeaSets(loneA.depends_on, tasks, shelf), [], 'A returns edgeless while B is still declined');
-  assert.equal(tasks.some((task) => task.idea_ids.includes(ideaB)), false, 'B work stays out while declined');
+  assert.equal(
+    tasks.some((task) => task.idea_ids.includes(ideaB)),
+    false,
+    'B work stays out while declined'
+  );
   const recordA = repairOwnedBy(entry, ideaA);
   assert.ok(recordA, 'the staggered update must record the restored A edge from the restored shape');
   assert.deepEqual(
@@ -3608,8 +3713,15 @@ test('staggered re-accept records the restored edge and recovers it on the later
   shelf = shelfOf(entry);
   const finalA = taskForIdea(tasks, ideaA);
   assert.ok(finalA, 'A work must still be proposed after re-accepting B');
-  assert.deepEqual(edgeIdeaSets(finalA.depends_on, tasks, shelf), [[ideaB]], 're-accept of B restores the recorded A→B edge');
-  assert.ok(tasks.some((task) => task.idea_ids.includes(ideaB)), 'shelved B work must return on re-accept');
+  assert.deepEqual(
+    edgeIdeaSets(finalA.depends_on, tasks, shelf),
+    [[ideaB]],
+    're-accept of B restores the recorded A→B edge'
+  );
+  assert.ok(
+    tasks.some((task) => task.idea_ids.includes(ideaB)),
+    'shelved B work must return on re-accept'
+  );
   const live = new Set(tasks.map((task) => task.key));
   for (const task of tasks)
     for (const dep of task.depends_on || []) assert.ok(live.has(dep), `no invented edges: ${dep} must be live work`);
@@ -3634,8 +3746,7 @@ async function armUnresolvedSplit(page: Page, idea: string) {
       const response = await inner(input, init);
       const url = String(input);
       const target = (window as unknown as {__splitIdea?: string}).__splitIdea;
-      if (!target || !url.endsWith('/explore') || (init?.method || 'GET') !== 'POST' || !response.ok)
-        return response;
+      if (!target || !url.endsWith('/explore') || (init?.method || 'GET') !== 'POST' || !response.ok) return response;
       const json = (await response.clone().json()) as {
         tasks: {key: string; idea_ids: string[]}[];
       };
@@ -3650,8 +3761,7 @@ async function armUnresolvedSplit(page: Page, idea: string) {
       const tasks: unknown[] = [];
       for (const task of json.tasks || []) {
         tasks.push(task);
-        if ((task.idea_ids || []).length === 1 && task.idea_ids[0] === target)
-          tasks.push({...task, key: fresh()});
+        if ((task.idea_ids || []).length === 1 && task.idea_ids[0] === target) tasks.push({...task, key: fresh()});
       }
       return Response.json({...json, tasks});
     };
@@ -3684,20 +3794,23 @@ async function driveUnresolvedAmbiguity(page: Page): Promise<{intent: string; de
   const declinedA = ids[0];
   const keptIdea = ids[1];
   assert.ok(declinedA && keptIdea);
-  const chained = await page.evaluate((wanted: string[]) => {
-    const host = document.querySelector('soda-intent') as unknown as {revision: unknown; dirty: boolean};
-    const rev = JSON.parse(JSON.stringify(host.revision)) as {
-      tasks: {key: string; idea_ids: string[]; depends_on?: string[]}[];
-    };
-    const taskFor = (id: string) => rev.tasks.find((task) => task.idea_ids.includes(id));
-    const a = taskFor(wanted[0] || '');
-    const b = taskFor(wanted[1] || '');
-    if (!a || !b || a.key === b.key) return null;
-    b.depends_on = [a.key];
-    host.revision = {...(host.revision as Record<string, unknown>), tasks: rev.tasks};
-    host.dirty = true;
-    return {aKey: a.key, bKey: b.key};
-  }, [declinedA, keptIdea]);
+  const chained = await page.evaluate(
+    (wanted: string[]) => {
+      const host = document.querySelector('soda-intent') as unknown as {revision: unknown; dirty: boolean};
+      const rev = JSON.parse(JSON.stringify(host.revision)) as {
+        tasks: {key: string; idea_ids: string[]; depends_on?: string[]}[];
+      };
+      const taskFor = (id: string) => rev.tasks.find((task) => task.idea_ids.includes(id));
+      const a = taskFor(wanted[0] || '');
+      const b = taskFor(wanted[1] || '');
+      if (!a || !b || a.key === b.key) return null;
+      b.depends_on = [a.key];
+      host.revision = {...(host.revision as Record<string, unknown>), tasks: rev.tasks};
+      host.dirty = true;
+      return {aKey: a.key, bKey: b.key};
+    },
+    [declinedA, keptIdea]
+  );
   assert.ok(chained, 'the draft must chain kept B onto declined-to-be A');
   await declineIdeaByDescription(page, declinedA);
   await updateProposal(page);
@@ -3758,9 +3871,7 @@ test('unresolved repair survives a limits-only save and reload with review visib
     [...retainedBefore.repair.deps].sort(),
     'reload must keep the exact recorded edges'
   );
-  await page
-    .getByRole('button', {name: `Re-accept declined idea ${declinedA}`, exact: true})
-    .waitFor();
+  await page.getByRole('button', {name: `Re-accept declined idea ${declinedA}`, exact: true}).waitFor();
 });
 
 test('zero-match successor keeps the carried repair through save and reload', async (t) => {
@@ -3790,7 +3901,10 @@ test('zero-match successor keeps the carried repair through save and reload', as
   const claimed = repairOwnedBy(entry, keptIdea);
   assert.ok(claimed, 'the returned work must claim the retained repair');
   const live = await revisionTasks(page);
-  assert.ok(live.some((task) => task.key === claimed.key), 'the claimed repair must sit on the unique successor key');
+  assert.ok(
+    live.some((task) => task.key === claimed.key),
+    'the claimed repair must sit on the unique successor key'
+  );
   assert.equal(await unresolvedGateCount(page), 0, 'a claimed repair is resolved: no more review');
   await page.getByRole('button', {name: `Re-accept declined idea ${declinedA}`, exact: true}).click();
   await updateProposal(page);
@@ -3807,7 +3921,8 @@ test('zero-match successor keeps the carried repair through save and reload', as
   );
   const liveKeys = new Set(tasks.map((task) => task.key));
   for (const task of tasks)
-    for (const dep of task.depends_on || []) assert.ok(liveKeys.has(dep), `no invented edges: ${dep} must be live work`);
+    for (const dep of task.depends_on || [])
+      assert.ok(liveKeys.has(dep), `no invented edges: ${dep} must be live work`);
 });
 
 test('unique successor with a live target adopts the carried repair exactly', async (t) => {
@@ -3824,7 +3939,10 @@ test('unique successor with a live target adopts the carried repair exactly', as
   const claimed = repairOwnedBy(entry, keptIdea);
   assert.ok(claimed, 'the unique successor must adopt the carried repair onto its live target');
   const live = await revisionTasks(page);
-  assert.ok(live.some((task) => task.key === claimed.key), 'the adopted repair must sit on a live successor key');
+  assert.ok(
+    live.some((task) => task.key === claimed.key),
+    'the adopted repair must sit on a live successor key'
+  );
   assert.equal(await unresolvedGateCount(page), 0, 'an adopted repair is resolved: no more review');
   await saveUnchangedLimits(page);
   const saved = await lastPostedBody(page, 'draft');
@@ -3840,8 +3958,13 @@ test('unique successor with a live target adopts the carried repair exactly', as
   );
   const liveKeys = new Set(tasks.map((task) => task.key));
   for (const task of tasks)
-    for (const dep of task.depends_on || []) assert.ok(liveKeys.has(dep), `no invented edges: ${dep} must be live work`);
-  assert.equal(repairOwnedBy(await draftShelfEntry(page, intent), keptIdea), null, 'a fully replayed repair is consumed');
+    for (const dep of task.depends_on || [])
+      assert.ok(liveKeys.has(dep), `no invented edges: ${dep} must be live work`);
+  assert.equal(
+    repairOwnedBy(await draftShelfEntry(page, intent), keptIdea),
+    null,
+    'a fully replayed repair is consumed'
+  );
 });
 
 test('repeated regeneration carries target lineage across every hop', async (t) => {
@@ -3859,7 +3982,11 @@ test('repeated regeneration carries target lineage across every hop', async (t) 
   let entry = await draftShelfEntry(page, intent);
   const retained = repairOwnedBy(entry, keptIdea);
   assert.ok(retained, 'B must stay unassigned while twinned');
-  assert.deepEqual([...retained.repair.deps].sort(), [aLive.key].sort(), 'the remap must follow the target onto live A');
+  assert.deepEqual(
+    [...retained.repair.deps].sort(),
+    [aLive.key].sort(),
+    'the remap must follow the target onto live A'
+  );
   const carried = (retained as unknown as {repair: {depIdeas?: Record<string, string[]>}}).repair.depIdeas || {};
   assert.deepEqual(carried[aLive.key], [declinedA], 'the remap must carry target lineage under the successor key');
   assert.ok((await unresolvedGateCount(page)) > 0, 'unresolved B stays visible while twinned');
@@ -3868,7 +3995,10 @@ test('repeated regeneration carries target lineage across every hop', async (t) 
     () => (document.querySelector('soda-intent') as unknown as {revision?: {id: string}}).revision?.id || ''
   );
   await page.getByRole('button', {name: 'Change something', exact: true}).click();
-  await page.locator('.change-field').getByLabel('What should change?', {exact: true}).fill('Consolidate the tracking work');
+  await page
+    .locator('.change-field')
+    .getByLabel('What should change?', {exact: true})
+    .fill('Consolidate the tracking work');
   await page.getByRole('button', {name: 'Submit change', exact: true}).click();
   await page.waitForFunction((prev: string) => {
     const host = document.querySelector('soda-intent') as unknown as {revision?: {id: string}; busy: boolean};
@@ -3900,7 +4030,8 @@ test('repeated regeneration carries target lineage across every hop', async (t) 
   );
   const liveKeys = new Set(tasks.map((task) => task.key));
   for (const task of tasks)
-    for (const dep of task.depends_on || []) assert.ok(liveKeys.has(dep), `no invented edges: ${dep} must be live work`);
+    for (const dep of task.depends_on || [])
+      assert.ok(liveKeys.has(dep), `no invented edges: ${dep} must be live work`);
   assert.equal(repairOwnedBy(await draftShelfEntry(page, intent), keptIdea), null, 'replay consumes the record');
 });
 
@@ -3974,7 +4105,10 @@ test('saved history previews the exact predecessor and re-accept drafts it onto 
   const preDecline = await currentRevision(page);
   const aTasks = (preDecline.tasks as HistoryTask[]).filter((task) => task.idea_ids.includes(declinedA));
   assert.ok(aTasks.length > 0, 'idea A must carry linked work before the decline');
-  await page.getByRole('combobox', {name: /^Choice:/}).first().selectOption('decline');
+  await page
+    .getByRole('combobox', {name: /^Choice:/})
+    .first()
+    .selectOption('decline');
   await updateProposal(page);
   const dropped = await lastPostedBody(page, 'draft');
   assert.equal(dropped.predecessor, preDecline.id, 'the decline save must name the pre-decline head');
@@ -4003,12 +4137,14 @@ test('saved history previews the exact predecessor and re-accept drafts it onto 
   assert.equal(restored.predecessor, proposal.id, 'recovery must draft onto the freshly checked current head');
   const revived = restored.tasks as HistoryTask[];
   for (const task of aTasks)
-    assert.ok(revived.some((row) => row.key === task.key), `recorded work ${task.key} must return on re-accept`);
+    assert.ok(
+      revived.some((row) => row.key === task.key),
+      `recorded work ${task.key} must return on re-accept`
+    );
   checkCanonical('history-exact-restore', restored);
   const live = new Set(revived.map((task) => task.key));
   for (const task of revived)
-    for (const dep of task.depends_on || [])
-      assert.ok(live.has(dep), `no invented edges: ${dep} must be live work`);
+    for (const dep of task.depends_on || []) assert.ok(live.has(dep), `no invented edges: ${dep} must be live work`);
   assert.equal(await page.getByRole('group', {name: 'Saved history recovery'}).count(), 0);
 });
 
@@ -4018,7 +4154,10 @@ test('a pruned or unrelated predecessor reports honest unavailability with no re
   const {intent, ids} = await driveTaskLinkedDraft(page);
   const declinedA = ids[0];
   assert.ok(declinedA);
-  await page.getByRole('combobox', {name: /^Choice:/}).first().selectOption('decline');
+  await page
+    .getByRole('combobox', {name: /^Choice:/})
+    .first()
+    .selectOption('decline');
   await updateProposal(page);
   const dropped = await lastPostedBody(page, 'draft');
   const proposal = await currentRevision(page);
@@ -4046,7 +4185,10 @@ test('a pruned or unrelated predecessor reports honest unavailability with no re
     0
   );
   // Re-accepting without saved bytes restores nothing: no invented work.
-  await page.getByRole('combobox', {name: /^Choice:/}).first().selectOption('accept');
+  await page
+    .getByRole('combobox', {name: /^Choice:/})
+    .first()
+    .selectOption('accept');
   await updateProposal(page);
   const noRestore = await lastPostedBody(page, 'draft');
   assert.equal(
@@ -4072,7 +4214,10 @@ test('an in-memory-only edge is not offered as saved history', async (t) => {
   // prunes it, so no predecessor carries it.
   const chainedA = await chainKeptOntoDeclined(page);
   assert.ok(chainedA, 'the draft must carry chained work');
-  await page.getByRole('combobox', {name: /^Choice:/}).first().selectOption('decline');
+  await page
+    .getByRole('combobox', {name: /^Choice:/})
+    .first()
+    .selectOption('decline');
   await updateProposal(page);
   const dropped = await lastPostedBody(page, 'draft');
   assert.equal(dropped.predecessor, preDecline.id);
@@ -4092,7 +4237,10 @@ test('an in-memory-only edge is not offered as saved history', async (t) => {
   await updateProposal(page);
   const restored = await lastPostedBody(page, 'draft');
   const revived = restored.tasks as HistoryTask[];
-  assert.ok(revived.some((task) => task.idea_ids.includes(declinedA)), 'recorded A work must still return');
+  assert.ok(
+    revived.some((task) => task.idea_ids.includes(declinedA)),
+    'recorded A work must still return'
+  );
   const revivedB = revived.find((task) => task.idea_ids.includes(keptIdea));
   assert.ok(revivedB, 'kept B work must still be proposed');
   assert.deepEqual(
@@ -4137,9 +4285,7 @@ test('repeated explored lineage traverses to the relevant saved graph without ma
     ...pre,
     id: tag(preID, hopMark(preID, '4')),
     predecessor: preID,
-    ideas: (pre.ideas as HistoryIdea[]).map((idea) =>
-      idea.id === declinedA ? {...idea, decision: 'decline'} : idea
-    ),
+    ideas: (pre.ideas as HistoryIdea[]).map((idea) => (idea.id === declinedA ? {...idea, decision: 'decline'} : idea)),
     tasks: preTasks.filter((task) => !task.idea_ids.includes(declinedA)),
   };
   const rekey = new Map(preTasks.map((task) => [task.key, tag(task.key, '9')]));
@@ -4180,7 +4326,10 @@ test('repeated explored lineage traverses to the relevant saved graph without ma
   assert.equal(restored.predecessor, h4.id, 'recovery must draft onto the explored head');
   const revived = restored.tasks as HistoryTask[];
   for (const task of aTasks)
-    assert.ok(revived.some((row) => row.key === task.key), `relevant saved work ${task.key} must return`);
+    assert.ok(
+      revived.some((row) => row.key === task.key),
+      `relevant saved work ${task.key} must return`
+    );
   for (const task of preTasks.filter((row) => !row.idea_ids.includes(declinedA)))
     assert.ok(!revived.some((row) => row.key === task.key), `older non-accepted work ${task.key} must not merge in`);
   assert.equal(revived.length, (h4.tasks as HistoryTask[]).length + aTasks.length);
@@ -4194,8 +4343,7 @@ test('repeated explored lineage traverses to the relevant saved graph without ma
   checkCanonical('history-traversal-no-merge', restored);
   const live = new Set(revived.map((task) => task.key));
   for (const task of revived)
-    for (const dep of task.depends_on || [])
-      assert.ok(live.has(dep), `no invented edges: ${dep} must be live work`);
+    for (const dep of task.depends_on || []) assert.ok(live.has(dep), `no invented edges: ${dep} must be live work`);
 });
 
 test('saved history restores a recorded kept-edge cut into the recovered set', async (t) => {
@@ -4223,9 +4371,7 @@ test('saved history restores a recorded kept-edge cut into the recovered set', a
     ...pre,
     id: taggedID(preID, freshMark(preID, '4')),
     predecessor: preID,
-    ideas: (pre.ideas as HistoryIdea[]).map((idea) =>
-      idea.id === declinedA ? {...idea, decision: 'decline'} : idea
-    ),
+    ideas: (pre.ideas as HistoryIdea[]).map((idea) => (idea.id === declinedA ? {...idea, decision: 'decline'} : idea)),
     tasks: preTasks.filter((task) => !task.idea_ids.includes(declinedA)),
   };
   await seedCurrentHead(page, h2);
@@ -4246,7 +4392,10 @@ test('saved history restores a recorded kept-edge cut into the recovered set', a
   assert.equal(restored.predecessor, h2.id);
   const revived = restored.tasks as HistoryTask[];
   for (const task of aTasks)
-    assert.ok(revived.some((row) => row.key === task.key), `recorded work ${task.key} must return`);
+    assert.ok(
+      revived.some((row) => row.key === task.key),
+      `recorded work ${task.key} must return`
+    );
   const revivedB = revived.find((task) => task.idea_ids.includes(keptIdea));
   assert.ok(revivedB, 'kept B work must still be proposed');
   assert.deepEqual(
@@ -4257,8 +4406,7 @@ test('saved history restores a recorded kept-edge cut into the recovered set', a
   checkCanonical('history-repair-kept-edge', restored);
   const live = new Set(revived.map((task) => task.key));
   for (const task of revived)
-    for (const dep of task.depends_on || [])
-      assert.ok(live.has(dep), `no invented edges: ${dep} must be live work`);
+    for (const dep of task.depends_on || []) assert.ok(live.has(dep), `no invented edges: ${dep} must be live work`);
 });
 
 test('saved history leaves an unprovable removed-edge cut with an explicit warning', async (t) => {
@@ -4290,9 +4438,7 @@ test('saved history leaves an unprovable removed-edge cut with an explicit warni
     ...pre,
     id: taggedID(preID, freshMark(preID, '4')),
     predecessor: preID,
-    ideas: (pre.ideas as HistoryIdea[]).map((idea) =>
-      idea.id === declinedA ? {...idea, decision: 'decline'} : idea
-    ),
+    ideas: (pre.ideas as HistoryIdea[]).map((idea) => (idea.id === declinedA ? {...idea, decision: 'decline'} : idea)),
     tasks: [...preTasks.filter((task) => !task.idea_ids.includes(declinedA) && task.key !== bSeed.key), ...twins],
   };
   await seedCurrentHead(page, h2);
@@ -4318,8 +4464,7 @@ test('saved history leaves an unprovable removed-edge cut with an explicit warni
   checkCanonical('history-unprovable-edge-cut', restored);
   const live = new Set(revived.map((task) => task.key));
   for (const task of revived)
-    for (const dep of task.depends_on || [])
-      assert.ok(live.has(dep), `no invented edges: ${dep} must be live work`);
+    for (const dep of task.depends_on || []) assert.ok(live.has(dep), `no invented edges: ${dep} must be live work`);
 });
 
 test('stale history rows refuse after the head advances and refresh on the new head', async (t) => {
@@ -4329,7 +4474,10 @@ test('stale history rows refuse after the head advances and refresh on the new h
   const declinedA = ids[0];
   assert.ok(declinedA);
   const preDecline = await currentRevision(page);
-  await page.getByRole('combobox', {name: /^Choice:/}).first().selectOption('decline');
+  await page
+    .getByRole('combobox', {name: /^Choice:/})
+    .first()
+    .selectOption('decline');
   await updateProposal(page);
   const dropped = await lastPostedBody(page, 'draft');
   const proposal = await currentRevision(page);
@@ -4384,7 +4532,10 @@ test('stale history rows refuse after the head advances and refresh on the new h
   await seedSavedHistory(page, intent, [fresh, proposal, dropped, preDecline]);
   await resumeWithoutShelf(page, intent);
   await page.getByRole('button', {name: historyButton, exact: true}).waitFor();
-  await page.getByRole('group', {name: 'Saved history recovery'}).getByText(String(preDecline.id), {exact: false}).waitFor();
+  await page
+    .getByRole('group', {name: 'Saved history recovery'})
+    .getByText(String(preDecline.id), {exact: false})
+    .waitFor();
 });
 
 test('saved history refuses recorded work whose linked idea changed meaning', async (t) => {
@@ -4449,8 +4600,7 @@ test('saved history refuses recorded work whose linked idea changed meaning', as
   checkCanonical('history-linked-meaning-refused', restored);
   const live = new Set(revived.map((task) => task.key));
   for (const task of revived)
-    for (const dep of task.depends_on || [])
-      assert.ok(live.has(dep), `no invented edges: ${dep} must be live work`);
+    for (const dep of task.depends_on || []) assert.ok(live.has(dep), `no invented edges: ${dep} must be live work`);
 });
 
 test('saved history refuses recorded work whose linked correction changed', async (t) => {
@@ -4471,11 +4621,12 @@ test('saved history refuses recorded work whose linked correction changed', asyn
     outcomes: ['Demonstrate the selected outcome'],
     idea_ids: [declinedA, keptIdea],
   };
-  const withCorrection = (correction: string) => (pre.ideas as HistoryIdea[]).map((idea) => {
-    if (idea.id === declinedA) return idea;
-    if (idea.id === keptIdea) return {...idea, decision: 'edit', correction};
-    return idea;
-  });
+  const withCorrection = (correction: string) =>
+    (pre.ideas as HistoryIdea[]).map((idea) => {
+      if (idea.id === declinedA) return idea;
+      if (idea.id === keptIdea) return {...idea, decision: 'edit', correction};
+      return idea;
+    });
   const h1 = {...pre, ideas: withCorrection('Original correction'), tasks: [...preTasks, dual]};
   const preID = String(pre.id);
   const h2 = {
@@ -4514,8 +4665,7 @@ test('saved history refuses recorded work whose linked correction changed', asyn
   checkCanonical('history-linked-correction-refused', restored);
   const live = new Set(revived.map((task) => task.key));
   for (const task of revived)
-    for (const dep of task.depends_on || [])
-      assert.ok(live.has(dep), `no invented edges: ${dep} must be live work`);
+    for (const dep of task.depends_on || []) assert.ok(live.has(dep), `no invented edges: ${dep} must be live work`);
 });
 
 // FJ-427 genuine single-unavailable regression: the committed unresolved legs
@@ -4532,45 +4682,55 @@ test('unique nonadoptable successor stays retained and visible until its live ta
   // Pin lineage exactly like the ambiguous leg so the framed remap below hits
   // the true single-unavailable branch.
   await saveUnchangedLimits(page);
-  const otherIdea = await page.evaluate(([declined, kept]: string[]) => {
-    const host = document.querySelector('soda-intent') as unknown as {revision?: {ideas?: {id: string}[]}};
-    const ids = (host.revision?.ideas || []).map((idea) => idea.id);
-    return ids.find((id) => id !== declined && id !== kept) || '';
-  }, [declinedA, keptIdea]);
+  const otherIdea = await page.evaluate(
+    ([declined, kept]: string[]) => {
+      const host = document.querySelector('soda-intent') as unknown as {revision?: {ideas?: {id: string}[]}};
+      const ids = (host.revision?.ideas || []).map((idea) => idea.id);
+      return ids.find((id) => id !== declined && id !== kept) || '';
+    },
+    [declinedA, keptIdea]
+  );
   assert.ok(otherIdea, 'the draft must carry a third idea to frame the out-of-record edge');
   const depsBefore = (repairOwnedBy(await draftShelfEntry(page, intent), keptIdea)?.repair.deps || []).slice().sort();
   assert.ok(depsBefore.length > 0, 'ambiguity setup must retain the repair before framing');
   // A regenerated unique B successor carrying an edge the record never saw:
   // present exactly once, but adoptable by neither rule (the extra edge is in
   // neither the record nor the live set it proves).
-  const framed = await page.evaluate(([kept, other]: string[]) => {
-    const host = document.querySelector('soda-intent') as unknown as {
-      revision: {tasks: {key: string; idea_ids: string[]; depends_on?: string[]}[]; ideas: {id: string}[]};
-      shelvedPrunedDeps: Record<string, {deps: string[]}>;
-      reconcileShelvedTasks(proposal: unknown): void;
-    };
-    const rev = JSON.parse(JSON.stringify(host.revision)) as typeof host.revision;
-    const keptId = kept || '';
-    const otherId = other || '';
-    const twins = rev.tasks.filter((task) => task.idea_ids.length === 1 && task.idea_ids[0] === keptId);
-    const cTask = rev.tasks.find((task) => task.idea_ids.includes(otherId));
-    const firstTwin = twins[0];
-    if (twins.length !== 2 || !cTask || !firstTwin) return null;
-    const soleKey = 'd' + 'e'.repeat(22) + 'a1';
-    const sole = {...firstTwin, key: soleKey, depends_on: [cTask.key]};
-    const proposal = {
-      ...rev,
-      tasks: [...rev.tasks.filter((task) => !(task.idea_ids.length === 1 && task.idea_ids[0] === kept)), sole],
-    };
-    host.reconcileShelvedTasks(proposal);
-    return {soleKey, ownerKeys: Object.keys(host.shelvedPrunedDeps)};
-  }, [keptIdea, otherIdea]);
+  const framed = await page.evaluate(
+    ([kept, other]: string[]) => {
+      const host = document.querySelector('soda-intent') as unknown as {
+        revision: {tasks: {key: string; idea_ids: string[]; depends_on?: string[]}[]; ideas: {id: string}[]};
+        shelvedPrunedDeps: Record<string, {deps: string[]}>;
+        reconcileShelvedTasks(proposal: unknown): void;
+      };
+      const rev = JSON.parse(JSON.stringify(host.revision)) as typeof host.revision;
+      const keptId = kept || '';
+      const otherId = other || '';
+      const twins = rev.tasks.filter((task) => task.idea_ids.length === 1 && task.idea_ids[0] === keptId);
+      const cTask = rev.tasks.find((task) => task.idea_ids.includes(otherId));
+      const firstTwin = twins[0];
+      if (twins.length !== 2 || !cTask || !firstTwin) return null;
+      const soleKey = 'd' + 'e'.repeat(22) + 'a1';
+      const sole = {...firstTwin, key: soleKey, depends_on: [cTask.key]};
+      const proposal = {
+        ...rev,
+        tasks: [...rev.tasks.filter((task) => !(task.idea_ids.length === 1 && task.idea_ids[0] === kept)), sole],
+      };
+      host.reconcileShelvedTasks(proposal);
+      return {soleKey, ownerKeys: Object.keys(host.shelvedPrunedDeps)};
+    },
+    [keptIdea, otherIdea]
+  );
   assert.ok(framed, 'the kept B work must be twinned to frame the single-unavailable proposal');
   const entry = await draftShelfEntry(page, intent);
   const retained = repairOwnedBy(entry, keptIdea);
   assert.ok(retained, 'the single-unavailable repair must be retained, not dropped silently');
   assert.notEqual(retained.key, framed.soleKey, 'the unique successor must not claim the unadoptable record');
-  assert.deepEqual([...retained.repair.deps].sort(), depsBefore, 'the retained record must keep its exact recorded edges');
+  assert.deepEqual(
+    [...retained.repair.deps].sort(),
+    depsBefore,
+    'the retained record must keep its exact recorded edges'
+  );
   assert.equal(framed.ownerKeys.includes(framed.soleKey), false, 'no repair may sit on the unadoptable successor key');
   await page.getByRole('group', {name: 'Unresolved dependency repair'}).waitFor();
   const liveBefore = await revisionTasks(page);
@@ -4588,7 +4748,10 @@ test('unique nonadoptable successor stays retained and visible until its live ta
     () => (document.querySelector('soda-intent') as unknown as {revision?: {id: string}}).revision?.id || ''
   );
   await page.getByRole('button', {name: 'Change something', exact: true}).click();
-  await page.locator('.change-field').getByLabel('What should change?', {exact: true}).fill('Consolidate the tracking work');
+  await page
+    .locator('.change-field')
+    .getByLabel('What should change?', {exact: true})
+    .fill('Consolidate the tracking work');
   await page.getByRole('button', {name: 'Submit change', exact: true}).click();
   await page.waitForFunction((prev: string) => {
     const host = document.querySelector('soda-intent') as unknown as {revision?: {id: string}; busy: boolean};
@@ -4606,7 +4769,11 @@ test('unique nonadoptable successor stays retained and visible until its live ta
   const saved = await lastPostedBody(page, 'draft');
   checkCanonical('unique-nonadoptable-adopted-exactly', saved);
   const tasks = saved.tasks as PostedTask[];
-  assert.equal(tasks.some((task) => task.key === framed.soleKey), false, 'no invented edge onto the framed key');
+  assert.equal(
+    tasks.some((task) => task.key === framed.soleKey),
+    false,
+    'no invented edge onto the framed key'
+  );
   const singles = tasks.filter((task) => task.idea_ids.length === 1 && task.idea_ids[0] === keptIdea);
   assert.equal(singles.length, 1, 'adoption must land on exactly one successor, never a second twin');
   const shelf = shelfOf(await draftShelfEntry(page, intent));
@@ -4616,10 +4783,15 @@ test('unique nonadoptable successor stays retained and visible until its live ta
     'adoption restores the exact B→A edge onto live work'
   );
   assert.equal(await unresolvedGateCount(page), 0, 'an adopted repair is resolved: no more review');
-  assert.equal(repairOwnedBy(await draftShelfEntry(page, intent), keptIdea), null, 'a fully replayed repair is consumed');
+  assert.equal(
+    repairOwnedBy(await draftShelfEntry(page, intent), keptIdea),
+    null,
+    'a fully replayed repair is consumed'
+  );
   const liveKeys = new Set(tasks.map((task) => task.key));
   for (const task of tasks)
-    for (const dep of task.depends_on || []) assert.ok(liveKeys.has(dep), `no invented edges: ${dep} must be live work`);
+    for (const dep of task.depends_on || [])
+      assert.ok(liveKeys.has(dep), `no invented edges: ${dep} must be live work`);
 });
 
 // FJ-427 real-reload regression: the committed reload legs reset/re-request on
@@ -4679,9 +4851,14 @@ test('saved decline recovery survives a new component instance with dependencies
     (task.idea_ids || []).includes(declinedA)
   );
   assert.ok(shelved.length > 0, 'the new instance must re-offer the shelved A work');
-  assert.ok(shelved.some((task) => task.key === aKey), 'the new instance must keep the exact shelved A key');
+  assert.ok(
+    shelved.some((task) => task.key === aKey),
+    'the new instance must keep the exact shelved A key'
+  );
   const shelvedKeys = new Set(shelved.map((task) => task.key));
-  const repairs = Object.values((entry?.shelfDeps as Record<string, {deps: string[]; ideas: string[]}> | undefined) || {});
+  const repairs = Object.values(
+    (entry?.shelfDeps as Record<string, {deps: string[]; ideas: string[]}> | undefined) || {}
+  );
   assert.ok(
     repairs.some(
       (repair) => (repair.ideas || []).includes(keptIdea) && (repair.deps || []).some((dep) => shelvedKeys.has(dep))
@@ -4693,7 +4870,10 @@ test('saved decline recovery survives a new component instance with dependencies
   const restored = await lastPostedBody(page, 'draft');
   checkCanonical('new-instance-restored-edge', restored);
   const revived = restored.tasks as PostedTask[];
-  assert.ok(revived.some((task) => task.key === aKey), 'shelved A work must return after new-instance recovery');
+  assert.ok(
+    revived.some((task) => task.key === aKey),
+    'shelved A work must return after new-instance recovery'
+  );
   const revivedB = revived.find((task) => (task.idea_ids || []).includes(keptIdea));
   assert.ok(revivedB, 'kept B work must still be proposed after new-instance recovery');
   assert.deepEqual(revivedB.depends_on || [], [aKey], 'new-instance recovery must restore the B→A edge intact');
@@ -4875,11 +5055,12 @@ test('saved history refuses recorded work whose edit correction was emptied', as
     outcomes: ['Demonstrate the selected outcome'],
     idea_ids: [declinedA, keptIdea],
   };
-  const withCorrection = (correction: string) => (pre.ideas as HistoryIdea[]).map((idea) => {
-    if (idea.id === declinedA) return idea;
-    if (idea.id === keptIdea) return {...idea, decision: 'edit', correction};
-    return idea;
-  });
+  const withCorrection = (correction: string) =>
+    (pre.ideas as HistoryIdea[]).map((idea) => {
+      if (idea.id === declinedA) return idea;
+      if (idea.id === keptIdea) return {...idea, decision: 'edit', correction};
+      return idea;
+    });
   const h1 = {...pre, ideas: withCorrection('Original correction'), tasks: [...preTasks, dual]};
   const preID = String(pre.id);
   const h2 = {
@@ -4916,8 +5097,7 @@ test('saved history refuses recorded work whose edit correction was emptied', as
   checkCanonical('history-edit-correction-emptied-refused', restored);
   const live = new Set(revived.map((task) => task.key));
   for (const task of revived)
-    for (const dep of task.depends_on || [])
-      assert.ok(live.has(dep), `no invented edges: ${dep} must be live work`);
+    for (const dep of task.depends_on || []) assert.ok(live.has(dep), `no invented edges: ${dep} must be live work`);
 });
 
 // FJ-457 deleted-correction narrowing, negative leg: a deleted SUBSTANTIVE
@@ -5008,8 +5188,7 @@ test('saved history refuses recorded work whose deleted correction was substanti
   checkCanonical('history-deleted-substantive-refused', restored);
   const live = new Set(revived.map((task) => task.key));
   for (const task of revived)
-    for (const dep of task.depends_on || [])
-      assert.ok(live.has(dep), `no invented edges: ${dep} must be live work`);
+    for (const dep of task.depends_on || []) assert.ok(live.has(dep), `no invented edges: ${dep} must be live work`);
 });
 
 // FJ-457 deleted-correction narrowing, positive leg: a deleted correction
@@ -5096,8 +5275,7 @@ test('saved history recovers recorded work whose deleted correction duplicated t
   checkCanonical('history-deleted-duplicate-restored', restored);
   const live = new Set(revived.map((task) => task.key));
   for (const task of revived)
-    for (const dep of task.depends_on || [])
-      assert.ok(live.has(dep), `no invented edges: ${dep} must be live work`);
+    for (const dep of task.depends_on || []) assert.ok(live.has(dep), `no invented edges: ${dep} must be live work`);
 });
 
 // FJ-454 outgoing same-key: a live dep under a known key now requires EXACT

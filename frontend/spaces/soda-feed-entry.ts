@@ -42,10 +42,18 @@ export function mount(root: HTMLElement, context: ExtensionMountContext): MountH
           // host stays mounted on every feed page for the navbar button.
           global
             ? html`<header class="soda-feed-page-heading">
-                <div><p class="soda-page-eyebrow">${applications ? 'Your software' : 'Across your projects'}</p><h1>${applications ? 'Applications' : 'Following'}</h1><p>${applications ? 'Open and manage the software your projects deliver.' : 'Agent updates, decisions and results.'}</p></div>
+                <div>
+                  <p class="soda-page-eyebrow">${applications ? 'Your software' : 'Across your projects'}</p>
+                  <h1>${applications ? 'Applications' : 'Following'}</h1>
+                  <p>
+                    ${applications ? 'Open and manage the software your projects deliver.' : 'Agent updates, decisions and results.'}
+                  </p>
+                </div>
                 <nav aria-label="Project navigation">
                   <a href=${`${prefix}/workspace`}>Projects</a>
-                  <a href=${`${prefix}/applications`}>${applications && repository ? 'All applications' : 'Applications'}</a>
+                  <a href=${`${prefix}/applications`}
+                    >${applications && repository ? 'All applications' : 'Applications'}</a
+                  >
                 </nav>
               </header>`
             : ''

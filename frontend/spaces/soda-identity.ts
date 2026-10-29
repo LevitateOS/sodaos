@@ -2,13 +2,7 @@ import './soda-providers.js';
 import {LitElement, html} from 'lit';
 import {check, id, object, projectId, readSodaJSON} from './sodaspaces-api.js';
 import type {PreparedExtensionMount} from './soda-extension.js';
-import {
-  availableConnectionView,
-  connectionView,
-  grantView,
-  items,
-  leaseView,
-} from './soda-identity-response.js';
+import {availableConnectionView, connectionView, grantView, items, leaseView} from './soda-identity-response.js';
 import type {Connection, Grant, Lease} from './soda-identity-response.js';
 
 export class SodaIdentity extends LitElement {
@@ -135,9 +129,12 @@ export class SodaIdentity extends LitElement {
       );
       const result = object(await this.request('/environments/' + this.project + '/members'));
       check(Array.isArray(result.items));
-      this.members = result.items.map(raw => { const row = object(raw); check(id(row.user_id) && typeof row.login === 'string'); return {user_id: row.user_id, login: row.login}; });
+      this.members = result.items.map((raw) => {
+        const row = object(raw);
+        check(id(row.user_id) && typeof row.login === 'string');
+        return {user_id: row.user_id, login: row.login};
+      });
     }
-
   }
   private async loadSelected() {
     this.grants = [];
@@ -244,9 +241,12 @@ export class SodaIdentity extends LitElement {
     return html`<form @submit=${this.delegate}>
         <h3>Delegate this subscription in this project</h3>
         <label
-          >Project member <select name="user_id" required><option value="">Choose a member</option>
-            ${this.members.map(member => html`<option value=${member.user_id}>${member.login}</option>`)}
-          </select></label>
+          >Project member
+          <select name="user_id" required>
+            <option value="">Choose a member</option>
+            ${this.members.map((member) => html`<option value=${member.user_id}>${member.login}</option>`)}
+          </select></label
+        >
         <label
           ><input type="checkbox" name="subscription" required />I confirm my provider terms allow this named user to
           use my subscription.</label
@@ -276,7 +276,10 @@ export class SodaIdentity extends LitElement {
       <fieldset ?disabled=${this.blocked()}>
         <legend>Personal account connections</legend>
         <button type="button" @click=${this.refresh}>Refresh status</button>
-        <soda-providers .transport=${this.transport} @soda-provider-connections-changed=${this.refresh}></soda-providers>
+        <soda-providers
+          .transport=${this.transport}
+          @soda-provider-connections-changed=${this.refresh}
+        ></soda-providers>
         <label
           >Your connections
           <select .value=${this.selected} @change=${this.select}>

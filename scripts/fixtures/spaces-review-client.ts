@@ -8,10 +8,7 @@ const NativeWebSocket = WebSocket;
 class FixtureWebSocket extends NativeWebSocket {
   constructor(input: string | URL, protocols?: string | string[]) {
     const target = new URL(input);
-    if (
-      target.host !== location.host ||
-      !target.pathname.startsWith('/-/native/pages/soda/spaces/api/environments/')
-    )
+    if (target.host !== location.host || !target.pathname.startsWith('/-/native/pages/soda/spaces/api/environments/'))
       throw Error('Fixture socket must stay local');
     target.protocol = location.protocol === 'http:' ? 'ws:' : 'wss:';
     super(target, protocols);

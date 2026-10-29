@@ -19,4 +19,7 @@ export class CheckedControl extends LitElement {
 }
 customElements.define('checked-control', CheckedControl);
 export const usage = html`<checked-control .count=${2} .active=${true}></checked-control>
-  <details @toggle=${(_event: Event) => {}}><summary>Details</summary>Content</details>`;
+  <details @toggle=${(_event: Event) => {}}>
+    <summary>Details</summary>
+    Content
+  </details>`;

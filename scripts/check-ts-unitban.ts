@@ -122,7 +122,12 @@ function findingsFor(path: string, text: string, allow: Set<string>): Finding[] 
       GLOBALS.has(node.expression.text) &&
       !declared.has(node.expression.text)
     ) {
-      findings.push({path, line: lineOf(node), rule: 'R2', text: `bare test-global call '${node.expression.text}(...)'`});
+      findings.push({
+        path,
+        line: lineOf(node),
+        rule: 'R2',
+        text: `bare test-global call '${node.expression.text}(...)'`,
+      });
     } else if (
       scope &&
       ts.isCallExpression(node) &&
@@ -131,11 +136,21 @@ function findingsFor(path: string, text: string, allow: Set<string>): Finding[] 
       DEFINERS.has(node.expression.expression.text) &&
       !declared.has(node.expression.expression.text)
     ) {
-      findings.push({path, line: lineOf(node), rule: 'R2', text: `bare test-global call '${node.expression.expression.text}.${node.expression.name.text}(...)'`});
+      findings.push({
+        path,
+        line: lineOf(node),
+        rule: 'R2',
+        text: `bare test-global call '${node.expression.expression.text}.${node.expression.name.text}(...)'`,
+      });
     } else if (ts.isCallExpression(node) && ts.isIdentifier(node.expression) && node.expression.text === 'require') {
       const [first] = node.arguments;
       if (first !== undefined && ts.isStringLiteral(first) && RUNNERS.has(first.text)) {
-        findings.push({path, line: lineOf(node), rule: scope ? 'R1a' : 'R1b', text: `test-runner require('${first.text}')`});
+        findings.push({
+          path,
+          line: lineOf(node),
+          rule: scope ? 'R1a' : 'R1b',
+          text: `test-runner require('${first.text}')`,
+        });
       }
     }
     ts.forEachChild(node, visit);
@@ -150,7 +165,7 @@ async function loadAllow(): Promise<Set<string>> {
     text
       .split('\n')
       .map((l) => l.trim())
-      .filter((l) => l !== '' && !l.startsWith('#')),
+      .filter((l) => l !== '' && !l.startsWith('#'))
   );
 }
 
@@ -158,7 +173,11 @@ async function main(): Promise<void> {
   const allow = await loadAllow();
   const proc = Bun.spawnSync(['git', 'ls-files', '*.ts'], {cwd: ROOT});
   if (proc.exitCode !== 0) throw new Error('git ls-files failed');
-  const files = proc.stdout.toString().trim().split('\n').filter((f) => f !== '');
+  const files = proc.stdout
+    .toString()
+    .trim()
+    .split('\n')
+    .filter((f) => f !== '');
   const findings: Finding[] = [];
   for (const path of files) {
     const text = await readFile(`${ROOT}/${path}`, 'utf8');
@@ -166,7 +185,9 @@ async function main(): Promise<void> {
   }
   if (findings.length > 0) {
     for (const f of findings) console.log(`${f.path}:${f.line}: [${f.rule}] ${f.text}`);
-    console.log(`ts-unitban failed: ${findings.length} finding(s). Unit tests are banned (AGENTS.md); see docs/development/why-no-unit-tests.md.`);
+    console.log(
+      `ts-unitban failed: ${findings.length} finding(s). Unit tests are banned (AGENTS.md); see docs/development/why-no-unit-tests.md.`
+    );
     process.exit(1);
   }
   console.log(`ts-unitban passed: no test-runner usage outside ${allow.size} allowlisted files.`);
@@ -177,7 +198,12 @@ function selfTest(): void {
   const cases: [string, string, string, number][] = [
     ['R1a import', 'tests/fake.test.ts', `import test from 'node:test';\ntest('x', () => {});`, 1],
     ['R1a hooks pass', 'tests/fix.ts', `import {before, after} from 'node:test';\nbefore(() => {});`, 0],
-    ['R1a type-only pass', 'tests/fix.ts', `import type {TestContext} from 'node:test';\nconst x: TestContext | null = null;`, 0],
+    [
+      'R1a type-only pass',
+      'tests/fix.ts',
+      `import type {TestContext} from 'node:test';\nconst x: TestContext | null = null;`,
+      0,
+    ],
     ['R1a namespace', 'tests/fake.test.ts', `import * as t from 'node:test';\nconsole.log(t);`, 1],
     ['R1b prod import', 'frontend/x.ts', `import {test} from 'node:test';\nconsole.log(test);`, 1],
     ['R1b prod hooks', 'frontend/x.ts', `import {before} from 'node:test';\nconsole.log(before);`, 1],

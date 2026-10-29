@@ -813,7 +813,11 @@ test('a formerly Checked draft stays neutral when its recorded revision no longe
     undefined,
     {timeout: 2000}
   );
-  assert.equal(await work.getByText('Checked', {exact: true}).count(), 0, 'a mismatched revision never retains Checked');
+  assert.equal(
+    await work.getByText('Checked', {exact: true}).count(),
+    0,
+    'a mismatched revision never retains Checked'
+  );
   await work.getByRole('button', {name: 'Continue planning: ' + objective, exact: true}).waitFor();
   assert.equal(await work.locator('.soda-work-feedback').count(), 0, 'a mismatched replay never surfaces a list error');
   assert.equal(await writes(page), 0, 'replaying a mismatched revision must not start planning or a check');
@@ -971,8 +975,7 @@ test('paginated plan replay bounds parallel reads and fetches only the new page'
   if (!last) throw Error('missing final intent');
   await page.waitForFunction(
     () =>
-      window.workspaceFixture.calls.filter((call) => call.method === 'GET' && call.path.includes('/plan')).length >=
-      20
+      window.workspaceFixture.calls.filter((call) => call.method === 'GET' && call.path.includes('/plan')).length >= 20
   );
   await page.evaluate(() => {
     (window as unknown as {planFlight: {inflight: number; max: number}}).planFlight = {inflight: 0, max: 0};
@@ -1002,8 +1005,7 @@ test('paginated plan replay bounds parallel reads and fetches only the new page'
   await work.getByText('More plans are available.', {exact: false}).waitFor();
   await page.waitForFunction(
     () =>
-      window.workspaceFixture.calls.filter((call) => call.method === 'GET' && call.path.includes('/plan')).length >=
-      20
+      window.workspaceFixture.calls.filter((call) => call.method === 'GET' && call.path.includes('/plan')).length >= 20
   );
   assert.equal(await work.locator('.soda-work-item').count(), 20);
   // Let the full refresh settle (Refresh enabled again) before measuring the
@@ -1031,16 +1033,18 @@ test('paginated plan replay bounds parallel reads and fetches only the new page'
   // before asserting the paginated load fetched exactly the new page.
   await page.waitForFunction(
     () =>
-      window.workspaceFixture.calls.filter((call) => call.method === 'GET' && call.path.includes('/plan')).length >=
-      1
+      window.workspaceFixture.calls.filter((call) => call.method === 'GET' && call.path.includes('/plan')).length >= 1
   );
   assert.equal(await work.locator('.soda-work-item').count(), 21);
-  const more = await page.evaluate((last) => ({
-    reads: window.workspaceFixture.calls
-      .filter((call) => call.method === 'GET' && call.path.includes('/plan'))
-      .map((call) => call.path),
-    last,
-  }), last);
+  const more = await page.evaluate(
+    (last) => ({
+      reads: window.workspaceFixture.calls
+        .filter((call) => call.method === 'GET' && call.path.includes('/plan'))
+        .map((call) => call.path),
+      last,
+    }),
+    last
+  );
   assert.equal(more.reads.length, 1, 'a paginated load fetches only the newly arrived page');
   assert.ok(more.reads[0]?.endsWith('/api/factory/intents/' + last + '/plan'));
   assert.equal(await writes(page), 0, 'paginated replay must not start planning or a check');
@@ -1261,9 +1265,13 @@ for (const status of [401, 403])
     );
     await work.getByRole('button', {name: 'Refresh plans', exact: true}).click();
     // Short explicit timer: cleanup must land well before the 15s deadline.
-    await page.waitForFunction(() => (window as unknown as {authorityLost: unknown[]}).authorityLost.length > 0, undefined, {
-      timeout: 2000,
-    });
+    await page.waitForFunction(
+      () => (window as unknown as {authorityLost: unknown[]}).authorityLost.length > 0,
+      undefined,
+      {
+        timeout: 2000,
+      }
+    );
     assert.deepEqual(
       await page.evaluate(() => (window as unknown as {authorityLost: unknown[]}).authorityLost),
       [{reconnectRequired: status === 401}],
@@ -1280,7 +1288,11 @@ for (const status of [401, 403])
       'cleanup lands while the blocked sibling gate stays closed'
     );
     assert.equal(await page.locator('.soda-work-item').count(), 0, 'immediate authority loss retires the work list');
-    assert.equal(await work.getByText('Checked', {exact: true}).count(), 0, 'stale Checked never survives authority loss');
+    assert.equal(
+      await work.getByText('Checked', {exact: true}).count(),
+      0,
+      'stale Checked never survives authority loss'
+    );
     assert.equal(await writes(page), 0, 'immediate authority loss must not start planning or a check');
     await page.evaluate(() => (window as unknown as {openHungGate: () => void}).openHungGate());
     await page.waitForTimeout(300);
@@ -1366,7 +1378,7 @@ test('a slow refresh pre-clears stale Checked work before the deadline while its
   // synchronously at refresh start, while the sibling read stays blocked and
   // the 15s deadline never fires.
   await work.getByText('Draft', {exact: true}).waitFor({timeout: 2000});
-  await page.waitForFunction(() => (window as unknown as {planStarted: boolean }).planStarted === true, undefined, {
+  await page.waitForFunction(() => (window as unknown as {planStarted: boolean}).planStarted === true, undefined, {
     timeout: 2000,
   });
   assert.equal(await work.getByText('Checked', {exact: true}).count(), 0, 'slow refresh pre-clears stale Checked');
@@ -1393,7 +1405,11 @@ test('a slow refresh pre-clears stale Checked work before the deadline while its
   assert.equal(await writes(page), 0, 'pre-clearing a slow replay must not start planning or a check');
   await page.evaluate(() => (window as unknown as {openHungGate: () => void}).openHungGate());
   await work.getByText('Draft', {exact: true}).waitFor();
-  assert.equal(await work.getByText('Checked', {exact: true}).count(), 0, 'released sibling never restores stale Checked');
+  assert.equal(
+    await work.getByText('Checked', {exact: true}).count(),
+    0,
+    'released sibling never restores stale Checked'
+  );
   assert.equal(
     await page.evaluate(() => (window as unknown as {deadlineFired: boolean}).deadlineFired),
     false,

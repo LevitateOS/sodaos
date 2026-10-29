@@ -7,7 +7,6 @@
 // Run artifacts stay outside the repo under ~/Projects/.soda-demo-checks/e2e/run-*/.
 import assert from 'node:assert/strict';
 import {mkdir, readFile, writeFile} from 'node:fs/promises';
-import path from 'node:path';
 import type {Page} from 'playwright';
 import {launchNativeBrowser} from './native-browser.ts';
 import {loginNativeForgejo} from './sodaspaces-controls.ts';
@@ -397,7 +396,6 @@ async function phaseBind(page: Page, out: string): Promise<string | null> {
   return revision;
 }
 
-
 async function phaseStartPlan(page: Page, out: string): Promise<void> {
   const spaces = await spacesContent(page);
   const cont = spaces.getByRole('button', {name: 'Continue to planning', exact: true});
@@ -587,7 +585,7 @@ async function main() {
   await mkdir(dir, {recursive: true, mode: 0o700});
   const only = phase ?? 'all';
   const allowWrite = (method: string, p: string) => {
-    if (method === 'POST' && /\/api\/factory\/intents$/.test(p)) return true;
+    if (method === 'POST' && p.endsWith('/api/factory/intents')) return true;
     if (method === 'POST' && /\/api\/factory\/intents\/[0-9a-f]+\/explore$/.test(p)) return true;
     if (method === 'POST' && /\/api\/factory\/intents\/[0-9a-f]+\/plan$/.test(p)) return true;
     if (method === 'POST' && /\/api\/factory\/intents\/[0-9a-f]+\/plan\/review$/.test(p)) return true;

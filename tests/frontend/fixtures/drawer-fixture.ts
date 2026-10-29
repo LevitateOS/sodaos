@@ -84,9 +84,7 @@ function createFixture(extra: Partial<State> = {}) {
     const override = await (signal
       ? Promise.race([
           pending,
-          new Promise<null>((_, reject) =>
-            signal.addEventListener('abort', () => reject(signal.reason), {once: true})
-          ),
+          new Promise<null>((_, reject) => signal.addEventListener('abort', () => reject(signal.reason), {once: true})),
         ])
       : pending);
     if (override) return override;

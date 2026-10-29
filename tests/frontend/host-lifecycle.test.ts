@@ -19,7 +19,10 @@ test('no Soda component self-interprets pagehide, pageshow or visibilitychange',
     const source = await readFile(new URL('../../' + path, import.meta.url), 'utf8');
     assert(!/addEventListener\(\s*'(pagehide|pageshow)'/.test(source), `${path} still listens for cache events`);
     assert(!/addEventListener\(\s*'visibilitychange'/.test(source), `${path} still listens for visibilitychange`);
-    assert(!/document\.addEventListener\(\s*'visibilitychange'/.test(source), `${path} still listens for visibilitychange`);
+    assert(
+      !/document\.addEventListener\(\s*'visibilitychange'/.test(source),
+      `${path} still listens for visibilitychange`
+    );
   }
 });
 
@@ -72,7 +75,9 @@ test('workspace resume under a foreign generation retires without End', async (t
   const page = await fixture(t);
   await page.evaluate(() => window.workspaceFixture.api.refresh());
   await openSession(page, 'Build');
-  const writes = await page.evaluate(() => window.workspaceFixture.calls.filter((call) => call.method !== 'GET').length);
+  const writes = await page.evaluate(
+    () => window.workspaceFixture.calls.filter((call) => call.method !== 'GET').length
+  );
   await page.evaluate(async () => {
     const f = window.workspaceFixture;
     f.api.suspend();
