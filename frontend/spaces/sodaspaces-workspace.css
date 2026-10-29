@@ -1246,3 +1246,21 @@ html[data-theme^="soda-"] body .soda-feed .soda-feed-pull-tab, .soda-feed .soda-
 .soda-feed .soda-feed-composer textarea:focus-visible { outline: none !important; }
 .soda-feed .soda-feed-composer:has(textarea:focus-visible) { outline: 2px solid var(--soda-page-focus); outline-offset: 2px; }
 html[data-theme^="soda-"] body .soda-feed .soda-feed-composer button[data-comment-submit], .soda-feed .soda-feed-composer button[data-comment-submit] { white-space: nowrap; overflow-wrap: normal; min-width: max-content; }
+/* JEV answers a request in its card: portrait, name, what she is doing now. */
+.soda-feed .soda-feed-card .soda-feed-outcome, .soda-feed .soda-feed-outcome { display: flex; align-items: flex-start; gap: 10px; margin: 0; padding: 10px 12px; border: 0; border-radius: 8px; background: var(--soda-feed-tint); font: var(--soda-font-meta); color: var(--soda-page-text); }
+.soda-feed .soda-feed-outcome[data-tone=failed] { background: var(--soda-feed-bad-bg); }
+.soda-feed .soda-feed-card .soda-feed-outcome:has([role=alert]) { border: 0; }
+.soda-feed-outcome-avatar { flex: 0 0 24px; width: 24px; height: 24px; margin-top: 1px; overflow: hidden; border-radius: 50%; background: var(--soda-feed-role-color, var(--soda-page-muted)); color: #fff; display: grid; place-items: center; font: 700 11px/1 sans-serif; }
+.soda-feed-outcome-avatar img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.soda-feed-outcome-body { display: grid; gap: 2px; min-width: 0; }
+.soda-feed .soda-feed-outcome-body > p { margin: 0; }
+.soda-feed .soda-feed-card .soda-feed-outcome a { margin-left: 0; margin-right: 10px; }
+.soda-feed-outcome-who { display: flex; align-items: center; gap: 8px; font-weight: 600; }
+.soda-feed-outcome-who strong { font-weight: 600; }
+.soda-feed-outcome-body > button { justify-self: start; margin-top: 6px; }
+.soda-feed-working { display: inline-flex; gap: 3px; }
+.soda-feed-working i { width: 5px; height: 5px; border-radius: 50%; background: var(--soda-page-muted); animation: soda-feed-working 1.2s ease-in-out infinite; }
+.soda-feed-working i:nth-child(2) { animation-delay: .15s; }
+.soda-feed-working i:nth-child(3) { animation-delay: .3s; }
+@keyframes soda-feed-working { 0%, 80%, 100% { opacity: .25; transform: translateY(0); } 40% { opacity: 1; transform: translateY(-2px); } }
+@media (prefers-reduced-motion: reduce) { .soda-feed-working i { animation: none; opacity: .6; } }

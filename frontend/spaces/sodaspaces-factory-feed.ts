@@ -1146,7 +1146,6 @@ export class SodaFactoryFeed extends LitElement {
       void this.submitComment(submit);
       return;
     }
-    if (closest('[data-comment-retry]')) void this.readLatest(false);
   };
 
   // loadReplies reads one thread's newest page, or with `older` the page
@@ -1686,7 +1685,8 @@ export class SodaFactoryFeed extends LitElement {
                   reply.pipeline,
                   this.repositoryRef(entry.repository),
                   this.view.commentBusy.includes(reply.commentId)
-                )
+                ),
+                this.current?.transport.assetBase
               )
             : ''
         }

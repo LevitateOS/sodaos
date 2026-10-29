@@ -70,6 +70,7 @@ export interface CommentOutcomeModel {
   readonly text: string;
   readonly tone: CommentOutcomeTone;
   readonly issueLink: string | undefined;
+  readonly issue: number;
   readonly factoryStatusLink?: string | undefined;
   // Still advancing on the server: the feed refresh picks up its next state.
   readonly pending: boolean;
@@ -109,34 +110,41 @@ function outcomeText(state: CommentPipelineState, issue: number): [string, Comme
           'failed',
         ];
       default:
-        return ['The proposed change detail is currently unavailable. Check progress to reload it.', 'progress'];
+        return ['The proposed change detail is currently unavailable. It reloads on its own.', 'progress'];
     }
   }
+  // JEV answers the post herself, in the first person, saying what she is
+  // doing right now.
   if (commentAttemptsExhausted(state))
-    return ['Processing stopped after its bounded attempts. Revise or retry the request to try again.', 'failed'];
-  if (state.judgment === 'pending') return ['Saved. JEV is assessing your comment.', 'progress'];
-  if (state.judgment === 'failed') return ['Assessment failed. Revise or retry the request.', 'failed'];
+    return ['I stopped after several tries. Edit your request or retry and I’ll pick it up again.', 'failed'];
+  if (state.judgment === 'pending') return ['I’m reading your request and working out what it needs…', 'progress'];
+  if (state.judgment === 'failed') return ['I couldn’t make sense of this one. Edit your request or retry.', 'failed'];
   switch (state.route) {
     case 'discussion':
-      return ['Kept as discussion.', 'settled'];
+      return ['This reads as a discussion, so I’ve left it here for people to answer.', 'settled'];
     case 'clarify':
-      return ['Waiting on clarification from the author before any further routing.', 'progress'];
+      return ['I need a little more from you before I can route this.', 'progress'];
     case 'existing_work':
       if (state.effect === 'applied' || state.effect === 'verified')
-        return [`Feedback added to issue #${issue}.`, 'settled'];
+        return [`I added this as feedback on issue #${issue}.`, 'settled'];
       return [
-        issue > 0 ? `Linked to issue #${issue}. Feedback delivery is pending.` : 'Finding the issue for this feedback.',
+        issue > 0
+          ? `This belongs to issue #${issue}. I’m adding your feedback there now…`
+          : 'This is feedback on existing work. I’m finding the issue it belongs to…',
         'progress',
       ];
   }
-  if (state.draft === 'pending') return ['Routed to new work. Product Lead issue authoring pending.', 'progress'];
-  if (state.draft === 'invalid') return ['Issue draft invalid: nothing was created.', 'failed'];
-  if (state.effect === 'pending') return ['Issue drafted. Native creation pending.', 'progress'];
-  if (state.effect === 'failed')
-    return ['Native creation failed; retrying reconciles instead of duplicating.', 'failed'];
+  if (state.draft === 'pending')
+    return ['This is new work. The Product Lead is writing it up as an issue…', 'progress'];
+  if (state.draft === 'invalid') return ['I couldn’t turn this into a valid issue, so nothing was created.', 'failed'];
+  if (state.effect === 'pending') return ['The issue is written. I’m creating it now…', 'progress'];
+  if (state.effect === 'failed') return ['Creating the issue failed. Retrying won’t make a duplicate.', 'failed'];
   if (state.effect === 'blocked')
-    return ['Blocked: the source changed or access was lost before creation. The comment is preserved.', 'failed'];
-  return [`Issue #${issue} created.`, 'settled'];
+    return [
+      'I stopped: the repository changed or access was lost before I could create the issue. Your request is kept.',
+      'failed',
+    ];
+  return [`I created issue #${issue} for this.`, 'settled'];
 }
 
 // describeCommentOutcome projects one stored comment request to its single
@@ -153,6 +161,7 @@ export function describeCommentOutcome(
     text,
     tone,
     issueLink: issue > 0 && repository.path !== undefined ? nativeIssueLink(repository.path, String(issue)) : undefined,
+    issue,
     factoryStatusLink: issue > 0 && repository.path !== undefined ? repository.places?.factoryStatus(issue) : undefined,
     pending: commentUnsettled(state) || state.productChange?.state === 'unavailable',
     canRetry: state.canRetry === true,
@@ -171,43 +180,49 @@ const productActions: Readonly<Record<string, string>> = {
   accepted: 'Open accepted change',
 };
 
-export function renderOutcome(outcome: CommentOutcomeModel): TemplateResult {
+// JEV's reply under a request: her portrait, what she is doing right now
+// (with a working indicator while the feed's own refresh catches up), and
+// the actions the author may take.
+export function renderOutcome(outcome: CommentOutcomeModel, assetBase = ''): TemplateResult {
   const change = outcome.productChange;
   const productAction = change?.canReview ? productActions[change.state] : undefined;
-  return html`<div class="soda-feed-outcome">
-    <p role=${outcome.tone === 'failed' ? 'alert' : 'status'}>
-      ${outcome.text} ${outcome.issueLink ? html`<a href=${outcome.issueLink}>Open linked issue</a>` : ''}
-      ${outcome.factoryStatusLink ? html`<a href=${outcome.factoryStatusLink}>Factory status</a>` : ''}
+  const portrait = feedRolePortraits.JEV;
+  return html`<div class="soda-feed-outcome" data-tone=${outcome.tone}>
+    <span class="soda-feed-outcome-avatar" aria-hidden="true"
+      >${portrait ? html`<img src=${assetBase + portrait} alt="" width="24" height="24" loading="lazy" />` : 'J'}</span
+    >
+    <div class="soda-feed-outcome-body">
+      <p class="soda-feed-outcome-who">
+        <strong>JEV</strong
+        >${outcome.pending ? html`<span class="soda-feed-working" aria-label="working"><i></i><i></i><i></i></span>` : ''}
+      </p>
+      <p role=${outcome.tone === 'failed' ? 'alert' : 'status'}>
+        ${outcome.text} ${outcome.issueLink ? html`<a href=${outcome.issueLink}>Open issue #${outcome.issue}</a>` : ''}
+        ${outcome.factoryStatusLink ? html`<a href=${outcome.factoryStatusLink}>Factory status</a>` : ''}
+      </p>
+      ${outcome.detail ? html`<p>${outcome.detail}</p>` : ''}
       ${
-        outcome.pending
-          ? html`<button type="button" class="ui button" data-comment-retry=${outcome.commentId}>
-              Check progress
+        productAction
+          ? html`<button
+              type="button"
+              class="ui button"
+              data-comment-product-change=${outcome.commentId}
+              data-product-revision=${outcome.revision}
+              data-product-repository=${outcome.productRepository}
+              ?disabled=${outcome.busy}
+            >
+              ${productAction}
             </button>`
           : ''
       }
-    </p>
-    ${outcome.detail ? html`<p>${outcome.detail}</p>` : ''}
-    ${
-      productAction
-        ? html`<button
-            type="button"
-            class="ui button"
-            data-comment-product-change=${outcome.commentId}
-            data-product-revision=${outcome.revision}
-            data-product-repository=${outcome.productRepository}
-            ?disabled=${outcome.busy}
-          >
-            ${productAction}
-          </button>`
-        : ''
-    }
-    ${
-      outcome.canRetry
-        ? html`<button type="button" data-comment-revise=${outcome.commentId}>
-            ${outcome.needsClarification ? 'Answer clarification' : 'Edit comment and retry'}
-          </button>`
-        : ''
-    }
+      ${
+        outcome.canRetry
+          ? html`<button type="button" data-comment-revise=${outcome.commentId}>
+              ${outcome.needsClarification ? 'Answer clarification' : 'Edit comment and retry'}
+            </button>`
+          : ''
+      }
+    </div>
   </div>`;
 }
 
@@ -589,11 +604,12 @@ function renderCommentBody(comment: CommentDetail | undefined): TemplateResult {
 function renderCardContent(
   model: FeedPostModel,
   request: FeedArtifactRequest | undefined,
-  links: FeedCardLinks
+  links: FeedCardLinks,
+  assetBase: string
 ): TemplateResult | string {
   const entry = model.entry;
   if (model.type === 'comment')
-    return html`${renderCommentBody(model.comment)}${model.outcome ? renderOutcome(model.outcome) : ''}`;
+    return html`${renderCommentBody(model.comment)}${model.outcome ? renderOutcome(model.outcome, assetBase) : ''}`;
   const communication = entry.payload?.communication;
   if (communication) return renderFeedCommunication(communication, model.key, request, links);
   const judgment = entry.payload?.judgment;
@@ -687,7 +703,7 @@ export function renderFeedPost(
                 ${model.detail ? html`<p class="soda-feed-dt">${model.detail}</p>` : ''}
               </div>`
         }
-        ${renderCardContent(model, request, links)}
+        ${renderCardContent(model, request, links, assetBase)}
         ${
           comment
             ? ''

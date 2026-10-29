@@ -265,7 +265,9 @@ test('Project feed reads newest-first with enriched posts and live comment outco
   await feed.getByText('Ada').first().waitFor();
   await feed.locator('.soda-feed-header').getByText('Product Lead').first().waitFor();
   await feed.locator('.soda-feed-post[data-card=comment]').first().waitFor();
-  await feed.getByText('Kept as discussion.', {exact: true}).waitFor();
+  await feed
+    .getByText('This reads as a discussion, so I’ve left it here for people to answer.', {exact: true})
+    .waitFor();
   await feed.getByText('Should the demo cover substitute approvers?').waitFor();
   // Cursor history: older entries append behind the confirmed page.
   await feed.getByRole('button', {name: 'Load older entries'}).click();
@@ -300,10 +302,10 @@ test('Project feed reads newest-first with enriched posts and live comment outco
   );
   assert.equal('author' in (posted[0] ?? {}), false);
   // The refresh after saving re-reads progress without another submission.
-  const issueLink = feed.getByRole('link', {name: 'Open linked issue'});
+  const issueLink = feed.getByRole('link', {name: 'Open issue #12'});
   await issueLink.waitFor();
   assert.equal(await issueLink.getAttribute('href'), '/soda-tester/demo/issues/12');
-  await feed.getByText(/Issue #12 created\./).waitFor();
+  await feed.getByText(/I created issue #12 for this\./).waitFor();
   assert.equal(
     await page.evaluate(() => window.drawerFixture.calls.filter((call) => call.url.includes('/feed/comments/')).length),
     0
@@ -363,7 +365,7 @@ test('a project comment works before the first worker post', async (t) => {
   await feed.getByText('No activity yet.').waitFor();
   await feed.getByLabel('Comment', {exact: true}).fill('Thanks for the update.');
   await feed.locator('.soda-feed-composer').getByRole('button', {name: 'Post', exact: true}).click();
-  await feed.getByText('Kept as discussion.').waitFor();
+  await feed.getByText('This reads as a discussion, so I’ve left it here for people to answer.').waitFor();
   assert.equal(await feed.getByLabel('Comment', {exact: true}).inputValue(), '');
   assert(await feed.locator('.soda-feed-composer').getByRole('button', {name: 'Post', exact: true}).isDisabled());
   const posts = await page.evaluate(() =>

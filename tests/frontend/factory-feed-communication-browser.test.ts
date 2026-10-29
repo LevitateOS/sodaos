@@ -43,7 +43,15 @@ test('a Finance comment opens an explicit change review and reopens its draft wi
           return Response.json({subscriber: '1', repositories: [7], kinds: null, revision: 1});
         if (call.url.includes('/api/repositories?q='))
           return Response.json({
-            items: [{id: '7', owner: 'soda-tester', name: 'demo', can_create: false, project: {id: `p${'1'.repeat(24)}`, provisioned: true}}],
+            items: [
+              {
+                id: '7',
+                owner: 'soda-tester',
+                name: 'demo',
+                can_create: false,
+                project: {id: `p${'1'.repeat(24)}`, provisioned: true},
+              },
+            ],
             next_cursor: '',
           });
         if (call.url.includes('/api/factory/feed?'))
@@ -98,7 +106,10 @@ test('a Finance comment opens an explicit change review and reopens its draft wi
   assert.equal(await page.evaluate(() => window.drawerFixture.calls.filter((call) => call.method !== 'GET').length), 0);
   await feed.getByRole('button', {name: 'Review proposed change', exact: true}).click();
   await feed.getByRole('button', {name: 'Continue change review', exact: true}).waitFor();
-  assert.deepEqual(await page.evaluate(() => document.body.dataset.navigated), `/soda-tester/demo/workspace/requests/${intent}`);
+  assert.deepEqual(
+    await page.evaluate(() => document.body.dataset.navigated),
+    `/soda-tester/demo/workspace/requests/${intent}`
+  );
   const writes = await page.evaluate(() => window.drawerFixture.calls.filter((call) => call.method !== 'GET'));
   assert.equal(writes.length, 1);
   assert.deepEqual(JSON.parse(writes[0]!.body ?? '{}'), {revision: 0});
@@ -131,7 +142,15 @@ test('actual consultation states refresh in the work thread while filtered views
           return Response.json({subscriber: '1', repositories: [7], kinds: null, revision: 1});
         if (request.url.includes('/api/repositories?q='))
           return Response.json({
-            items: [{id: '7', owner: 'soda-tester', name: 'demo', can_create: false, project: {id: `p${'1'.repeat(24)}`, provisioned: true}}],
+            items: [
+              {
+                id: '7',
+                owner: 'soda-tester',
+                name: 'demo',
+                can_create: false,
+                project: {id: `p${'1'.repeat(24)}`, provisioned: true},
+              },
+            ],
             next_cursor: '',
           });
         if (request.url.includes('/api/factory/feed?')) {
@@ -273,7 +292,15 @@ test('a failed consultation keeps scope-accurate copy while JEV result and expla
           return Response.json({subscriber: '1', repositories: [7], kinds: null, revision: 1});
         if (request.url.includes('/api/repositories?q='))
           return Response.json({
-            items: [{id: '7', owner: 'soda-tester', name: 'demo', can_create: false, project: {id: `p${'1'.repeat(24)}`, provisioned: true}}],
+            items: [
+              {
+                id: '7',
+                owner: 'soda-tester',
+                name: 'demo',
+                can_create: false,
+                project: {id: `p${'1'.repeat(24)}`, provisioned: true},
+              },
+            ],
             next_cursor: '',
           });
         if (request.url.includes('/api/factory/feed?'))
@@ -553,7 +580,15 @@ test('findings show supplied source literally and corrections retain before and 
         return Response.json({subscriber: '1', repositories: [7], kinds: null, revision: 1});
       if (call.url.includes('/api/repositories?q='))
         return Response.json({
-          items: [{id: '7', owner: 'soda-tester', name: 'demo', can_create: false, project: {id: `p${'1'.repeat(24)}`, provisioned: true}}],
+          items: [
+            {
+              id: '7',
+              owner: 'soda-tester',
+              name: 'demo',
+              can_create: false,
+              project: {id: `p${'1'.repeat(24)}`, provisioned: true},
+            },
+          ],
           next_cursor: '',
         });
       if (call.url.includes('/api/factory/feed?'))
@@ -714,7 +749,15 @@ test('recorded suggestion and answer resolutions remain readable in the feed', a
         return Response.json({subscriber: '1', repositories: [7], kinds: null, revision: 1});
       if (call.url.includes('/api/repositories?q='))
         return Response.json({
-          items: [{id: '7', owner: 'soda-tester', name: 'demo', can_create: false, project: {id: `p${'1'.repeat(24)}`, provisioned: true}}],
+          items: [
+            {
+              id: '7',
+              owner: 'soda-tester',
+              name: 'demo',
+              can_create: false,
+              project: {id: `p${'1'.repeat(24)}`, provisioned: true},
+            },
+          ],
           next_cursor: '',
         });
       if (call.url.includes('/api/factory/feed?'))
@@ -881,7 +924,15 @@ test('every product change state renders its own outcome, action and tone', asyn
           return Response.json({subscriber: '1', repositories: [7], kinds: null, revision: 1});
         if (call.url.includes('/api/repositories?q='))
           return Response.json({
-            items: [{id: '7', owner: 'soda-tester', name: 'demo', can_create: false, project: {id: `p${'1'.repeat(24)}`, provisioned: true}}],
+            items: [
+              {
+                id: '7',
+                owner: 'soda-tester',
+                name: 'demo',
+                can_create: false,
+                project: {id: `p${'1'.repeat(24)}`, provisioned: true},
+              },
+            ],
             next_cursor: '',
           });
         if (call.url.includes('/api/factory/feed?'))
@@ -921,18 +972,17 @@ test('every product change state renders its own outcome, action and tone', asyn
     ['This proposal refers to an earlier direction. Refresh the request before proposing another change.', 1],
   ];
   for (const [text, count] of outcomes) assert.equal(await feed.getByText(text, {exact: true}).count(), count, text);
-  // The unavailable miss offers a Check progress re-read in the same
-  // outcome paragraph, so its copy asserts as a substring: it must read
-  // as unavailable once, never as detached generic progress.
+  // The unavailable miss reads as unavailable once and reloads with the
+  // feed's own refresh: there is no manual progress button.
   assert.equal(
     await feed
-      .getByText('The proposed change detail is currently unavailable. Check progress to reload it.', {
+      .getByText('The proposed change detail is currently unavailable. It reloads on its own.', {
         exact: false,
       })
       .count(),
     1
   );
-  assert.equal(await feed.getByRole('button', {name: 'Check progress', exact: true}).count(), 1);
+  assert.equal(await feed.getByRole('button', {name: 'Check progress', exact: true}).count(), 0);
   // Actions stay state-specific: review, continue and open each appear once;
   // the waiting and superseded rows offer no change button at all.
   assert.equal(await feed.getByRole('button', {name: 'Review proposed change', exact: true}).count(), 1);
@@ -959,7 +1009,10 @@ test('every product change state renders its own outcome, action and tone', asyn
   // Opening the accepted change dispatches the intent without any mutation.
   await feed.getByRole('button', {name: 'Open accepted change', exact: true}).click();
   await feed.getByText('Opening the accepted change.', {exact: true}).waitFor();
-  assert.deepEqual(await page.evaluate(() => document.body.dataset.navigated), `/soda-tester/demo/workspace/requests/${intent}`);
+  assert.deepEqual(
+    await page.evaluate(() => document.body.dataset.navigated),
+    `/soda-tester/demo/workspace/requests/${intent}`
+  );
   assert.equal(await page.evaluate(() => window.drawerFixture.calls.filter((call) => call.method !== 'GET').length), 0);
 });
 
@@ -1047,7 +1100,15 @@ test('accepted change routes only the owner to the private request', async (t) =
           return Response.json({subscriber: '1', repositories: [7], kinds: null, revision: 1});
         if (call.url.includes('/api/repositories?q='))
           return Response.json({
-            items: [{id: '7', owner: 'soda-tester', name: 'demo', can_create: false, project: {id: `p${'1'.repeat(24)}`, provisioned: true}}],
+            items: [
+              {
+                id: '7',
+                owner: 'soda-tester',
+                name: 'demo',
+                can_create: false,
+                project: {id: `p${'1'.repeat(24)}`, provisioned: true},
+              },
+            ],
             next_cursor: '',
           });
         if (call.url.includes('/api/factory/feed?'))
@@ -1091,7 +1152,10 @@ test('accepted change routes only the owner to the private request', async (t) =
   // Owner click lands on the private intent route without any mutation.
   await feed.getByRole('button', {name: 'Open accepted change', exact: true}).click();
   await page.waitForFunction(() => document.body.dataset.navigateCount === '1');
-  assert.deepEqual(await page.evaluate(() => document.body.dataset.navigated), `/soda-tester/demo/workspace/requests/${intent}`);
+  assert.deepEqual(
+    await page.evaluate(() => document.body.dataset.navigated),
+    `/soda-tester/demo/workspace/requests/${intent}`
+  );
   assert.equal(await page.evaluate(() => window.drawerFixture.calls.filter((call) => call.method !== 'GET').length), 0);
 });
 
@@ -1116,7 +1180,15 @@ test('consultation request and interpretation reply each carry the consulting wo
           return Response.json({subscriber: '1', repositories: [7], kinds: null, revision: 1});
         if (request.url.includes('/api/repositories?q='))
           return Response.json({
-            items: [{id: '7', owner: 'soda-tester', name: 'demo', can_create: false, project: {id: `p${'1'.repeat(24)}`, provisioned: true}}],
+            items: [
+              {
+                id: '7',
+                owner: 'soda-tester',
+                name: 'demo',
+                can_create: false,
+                project: {id: `p${'1'.repeat(24)}`, provisioned: true},
+              },
+            ],
             next_cursor: '',
           });
         if (request.url.includes('/api/factory/feed?'))
@@ -1228,7 +1300,15 @@ test('consultation interpretation renders after its request in the work thread',
           return Response.json({subscriber: '1', repositories: [7], kinds: null, revision: 1});
         if (request.url.includes('/api/repositories?q='))
           return Response.json({
-            items: [{id: '7', owner: 'soda-tester', name: 'demo', can_create: false, project: {id: `p${'1'.repeat(24)}`, provisioned: true}}],
+            items: [
+              {
+                id: '7',
+                owner: 'soda-tester',
+                name: 'demo',
+                can_create: false,
+                project: {id: `p${'1'.repeat(24)}`, provisioned: true},
+              },
+            ],
             next_cursor: '',
           });
         if (request.url.includes('/api/factory/feed?'))
@@ -1346,7 +1426,15 @@ test('consultation request and interpretation reply stay visible with the explan
           return Response.json({subscriber: '1', repositories: [7], kinds: null, revision: 1});
         if (request.url.includes('/api/repositories?q='))
           return Response.json({
-            items: [{id: '7', owner: 'soda-tester', name: 'demo', can_create: false, project: {id: `p${'1'.repeat(24)}`, provisioned: true}}],
+            items: [
+              {
+                id: '7',
+                owner: 'soda-tester',
+                name: 'demo',
+                can_create: false,
+                project: {id: `p${'1'.repeat(24)}`, provisioned: true},
+              },
+            ],
             next_cursor: '',
           });
         if (request.url.includes('/api/factory/feed?'))
@@ -1482,7 +1570,15 @@ test('an unavailable change review reports honestly without opening or saving', 
           return Response.json({subscriber: '1', repositories: [7], kinds: null, revision: 1});
         if (call.url.includes('/api/repositories?q='))
           return Response.json({
-            items: [{id: '7', owner: 'soda-tester', name: 'demo', can_create: false, project: {id: `p${'1'.repeat(24)}`, provisioned: true}}],
+            items: [
+              {
+                id: '7',
+                owner: 'soda-tester',
+                name: 'demo',
+                can_create: false,
+                project: {id: `p${'1'.repeat(24)}`, provisioned: true},
+              },
+            ],
             next_cursor: '',
           });
         if (call.url.includes('/api/factory/feed?'))
