@@ -8,7 +8,7 @@ import {resumeGenerationRefused} from './soda-extension.js';
 import type {ContributionPresentation, ResumeValidation} from './fountain-browser-contract.js';
 import {mountTerminal} from './sodaspaces-terminal.js';
 import type {TerminalContext} from './sodaspaces-terminal.js';
-import {emptyLayout, focusedPane, hideTab} from './sodaspaces-layout.js';
+import {emptyLayout, focusedPane, hideTab, panes} from './sodaspaces-layout.js';
 import type {WorkspaceLayout, LayoutEntry, Area} from './sodaspaces-layout.js';
 import {check, id, object, projectId} from './sodaspaces-api.js';
 import type {RepositoryChoices} from './sodaspaces-repository-response.js';
@@ -173,6 +173,7 @@ export class SodaSpaces extends LitElement {
     spaces: {
       state: true,
     },
+    notice: {state: true},
     status: {
       state: true,
     },
@@ -299,6 +300,12 @@ export class SodaSpaces extends LitElement {
   private measurement = new WorkspaceMeasurement(this, () => this.measure());
   private maximized: string | undefined;
   private dragged: string | undefined;
+  declare private notice: string;
+  private noticeTimer: number | undefined;
+  /** Where a dragged tab would land: before `before`, or at the end of `pane`. */
+  private dropHint: {pane: string; before: string | undefined} | undefined;
+  /** The tab whose close (End terminal) awaits confirmation in the tab strip. */
+  private closing: string | undefined;
   private choosingPane: string | undefined;
   private pendingNewRoute = false;
   private pendingWorkspaceRoute = false;
@@ -322,6 +329,7 @@ export class SodaSpaces extends LitElement {
     this.complete = this.repositoryBusy = false;
     this.repositoryResult = undefined;
     this.status = 'Loading projects…';
+    this.notice = '';
     this.busy = this.stale = this.thisPage = this.creating = false;
     this.attentionOnly = this.openingDrawer = false;
     this.view = 'terminal';
@@ -1127,33 +1135,35 @@ export class SodaSpaces extends LitElement {
     const mutation = this.watchMutation();
     return html`<section class="soda-agent-runs" aria-label="Agent runs">
       <h2>Agent runs</h2>
-      ${runs.length
-        ? html`<ul class="soda-agent-run-links">
-            ${repeat(
-              runs,
-              (run) => run.id,
-              (run) =>
-                html`<li>
-                  <span title=${factoryRunText(run)}>${factoryRunLabel(run)}</span>
-                  <button
-                    class="ui button"
-                    data-run-id=${run.id}
-                    aria-pressed=${factoryWatching(this.watches, run.id) ? 'true' : 'false'}
-                    ?disabled=${factoryRowDisabled(
-                      {stale: this.stale, available: this.available},
-                      space,
-                      run,
-                      this.watches
-                    )}
-                    @click=${() => toggleFactoryWatch(mutation, space, run)}
-                  >
-                    ${factoryWatching(this.watches, run.id) ? 'Watching' : 'Watch'}
-                  </button>
-                  <a href=${terminalsOnly.runLink(run.id)}>Feed card</a>
-                </li>`
-            )}
-          </ul>`
-        : html`<p>No agent is running in this repository now.</p>`}
+      ${
+        runs.length
+          ? html`<ul class="soda-agent-run-links">
+              ${repeat(
+                runs,
+                (run) => run.id,
+                (run) =>
+                  html`<li>
+                    <span title=${factoryRunText(run)}>${factoryRunLabel(run)}</span>
+                    <button
+                      class="ui button"
+                      data-run-id=${run.id}
+                      aria-pressed=${factoryWatching(this.watches, run.id) ? 'true' : 'false'}
+                      ?disabled=${factoryRowDisabled(
+                        {stale: this.stale, available: this.available},
+                        space,
+                        run,
+                        this.watches
+                      )}
+                      @click=${() => toggleFactoryWatch(mutation, space, run)}
+                    >
+                      ${factoryWatching(this.watches, run.id) ? 'Watching' : 'Watch'}
+                    </button>
+                    <a href=${terminalsOnly.runLink(run.id)}>Feed card</a>
+                  </li>`
+              )}
+            </ul>`
+          : html`<p>No agent is running in this repository now.</p>`
+      }
       ${repeat(
         watches,
         (watch) => watch.run,
@@ -1201,7 +1211,7 @@ export class SodaSpaces extends LitElement {
     const space = this.selectedSpace,
       metadata = space?.terminals.find((terminal) => terminal.id === terminalId);
     if (!space || !metadata) {
-      this.status = 'The session started. Refresh to find it among your terminals.';
+      this.announce('The session started. Refresh to find it among your terminals.');
       return;
     }
     await openExisting(this.createInput(), space, metadata);
@@ -1306,7 +1316,10 @@ export class SodaSpaces extends LitElement {
       this.complete,
       this.stale,
       this.busy,
-      this.onRefreshClick
+      this.onRefreshClick,
+      () => {
+        this.status = '';
+      }
     );
     return html`<section
       id="sodaspaces-data"
@@ -1318,7 +1331,8 @@ export class SodaSpaces extends LitElement {
     >
       <span class="soda-cell-measure" aria-hidden="true">MMMMMMMMMMMMMMMM</span>
       ${heading} ${this.renderNativeToolbar()} ${banners} ${this.renderDrawerProjectionTabs()}
-      ${this.renderWorkspaceFrame()} ${this.renderCreationDialog()} ${this.renderRenameDialog()}
+      ${this.notice ? html`<p class="soda-toast" role="status">${this.notice}</p>` : ''} ${this.renderWorkspaceFrame()}
+      ${this.renderCreationDialog()} ${this.renderRenameDialog()}
     </section>`;
   }
   private get connectURL() {
@@ -1391,7 +1405,7 @@ export class SodaSpaces extends LitElement {
         data-terminal-name=${defaultTerminalName(this.newTerminalInput(), this.selectedSpace)}
         aria-label="New terminal"
         title="New terminal"
-        ?hidden=${(kind === 'page' && this.view !== 'terminal') || hideNewTerminal(this.firstTerminal, kind, space)}
+        ?hidden=${kind === 'page' || hideNewTerminal(this.firstTerminal, kind, space)}
         ?disabled=${disableNewTerminal(workspaceBlocked(this.stale, this.available), this.creating, kind, space)}
         @click=${this.onNewTerminal}
       >
@@ -1640,7 +1654,7 @@ export class SodaSpaces extends LitElement {
       index = rows.findIndex(({row}) => row.key === this.selected);
     const next = rows[(index + 1) % rows.length];
     if (!next) {
-      this.status = 'No currently authorized sessions need attention.';
+      this.announce('No terminal needs your attention.');
       return;
     }
     this.search = '';
@@ -1677,6 +1691,21 @@ export class SodaSpaces extends LitElement {
       readDragged: () => this.dragged,
       setDragged: (key) => {
         this.dragged = key;
+        if (!key) this.dropHint = undefined;
+      },
+      readDropHint: () => this.dropHint,
+      setDropHint: (hint) => {
+        if (JSON.stringify(hint) === JSON.stringify(this.dropHint)) return;
+        this.dropHint = hint;
+        this.requestUpdate();
+      },
+      readClosing: () => this.closing,
+      requestClose: (key) => this.requestClose(key),
+      cancelClose: () => this.cancelClose(),
+      confirmClose: () => void this.confirmClose(),
+      rename: (key) => {
+        const slot = this.slots.find((s) => s.key === key);
+        if (slot && !this.stale) this.beginRename(key, slot);
       },
       binding: this.binding,
       spaces: this.spaces,
@@ -1970,8 +1999,17 @@ export class SodaSpaces extends LitElement {
       },
     };
   }
+  /** Show a short confirmation that fades by itself (e.g. "Terminal ended."). */
+  private announce(message: string) {
+    this.notice = message;
+    window.clearTimeout(this.noticeTimer);
+    this.noticeTimer = window.setTimeout(() => {
+      this.notice = '';
+    }, 4000);
+  }
   private terminalsInput(): TerminalsInput {
     return {
+      announce: (message) => this.announce(message),
       isStale: () => this.stale,
       isDisposed: () => this.disposed,
       isAvailable: () => this.available,
@@ -2150,6 +2188,16 @@ export class SodaSpaces extends LitElement {
       event.currentTarget.releasePointerCapture(event.pointerId);
   }
   private tabKey(event: KeyboardEvent, key: string, keys: string[]) {
+    if (event.key === 'Delete' || event.key === 'Backspace') {
+      event.preventDefault();
+      this.requestClose(key);
+      return;
+    }
+    if (event.ctrlKey && event.shiftKey && (event.key === 'ArrowLeft' || event.key === 'ArrowRight')) {
+      event.preventDefault();
+      this.moveTabBy(key, event.key === 'ArrowLeft' ? -1 : 1);
+      return;
+    }
     if (!['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(event.key)) return;
     event.preventDefault();
     const index = keys.indexOf(key),
@@ -2169,6 +2217,48 @@ export class SodaSpaces extends LitElement {
           this.querySelector<HTMLElement>('#soda-tab-' + entry.key)?.focus();
       });
     }
+  }
+  /** Move a tab one place left or right within its pane, keeping keyboard focus on it. */
+  private moveTabBy(key: string, delta: -1 | 1) {
+    if (this.stale) return;
+    const pane = panes(this.layout.tree).find((p) => p.tabs.includes(key));
+    if (!pane) return;
+    const index = pane.tabs.indexOf(key),
+      target = index + delta;
+    if (target < 0 || target >= pane.tabs.length) return;
+    // move() inserts before a tab; moving right means before the tab after the neighbour.
+    const before = delta < 0 ? pane.tabs[target] : pane.tabs[target + 1];
+    move(this.layoutInput(), key, pane.key, before);
+    void this.updateComplete.then(() => this.querySelector<HTMLElement>('#soda-tab-' + key)?.focus());
+  }
+  private requestClose(key: string) {
+    if (this.stale) return;
+    this.closing = key;
+    this.requestUpdate();
+    void this.updateComplete.then(() =>
+      this.querySelector<HTMLElement>('.soda-tab-confirm [data-action="cancel"]')?.focus()
+    );
+  }
+  private cancelClose() {
+    const key = this.closing;
+    this.closing = undefined;
+    this.requestUpdate();
+    if (key) void this.updateComplete.then(() => this.querySelector<HTMLElement>('#soda-tab-' + key)?.focus());
+  }
+  /** End the terminal behind a tab, then close the tab once the server confirms. */
+  private async confirmClose() {
+    const key = this.closing;
+    this.closing = undefined;
+    this.requestUpdate();
+    if (!key || this.stale) return;
+    const slot = this.slots.find((s) => s.key === key);
+    if (slot?.terminal.live) {
+      await slot.terminal.end();
+      // An unconfirmed end keeps the tab; the terminal explains what happened.
+      if (slot.terminal.live) return;
+    }
+    if (slot) this.hideSlot(slot);
+    else if (!this.disposed) arrange(this.layoutInput(), hideTab(this.layout, key));
   }
   private hideSlot(slot: Slot) {
     if (!this.stale && !this.disposed) arrange(this.layoutInput(), hideTab(this.layout, slot.key));
@@ -2339,6 +2429,7 @@ export class SodaSpaces extends LitElement {
     if (this.disposed) return;
     this.invalidate();
     this.disposed = true;
+    window.clearTimeout(this.noticeTimer);
     this.lifetime.abort();
     for (const slot of this.slots) slot.terminal.dispose();
     for (const watch of this.watches) watch.view?.dispose();
@@ -2359,7 +2450,11 @@ function workspacePresentation(
     ...(repositoryId ? {repositoryId} : {}),
   };
   if (kind === 'page')
-    return {...base, kind, ...(context.kind === 'page' && context.terminalsOnly ? {terminalsOnly: context.terminalsOnly} : {})};
+    return {
+      ...base,
+      kind,
+      ...(context.kind === 'page' && context.terminalsOnly ? {terminalsOnly: context.terminalsOnly} : {}),
+    };
   return {...base, kind, ...(repositoryId ? {pageRepositoryId: repositoryId} : {})};
 }
 function workspaceContextValid(context: WorkspaceContext) {

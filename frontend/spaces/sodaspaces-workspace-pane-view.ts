@@ -10,12 +10,58 @@ import type {PaneSession, Row, Slot, WorkspaceContext} from './sodaspaces-worksp
 import {renderMenu} from './sodaspaces-workspace-view.js';
 import {renderSessionTab} from './sodaspaces-session-navigation-view.js';
 
+/** Strip action icons: each trigger keeps its text label for tooltips and assistive tech. */
+const icons = {
+  layout: html`<svg
+    width="16"
+    height="16"
+    viewBox="0 0 16 16"
+    aria-hidden="true"
+    fill="none"
+    stroke="currentColor"
+    stroke-width="1.4"
+  >
+    <rect x="1.5" y="2.5" width="13" height="11" />
+    <path d="M8 2.5v11" />
+  </svg>`,
+  tabs: html`<svg
+    width="16"
+    height="16"
+    viewBox="0 0 16 16"
+    aria-hidden="true"
+    fill="none"
+    stroke="currentColor"
+    stroke-width="1.4"
+  >
+    <path d="M2.5 4h11M2.5 8h11M2.5 12h7" />
+  </svg>`,
+  move: html`<svg
+    width="16"
+    height="16"
+    viewBox="0 0 16 16"
+    aria-hidden="true"
+    fill="none"
+    stroke="currentColor"
+    stroke-width="1.4"
+  >
+    <path d="M2 8h10M9 4.5 12.5 8 9 11.5M14.5 3v10" />
+  </svg>`,
+};
+const unnamed = 'Unnamed terminal';
+
 export interface PaneChromeInput {
   readLayout: () => WorkspaceLayout;
   readMaximized: () => string | undefined;
   setMaximized: (key: string | undefined) => void;
   readDragged: () => string | undefined;
   setDragged: (key: string | undefined) => void;
+  readDropHint: () => {pane: string; before: string | undefined} | undefined;
+  setDropHint: (hint: {pane: string; before: string | undefined} | undefined) => void;
+  readClosing: () => string | undefined;
+  requestClose: (key: string) => void;
+  cancelClose: () => void;
+  confirmClose: () => void;
+  rename: (key: string) => void;
   binding: WorkspaceContext | undefined;
   spaces: Space[];
   slots: Slot[];
@@ -81,9 +127,9 @@ export function renderPaneMenu(input: PaneChromeInput) {
   // oxfmt-ignore
   return renderMenu(
     'Pane actions',
-    'Pane ⌄',
+    icons.layout,
     html`
-      <p class="soda-menu-heading">Pane layout</p>
+      <p class="soda-menu-heading">Layout</p>
       <button class="ui button" ?disabled=${!input.canSplit('right')} @click=${() => input.split('right')}>Split right</button
       ><button class="ui button" ?disabled=${!input.canSplit('below')} @click=${() => input.split('below')}>Split below</button>
       ${renderPaneLayoutExtras(input)} ${renderPaneSplitHelp(input)}
@@ -111,16 +157,32 @@ export function paneAriaOwns(input: PaneChromeInput, pane: Pane, navigation: boo
   return 'soda-owner-' + pane.selected;
 }
 
-export function onTabListDragOver(input: PaneChromeInput, e: DragEvent) {
-  if (input.readDragged()) e.preventDefault();
+export function onTabListDragOver(input: PaneChromeInput, e: DragEvent, paneKey?: string) {
+  if (!input.readDragged()) return;
+  e.preventDefault();
+  // Over the empty part of the strip: the tab lands at the end.
+  if (paneKey && e.target === e.currentTarget) input.setDropHint({pane: paneKey, before: undefined});
 }
 
 export function onTabListDrop(input: PaneChromeInput, e: DragEvent, paneKey: string) {
   const dragged = input.readDragged();
   if (!dragged) return;
   e.preventDefault();
-  input.move(dragged, paneKey);
+  const hint = input.readDropHint();
+  input.move(dragged, paneKey, hint?.pane === paneKey ? hint.before : undefined);
   input.setDragged(undefined);
+}
+
+/** Over a tab: land before it on its left half, after it on its right half. */
+export function onTabDragOver(input: PaneChromeInput, e: DragEvent, pane: Pane, key: string) {
+  if (!input.readDragged()) return;
+  e.preventDefault();
+  e.stopPropagation();
+  const target = e.currentTarget as HTMLElement,
+    box = target.getBoundingClientRect(),
+    after = e.clientX > box.left + box.width / 2,
+    index = pane.tabs.indexOf(key);
+  input.setDropHint({pane: pane.key, before: after ? pane.tabs[index + 1] : key});
 }
 
 export function sessionRow(entry: LayoutEntry, slot: Slot | undefined): Row {
@@ -144,8 +206,21 @@ export function onTabDrop(input: PaneChromeInput, event: DragEvent, paneKey: str
   if (!dragged) return;
   event.preventDefault();
   event.stopPropagation();
-  input.move(dragged, paneKey, before);
+  const hint = input.readDropHint();
+  const target = hint?.pane === paneKey ? hint.before : before;
+  if (target !== dragged) input.move(dragged, paneKey, target);
   input.setDragged(undefined);
+}
+
+/** Which side of a tab the insertion line shows on while dragging. */
+function dropSide(input: PaneChromeInput, pane: Pane, key: string): 'before' | 'after' | '' {
+  const hint = input.readDropHint();
+  if (!input.readDragged() || hint?.pane !== pane.key) return '';
+  if (hint.before === key) return 'before';
+  const index = pane.tabs.indexOf(key);
+  return hint.before === pane.tabs[index + 1] && (hint.before !== undefined || index === pane.tabs.length - 1)
+    ? 'after'
+    : '';
 }
 
 export function sessionTabProps(input: PaneChromeInput, item: PaneSession, keys: string[], pane: Pane) {
@@ -163,8 +238,58 @@ export function sessionTabProps(input: PaneChromeInput, item: PaneSession, keys:
     keydown: (event: KeyboardEvent) => input.tabKey(event, entry.key, keys),
     dragstart: (event: DragEvent) => onTabDragStart(input, event, entry.key),
     dragend: () => onTabDragEnd(input),
+    dragover: (event: DragEvent) => onTabDragOver(input, event, pane, entry.key),
     drop: (event: DragEvent) => onTabDrop(input, event, pane.key, entry.key),
+    // Page tabs carry their own close button; docked (native) tabs keep the menu.
+    ...(input.binding?.kind === 'page' ? {close: () => input.requestClose(entry.key)} : {}),
+    rename: () => input.rename(entry.key),
+    dragging: input.readDragged() === entry.key,
+    dropSide: dropSide(input, pane, entry.key),
   };
+}
+
+/** The "+" after the last tab: everybody reads it as "new tab". */
+function renderNewTab(input: PaneChromeInput, pane: Pane, navigation: boolean) {
+  if (navigation || input.binding?.kind !== 'page') return '';
+  return html`<button
+    type="button"
+    class="soda-tab-new"
+    aria-label="New terminal"
+    title="New terminal"
+    ?disabled=${!input.available || input.stale || input.creating}
+    @click=${() => input.newTerminal(pane.key)}
+  >
+    <svg width="14" height="14" viewBox="0 0 14 14" aria-hidden="true">
+      <path d="M7 1v12M1 7h12" stroke="currentColor" stroke-width="1.8" />
+    </svg>
+  </button>`;
+}
+
+/** Ending a terminal stops its processes, so the tab's × asks once, right under the strip. */
+function renderCloseConfirm(input: PaneChromeInput, entries: PaneSession[], navigation: boolean) {
+  const key = input.readClosing();
+  const item = entries.find((e) => e.entry.key === key);
+  if (navigation || !key || !item) return '';
+  const name = item.slot ? input.slotName(item.slot) : 'this terminal';
+  return html`<div
+    class="soda-tab-confirm"
+    role="alertdialog"
+    aria-label=${'End ' + name}
+    @keydown=${(event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        event.preventDefault();
+        event.stopPropagation();
+        input.cancelClose();
+      }
+    }}
+  >
+    <p><strong>End “${name}”?</strong> Commands still running in it will stop. Files are kept.</p>
+    <button type="button" class="ui basic button" data-action="cancel" @click=${() => input.cancelClose()}>
+      Cancel</button
+    ><button type="button" class="ui red button" data-action="end" @click=${() => input.confirmClose()}>
+      End terminal
+    </button>
+  </div>`;
 }
 
 export function renderFocusedPaneActions(input: PaneChromeInput, pane: Pane, navigation: boolean) {
@@ -180,20 +305,38 @@ export function filterOverflowTabs(e: Event) {
 }
 
 export function overflowTabLabel(input: PaneChromeInput, item: PaneSession) {
-  return (item.slot ? input.slotName(item.slot) : 'Saved terminal') + ' · ' + input.projectName(item.space);
+  return (item.slot ? input.slotName(item.slot) : unnamed) + ' · ' + input.projectName(item.space);
 }
 
 export function renderTabOverflow(input: PaneChromeInput, entries: PaneSession[]) {
+  const selected = input.readLayout().entries.find((e) => e.key === focusedSelected(input))?.key;
   return html`<details class="soda-menu soda-tab-overflow" ?hidden=${entries.length < 2}>
-    <summary aria-label="Open tabs" title="Open tabs">Tabs ⌄</summary>
+    <summary aria-label="Open tabs" title="Open tabs">${icons.tabs}</summary>
     <div>
       <input
         type="search"
+        placeholder="Search tabs"
         aria-label="Find an open tab"
         @input=${(e: Event) => filterOverflowTabs(e)}
-      />${entries.map((item) => html`<button class="ui button" @click=${() => input.openSaved(item.entry)}>${overflowTabLabel(input, item)}</button>`)}
+      />${entries.map(
+        (item) =>
+          html`<button
+            class="ui button soda-menu-item"
+            aria-current=${item.entry.key === selected ? 'true' : 'false'}
+            title=${overflowTabLabel(input, item)}
+            @click=${() => input.openSaved(item.entry)}
+          >
+            <span class="soda-menu-item-label">${item.slot ? input.slotName(item.slot) : unnamed}</span
+            ><span class="soda-menu-item-meta">${input.projectName(item.space)}</span>
+          </button>`
+      )}
     </div>
   </details>`;
+}
+
+function focusedSelected(input: PaneChromeInput) {
+  const layout = input.readLayout();
+  return panes(layout.tree).find((p) => p.key === layout.focused)?.selected;
 }
 
 export function showMoveMenu(input: PaneChromeInput, pane: Pane) {
@@ -205,7 +348,7 @@ export function showMoveMenu(input: PaneChromeInput, pane: Pane) {
 }
 
 export function moveTargetName(entries: PaneSession[], pane: Pane) {
-  return entries.find((item) => item.entry.key === pane.selected)?.slot?.metadata?.name || 'terminal';
+  return entries.find((item) => item.entry.key === pane.selected)?.slot?.metadata?.name || 'this terminal';
 }
 
 export function moveToPane(input: PaneChromeInput, pane: Pane, destination: string) {
@@ -219,16 +362,23 @@ export function moveBeforeTab(input: PaneChromeInput, pane: Pane, before: string
 }
 
 export function beforeTabName(entries: PaneSession[], before: string) {
-  return entries.find((item) => item.entry.key === before)?.slot?.metadata?.name || 'saved tab';
+  return entries.find((item) => item.entry.key === before)?.slot?.metadata?.name || unnamed;
 }
 
 export function renderMoveMenu(input: PaneChromeInput, pane: Pane, entries: PaneSession[]) {
   if (!showMoveMenu(input, pane)) return html``;
+  const all = panes(input.readLayout().tree),
+    others = all.map((destination, i) => ({destination, i})).filter(({destination}) => destination.key !== pane.key),
+    before = pane.tabs.filter((key) => key !== pane.selected);
   return html`<details class="soda-menu soda-move-menu">
-    <summary aria-label="Move terminal to pane" title="Move terminal to pane">Move ⌄</summary>
+    <summary aria-label="Move terminal to pane" title="Move terminal to pane">${icons.move}</summary>
     <div>
-      <p class="soda-menu-heading"><span>Move ${moveTargetName(entries, pane)}</span></p>
-      ${panes(input.readLayout().tree).map((destination, i) => html`<button class="ui button" @click=${() => moveToPane(input, pane, destination.key)}>Pane ${i + 1}${destination.key === pane.key ? ' — move to end' : ''}</button>`)}${pane.tabs.filter((key) => key !== pane.selected).map((before) => html`<button class="ui button" @click=${() => moveBeforeTab(input, pane, before)}>Move before ${beforeTabName(entries, before)}</button>`)}
+      <p class="soda-menu-heading"><span>Move “${moveTargetName(entries, pane)}”</span></p>
+      ${others.length ? html`<p class="soda-menu-label">To another pane</p>` : ''}
+      ${others.map(({destination, i}) => html`<button class="ui button soda-menu-item" @click=${() => moveToPane(input, pane, destination.key)}>Pane ${i + 1}</button>`)}
+      ${before.length ? html`<p class="soda-menu-label">Within this pane <span>Ctrl+Shift+← →</span></p>` : ''}
+      ${before.map((key) => html`<button class="ui button soda-menu-item" @click=${() => moveBeforeTab(input, pane, key)}>Before “${beforeTabName(entries, key)}”</button>`)}
+      ${before.length ? html`<button class="ui button soda-menu-item" @click=${() => moveToPane(input, pane, pane.key)}>To the end</button>` : ''}
     </div>
   </details>`;
 }
@@ -317,7 +467,12 @@ export function paneChrome(input: PaneChromeInput, pane: Pane, area: Area, navig
       class="soda-workspace-tabs"
       role="tablist"
       aria-label="Terminal sessions"
-      @dragover=${(e: DragEvent) => onTabListDragOver(input, e)}
+      data-drop-end=${input.readDropHint()?.pane === pane.key && input.readDropHint()?.before === undefined && !!input.readDragged() ? 'true' : 'false'}
+      @dragover=${(e: DragEvent) => onTabListDragOver(input, e, pane.key)}
+      @dragleave=${(e: DragEvent) => {
+        if (e.target === e.currentTarget && !(e.currentTarget as HTMLElement).contains(e.relatedTarget as Node))
+          input.setDropHint(undefined);
+      }}
       @drop=${(e: DragEvent) => onTabListDrop(input, e, pane.key)}
     >
       ${repeat(
@@ -331,9 +486,10 @@ export function paneChrome(input: PaneChromeInput, pane: Pane, area: Area, navig
             (event) => onTabListDragOver(input, event)
           )
       )}
+      ${renderNewTab(input, pane, navigation)}
     </div>
-    ${renderFocusedPaneActions(input, pane, navigation)} ${renderTabOverflow(input, entries)}
-    ${renderMoveMenu(input, pane, entries)} ${renderEmptyPane(input, pane, area, navigation, entries)}
-    ${renderDropEdges(input, pane, area)}
+    ${renderCloseConfirm(input, entries, navigation)} ${renderFocusedPaneActions(input, pane, navigation)}
+    ${renderTabOverflow(input, entries)} ${renderMoveMenu(input, pane, entries)}
+    ${renderEmptyPane(input, pane, area, navigation, entries)} ${renderDropEdges(input, pane, area)}
   </section>`;
 }

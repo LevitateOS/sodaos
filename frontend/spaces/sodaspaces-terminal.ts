@@ -464,6 +464,14 @@ export class SodaTerminal extends LitElement {
   disconnect() {
     detach(this.actionsInput(), 'Detached. Native work is not ended by disconnection.');
   }
+  /** End the session now; the caller (the tab's close button) has already confirmed. */
+  end() {
+    return endTerminal(this.actionsInput());
+  }
+  /** A session exists on the server for this terminal. */
+  get live() {
+    return !!this.sessionID;
+  }
   dispose() {
     if (this.disposed) return;
     detach(this.actionsInput(), 'Detached.', true);
@@ -521,6 +529,10 @@ export function mountTerminal(
     retire: () => terminal.retire(),
     invalidate: () => terminal.invalidate(),
     disconnect: () => terminal.disconnect(),
+    end: () => terminal.end(),
+    get live() {
+      return terminal.live;
+    },
     dispose: () => terminal.dispose(),
   };
 }

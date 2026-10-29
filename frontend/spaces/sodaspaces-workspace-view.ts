@@ -55,7 +55,12 @@ export function renderWelcomeSteps(step?: 1 | 2 | 3) {
 }
 
 /** Stateless chrome. Callbacks capture the owner's original entry/pane/project. */
-export function renderMenu(label: string, glyph: string, body: TemplateResult, className = ''): TemplateResult {
+export function renderMenu(
+  label: string,
+  glyph: string | TemplateResult,
+  body: TemplateResult,
+  className = ''
+): TemplateResult {
   return html`
     <details class=${'soda-menu' + (className ? ' ' + className : '')}>
       <summary aria-label=${label} title=${label}>${glyph}</summary>

@@ -322,8 +322,9 @@ for (const theme of ['light', 'dark'])
       );
       if (!geometry.compact) assert(geometry.header.x >= geometry.nav.right, 'project header overlaps sidebar');
       await captureSpacesComponent(page, `working-${theme}-${width}`);
+      // New terminal is the "+" after the tabs; the toolbar no longer repeats it.
       assert.equal(
-        await page.locator('.soda-workspace-toolbar').getByRole('button', {name: 'New terminal', exact: true}).count(),
+        await page.locator('.soda-workspace-tabs').getByRole('button', {name: 'New terminal', exact: true}).count(),
         1
       );
       assert.equal(await page.getByRole('button', {name: 'New terminal', exact: true}).count(), 1);

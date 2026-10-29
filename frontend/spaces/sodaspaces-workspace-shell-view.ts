@@ -50,7 +50,8 @@ export function renderStatusBanners(
   complete: boolean,
   stale: boolean,
   busy: boolean,
-  onRefresh: () => void
+  onRefresh: () => void,
+  onDismiss?: () => void
 ) {
   // The status element must contain no whitespace text so its empty
   // state reads empty; the formatter would reintroduce it.
@@ -60,7 +61,7 @@ export function renderStatusBanners(
       class="soda-feedback soda-list-feedback"
       data-tone="warning"
       role="status"
-      ?hidden=${hideListStatus(status, setupScreen, setup)}><span>${status}</span>${retryLoading(complete, stale, busy, onRefresh)}</div>
+      ?hidden=${hideListStatus(status, setupScreen, setup)}><span>${status}</span>${retryLoading(complete, stale, busy, onRefresh)}${onDismiss && !busy ? html`<button type="button" class="soda-feedback-dismiss" aria-label="Dismiss" title="Dismiss" @click=${onDismiss}>×</button>` : ''}</div>
       <p class="soda-feedback" data-tone="warning" role="status" ?hidden=${!storageNotice}>
         ${storageNotice}
       </p>`;

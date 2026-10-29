@@ -132,6 +132,55 @@ test('sidebar bounds, tab overflow, pointer reorder and edge split preserve owne
     [0, 0, 0]
   );
 });
+test('tab strip: + opens, Ctrl+Shift+arrows move, the close button and Delete end after confirmation', async (t) => {
+  const page = await fixture(t);
+  await page.setViewportSize({width: 1600, height: 1000});
+  await page.evaluate(() => window.workspaceFixture.api.refresh());
+  for (const name of ['Build', 'Edit']) await openSession(page, name);
+  const names = async () => (await page.getByRole('tab').allTextContents()).map((text) => text.trim());
+  assert.equal(
+    await page.locator('.soda-workspace-tabs').getByRole('button', {name: 'New terminal', exact: true}).count(),
+    1
+  );
+  const build = page.getByRole('tab', {name: 'Build · alice/Alpha', exact: true});
+  await build.click();
+  // Clicking a tab focuses its terminal; the shortcut works on a focused tab.
+  await build.focus();
+  const start = (await names()).findIndex((name) => name.startsWith('Build'));
+  await page.keyboard.press('Control+Shift+ArrowRight');
+  assert.equal(
+    (await names()).findIndex((name) => name.startsWith('Build')),
+    start + 1,
+    'tab moves right'
+  );
+  assert.equal(await page.evaluate(() => document.activeElement?.getAttribute('aria-label')), 'Build · alice/Alpha');
+
+  await page.getByRole('button', {name: 'End Build', exact: true}).click();
+  const confirm = page.getByRole('alertdialog', {name: 'End Build', exact: true});
+  await confirm.waitFor();
+  await page.keyboard.press('Escape');
+  assert.equal(await confirm.count(), 0, 'Escape cancels');
+  assert.equal(await page.evaluate(() => document.activeElement?.getAttribute('aria-label')), 'Build · alice/Alpha');
+
+  await page.keyboard.press('Delete');
+  await confirm.getByRole('button', {name: 'End terminal', exact: true}).click();
+  await page.waitForFunction(() => !document.querySelector('[role=tab][aria-label="Build · alice/Alpha"]'));
+  assert(
+    await page.evaluate(() =>
+      window.workspaceFixture.calls.some(
+        (call) => call.path.includes('/terminal-sessions/') && call.body?.action === 'end'
+      )
+    ),
+    'the terminal was ended on the server'
+  );
+  // A passing confirmation fades on its own; it never occupies the status line.
+  assert.equal(await page.locator('.soda-toast').innerText(), 'Terminal ended.');
+  assert(await page.locator('#sodaspaces-status').isHidden());
+  assert.deepEqual(
+    (await names()).map((name) => name.split(' ')[0]),
+    ['Edit']
+  );
+});
 for (const retirement of ['invalidate', 'dispose', 'disconnect'] as const)
   test(`measurement subscriptions retire on ${retirement}, including queued callbacks`, async (t) => {
     const page = await fixture(t, 'page', installMeasurementProbe);

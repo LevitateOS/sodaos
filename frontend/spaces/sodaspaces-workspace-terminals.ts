@@ -10,6 +10,8 @@ import type {Creation, Slot, WorkspaceContext} from './sodaspaces-workspace-type
 import {renderCreation} from './sodaspaces-terminal-dialog-view.js';
 
 export interface TerminalsInput {
+  /** A passing confirmation; problems stay in the status line instead. */
+  announce: (message: string) => void;
   isStale: () => boolean;
   isDisposed: () => boolean;
   isAvailable: () => boolean;
@@ -110,7 +112,7 @@ export function confirmedEnd(input: TerminalsInput, key: string) {
   input.setMaximized(undefined);
   input.persist();
   input.display();
-  input.setStatus('Native cleanup confirmed for that exact terminal.');
+  input.announce('Terminal ended.');
   queueMicrotask(() => {
     slot?.terminal.dispose();
     slot?.host.remove();

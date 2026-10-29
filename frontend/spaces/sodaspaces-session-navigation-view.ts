@@ -13,14 +13,81 @@ export interface SessionTab {
   readonly keydown: (event: KeyboardEvent) => void;
   readonly dragstart: (event: DragEvent) => void;
   readonly dragend: () => void;
+  readonly dragover?: (event: DragEvent) => void;
   readonly drop: (event: DragEvent) => void;
+  /** Page tabs: end the terminal (asks first). */
+  readonly close?: () => void;
+  readonly rename?: () => void;
+  readonly dragging?: boolean;
+  /** Where the drop insertion line shows while another tab is dragged. */
+  readonly dropSide?: 'before' | 'after' | '';
 }
+/**
+ * A page tab: the tab button plus its own close button (a button cannot hold
+ * another). Middle-click or Delete also close; double-click renames.
+ */
+function renderPageTab(tab: SessionTab, draggable: boolean): TemplateResult {
+  return html`<div
+    class="soda-tab"
+    data-selected=${tab.selected ? 'true' : 'false'}
+    data-dragging=${tab.dragging ? 'true' : 'false'}
+    data-drop=${tab.dropSide || ''}
+    @dragover=${tab.dragover}
+    @drop=${tab.drop}
+  >
+    <button
+      id=${'soda-tab-' + tab.key}
+      role="tab"
+      class="soda-tab-main"
+      draggable=${draggable ? 'true' : 'false'}
+      title=${tab.name + ' · ' + tab.project + ' — double-click to rename'}
+      aria-label=${tab.name + ' · ' + tab.project}
+      aria-controls=${'soda-owner-' + tab.key}
+      aria-keyshortcuts="Delete Control+Shift+ArrowLeft Control+Shift+ArrowRight"
+      tabindex=${tab.selected ? '0' : '-1'}
+      aria-selected=${tab.selected ? 'true' : 'false'}
+      @dragstart=${tab.dragstart}
+      @dragend=${tab.dragend}
+      @keydown=${tab.keydown}
+      @click=${tab.select}
+      @dblclick=${tab.rename}
+      @mouseup=${(event: MouseEvent) => {
+        if (event.button === 1) {
+          event.preventDefault();
+          tab.close?.();
+        }
+      }}
+    >
+      <span class="soda-tab-icon" aria-hidden="true"></span
+      ><span class="soda-tab-name">${tab.name}</span
+      >${tab.unread ? html`<span class="soda-unread" role="img" aria-label="Unread output"></span>` : ''}
+      ${tab.attention ? html`<span class="soda-attention" role="img" title=${tab.attention} aria-label=${tab.attention}>!</span>` : ''}
+    </button>
+    <button
+      type="button"
+      class="soda-tab-close"
+      tabindex="-1"
+      aria-label=${'End ' + tab.name}
+      title="End terminal (Delete)"
+      @click=${(event: Event) => {
+        event.stopPropagation();
+        tab.close?.();
+      }}
+    >
+      <svg width="10" height="10" viewBox="0 0 10 10" aria-hidden="true">
+        <path d="M1.5 1.5l7 7M8.5 1.5l-7 7" stroke="currentColor" stroke-width="1.6" />
+      </svg>
+    </button>
+  </div>`;
+}
+
 export function renderSessionTab(
   tab: SessionTab,
   navigation: boolean,
   draggable: boolean,
   dragover: (event: DragEvent) => void
 ): TemplateResult {
+  if (!navigation && tab.close) return renderPageTab(tab, draggable);
   return html`
     <button
       id=${(navigation ? 'soda-navtab-' : 'soda-tab-') + tab.key}
