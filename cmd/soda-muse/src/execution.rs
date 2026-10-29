@@ -187,7 +187,11 @@ fn link_codex_home(root: &str) -> Result<(), String> {
     let persistent = format!("{home}/.codex");
     let private = format!("{root}/codex");
     ensure_dir(&persistent)?;
-    ensure_dir(&format!("{persistent}/sessions"))?;
+    // Codex writes sessions, its unpacked runtime packages and scratch
+    // here; none of it fits the small private credential tmpfs.
+    for name in ["sessions", "packages", "tmp", "log"] {
+        ensure_dir(&format!("{persistent}/{name}"))?;
+    }
     let history = format!("{persistent}/history.jsonl");
     if fs::symlink_metadata(&history).is_err() {
         use std::os::unix::fs::OpenOptionsExt;
