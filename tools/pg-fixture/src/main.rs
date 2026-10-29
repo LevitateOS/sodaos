@@ -415,10 +415,21 @@ fn run_postgres(dir: &SecretDir, name: &str) -> Result<(), i32> {
     }
 }
 
+// First start runs initdb behind a temporary socket-only server that answers
+// pg_isready and then restarts; only the final server listens on TCP.
 fn wait_ready(name: &str, deadline: Instant) -> Result<(), i32> {
     loop {
         let ready = Command::new("podman")
-            .args(["exec", "-u", "postgres", name, "pg_isready", "-q"])
+            .args([
+                "exec",
+                "-u",
+                "postgres",
+                name,
+                "pg_isready",
+                "-q",
+                "-h",
+                "127.0.0.1",
+            ])
             .stdout(Stdio::null())
             .stderr(Stdio::null())
             .status()
