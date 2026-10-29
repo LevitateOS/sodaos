@@ -361,7 +361,7 @@ export const mountRequestPlace: PlaceMount = (host, context, initial) => {
     render(
       html`<section class="soda-request-page" aria-label="Request">
         <nav class="soda-request-crumbs" aria-label="Request">
-          <a href=${places.requests()}>← Requests</a>
+          <a href=${places.feed()}>← Feed</a>
           <span>${context.slug}</span>
         </nav>
         ${ready && unbound && !picker.open ? html`<p class="soda-request-for">This request is for ${context.slug}</p>` : ''}

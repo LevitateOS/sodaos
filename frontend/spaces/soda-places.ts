@@ -6,8 +6,7 @@
 // Track 1 (pinned Fountain, today): every repository place is a subroute of the
 // one `repository-feed` page under the host's fixed `workspace` segment.
 //   /{owner}/{repo}/workspace                      Feed
-//   /{owner}/{repo}/workspace/requests             Requests
-//   /{owner}/{repo}/workspace/requests/{id|new}    Request / New request
+//   /{owner}/{repo}/workspace/requests/{id}        Request (requests, new: Feed)
 //   /{owner}/{repo}/workspace/app?delivery=        App
 //   /{owner}/{repo}/workspace/knowledge?item=      Knowledge
 //   /{owner}/{repo}/workspace/terminals?run=       Terminals
@@ -15,8 +14,7 @@
 //   /{owner}/{repo}/workspace/issues[/{issue}]     Factory status
 // Track 2 (Fountain F1-F4 named repository routes, PLACES_TRACK === 2):
 //   /{owner}/{repo}/feed                           Feed
-//   /{owner}/{repo}/requests                       Requests
-//   /{owner}/{repo}/requests/{id|new}              Request / New request
+//   /{owner}/{repo}/requests/{id}                  Request (requests, new: Feed)
 //   /{owner}/{repo}/app?delivery=                  App
 //   /{owner}/{repo}/knowledge?item=                Knowledge
 //   /{owner}/{repo}/terminals?run=                 Terminals
@@ -54,7 +52,6 @@ export const newRequestID = 'new';
 /** One SodaOS place on a repository page, as parsed from or built into an address. */
 export type Place =
   | {place: 'feed'; post?: string; compose?: true}
-  | {place: 'requests'}
   | {place: 'request'; request: string}
   | {place: 'app'; delivery?: string}
   | {place: 'knowledge'; item?: string}
@@ -68,7 +65,6 @@ export interface SodaPlaces {
   readonly slug: string;
   /** The Feed, or one post's card in it. */
   feed(post?: string): string;
-  requests(): string;
   /** A saved request's page. Points at the global Workspace until REQUESTS_IN_REPOSITORY. */
   request(id: string): string;
   /** The Feed with its composer open: a post is how a request starts. */
@@ -101,7 +97,6 @@ export function repositoryPlaces(prefix: string, slug: string): SodaPlaces {
   const places: SodaPlaces = {
     slug,
     feed: (post) => `${named ? `${repository}/feed` : root}${query('post', post)}`,
-    requests: () => `${root}/requests`,
     request: (id) =>
       REQUESTS_IN_REPOSITORY ? `${root}/requests/${encodeURIComponent(id)}` : requestRouteFor(prefix, id),
     newRequest: () => `${places.feed()}?compose=1`,
@@ -121,8 +116,6 @@ export function repositoryPlaces(prefix: string, slug: string): SodaPlaces {
       switch (place.place) {
         case 'feed':
           return place.compose ? places.newRequest() : places.feed(place.post);
-        case 'requests':
-          return places.requests();
         // A parsed request place is on this repository page already, so its
         // own address never goes through the Workspace switch.
         case 'request':
@@ -181,8 +174,10 @@ function feedPlace(param: Param): Place {
   return param('compose') ? {place: 'feed', compose: true} : {place: 'feed', ...optional('post', param('post'))};
 }
 
-// The old New request address opens the Feed composer instead.
-function requestPlace(request: string): Place {
+// Requests start and are followed in the Feed: the old Requests list and New
+// request addresses open it (New request with its composer).
+function requestPlace(request: string | undefined): Place {
+  if (request === undefined) return {place: 'feed'};
   return request === newRequestID ? {place: 'feed', compose: true} : {place: 'request', request};
 }
 
@@ -190,7 +185,7 @@ function requestPlace(request: string): Place {
 function workspacePlace([first, second, ...rest]: string[], param: Param): Place | undefined {
   if (rest.length) return undefined;
   if (first === undefined) return feedPlace(param);
-  if (first === 'requests') return second === undefined ? {place: 'requests'} : requestPlace(second);
+  if (first === 'requests') return requestPlace(second);
   if (second !== undefined) {
     if (first === 'settings') return {place: 'settings', section: second};
     if (first === 'issues') return {place: 'factory-status', issue: second};
@@ -211,7 +206,7 @@ function namedPlace(route: string, path: string[], param: Param): Place | undefi
       return path.length ? undefined : feedPlace(param);
     case 'requests':
       if (second !== undefined) return undefined;
-      return first === undefined ? {place: 'requests'} : requestPlace(first);
+      return requestPlace(first);
     case 'app':
       return path.length ? undefined : {place: 'app', ...optional('delivery', param('delivery'))};
     case 'knowledge':

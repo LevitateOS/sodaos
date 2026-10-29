@@ -50,12 +50,8 @@
 
 {{- else if eq $part "lead" -}}
 	{{- if $soda -}}
-		{{- if $requests}}
-					<a class="{{if StringUtils.HasPrefix $here $requests}}active {{end}}item" href="{{$requests}}" data-soda-place="requests">
-						{{svg "octicon-inbox"}} Requests
-					</a>
-		{{- end}}
-					<a class="{{if eq $here $feed}}active {{end}}item" href="{{$feed}}" data-soda-place="feed">
+		{{- /* Requests start and are followed in the Feed: a request's page is under it. */}}
+					<a class="{{if or (eq $here $feed) (and $requests (StringUtils.HasPrefix $here $requests))}}active {{end}}item" href="{{$feed}}" data-soda-place="feed">
 						{{svg "octicon-comment-discussion"}} Feed
 					</a>
 		{{- if $app}}

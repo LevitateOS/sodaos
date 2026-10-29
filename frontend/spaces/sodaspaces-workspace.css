@@ -1047,13 +1047,8 @@ html[data-theme^="soda-"] body .soda-repository-header .ui.button:not(.disabled)
 .soda-place-placeholder h2, .soda-place-notice h2 { font: var(--soda-font-title); font-size: 22px; margin: 0 0 8px; }
 .soda-place-placeholder p, .soda-place-notice p { color: var(--soda-page-muted); margin: 0; }
 
-/* Requests and the Request page (soda-place-requests.ts, soda-place-request.ts). */
-.soda-requests-header { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px; }
-.soda-requests-header h2, .soda-request-title { font: var(--soda-font-title); font-size: 22px; margin: 0; }
-.soda-requests-note, .soda-requests-help, .soda-request-for, .soda-build-muted { color: var(--soda-page-muted); }
-.soda-request-rows { list-style: none; margin: 16px 0; padding: 0; }
-.soda-request-row { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px 16px; padding: 12px 0; border-bottom: 1px solid var(--soda-page-edge); }
-.soda-request-row a { min-width: 0; overflow-wrap: anywhere; font: var(--soda-font-label); }
+/* The Request page (soda-place-request.ts). */
+.soda-request-for, .soda-build-muted { color: var(--soda-page-muted); }
 .soda-request-crumbs { display: flex; flex-wrap: wrap; gap: 12px; margin-bottom: 12px; color: var(--soda-page-muted); }
 .soda-request-page { max-width: 720px; }
 .soda-request-picker { margin-block: 16px; }

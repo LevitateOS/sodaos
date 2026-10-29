@@ -21,7 +21,6 @@ const REPOSITORY_SLUG = 'maya/northstar-equipment';
 // Repo-first places (UI installs A–E; the global /workspace is gone).
 const PLACES = {
   feed: `/${REPOSITORY_SLUG}/feed`,
-  requests: `/${REPOSITORY_SLUG}/requests`,
   request: (id: string) => `/${REPOSITORY_SLUG}/requests/${id}`,
   app: `/${REPOSITORY_SLUG}/app`,
   settings: `/${REPOSITORY_SLUG}/settings/sodaos`,
@@ -817,78 +816,32 @@ async function phasePolicyMinutes(page: Page, out: string): Promise<void> {
 
 const REHEARSAL_OBJECTIVE = 'Replace our equipment-request spreadsheet with a small app. Employees request a laptop, monitor or other equipment with a reason and a needed-by date. Their manager approves or rejects it with a comment. Operations marks approved requests ordered, then delivered. Employees see only their own requests.';
 
-/** Rehearsal step 2: the presenter path — Requests → New request, typed
- * through the page (never d401…, never dd00…). Records Max work items as
- * found/set. */
+/** Rehearsal step 2: the presenter path — a request is a post: it is typed
+ * in the Feed composer and posted. JEV then routes the
+ * post (new work, an existing issue or discussion). Returns the post id. */
 async function phaseNewRequest(page: Page, out: string): Promise<string> {
-  await page.goto(`${ORIGIN}/${REPOSITORY_SLUG}/requests/new`);
-  await mountRepoPage(page, null);
-  const box = page.getByLabel('Describe what you want to build', {exact: true});
-  await box.first().waitFor({timeout: 30000});
-  assert((await box.first().inputValue()) === '', 'New request: description must start empty');
-  await box.first().fill(REHEARSAL_OBJECTIVE);
-  // Shadow-DOM control inventory for the record.
-  const controls = await page.evaluate(() => {
-    const out: {label: string; name: string; value: string}[] = [];
-    const roots: (Document | ShadowRoot)[] = [document];
-    for (let i = 0; i < roots.length; i++) {
-      for (const el of Array.from((roots[i] as Document | ShadowRoot).querySelectorAll('*'))) {
-        if ((el as Element).shadowRoot) roots.push((el as Element).shadowRoot as ShadowRoot);
-      }
-    }
-    for (const root of roots) {
-      for (const el of Array.from(root.querySelectorAll('input[type="number"], input:not([type]), textarea'))) {
-        const input = el as HTMLInputElement;
-        if (input.tagName === 'INPUT' && input.type !== 'number' && input.type !== '' && input.type !== 'text') continue;
-        const id = input.id;
-        const label = id ? root.querySelector(`label[for="${id}"]`)?.textContent?.trim().slice(0, 60) ?? '' : '';
-        const wrap = input.closest('label')?.textContent?.trim().slice(0, 60) ?? '';
-        const aria = input.getAttribute('aria-label')?.slice(0, 60) ?? '';
-        out.push({label: label || wrap || aria, name: input.name, value: input.value.slice(0, 200)});
-      }
-    }
-    return out;
-  });
-  await writeFile(`${out}/new-request-controls.json`, JSON.stringify(controls, null, 2));
-  // Bounds live in a collapsed section: pierce shadow roots, find the
-  // input by its label, and open the enclosing disclosure first.
-  await page.evaluate(() => {
-    const roots: (Document | ShadowRoot)[] = [document];
-    for (let i = 0; i < roots.length; i++) {
-      for (const el of Array.from((roots[i] as Document | ShadowRoot).querySelectorAll('*'))) {
-        if ((el as Element).shadowRoot) roots.push((el as Element).shadowRoot as ShadowRoot);
-      }
-    }
-    for (const root of roots) {
-      for (const el of Array.from(root.querySelectorAll('input'))) {
-        const input = el as HTMLInputElement;
-        const id = input.id;
-        const label = id ? root.querySelector(`label[for="${id}"]`)?.textContent ?? '' : '';
-        const wrap = input.closest('label')?.textContent ?? '';
-        const aria = input.getAttribute('aria-label') ?? '';
-        if (!/Maximum work items/i.test(label + ' ' + wrap + ' ' + aria)) continue;
-        const details = input.closest('details');
-        const summary = details?.querySelector(':scope > summary');
-        if (details && !(details as HTMLDetailsElement).open) (summary as HTMLElement)?.click();
-      }
-    }
-  });
-  const setNumber = async (match: RegExp, value: string) => {
-    const field = page.getByLabel(match);
-    assert((await field.count()) === 1, `New request: expected exactly one ${match}, found ${await field.count()}`);
-    await field.first().fill(value);
-    const readBack = await field.first().inputValue();
-    assert(readBack === value, `New request: ${match} did not take (want ${value}, shows ${readBack})`);
-    return `${match}: set ${value} (verified)`;
-  };
-  const fields: Record<string, string> = {};
-  fields['max'] = await setNumber(/Maximum work items/i, '1');
+  await page.goto(`${ORIGIN}${PLACES.feed}`);
+  await mountRepoPage(page, 'repository-feed');
+  const box = page.locator('.soda-feed-comment-box textarea');
+  await box.waitFor({timeout: 30000});
+  assert((await box.inputValue()) === '', 'New request: the feed composer must start empty');
+  await box.click();
+  await box.fill(REHEARSAL_OBJECTIVE);
   await shot(page, `${out}/new-request-typed.png`);
-  const newIntent = await exploreNewRequest(page, 'New request');
-  assert(newIntent !== INTENT_DD00 && !newIntent.startsWith('d4014235'), 'New request: must not reuse a protected request');
-  await writeFile(`${out}/new-intent.json`, JSON.stringify({intent: newIntent, fields}, null, 2));
-  await shot(page, `${out}/explore-done.png`);
-  return newIntent;
+  const posting = page.waitForResponse(
+    (r) => r.url().endsWith('/api/factory/feed/comments') && r.request().method() === 'POST',
+    {timeout: 60000}
+  );
+  await page.getByRole('button', {name: 'Post request', exact: true}).click();
+  const posted = await posting;
+  const body = (await posted.json().catch(() => ({}))) as {comment_id?: string};
+  assert(posted.ok(), `New request: posting must succeed, got HTTP ${posted.status()}: ${JSON.stringify(body).slice(0, 300)}`);
+  const post = String(body.comment_id ?? '');
+  assert.match(post, /^[a-f0-9]{32}$/, 'New request: the post must report its id');
+  await page.locator('article.soda-feed-post', {hasText: REHEARSAL_OBJECTIVE.slice(0, 60)}).first().waitFor({timeout: 60000});
+  await writeFile(`${out}/new-post.json`, JSON.stringify({post}, null, 2));
+  await shot(page, `${out}/new-request-posted.png`);
+  return post;
 }
 
 /** Read-only migration check (UI installs A–E): visits each repo-first
@@ -936,14 +889,13 @@ async function phasePlaces(page: Page, out: string, intent: string): Promise<voi
   structure['feed-posts'] = posts;
   await writeFile(`${out}/places-feed.json`, JSON.stringify(posts, null, 2));
   assert(posts.scoped > 0, `Places: no article.soda-feed-post on the repo Feed (articles: ${JSON.stringify(posts.articles)})`);
-  await visit('requests', PLACES.requests, null, /^Requests$/);
-  // New-request controls for the rehearsal (read-only inventory only).
-  await page.goto(`${ORIGIN}/${REPOSITORY_SLUG}/requests/new`);
+  // New request opens the Feed composer (read-only inventory only).
+  await page.goto(`${ORIGIN}${PLACES.feed}?compose=1`);
   await mountRepoPage(page, null);
   await page.waitForTimeout(4000);
   await shot(page, `${out}/places-new.png`);
   structure['new-request'] = {
-    url: `/${REPOSITORY_SLUG}/requests/new`,
+    url: `${PLACES.feed}?compose=1`,
     text: (await visibleText(page, 2000)).slice(0, 600),
     controls: await page.evaluate(() => {
       const labels = Array.from(document.querySelectorAll('label')).map((l) =>
@@ -1425,9 +1377,7 @@ async function main() {
       await phasePolicyMinutes(s.page, dir);
     }
     if (only === 'new-request') {
-      intent = await phaseNewRequest(s.page, dir);
-      report.intent = intent;
-      await writeFile(`${dir}/intent.json`, JSON.stringify({intent}, null, 2));
+      report.post = await phaseNewRequest(s.page, dir);
     }
     if (only === 'all' || only === 'app') await phaseAppUse(s.page, dir);
     if (only === 'all' || only === 'improve') {

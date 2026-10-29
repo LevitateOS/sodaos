@@ -1162,7 +1162,7 @@ export class SodaApplications extends LitElement {
           ? this.layout === 'repository'
             ? html`<div class="soda-applications-empty">
                 <p>No app is available here yet. Apps appear once a build is verified and released.</p>
-                ${places ? html`<p><a href=${places.requests()}>Requests</a> · <a href=${places.feed()}>Feed</a></p>` : ''}
+                ${places ? html`<p><a href=${places.feed()}>Feed</a></p>` : ''}
               </div>`
             : html`<div class="soda-applications-empty">
                 <p>No apps are available for your repositories yet. An app appears here once a build is verified and released.</p>

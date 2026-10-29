@@ -20,7 +20,6 @@ import type {Place, PlaceName, SodaPlaces} from './soda-places.js';
 import {noticePlace} from './soda-place-view.js';
 import type {PlaceContext, PlaceMount, PlaceView, PlaceViewer} from './soda-place-view.js';
 import {mountFeedPlace} from './soda-place-feed.js';
-import {mountRequestsPlace} from './soda-place-requests.js';
 import {mountRequestPlace} from './soda-place-request.js';
 import {mountAppPlace} from './soda-place-app.js';
 import {mountKnowledgePlace} from './soda-place-knowledge.js';
@@ -40,7 +39,6 @@ interface PlaceDefinition {
 const notAdmin = 'Only repository administrators manage SodaOS settings.';
 const placeDefinitions: Record<PlaceName, PlaceDefinition> = {
   feed: {title: 'Feed', mount: mountFeedPlace},
-  requests: {title: 'Requests', mount: mountRequestsPlace},
   request: {
     title: 'Request',
     mount: mountRequestPlace,
@@ -101,8 +99,7 @@ function placeBarItems(places: SodaPlaces, prefix: string, viewer: PlaceViewer, 
   const repository = `${prefix}/${places.slug.split('/').map(encodeURIComponent).join('/')}`;
   const items: (BarItem | false)[] = [
     {label: 'Code', href: repository, active: false},
-    {label: 'Requests', href: places.requests(), active: name === 'requests' || name === 'request'},
-    {label: 'Feed', href: places.feed(), active: name === 'feed'},
+    {label: 'Feed', href: places.feed(), active: name === 'feed' || name === 'request'},
     {label: 'App', href: places.app(), active: name === 'app'},
     {label: 'Issues', href: places.factoryStatus(), active: name === 'factory-status'},
     {label: 'Pull requests', href: `${repository}/pulls`, active: false},
@@ -288,9 +285,9 @@ export function mount(root: HTMLElement, context: ExtensionMountContext): MountH
       address = forward;
     }
     const parsed = placeFromPath(address, prefix);
-    // The old New request address: requests start as a Feed post now.
-    if (parsed?.place.place === 'feed' && parsed.place.compose) {
-      const feed = repositoryPlaces(prefix, parsed.slug).newRequest();
+    // The old Requests and New request addresses: requests live in the Feed.
+    if (parsed?.place.place === 'feed') {
+      const feed = repositoryPlaces(prefix, parsed.slug).to(parsed.place);
       if (new URL(address, location.href).pathname !== new URL(feed, location.href).pathname) {
         location.replace(feed);
         return;
