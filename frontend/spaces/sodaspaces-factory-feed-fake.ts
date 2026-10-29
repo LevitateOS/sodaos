@@ -1,8 +1,8 @@
 import type {CommentDetail, FeedEntry} from './sodaspaces-factory-feed-response.js';
-import {feedState, roleLabel} from './sodaspaces-factory-feed-thread.js';
+import {roleLabel} from './sodaspaces-factory-feed-thread.js';
 
-// A made-up Feed for a small todo app, shown from the Feed's right-click
-// menu so the cards can be seen without a running Factory. Ids are not
+// A made-up Feed for a small todo app, shown from the Feed's Fake feed
+// tab so the cards can be seen without a running Factory. Ids are not
 // 32-hex, so no reply drawer ever asks the server for this thread.
 
 const project = 'demo/todo-app';
@@ -334,34 +334,23 @@ export function fakeTodoFeed(repository: number, now = Math.floor(Date.now() / 1
 }
 
 export interface FakeFeedFilters {
-  view: string;
   search: string;
   role: string;
 }
 
-// fakeFeedFilter answers the Feed's tabs, search and author filter the way
-// the server would, so the fake feed responds to them too.
+// fakeFeedFilter answers the Feed's search and author filter the way the
+// server would, so the fake feed responds to them too.
 export function fakeFeedFilter(entries: FeedEntry[], filters: FakeFeedFilters): FeedEntry[] {
   const search = filters.search.toLowerCase();
   return entries.filter((entry) => {
-    const state = feedState(entry);
-    const payload = entry.payload ?? {};
-    if (filters.view === 'attention' && state !== 'needs_you' && state !== 'problem') return false;
-    if (
-      filters.view === 'decisions' &&
-      state !== 'decided' &&
-      !payload.judgment &&
-      payload.communication?.kind !== 'ask'
-    )
-      return false;
-    if (filters.view === 'evidence' && !payload.verification && !payload.review && !payload.plan && !payload.merge)
-      return false;
     if (
       filters.role === 'human'
         ? entry.kind !== 'post'
         : filters.role && roleLabel(entry.actor) !== roleLabel(filters.role)
     )
       return false;
-    return !search || JSON.stringify([entry.summary, entry.comment?.body, payload]).toLowerCase().includes(search);
+    return (
+      !search || JSON.stringify([entry.summary, entry.comment?.body, entry.payload]).toLowerCase().includes(search)
+    );
   });
 }

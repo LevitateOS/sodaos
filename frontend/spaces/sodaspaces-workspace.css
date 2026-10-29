@@ -962,9 +962,6 @@ soda-factory-library { display: block; min-width: 0; }
 .soda-feed .soda-feed-icon-button svg { width: 18px; height: 18px; flex-shrink: 0; }
 .soda-feed-updated, .soda-feed [data-feed-message] { font: var(--soda-font-caption); color: var(--soda-page-muted); }
 .soda-feed [data-feed-message]:empty { display: none; }
-.soda-feed-menu { position: fixed; z-index: 1000; display: flex; flex-direction: column; min-width: 168px; padding: 4px; background: var(--soda-page-surface); color: var(--soda-page-text); border: 1px solid var(--soda-feed-edge); box-shadow: 0 6px 20px rgb(0 0 0 / .18); }
-.soda-feed .soda-feed-menu [role=menuitem] { border: 0; background: transparent; text-align: start; font: var(--soda-font-caption); text-transform: none; letter-spacing: 0; }
-.soda-feed .soda-feed-menu [role=menuitem]:is(:hover, :focus-visible) { background: var(--soda-feed-tint); }
 .soda-feed > section[aria-label=Discussion] { background: var(--soda-feed-tint); border: 0; border-top: 2px solid var(--soda-page-text); padding: 16px 20px; margin: 20px 0 32px; }
 .soda-feed > section[aria-label=Discussion] > label { font: var(--soda-font-label); }
 .soda-feed > section[aria-label=Discussion] textarea { min-height: 72px; }

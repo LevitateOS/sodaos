@@ -185,11 +185,12 @@ export class SodaFactoryFeed extends LitElement {
   private librarySerial = 0;
   private focusedEntry: FeedEntry | undefined;
   private filters = {view: 'all', search: '', role: '', current: false};
-  // The right-click menu's place, and whether the made-up todo-app feed is
-  // showing instead of the served one (no reads while it is).
-  private menuAt: {x: number; y: number} | undefined;
-  private closeMenu = () => {};
-  private fake = false;
+
+  // The Fake feed tab shows a made-up todo-app feed instead of the served
+  // one; nothing is read or written while it is selected.
+  private get fake() {
+    return this.filters.view === 'fake';
+  }
 
   protected createRenderRoot() {
     return this;
@@ -248,8 +249,6 @@ export class SodaFactoryFeed extends LitElement {
     this.commentOpen = false;
     this.focusedEntry = undefined;
     this.filters = {view: 'all', search: '', role: '', current: false};
-    this.closeMenu();
-    this.fake = false;
     this.view = this.emptyView();
     if (context) {
       void this.reload();
@@ -520,6 +519,12 @@ export class SodaFactoryFeed extends LitElement {
 
   private changeFilters(next: Partial<typeof this.filters>) {
     this.focusedEntry = undefined;
+    if (next.view !== undefined && (next.view === 'fake') !== this.fake) {
+      // Switching between the fake and served feed drops open threads.
+      this.threads.clear();
+      this.openDrawers.clear();
+      this.revising = undefined;
+    }
     this.filters = {...this.filters, ...next};
     this.serial++;
     this.reading = undefined;
@@ -533,12 +538,14 @@ export class SodaFactoryFeed extends LitElement {
       truncated: false,
       pagedBack: false,
     };
-    if (this.fake) this.view = {...this.view, entries: this.fakeEntries()};
+    if (this.fake)
+      this.view = {
+        ...this.view,
+        entries: fakeFeedFilter(fakeTodoFeed(Number(this.current?.repository) || 0), this.filters),
+        confirmedUnix: Math.floor(Date.now() / 1000),
+        message: 'Fake feed: a made-up todo app. Pick another tab for the real feed.',
+      };
     else void this.readLatest(false);
-  }
-
-  private fakeEntries(): FeedEntry[] {
-    return fakeFeedFilter(fakeTodoFeed(Number(this.current?.repository) || 0), this.filters);
   }
 
   private backToLatest = () => {
@@ -1109,7 +1116,10 @@ export class SodaFactoryFeed extends LitElement {
       )
     ) {
       // Nothing written in the fake feed reaches the project.
-      this.view = {...this.view, message: 'This is the fake feed: nothing is sent. Right-click for the real feed.'};
+      this.view = {
+        ...this.view,
+        message: 'This is the fake feed: nothing is sent. Pick another tab for the real feed.',
+      };
       return;
     }
     const productChange = closest('[data-comment-product-change]');
@@ -1239,78 +1249,10 @@ export class SodaFactoryFeed extends LitElement {
     this.requestUpdate();
   }
 
-  private openMenu = (event: MouseEvent) => {
-    // Text fields keep the browser's own menu (copy, paste, spelling).
-    if (event.target instanceof Element && event.target.closest('textarea, input')) return;
-    event.preventDefault();
-    this.closeMenu();
-    // Keep the menu on screen near the right and bottom edges.
-    this.menuAt = {
-      x: Math.max(0, Math.min(event.clientX, window.innerWidth - 180)),
-      y: Math.max(0, Math.min(event.clientY, window.innerHeight - 56)),
-    };
-    const opener = document.activeElement instanceof HTMLElement ? document.activeElement : undefined;
-    const dismiss = (next: Event) => {
-      if (next instanceof KeyboardEvent && next.key !== 'Escape') return;
-      if (next.target instanceof Element && next.target.closest('.soda-feed-menu')) return;
-      this.closeMenu();
-      if (next instanceof KeyboardEvent) opener?.focus();
-    };
-    const events = ['pointerdown', 'keydown', 'scroll', 'resize'] as const;
-    for (const name of events) window.addEventListener(name, dismiss, true);
-    this.closeMenu = () => {
-      for (const name of events) window.removeEventListener(name, dismiss, true);
-      this.closeMenu = () => {};
-      this.menuAt = undefined;
-      this.requestUpdate();
-    };
-    this.requestUpdate();
-    // The keyboard (Menu key, Shift+F10) lands on the one choice.
-    void this.updateComplete.then(() => this.querySelector<HTMLElement>('.soda-feed-menu [role=menuitem]')?.focus());
-  };
-
-  private showFake(on: boolean) {
-    this.closeMenu();
-    this.fake = on;
-    this.serial++;
-    this.reading = undefined;
-    this.threads.clear();
-    this.openDrawers.clear();
-    this.focusedEntry = undefined;
-    this.revising = undefined;
-    if (on)
-      this.view = {
-        ...this.emptyView(),
-        entries: this.fakeEntries(),
-        confirmedUnix: Math.floor(Date.now() / 1000),
-        message: 'Fake feed: a made-up todo app. Right-click to go back to the real feed.',
-      };
-    else {
-      this.view = this.emptyView();
-      void this.reload();
-    }
-  }
-
-  private renderMenu() {
-    const at = this.menuAt;
-    if (!at) return '';
-    return html`<div class="soda-feed-menu" role="menu" aria-label="Feed" style="left:${at.x}px;top:${at.y}px">
-      <button type="button" role="menuitem" @click=${() => this.showFake(!this.fake)}>
-        ${this.fake ? 'Real feed' : 'Fake feed'}
-      </button>
-    </div>`;
-  }
-
   protected render() {
     const confirmed = activityTimestamp(this.view.confirmedUnix);
-    return html`<section
-      class="soda-feed"
-      aria-label="Feed"
-      @click=${this.onFeedClick}
-      @input=${this.onDraft}
-      @contextmenu=${this.openMenu}
-    >
-      ${this.renderMenu()} ${this.current?.global ? '' : this.renderProjectComment()}
+    return html`<section class="soda-feed" aria-label="Feed" @click=${this.onFeedClick} @input=${this.onDraft}>
+      ${this.current?.global ? '' : this.renderProjectComment()}
       <header class="soda-feed-toolbar">
         ${this.renderViews()}
         <span class="soda-feed-toolbar-actions">
@@ -1397,6 +1339,7 @@ export class SodaFactoryFeed extends LitElement {
       ['attention', 'Needs me'],
       ['decisions', 'Choices & approvals'],
       ['evidence', 'Evidence'],
+      ['fake', 'Fake feed'],
     ];
     return html`<nav class="soda-feed-tabs" aria-label="Filter conversation">
       ${views.map(
