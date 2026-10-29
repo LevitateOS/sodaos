@@ -39,6 +39,7 @@ import {renderFeedCommunication} from './sodaspaces-factory-feed-communication.j
 import {renderConsultation, renderContribution} from './sodaspaces-factory-consultation.js';
 import {roleLabel, threadFeed} from './sodaspaces-factory-feed-thread.js';
 import {feedRolePortraits} from './sodaspaces-factory-feed-portraits.js';
+import {fakeFeedFilter, fakeTodoFeed} from './sodaspaces-factory-feed-fake.js';
 
 export interface FactoryFeedContext {
   transport: PreparedExtensionMount;
@@ -184,6 +185,11 @@ export class SodaFactoryFeed extends LitElement {
   private librarySerial = 0;
   private focusedEntry: FeedEntry | undefined;
   private filters = {view: 'all', search: '', role: '', current: false};
+  // The right-click menu's place, and whether the made-up todo-app feed is
+  // showing instead of the served one (no reads while it is).
+  private menuAt: {x: number; y: number} | undefined;
+  private closeMenu = () => {};
+  private fake = false;
 
   protected createRenderRoot() {
     return this;
@@ -242,6 +248,8 @@ export class SodaFactoryFeed extends LitElement {
     this.commentOpen = false;
     this.focusedEntry = undefined;
     this.filters = {view: 'all', search: '', role: '', current: false};
+    this.closeMenu();
+    this.fake = false;
     this.view = this.emptyView();
     if (context) {
       void this.reload();
@@ -281,7 +289,7 @@ export class SodaFactoryFeed extends LitElement {
 
   private async reload() {
     const context = this.current;
-    if (!context || this.view.busy) return;
+    if (!context || this.fake || this.view.busy) return;
     if (!context.global && !id(context.repository)) {
       this.view = {...this.view, message: 'The combined feed needs its current project binding.'};
       return;
@@ -393,7 +401,7 @@ export class SodaFactoryFeed extends LitElement {
   // re-read their newest replies alongside.
   private async readLatest(announce: boolean) {
     const context = this.current;
-    if (!context || this.reading === this.serial) return;
+    if (!context || this.fake || this.reading === this.serial) return;
     const serial = this.serial;
     if (this.scopeRepositories().length === 0) {
       this.view = {
@@ -465,7 +473,7 @@ export class SodaFactoryFeed extends LitElement {
 
   private async readOlder() {
     const context = this.current;
-    if (!context || this.view.busy || this.view.next === '') return;
+    if (!context || this.fake || this.view.busy || this.view.next === '') return;
     const serial = this.serial;
     this.view = {...this.view, busy: true};
     try {
@@ -525,7 +533,12 @@ export class SodaFactoryFeed extends LitElement {
       truncated: false,
       pagedBack: false,
     };
-    void this.readLatest(false);
+    if (this.fake) this.view = {...this.view, entries: this.fakeEntries()};
+    else void this.readLatest(false);
+  }
+
+  private fakeEntries(): FeedEntry[] {
+    return fakeFeedFilter(fakeTodoFeed(Number(this.current?.repository) || 0), this.filters);
   }
 
   private backToLatest = () => {
@@ -1089,6 +1102,16 @@ export class SodaFactoryFeed extends LitElement {
     const target = event.target;
     if (!(target instanceof HTMLElement)) return;
     const closest = (selector: string) => target.closest<HTMLElement>(selector);
+    if (
+      this.fake &&
+      closest(
+        '[data-comment-submit], [data-comment-product-change], [data-comment-revise], [data-revision-submit], [data-role-reply-open]'
+      )
+    ) {
+      // Nothing written in the fake feed reaches the project.
+      this.view = {...this.view, message: 'This is the fake feed: nothing is sent. Right-click for the real feed.'};
+      return;
+    }
     const productChange = closest('[data-comment-product-change]');
     if (productChange) {
       void this.reviewProductChange(
@@ -1216,10 +1239,78 @@ export class SodaFactoryFeed extends LitElement {
     this.requestUpdate();
   }
 
+  private openMenu = (event: MouseEvent) => {
+    // Text fields keep the browser's own menu (copy, paste, spelling).
+    if (event.target instanceof Element && event.target.closest('textarea, input')) return;
+    event.preventDefault();
+    this.closeMenu();
+    // Keep the menu on screen near the right and bottom edges.
+    this.menuAt = {
+      x: Math.max(0, Math.min(event.clientX, window.innerWidth - 180)),
+      y: Math.max(0, Math.min(event.clientY, window.innerHeight - 56)),
+    };
+    const opener = document.activeElement instanceof HTMLElement ? document.activeElement : undefined;
+    const dismiss = (next: Event) => {
+      if (next instanceof KeyboardEvent && next.key !== 'Escape') return;
+      if (next.target instanceof Element && next.target.closest('.soda-feed-menu')) return;
+      this.closeMenu();
+      if (next instanceof KeyboardEvent) opener?.focus();
+    };
+    const events = ['pointerdown', 'keydown', 'scroll', 'resize'] as const;
+    for (const name of events) window.addEventListener(name, dismiss, true);
+    this.closeMenu = () => {
+      for (const name of events) window.removeEventListener(name, dismiss, true);
+      this.closeMenu = () => {};
+      this.menuAt = undefined;
+      this.requestUpdate();
+    };
+    this.requestUpdate();
+    // The keyboard (Menu key, Shift+F10) lands on the one choice.
+    void this.updateComplete.then(() => this.querySelector<HTMLElement>('.soda-feed-menu [role=menuitem]')?.focus());
+  };
+
+  private showFake(on: boolean) {
+    this.closeMenu();
+    this.fake = on;
+    this.serial++;
+    this.reading = undefined;
+    this.threads.clear();
+    this.openDrawers.clear();
+    this.focusedEntry = undefined;
+    this.revising = undefined;
+    if (on)
+      this.view = {
+        ...this.emptyView(),
+        entries: this.fakeEntries(),
+        confirmedUnix: Math.floor(Date.now() / 1000),
+        message: 'Fake feed: a made-up todo app. Right-click to go back to the real feed.',
+      };
+    else {
+      this.view = this.emptyView();
+      void this.reload();
+    }
+  }
+
+  private renderMenu() {
+    const at = this.menuAt;
+    if (!at) return '';
+    return html`<div class="soda-feed-menu" role="menu" aria-label="Feed" style="left:${at.x}px;top:${at.y}px">
+      <button type="button" role="menuitem" @click=${() => this.showFake(!this.fake)}>
+        ${this.fake ? 'Real feed' : 'Fake feed'}
+      </button>
+    </div>`;
+  }
+
   protected render() {
     const confirmed = activityTimestamp(this.view.confirmedUnix);
-    return html`<section class="soda-feed" aria-label="Feed" @click=${this.onFeedClick} @input=${this.onDraft}>
-      ${this.current?.global ? '' : this.renderProjectComment()}
+    return html`<section
+      class="soda-feed"
+      aria-label="Feed"
+      @click=${this.onFeedClick}
+      @input=${this.onDraft}
+      @contextmenu=${this.openMenu}
+    >
+      ${this.renderMenu()} ${this.current?.global ? '' : this.renderProjectComment()}
       <header class="soda-feed-toolbar">
         ${this.renderViews()}
         <span class="soda-feed-toolbar-actions">
