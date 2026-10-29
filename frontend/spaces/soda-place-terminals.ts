@@ -19,6 +19,7 @@ import type {Place} from './soda-places.js';
 import {availableConnectionView, items} from './soda-identity-response.js';
 import type {Connection as AccountConnection} from './soda-identity-response.js';
 import {mountSodaspaces} from './sodaspaces-workspace.js';
+import {openProviders, providersChangedEvent} from './soda-providers-events.js';
 
 type State = 'loading' | 'none' | 'running' | 'stopped' | 'unknown';
 
@@ -49,6 +50,8 @@ class EnvironmentStrip {
     private readonly host: HTMLElement,
     /** Below the terminals: SSH is secondary once you can work in the browser. */
     private readonly sshHost: HTMLElement,
+    /** The workbench header once terminals are open: status and account in one line. */
+    private readonly compactHost: HTMLElement,
     private readonly context: PlaceContext
   ) {
     this.draw();
@@ -692,14 +695,23 @@ class EnvironmentStrip {
     if (this.disposed) return;
     const status = this.status();
     render(
-      html`<section class="soda-terminals-card soda-terminals-environment" aria-label="Development environment">
-        <div class="soda-terminals-head">
-          <h2>Development environment</h2>
-          <span class="soda-terminals-pill" data-tone=${status.tone} role="status">${status.label}</span>
-        </div>
-        <p class="soda-terminals-lead">${status.text}</p>
-        ${this.environmentAction()} ${this.feedback('environment')}
-      </section>`,
+      html`<span class="soda-terminals-pill" data-tone=${status.tone} role="status">${status.label}</span>
+        <strong>Development environment</strong>
+        <span class="soda-terminals-note">${this.detail?.login ? `signed in as ${this.detail.login}` : ''}</span>
+        ${this.feedback('environment')}`,
+      this.compactHost
+    );
+    render(
+      this.ready
+        ? html``
+        : html`<section class="soda-terminals-card soda-terminals-environment" aria-label="Development environment">
+            <div class="soda-terminals-head">
+              <h2>Development environment</h2>
+              <span class="soda-terminals-pill" data-tone=${status.tone} role="status">${status.label}</span>
+            </div>
+            <p class="soda-terminals-lead">${status.text}</p>
+            ${this.environmentAction()} ${this.feedback('environment')}
+          </section>`,
       this.host
     );
     render(this.state === 'loading' ? html`` : this.renderSSH(), this.sshHost);
@@ -715,6 +727,7 @@ class EnvironmentStrip {
     this.read?.abort();
     render(html``, this.host);
     render(html``, this.sshHost);
+    render(html``, this.compactHost);
   }
 }
 
@@ -735,6 +748,7 @@ class AgentSessionMenu {
     private readonly environmentId: () => string | undefined,
     private readonly open: (terminalId: string) => Promise<void>
   ) {
+    document.addEventListener(providersChangedEvent, this.invalidate);
     this.draw();
   }
 
@@ -753,9 +767,16 @@ class AgentSessionMenu {
     return readSodaJSON(response);
   }
 
+  /** Forget the list so the next open reads it again (AI accounts changed). */
+  invalidate = () => {
+    this.connections = undefined;
+    this.draw();
+  };
+
   private async load() {
     const environment = this.environmentId();
-    if (this.busy || !environment || this.connections) return;
+    // Read on every open: a cached empty list would hide an account connected since.
+    if (this.busy || !environment) return;
     this.busy = true;
     this.draw();
     try {
@@ -804,13 +825,14 @@ class AgentSessionMenu {
         ${this.busy ? 'Loading your AI accounts…' : 'Your AI accounts are unavailable. Close and open this menu to try again.'}
       </p>`;
     if (!this.connections.length)
-      return html`<p>No Codex account is available to you here. Connect one in AI accounts.</p>`;
+      return html`<p>No Codex account is connected yet.</p>
+        <button type="button" class="ui primary button" @click=${() => openProviders()}>Connect Codex</button>`;
     return html`<ul>
       ${this.connections.map(
         (connection) =>
           html`<li>
             <button type="button" class="ui button" ?disabled=${this.busy} @click=${() => void this.start(connection)}>
-              Codex · ${connection.label}
+              Start Codex · ${connection.email || connection.label}${connection.plan ? ` (${connection.plan})` : ''}
             </button>
           </li>`
       )}
@@ -830,7 +852,7 @@ class AgentSessionMenu {
           <summary class="ui basic button">New Codex session ▾</summary>
           ${this.renderChoices()}
         </details>
-        <span class="soda-agent-hint">For Muse, run <code>muse</code> in any terminal.</span>
+        <span class="soda-agent-hint">Muse: run <code>muse</code> in a terminal</span>
         ${this.message ? html`<p class="soda-feedback" role="status">${this.message}</p>` : ''}
       </div>`,
       this.host
@@ -839,6 +861,7 @@ class AgentSessionMenu {
 
   dispose() {
     this.disposed = true;
+    document.removeEventListener(providersChangedEvent, this.invalidate);
     render(html``, this.host);
   }
 }
@@ -881,17 +904,28 @@ const terminalsStyle = `
 .soda-terminals-link { padding: 0; border: 0; background: none; color: var(--soda-page-link); font: var(--soda-font-meta); text-decoration: underline; cursor: pointer; }
 .soda-terminals-profile, .soda-terminals-sync { display: grid; gap: 10px; width: 100%; max-width: 720px; padding: 12px; border: 1px solid var(--soda-page-edge); background: var(--soda-page-canvas); }
 .soda-terminals-sync p { margin: 0; }
+.soda-terminals-bench { border: 1px solid var(--soda-page-edge); background: var(--soda-page-surface); }
+.soda-terminals-bench-head { display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap; padding: 10px 16px; border-bottom: 1px solid var(--soda-page-edge); }
+.soda-terminals-bench-status { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; min-width: 0; }
+.soda-terminals-bench-status .soda-terminals-feedback { flex-basis: 100%; }
 .soda-terminals-workspace { height: min(75vh, 900px); min-height: 360px; display: flex; flex-direction: column; }
+/* The workspace toolbar has nothing to show until a terminal is open. */
+.soda-terminals-place .soda-workspace-toolbar:not(:has(> :not([hidden]))) { display: none; }
+/* The bench header already names the account; the workspace's own helper line repeats it. */
+.soda-terminals-place .soda-intro-helper { display: none; }
+.soda-terminals-place .soda-agent-runs { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; margin: 0; padding: 10px 16px; border-top: 1px solid var(--soda-page-edge); color: var(--soda-page-muted); font: var(--soda-font-meta); }
+.soda-terminals-place .soda-agent-runs h2 { margin: 0; font: var(--soda-font-label); font-size: 14px; color: var(--soda-page-text); }
+.soda-terminals-place .soda-agent-runs p, .soda-terminals-place .soda-agent-runs ul { margin: 0; }
 .soda-terminals-workspace > .soda-spaces-page-mount { flex: 1; height: 100%; }
 .soda-agent-sessions { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; }
 .soda-agent-session-menu { position: relative; }
 .soda-agent-session-menu > summary { list-style: none; cursor: pointer; }
 .soda-agent-session-menu > summary::-webkit-details-marker { display: none; }
-.soda-agent-session-menu[open] > :not(summary) { position: absolute; z-index: 5; margin-top: 6px; background: var(--soda-page-surface); border: 1px solid var(--soda-page-edge); padding: 10px; min-width: 260px; display: grid; gap: 8px; }
+.soda-agent-session-menu[open] > :not(summary) { position: absolute; right: 0; z-index: 5; margin-top: 6px; background: var(--soda-page-surface); border: 1px solid var(--soda-page-edge); padding: 10px; min-width: 260px; display: grid; gap: 8px; }
 .soda-agent-session-menu ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
+.soda-agent-session-menu[open] > :not(summary) { min-width: 340px; }
+.soda-agent-session-menu li > .ui.button { width: 100%; white-space: nowrap; text-align: left; }
 .soda-agent-hint { color: var(--soda-page-muted); font: var(--soda-font-meta); }
-.soda-agent-runs { flex: 0 0 auto; max-height: 40%; overflow: auto; padding-block: 8px; }
-.soda-agent-runs h2 { font-size: 16px; margin: 0 0 4px; }
 @media (max-width: 640px) { .soda-terminals-ssh-body { padding-left: 20px; } }
 `;
 
@@ -903,24 +937,34 @@ export const mountTerminalsPlace: PlaceMount = (host, context, initial) => {
   const style = document.createElement('style');
   style.textContent = terminalsStyle;
   const environmentHost = document.createElement('div');
+  // Once joined, status, session actions and terminals form one framed workbench.
+  const bench = document.createElement('section');
+  bench.className = 'soda-terminals-bench';
+  bench.setAttribute('aria-label', 'Terminals');
+  const benchHead = document.createElement('div');
+  benchHead.className = 'soda-terminals-bench-head';
+  const compactHost = document.createElement('div');
+  compactHost.className = 'soda-terminals-bench-status';
   const sessionsHost = document.createElement('div');
+  benchHead.append(compactHost, sessionsHost);
   const workspaceHost = document.createElement('div');
   workspaceHost.className = 'soda-terminals-workspace';
+  bench.append(benchHead, workspaceHost);
   const sshHost = document.createElement('div');
-  sessionsHost.hidden = workspaceHost.hidden = true;
-  host.append(terminalStyles, style, environmentHost, sessionsHost, workspaceHost, sshHost);
+  bench.hidden = true;
+  host.append(terminalStyles, style, environmentHost, bench, sshHost);
 
   let run = initial.place === 'terminals' ? initial.run : undefined;
   let active = true;
   let workspace: ReturnType<typeof mountSodaspaces> | undefined;
   let sessions: AgentSessionMenu | undefined;
-  const environment = new EnvironmentStrip(environmentHost, sshHost, context);
+  const environment = new EnvironmentStrip(environmentHost, sshHost, compactHost, context);
 
   // The terminals mount once you can use them and then stay, with their
   // connections, until this place is disposed (SPEC M2, D2).
   const ensureTerminals = () => {
     if (workspace || !environment.ready) return;
-    workspaceHost.hidden = sessionsHost.hidden = false;
+    bench.hidden = false;
     workspace = mountSodaspaces(workspaceHost, {
       kind: 'page',
       transport: context.transport,
