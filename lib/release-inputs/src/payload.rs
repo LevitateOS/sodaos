@@ -69,8 +69,14 @@ fn valid_package_version(s: &str) -> bool {
 }
 
 /// The v4 release tag is `v` plus the native package version. Admit it before
-/// builds as well as when reading the resulting payload.
+/// builds as well as when reading the resulting payload. The literal
+/// `v0.1.0` is refused: unstamped manifests carry `0.1.0` by default, so two
+/// different builds would otherwise ship under one version with no way for
+/// an installed host to tell which Feed or Factory code it runs.
 pub fn valid_release_tag(tag: &str) -> bool {
+    if tag == "v0.1.0" {
+        return false;
+    }
     crate::reader::settings::release_tag(tag)
         && tag.strip_prefix('v').is_some_and(valid_package_version)
 }

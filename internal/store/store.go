@@ -108,6 +108,11 @@ func configureStore(db *sql.DB) (*Store, error) {
 
 func (s *Store) Close() error { return s.db.Close() }
 
+// Ping verifies the appliance PostgreSQL connection is live without
+// touching product rows. Readiness probes use it; a failed ping means
+// the dashboard cannot serve admitted work.
+func (s *Store) Ping(ctx context.Context) error { return s.db.PingContext(ctx) }
+
 func (s *Store) UpsertUser(ctx context.Context, u User) error {
 	if u.ID <= 0 || strings.TrimSpace(u.Login) == "" {
 		return errors.New("invalid provider user")

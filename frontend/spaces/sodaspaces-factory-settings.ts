@@ -1451,7 +1451,12 @@ ${selection?.required_tools.join('\n') || ''}</textarea>
           <p>Factory uses this account through the Project's own access to it.</p>
           <label><input type="checkbox" name="coder" .checked=${roles.includes('soda-coder')} /> Builder</label>
           <label><input type="checkbox" name="reviewer" .checked=${roles.includes('soda-reviewer')} /> Inspector</label>
-          ${this.numberInput('Allowance minutes', 'allowance_minutes', safeNumber(sponsorship.allowance_minutes, 60))}
+          ${this.numberInput('Allowance minutes', 'allowance_minutes', safeNumber(sponsorship.allowance_minutes, 120))}
+          <p>
+            Allowance minutes cap total sponsored provider time across attempts. One attempt alone may use 120 active
+            minutes (the per-attempt default), so sponsor enough for a full issue path: plan, build, review, verify, and
+            a correction pass.
+          </p>
           <label
             ><input type="checkbox" name="sponsorship_active" .checked=${sponsorship.active === true} /> Allow Factory
             to use this account</label

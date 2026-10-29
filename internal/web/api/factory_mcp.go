@@ -255,7 +255,10 @@ func (s *factoryCatalogServer) admitCall(ctx context.Context, tool factory.MCPTo
 	}
 	capability, err := s.deps.Capabilities.GetMCPCapability(ctx, args.CapabilityID)
 	if err != nil {
-		return factory.MCPCapability{}, nil, errors.New("factory capability refused: no recorded capability has this capability_id; use the one from factory.context")
+		if errors.Is(err, store.ErrNotFound) {
+			return factory.MCPCapability{}, nil, errors.New("factory capability refused: no recorded capability has this capability_id; use the one from factory.context")
+		}
+		return factory.MCPCapability{}, nil, errors.New("factory capability unavailable: the capability store is unreachable; retry with the same capability_id")
 	}
 	if bound := s.deps.BoundCapability; bound != nil && capability.ScopeDigest() != bound.ScopeDigest() {
 		return factory.MCPCapability{}, nil, errors.New("worker context changed; reconnect to the assigned server")

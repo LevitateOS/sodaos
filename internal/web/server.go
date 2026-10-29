@@ -11,6 +11,7 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
+	"time"
 
 	extensions "forgejo.org/extension-sdk"
 	"github.com/levitateos/sodaos/internal/avatar"
@@ -101,7 +102,23 @@ func New(c config.Config, db *store.Store) *Server {
 		Coordinator: s.Coordinator, Secret: loadIntakeSecret(c),
 	}.ServeHTTP)
 
+	// Health doubles as readiness: beyond "ok" it reports the two
+	// dependencies admitted work needs — coordinator admission and the
+	// store connection — without opening any new TCP surface. A 503
+	// names the failing dependency so Caddy stops routing here.
 	s.mux.HandleFunc("GET /healthz", func(w http.ResponseWriter, r *http.Request) {
+		if s.Coordinator != nil && !s.Coordinator.Admitting() {
+			http.Error(w, "shutting down\n", http.StatusServiceUnavailable)
+			return
+		}
+		if s.Store != nil {
+			ctx, stop := context.WithTimeout(r.Context(), 2*time.Second)
+			defer stop()
+			if err := s.Store.Ping(ctx); err != nil {
+				http.Error(w, "store unavailable\n", http.StatusServiceUnavailable)
+				return
+			}
+		}
 		w.Header().Set("Content-Type", "text/plain")
 		_, _ = w.Write([]byte("ok\n"))
 	})

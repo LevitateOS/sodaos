@@ -229,6 +229,10 @@ func (c *Coordinator) AdmitHTTP(next http.Handler) http.Handler {
 	})
 }
 
+// Admitting reports whether the coordinator still admits HTTP work.
+// Readiness probes use it; StopAdmission flips it during shutdown.
+func (c *Coordinator) Admitting() bool { return !c.closing.Load() }
+
 // StopAdmission rejects new HTTP work while shutdown retires hijacked
 // terminal peers and closes listeners. Existing handler readers remain held.
 func (c *Coordinator) StopAdmission() {
