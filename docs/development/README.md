@@ -41,6 +41,7 @@ language, packages and placement. Update guidance affected by the current change
 | Support tool effects and candidates | [Native support](native-support.md) |
 | Running the release pipeline | [Release workflow](release.md) |
 | Production gaps after the 28 October founder demo | [Production gaps](production-gaps.md) |
+| Deploying local Forge changes to soda-metal over SSH | [Forge development](forge-development.md) |
 | Updating the retained local VM's front end | [Front-end VM update](frontend-vm-update.md) |
 | Local fixture access | [Local testing](../guides/local-testing.md) |
 

@@ -9,6 +9,7 @@ mod branding;
 mod files;
 mod payload;
 
+use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
 
 use branding::favicon_bytes;
@@ -256,9 +257,94 @@ fn stage_forgejo_payload(
     // generated full native locale. Never copy a mutable Forgejo tree or partial hooks.
     let payload = payload_entries(source)?;
     stage_payload_fonts(source, stage, &payload)?;
+    stage_payload_entries(source, build, forgejo, &payload)
+}
+
+fn stage_payload_entries(
+    source: &Path,
+    build: &Path,
+    forgejo: &Path,
+    payload: &[(String, String)],
+) -> Result<(), StageError> {
     let locked = locked_terminal_assets(source)?;
-    for (name, origin) in &payload {
+    for (name, origin) in payload {
         copy_payload_entry(source, build, forgejo, &locked, name, origin)?;
+    }
+    Ok(())
+}
+
+/// Stage a fresh development presentation context without preparing host or
+/// Project assets. `build` contains `forgejo-js/` and `forgejo-locales/` from
+/// their normal producers. The context receives `forgejo/` for the custom-root
+/// mount and a sibling `presentation.json` with the production hash-map shape.
+pub fn stage_dev_forgejo(source: &Path, build: &Path, out: &Path) -> Result<(), StageError> {
+    if !is_real_dir(source)
+        || !is_real_dir(build)
+        || !out.is_absolute()
+        || !out.parent().is_some_and(is_real_dir)
+    {
+        return Err(StageError::refusal(
+            "real source, build and development context parent directories required",
+        ));
+    }
+    if std::fs::symlink_metadata(out).is_ok() {
+        return Err(StageError::refusal(
+            "occupied development presentation context refused",
+        ));
+    }
+    mkdir_leaf(out)?;
+    chmod(out, 0o755).map_err(StageError::failure)?;
+    let forgejo = out.join("forgejo");
+    stage_forgejo_context(source, &forgejo)?;
+    stage_payload_entries(source, build, &forgejo, &payload_entries(source)?)?;
+
+    let mut hashes = BTreeMap::new();
+    presentation_hashes(&forgejo, &forgejo, &mut hashes)?;
+    if !hashes.contains_key("templates/custom/header.tmpl") {
+        return Err(StageError::refusal(
+            "complete Forgejo presentation required",
+        ));
+    }
+    let mut inventory =
+        serde_json::to_vec_pretty(&hashes).map_err(|e| StageError::failure(e.to_string()))?;
+    inventory.push(b'\n');
+    let inventory_path = out.join("presentation.json");
+    std::fs::write(&inventory_path, inventory).map_err(|e| StageError::failure(e.to_string()))?;
+    chmod(&inventory_path, 0o644).map_err(StageError::failure)?;
+
+    // The normal image recipe adds this after its presentation inventory. A
+    // development custom-root bind needs the same link for upstream app.ini.
+    #[cfg(unix)]
+    std::os::unix::fs::symlink("/data/gitea/conf", forgejo.join("conf"))
+        .map_err(|e| StageError::failure(e.to_string()))?;
+    Ok(())
+}
+
+fn presentation_hashes(
+    root: &Path,
+    directory: &Path,
+    hashes: &mut BTreeMap<String, String>,
+) -> Result<(), StageError> {
+    for entry in std::fs::read_dir(directory).map_err(|e| StageError::failure(e.to_string()))? {
+        let entry = entry.map_err(|e| StageError::failure(e.to_string()))?;
+        let path = entry.path();
+        let kind = entry
+            .file_type()
+            .map_err(|e| StageError::failure(e.to_string()))?;
+        if kind.is_dir() {
+            presentation_hashes(root, &path, hashes)?;
+        } else if kind.is_file() {
+            let name = path
+                .strip_prefix(root)
+                .map_err(|e| StageError::failure(e.to_string()))?
+                .to_str()
+                .ok_or_else(|| StageError::refusal("UTF-8 presentation path required"))?
+                .replace('\\', "/");
+            let bytes = std::fs::read(&path).map_err(|e| StageError::failure(e.to_string()))?;
+            hashes.insert(name, sha256_hex(&bytes));
+        } else {
+            return Err(StageError::refusal("regular presentation file required"));
+        }
     }
     Ok(())
 }

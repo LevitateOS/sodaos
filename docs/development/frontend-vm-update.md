@@ -1,5 +1,9 @@
 # Updating the VM with the latest front-end changes
 
+**Legacy local VM procedure.** This page describes the older package-in-image
+layout. For the current native-catalog appliance on `soda-metal` (`ssh soda`),
+use [Forge development](forge-development.md).
+
 How to ship front-end source changes from this repository to the running
 site of the retained local VM `sodaos-local` at https://192.168.2.152/,
 verified live. Written 2026-10-19 after the feed-restyle, providers-button,

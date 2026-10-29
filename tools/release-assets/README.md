@@ -16,6 +16,7 @@ cargo run -p soda-release-assets --bin soda-stage -- --help
 
 | Binary | Inputs and result |
 | --- | --- |
+| `soda-dev` | `deploy`, `build`, `status`, or `disable`; build and activate the working tree on a retained development appliance over SSH (default host `soda`), inspect it, or restore the installed configuration. Uses a persistent Soda database copy. See [Forge development](../../docs/development/forge-development.md). |
 | `soda-fetch-muse` | `--arch x86_64 --out ABSOLUTE_FILE`, optionally `--manifest FILE`; the default entrypoint admits bytes only after live freshness validation (current pins stage from cache or verified download and print the frozen tuple; stale pins exit 2 and unknown upstream exits 2, so ordinary builds cannot consume a stale descriptor or claim a baseline on unknown input). Default manifest: `system/project/muse-release.json`. `--check` reports current/stale/unknown against the live official channel (exit 0/2/1); `--refresh` records the live release in the manifest and is the only mode that writes. Maintained default-entrypoint check: `tools/release-assets/checks/fetch-muse-baseline.sh` (stale refusal, current reuse, unknown/dead upstream). |
 | `soda-fetch-tea` | `--arch x86_64 [--out DIR]`; fetch Tea and its license into `bin/tea` and `licenses/tea/LICENSE`. Default output: `.artifacts/native/x86_64/project-tools`. |
 | `soda-fetch-terminal` | `--out DIR`; fetch the exact browser terminal files pinned in `terminal-assets.lock.json`. |

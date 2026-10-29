@@ -32,6 +32,10 @@ name = "soda-stage"
 path = "src/bin/soda-stage.rs"
 
 [[bin]]
+name = "soda-dev"
+path = "src/bin/soda-dev.rs"
+
+[[bin]]
 name = "soda-render-provisioning"
 path = "src/bin/soda-render-provisioning.rs"
 
