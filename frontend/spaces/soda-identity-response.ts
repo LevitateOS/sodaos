@@ -16,6 +16,8 @@ export interface Enrollment {
   verification_url: string;
   user_code: string;
   state: string;
+  /** Provider failure reason, when the broker reports one. */
+  error: string;
 }
 export interface Grant {
   id: string;
@@ -78,6 +80,7 @@ export function enrollmentView(value: unknown): Enrollment {
     verification_url: url,
     user_code: text(data.user_code),
     state: text(data.state),
+    error: data.error === undefined ? '' : text(data.error),
   };
 }
 function enrollmentOrigin(providerID: ProviderID): string {

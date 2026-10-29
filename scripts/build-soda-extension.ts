@@ -10,6 +10,7 @@ const allEntries = {
   'soda-spaces-entry.js': 'frontend/spaces/soda-spaces-entry.ts',
   'soda-feed-entry.js': 'frontend/spaces/soda-feed-entry.ts',
   'soda-repository-entry.js': 'frontend/spaces/soda-repository-entry.ts',
+  'soda-providers-entry.js': 'frontend/spaces/soda-providers-entry.ts',
   'soda-tailnet-entry.js': 'frontend/tailnet/soda-tailnet-entry.ts',
 } as const;
 export const styles = {
@@ -51,6 +52,7 @@ function packageAssets(packageID: ExtensionPackage) {
           [entry]: allEntries[entry],
           'soda-feed-entry.js': allEntries['soda-feed-entry.js'],
           'soda-repository-entry.js': allEntries['soda-repository-entry.js'],
+          'soda-providers-entry.js': allEntries['soda-providers-entry.js'],
         }
       : {[entry]: allEntries[entry]};
   return {entries, selectedStyles};

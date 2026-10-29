@@ -1,22 +1,20 @@
-/* Navbar "AI accounts" robot. On a SodaOS place, the page already hosts
-   <soda-providers>, so the dialog opens in place. Anywhere else it goes to a
-   page that hosts it and asks it to open on arrival through a one-shot
-   session flag: the current repository's SodaOS Feed when the header
-   template passed one (data-repository-feed), otherwise the navbar Feed. */
+/* Navbar "AI accounts" robot. The Soda providers panel
+   (frontend/spaces/soda-providers-entry.ts) hosts the dialog on every
+   signed-in page and marks <html data-soda-providers>; the robot opens it in
+   place with a document event. Only when no panel is mounted does it fall
+   back to the Feed, asking the dialog to open on arrival through a one-shot
+   session flag. Keep the names in sync with soda-providers-events.ts. */
 (() => {
   const script = document.currentScript;
   const base = script?.dataset.appSubUrl || '';
-  const repositoryFeed = script?.dataset.repositoryFeed || '';
   document.addEventListener(
     'DOMContentLoaded',
     () => {
       const button = document.getElementById('soda-providers-button');
       if (!button) return;
       button.addEventListener('click', () => {
-        const host = document.querySelector('soda-providers');
-        const open = (host as unknown as {open?: unknown} | null)?.open;
-        if (typeof open === 'function') {
-          void (open as () => Promise<void>).call(host);
+        if (document.documentElement.hasAttribute('data-soda-providers')) {
+          document.dispatchEvent(new CustomEvent('soda-open-providers'));
           return;
         }
         try {
@@ -24,7 +22,7 @@
         } catch {
           /* Storage can be blocked; the page still opens without the dialog. */
         }
-        location.assign(repositoryFeed || `${base}/feed`);
+        location.assign(`${base}/feed`);
       });
     },
     {once: true}

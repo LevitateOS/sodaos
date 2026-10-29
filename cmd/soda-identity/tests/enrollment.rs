@@ -130,3 +130,102 @@ fn enrollment_to_lease_lifecycle() {
     let leases: Vec<Lease> = serde_json::from_slice(&broker.leases(1, &conn.id).unwrap()).unwrap();
     assert!(leases.is_empty());
 }
+
+#[test]
+fn slow_provider_start_does_not_block_reads_or_admit_a_duplicate() {
+    use soda_identity::control::{Controller, EnrollmentSession, Provider, Runtime};
+    use std::collections::HashMap;
+    use std::sync::{mpsc, Arc, Mutex};
+    use std::time::{Duration, Instant};
+
+    struct GatedProvider {
+        entered: mpsc::SyncSender<()>,
+        release: Mutex<mpsc::Receiver<()>>,
+    }
+    struct Session(Enrollment);
+    impl EnrollmentSession for Session {
+        fn snapshot(&self) -> Enrollment {
+            self.0.clone()
+        }
+        fn finish(&self) -> Result<(Connection, Vec<u8>), Error> {
+            Err(Error::internal("unused test session"))
+        }
+        fn close(&self) -> Result<(), Error> {
+            Ok(())
+        }
+    }
+    impl Provider for GatedProvider {
+        fn bind_new(
+            &self,
+        ) -> Result<Option<soda_identity::providers::resolution::BoundBinary>, Error> {
+            Ok(None)
+        }
+        fn start(&self, _owner: i64) -> Result<Box<dyn EnrollmentSession>, Error> {
+            self.entered.send(()).unwrap();
+            self.release.lock().unwrap().recv().unwrap();
+            Ok(Box::new(Session(Enrollment {
+                provider_id: "codex".into(),
+                id: "gated-1".into(),
+                verification_url: "https://example.test/device".into(),
+                user_code: "ABCD-1234".into(),
+                state: "pending".into(),
+                error: String::new(),
+                connection: None,
+            })))
+        }
+    }
+    struct EmptyRuntime;
+    impl Runtime for EmptyRuntime {
+        fn validate(&self, _: &Lease) -> Result<(), Error> {
+            Ok(())
+        }
+        fn stop(&self, _: &Lease) -> Result<(), Error> {
+            Ok(())
+        }
+        fn finish(&self, _: &Lease) -> Result<Vec<u8>, Error> {
+            Ok(Vec::new())
+        }
+    }
+
+    let Some(fixture) = Ephemeral::create() else {
+        eprintln!("SODA_PG_* fixture unavailable");
+        return;
+    };
+    let (entered_tx, entered_rx) = mpsc::sync_channel(1);
+    let (release_tx, release_rx) = mpsc::channel();
+    let mut providers: HashMap<String, Box<dyn Provider>> = HashMap::new();
+    providers.insert(
+        "codex".into(),
+        Box::new(GatedProvider {
+            entered: entered_tx,
+            release: Mutex::new(release_rx),
+        }),
+    );
+    let broker = Arc::new(
+        Controller::new(
+            fixture.store(&fixture_key()),
+            providers,
+            Box::new(EmptyRuntime),
+        )
+        .unwrap(),
+    );
+    let starter = {
+        let broker = Arc::clone(&broker);
+        std::thread::spawn(move || broker.start_enrollment(1, "codex", "slow"))
+    };
+    entered_rx
+        .recv_timeout(Duration::from_secs(5))
+        .expect("provider start admitted");
+
+    // The start is still running: reads answer at once and a duplicate is busy.
+    let began = Instant::now();
+    broker.connections(1).unwrap();
+    assert!(broker.enrollments(1).unwrap().is_empty());
+    assert!(broker.start_enrollment(1, "codex", "again").is_err());
+    assert!(began.elapsed() < Duration::from_secs(1));
+
+    release_tx.send(()).unwrap();
+    let started = starter.join().unwrap().unwrap();
+    assert_eq!(started.user_code, "ABCD-1234");
+    assert_eq!(broker.enrollments(1).unwrap().len(), 1);
+}

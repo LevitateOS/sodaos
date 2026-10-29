@@ -36,18 +36,29 @@ impl Controller {
         provider_id: &str,
         label: &str,
     ) -> Result<Enrollment, Error> {
+        let key = (owner, provider_id.to_string());
+        let provider = {
+            let mut state = self.lock();
+            if !state.providers.contains_key(provider_id)
+                || owner <= 0
+                || label.len() > 100
+                || label.is_empty()
+            {
+                return Err(Error::denied("identity authority denied"));
+            }
+            if state.starting.contains(&key) || Self::pending_enrollment(&state, owner, provider_id)
+            {
+                return Err(Error::busy());
+            }
+            state.starting.insert(key.clone());
+            state.providers[provider_id].clone()
+        };
+        // Starting a provider spawns its CLI and waits for a device code
+        // (seconds); other owners' reads and polls must not wait on it.
+        let started = provider.start(owner);
         let mut state = self.lock();
-        if !state.providers.contains_key(provider_id)
-            || owner <= 0
-            || label.len() > 100
-            || label.is_empty()
-        {
-            return Err(Error::denied("identity authority denied"));
-        }
-        if Self::pending_enrollment(&state, owner, provider_id) {
-            return Err(Error::busy());
-        }
-        let session = state.providers[provider_id].start(owner)?;
+        state.starting.remove(&key);
+        let session = started?;
         let mut result = session.snapshot();
         result.provider_id = provider_id.to_string();
         if result.id.is_empty() {

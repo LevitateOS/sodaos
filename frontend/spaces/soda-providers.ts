@@ -1,257 +1,447 @@
 import {LitElement, html, nothing} from 'lit';
+import type {TemplateResult} from 'lit';
 import type {PreparedExtensionMount} from './soda-extension.js';
 import {readSodaJSON} from './sodaspaces-api.js';
 import {availableConnectionView, enrollmentView, items} from './soda-identity-response.js';
-import type {Connection, Enrollment, ProviderID} from './soda-identity-response.js';
+import type {Connection, ProviderID} from './soda-identity-response.js';
+import {providersChangedEvent} from './soda-providers-events.js';
+import {
+  hasClock,
+  initialProvidersState,
+  needsPolling,
+  providerIDs,
+  settled,
+  transition,
+} from './soda-providers-machine.js';
+import type {ProviderView, ProvidersEvent, ProvidersState} from './soda-providers-machine.js';
 
-const providers = [{id: 'codex', name: 'Codex'}, {id: 'muse', name: 'Muse'}] as const;
+const providerInfo: Record<ProviderID, {name: string; plan: string}> = {
+  codex: {name: 'Codex', plan: 'OpenAI Codex with your ChatGPT plan'},
+  muse: {name: 'Muse', plan: 'Muse Code subscription'},
+};
+const pollMs = 2000;
+/** Starting a sign-in launches the provider CLI, which can take tens of seconds. */
+const startTimeoutMs = 60000;
+const readTimeoutMs = 15000;
 
-/** Device login uses the existing identity broker; no credentials enter this component. */
+function seconds(since: number, now: number): string {
+  const total = Math.max(0, Math.floor((now - since) / 1000));
+  return total < 60 ? `${total}s` : `${Math.floor(total / 60)}m ${String(total % 60).padStart(2, '0')}s`;
+}
+
+/** The AI accounts dialog. Device sign-in runs in the identity broker; no credential enters this element. */
 export class SodaProviders extends LitElement {
   static properties = {
-    connections: {state: true},
-    attempts: {state: true},
-    busy: {state: true},
-    message: {state: true},
-    loaded: {state: true},
-    externalTrigger: {type: Boolean, attribute: 'external-trigger'},
+    machine: {state: true},
+    copied: {state: true},
   };
-  /** With an external trigger (the navbar robot button) the dialog is
-      opened through open() and no in-page button is rendered. */
-  declare externalTrigger: boolean;
-  private pendingOpen = false;
-  declare private connections: Connection[];
-  declare private attempts: Partial<Record<ProviderID, Enrollment>>;
-  declare private busy: boolean;
-  declare private message: string;
-  declare private loaded: boolean;
+  declare private machine: ProvidersState;
+  declare private copied: ProviderID | '';
   private current: PreparedExtensionMount | undefined;
+  /** Bumped whenever the transport changes; late replies from an older one are ignored. */
   private serial = 0;
-  private poll?: ReturnType<typeof setTimeout>;
+  private reading: Promise<void> | undefined;
+  private poll: ReturnType<typeof setTimeout> | undefined;
+  private clock: ReturnType<typeof setInterval> | undefined;
+  private copyReset: ReturnType<typeof setTimeout> | undefined;
+  private lastConnections = '';
 
   constructor() {
     super();
-    this.connections = [];
-    this.attempts = {};
-    this.busy = this.loaded = false;
-    this.message = '';
-    this.externalTrigger = false;
+    this.machine = initialProvidersState();
+    this.copied = '';
   }
 
-  protected createRenderRoot() { return this; }
+  protected firstUpdated() {
+    // Stop the elapsed-time clock when the dialog closes (Escape included).
+    this.dialog()?.addEventListener('close', () => this.syncTimers());
+  }
+
+  protected createRenderRoot() {
+    return this;
+  }
 
   set transport(value: PreparedExtensionMount | undefined) {
     if (value === this.current) return;
     this.serial++;
-    clearTimeout(this.poll);
+    this.stopTimers();
     this.current = value;
-    this.connections = [];
-    this.attempts = {};
-    this.loaded = this.busy = false;
-    this.message = '';
-    this.querySelector('dialog')?.close();
-    this.requestUpdate();
-    void this.maybeOpen();
-  }
-
-  connectedCallback() {
-    super.connectedCallback();
-    // The navbar button on pages without this element navigates to the feed
-    // and leaves a one-shot flag asking for the dialog on arrival.
-    try {
-      if (sessionStorage.getItem('soda-open-providers') === '1') {
-        sessionStorage.removeItem('soda-open-providers');
-        this.pendingOpen = true;
-      }
-    } catch {
-      /* Storage can be blocked. */
-    }
-    void this.maybeOpen();
-  }
-
-  private async maybeOpen() {
-    if (!this.pendingOpen || !this.current || !this.isConnected) return;
-    this.pendingOpen = false;
-    await this.updateComplete;
-    await this.open();
+    this.reading = undefined;
+    this.dispatch({type: 'reset'});
+    if (!value) this.dialog()?.close();
+    // Read in the background so opening the dialog shows status at once.
+    else void this.refresh();
   }
 
   disconnectedCallback() {
     this.serial++;
-    clearTimeout(this.poll);
+    this.stopTimers();
     super.disconnectedCallback();
   }
 
+  /** Show the dialog and refresh what it shows. */
   open = async () => {
     if (!this.current) return;
     await this.updateComplete;
-    const dialog = this.querySelector('dialog');
-    if (!dialog?.open) dialog?.showModal();
-    await this.run(() => this.readStatus());
+    const dialog = this.dialog();
+    if (dialog && !dialog.open) {
+      dialog.showModal();
+      // Start reading at the title rather than ringing the close button.
+      dialog.querySelector<HTMLElement>('h2')?.focus();
+    }
+    this.syncTimers();
+    await this.refresh();
   };
 
-  private async request(path: string, body?: unknown) {
+  private dialog() {
+    return this.querySelector<HTMLDialogElement>('dialog.soda-providers-dialog');
+  }
+
+  private dispatch(event: ProvidersEvent) {
+    this.machine = transition(this.machine, event);
+    this.syncTimers();
+  }
+
+  private stopTimers() {
+    clearTimeout(this.poll);
+    clearInterval(this.clock);
+    clearTimeout(this.copyReset);
+    this.poll = this.clock = undefined;
+  }
+
+  /** Poll while a sign-in awaits the person; tick the clock while the dialog shows elapsed time. */
+  private syncTimers() {
+    if (needsPolling(this.machine) && !this.poll && this.current)
+      this.poll = setTimeout(() => {
+        this.poll = undefined;
+        void this.refresh();
+      }, pollMs);
+    const ticking = hasClock(this.machine) && this.dialog()?.open === true;
+    if (ticking && !this.clock) this.clock = setInterval(() => this.requestUpdate(), 1000);
+    if (!ticking && this.clock) {
+      clearInterval(this.clock);
+      this.clock = undefined;
+    }
+  }
+
+  private async request(path: string, body?: unknown, timeout = readTimeoutMs) {
     const serial = this.serial;
-    if (!this.current) throw Error('AI accounts are unavailable. Reopen this page.');
+    if (!this.current) throw Error('AI accounts are unavailable on this page. Reload it.');
     const response = await this.current.request(path, {
       method: body === undefined ? 'GET' : 'POST',
       ...(body === undefined ? {} : {headers: {'Content-Type': 'application/json'}, body: JSON.stringify(body)}),
-      signal: AbortSignal.timeout(15000),
+      signal: AbortSignal.timeout(timeout),
     });
     const value = await readSodaJSON(response);
-    if (serial !== this.serial || !this.isConnected) throw Error('The page changed. Reopen AI accounts.');
+    if (serial !== this.serial) throw new Superseded();
     if (!response.ok) {
-      const detail = value as {message?: unknown; error?: {message?: string}};
-      throw Error(detail.error?.message ?? (typeof detail?.message === 'string' ? detail.message : `AI account request failed (${response.status}). Try again.`));
+      const detail = value as {message?: unknown; error?: {message?: string; code?: string}};
+      const error = Error(
+        detail.error?.message ??
+          (typeof detail?.message === 'string' ? detail.message : `AI account request failed (${response.status}).`)
+      );
+      (error as Error & {status?: number}).status = response.status;
+      throw error;
     }
     return value;
   }
 
-  private async run(action: () => Promise<void>) {
-    if (this.busy) return;
+  private reason(error: unknown, fallback: string): string {
+    if (error instanceof DOMException && error.name === 'TimeoutError')
+      return 'The server took too long to answer. Check your connection and try again.';
+    return error instanceof Error && error.message ? error.message : fallback;
+  }
+
+  /** One status read at a time; both lists are read in parallel. */
+  private refresh(): Promise<void> {
+    if (!this.current) return Promise.resolve();
+    if (this.reading) return this.reading;
     const serial = this.serial;
-    this.busy = true;
-    this.message = '';
-    clearTimeout(this.poll);
-    try { await action(); }
-    catch (error) {
-      if (serial === this.serial) this.message = error instanceof Error ? error.message : 'Could not read provider status.';
-    } finally {
-      if (serial === this.serial) {
-        this.busy = false;
-        this.schedulePoll();
+    this.dispatch({type: 'load-started'});
+    this.reading = (async () => {
+      try {
+        const [enrollments, connections] = await Promise.all([
+          this.request('identity/enrollments').then((value) => items(value, enrollmentView)),
+          this.request('identity/connections').then((value) => items(value, availableConnectionView)),
+        ]);
+        this.dispatch({type: 'loaded', enrollments, connections, now: Date.now()});
+        this.announce(connections);
+      } catch (error) {
+        if (!(error instanceof Superseded) && serial === this.serial)
+          this.dispatch({type: 'load-failed', reason: this.reason(error, 'Could not read your AI accounts.')});
+      } finally {
+        if (serial === this.serial) this.reading = undefined;
       }
+    })();
+    return this.reading;
+  }
+
+  private announce(connections: Connection[]) {
+    const key = JSON.stringify(connections.map((c) => [c.id, c.state]));
+    if (this.lastConnections && key !== this.lastConnections)
+      document.dispatchEvent(new CustomEvent(providersChangedEvent));
+    this.lastConnections = key;
+  }
+
+  private async start(provider: ProviderID) {
+    const serial = this.serial;
+    this.dispatch({type: 'start-requested', provider, now: Date.now()});
+    try {
+      const attempt = enrollmentView(
+        await this.request(
+          'identity/enrollments',
+          {provider_id: provider, label: providerInfo[provider].name, confirm_credential_exposure: true},
+          startTimeoutMs
+        )
+      );
+      if (attempt.provider_id !== provider) throw Error('Sign-in returned a different provider. Try again.');
+      this.dispatch({type: 'start-succeeded', provider, attempt, now: Date.now()});
+    } catch (error) {
+      if (error instanceof Superseded || serial !== this.serial) return;
+      // Another tab may already be signing in; show that attempt instead.
+      if ((error as {status?: number}).status === 409) {
+        this.dispatch({type: 'start-failed', provider, reason: 'A sign-in for this account is already in progress.'});
+        this.dispatch({type: 'dismissed', provider});
+        await this.refresh();
+        return;
+      }
+      this.dispatch({
+        type: 'start-failed',
+        provider,
+        reason: this.reason(error, 'Sign-in could not start. Try again.'),
+      });
     }
   }
 
-  private schedulePoll() {
-    clearTimeout(this.poll);
-    if (!this.isConnected || this.message || !Object.values(this.attempts).some(a => a?.state === 'pending')) return;
-    this.poll = setTimeout(() => void this.run(() => this.readStatus()), 1500);
-  }
-
-  private async readStatus() {
-    const next = {...this.attempts};
-    const recovered = items(await this.request('identity/enrollments'), enrollmentView);
-    for (const attempt of recovered) next[attempt.provider_id] = attempt;
-    for (const provider of providers) {
-      const attempt = next[provider.id];
-      if (attempt?.state === 'pending') next[provider.id] = enrollmentView(await this.request(`identity/enrollments/${attempt.id}`));
+  private async cancel(provider: ProviderID) {
+    const view = this.machine.providers[provider];
+    if (view.kind !== 'awaiting') return;
+    this.dispatch({type: 'cancel-requested', provider});
+    try {
+      await this.request(`identity/enrollments/${view.attempt.id}/cancel`, {});
+      this.machine = settled(this.machine, provider);
+      await this.refresh();
+    } catch (error) {
+      if (!(error instanceof Superseded))
+        this.dispatch({type: 'cancel-failed', provider, reason: this.reason(error, 'Sign-in could not be cancelled.')});
     }
-    this.attempts = next;
-    const connections = items(await this.request('identity/connections'), availableConnectionView);
-    const changed = JSON.stringify(connections) !== JSON.stringify(this.connections);
-    this.connections = connections;
-    this.loaded = true;
-    if (changed) this.dispatchEvent(new CustomEvent('soda-provider-connections-changed', {bubbles: true, composed: true}));
   }
 
-  private start(provider: ProviderID) {
-    return this.run(async () => {
-      if (this.attempts[provider]?.state === 'pending') { await this.readStatus(); return; }
-      const attempt = enrollmentView(await this.request('identity/enrollments', {
-        provider_id: provider,
-        label: providers.find(p => p.id === provider)!.name,
-        confirm_credential_exposure: true,
-      }));
-      if (attempt.provider_id !== provider) throw Error('Sign-in returned the wrong provider. Try again.');
-      this.attempts = {...this.attempts, [provider]: attempt};
-    });
+  private async disconnect(provider: ProviderID) {
+    const view = this.machine.providers[provider];
+    if (view.kind !== 'connected') return;
+    this.dispatch({type: 'disconnect-requested', provider});
+    try {
+      for (const connection of view.connections) await this.request(`identity/connections/${connection.id}/revoke`, {});
+      this.machine = settled(this.machine, provider);
+      await this.refresh();
+    } catch (error) {
+      if (!(error instanceof Superseded))
+        this.dispatch({
+          type: 'disconnect-failed',
+          provider,
+          reason: this.reason(error, 'The account could not be disconnected.'),
+        });
+    }
   }
 
-  private cancel(provider: ProviderID) {
-    return this.run(async () => {
-      const attempt = this.attempts[provider];
-      if (!attempt || attempt.state !== 'pending') return;
-      await this.request(`identity/enrollments/${attempt.id}/cancel`, {});
-      this.attempts = {...this.attempts, [provider]: {...attempt, state: 'cancelled'}};
-    });
+  private async copy(provider: ProviderID, code: string) {
+    try {
+      await navigator.clipboard.writeText(code);
+      this.copied = provider;
+      clearTimeout(this.copyReset);
+      this.copyReset = setTimeout(() => (this.copied = ''), 2000);
+    } catch {
+      /* The code stays selectable when the clipboard is blocked. */
+    }
   }
 
-  private disconnect(connection: Connection) {
-    return this.run(async () => {
-      await this.request(`identity/connections/${connection.id}/revoke`, {});
-      await this.readStatus();
-      this.message = 'Account disconnected. Its active uses have ended.';
-    });
+  private status(view: ProviderView): {label: string; tone: string} {
+    switch (view.kind) {
+      case 'unknown':
+        return {label: 'Checking…', tone: 'quiet'};
+      case 'connected':
+        return {label: 'Connected', tone: 'good'};
+      case 'disconnecting':
+        return {label: 'Disconnecting…', tone: 'busy'};
+      case 'starting':
+        return {label: 'Preparing sign-in…', tone: 'busy'};
+      case 'awaiting':
+        return {label: 'Waiting for you', tone: 'busy'};
+      case 'cancelling':
+        return {label: 'Cancelling…', tone: 'busy'};
+      case 'failed':
+        return {label: 'Needs attention', tone: 'bad'};
+      case 'disconnected':
+        return {label: view.previous ? 'Signed out' : 'Not connected', tone: 'quiet'};
+    }
   }
 
-  private async copy(code: string) {
-    try { await navigator.clipboard.writeText(code); this.message = 'Code copied.'; }
-    catch { this.message = 'Copy the displayed code to continue.'; }
-    // Copy feedback must not stop the pending authorization check.
-    clearTimeout(this.poll);
-    if (Object.values(this.attempts).some(a => a?.state === 'pending'))
-      this.poll = setTimeout(() => void this.run(() => this.readStatus()), 1500);
+  private body(provider: ProviderID, view: ProviderView, now: number): TemplateResult | typeof nothing {
+    const name = providerInfo[provider].name;
+    switch (view.kind) {
+      case 'unknown':
+        return nothing;
+      case 'disconnected':
+        return html`<button type="button" class="ui primary button" @click=${() => this.start(provider)}>
+          ${view.previous ? `Reconnect ${name}` : `Connect ${name}`}
+        </button>`;
+      case 'starting':
+        return html`<div class="soda-provider-progress" role="status">
+          <span class="soda-provider-spinner" aria-hidden="true"></span>
+          <div>
+            <p><strong>Preparing your ${name} sign-in</strong> · ${seconds(view.since, now)}</p>
+            <p class="soda-provider-hint">
+              SodaOS is starting ${name} and asking it for a one-time sign-in code. This usually takes 5–20 seconds.
+            </p>
+          </div>
+        </div>`;
+      case 'awaiting':
+      case 'cancelling': {
+        const attempt = view.attempt;
+        const cancelling = view.kind === 'cancelling';
+        return html`<ol class="soda-provider-steps">
+            <li>
+              <span>Open the ${name} sign-in page</span>
+              <a
+                class="ui primary button soda-provider-external"
+                href=${attempt.verification_url}
+                target="_blank"
+                rel="noopener noreferrer"
+                >Open sign-in page
+                <svg width="12" height="12" viewBox="0 0 12 12" aria-hidden="true">
+                  <path d="M4 2h6v6M10 2L2 10" fill="none" stroke="currentColor" stroke-width="1.6" />
+                </svg>
+              </a>
+            </li>
+            <li>
+              <span>Enter this code</span>
+              <span class="soda-provider-code-row">
+                <strong class="soda-provider-code">${attempt.user_code}</strong>
+                <button type="button" class="ui basic button" @click=${() => this.copy(provider, attempt.user_code)}>
+                  ${this.copied === provider ? 'Copied ✓' : 'Copy'}
+                </button>
+              </span>
+            </li>
+            <li>
+              <span>Finish signing in there</span>
+              <span class="soda-provider-progress" role="status">
+                <span class="soda-provider-spinner" aria-hidden="true"></span>
+                ${
+                  cancelling
+                    ? 'Cancelling…'
+                    : view.kind === 'awaiting'
+                      ? `Waiting for ${name} · ${seconds(view.since, now)}`
+                      : nothing
+                }
+              </span>
+            </li>
+          </ol>
+          <button type="button" class="ui basic button" ?disabled=${cancelling} @click=${() => this.cancel(provider)}>
+            Cancel sign-in
+          </button>`;
+      }
+      case 'connected':
+      case 'disconnecting': {
+        const busy = view.kind === 'disconnecting';
+        return html`${view.connections.map(
+            (connection) =>
+              html`<p class="soda-provider-account">
+                ${connection.email || connection.label}${connection.plan ? html` · <span>${connection.plan}</span>` : nothing}
+              </p>`
+          )}
+          <details class="soda-provider-manage">
+            <summary>Disconnect</summary>
+            <p>
+              Disconnecting removes the stored sign-in and ends this account’s active Factory and terminal sessions.
+            </p>
+            <button
+              type="button"
+              class="ui red basic button"
+              ?disabled=${busy}
+              @click=${() => this.disconnect(provider)}
+            >
+              ${busy ? 'Disconnecting…' : `Disconnect ${name}`}
+            </button>
+          </details>`;
+      }
+      case 'failed':
+        return html`<p class="soda-provider-error" role="alert">${view.reason}</p>
+          <button type="button" class="ui primary button" @click=${() => this.retry(provider)}>Try again</button>`;
+    }
   }
 
-  private row(provider: typeof providers[number]) {
-    const connected = this.connections.some(c => c.provider_id === provider.id && c.state === 'ready');
-    const attempt = this.attempts[provider.id];
-    const pending = attempt?.state === 'pending';
-    const previous = this.connections.some(c => c.provider_id === provider.id);
-    return html`<li class="soda-provider-row" data-connected=${connected}>
-      <button type="button" class="ui basic button soda-provider-choice"
-        aria-label=${`${provider.name}: ${connected ? 'Connected' : pending ? 'Awaiting sign-in' : previous ? 'Reconnect' : 'Not connected'}`}
-        ?disabled=${this.busy || !this.loaded || connected || pending} @click=${() => this.start(provider.id)}>
-        <strong>${provider.name}</strong>
-        <span><span aria-hidden="true" class="soda-provider-indicator">${connected ? '✓' : '○'}</span>
-          ${connected ? 'Connected' : pending ? 'Awaiting sign-in' : previous ? 'Reconnect' : 'Connect'}</span>
-      </button>
-      ${this.connections.filter(c => c.provider_id === provider.id && c.state === 'ready').map(connection => html`<div class="soda-provider-detail">
-        <p>${connection.email || connection.label}${connection.plan ? ` · ${connection.plan}` : ''}</p>
-        <details><summary>Manage account</summary>
-          <p>Disconnecting ends this account’s active Factory sessions.</p>
-          <button type="button" class="ui button" ?disabled=${this.busy} @click=${() => this.disconnect(connection)}>Disconnect and end active uses</button>
-        </details>
-      </div>`)}
-      ${!connected && attempt ? html`<section aria-label=${`${provider.name} sign-in`} class="soda-provider-detail">
-        <p role="status">${pending ? 'Complete sign-in on the provider page. This dialog updates automatically.' : `Sign-in ${attempt.state}.`}</p>
-        ${pending && attempt.verification_url ? html`<a class="ui primary button" href=${attempt.verification_url} target="_blank" rel="noopener noreferrer">Open sign-in</a>
-          <p>Sign-in link: <a href=${attempt.verification_url} target="_blank" rel="noopener noreferrer">${attempt.verification_url}</a></p>` : nothing}
-        ${pending && attempt.user_code ? html`<p>Code: <strong class="soda-provider-code">${attempt.user_code}</strong>
-          <button type="button" class="ui basic button" @click=${() => this.copy(attempt.user_code)}>Copy code</button></p>` : nothing}
-        <button type="button" class="ui basic button" ?disabled=${this.busy}
-          @click=${() => pending ? this.cancel(provider.id) : this.start(provider.id)}>${pending ? 'Cancel sign-in' : 'Try again'}</button>
-      </section>` : nothing}
+  private retry(provider: ProviderID) {
+    this.dispatch({type: 'dismissed', provider});
+    void this.start(provider);
+  }
+
+  private card(provider: ProviderID, now: number) {
+    const view = this.machine.providers[provider];
+    const status = this.status(view);
+    return html`<li class="soda-provider-card" data-state=${view.kind}>
+      <div class="soda-provider-head">
+        <div>
+          <h3>${providerInfo[provider].name}</h3>
+          <p class="soda-provider-hint">${providerInfo[provider].plan}</p>
+        </div>
+        <span class="soda-provider-pill" data-tone=${status.tone}>${status.label}</span>
+      </div>
+      ${this.body(provider, view, now)}
     </li>`;
   }
 
+  private loadNotice() {
+    const {load, loadError, refreshing} = this.machine;
+    if (load === 'unavailable' || (load === 'ready' && loadError))
+      return html`<div class="soda-provider-error" role="alert">
+        <p>${loadError || 'Could not read your AI accounts.'}</p>
+        <button type="button" class="ui basic button" @click=${() => this.refresh()}>Retry</button>
+      </div>`;
+    if (load === 'loading' || load === 'idle')
+      return html`<p class="soda-provider-hint" role="status">Checking your accounts…</p>`;
+    return html`<p class="soda-provider-hint soda-provider-refreshing" role="status">
+      ${refreshing ? 'Refreshing…' : ''}
+    </p>`;
+  }
+
   protected render() {
+    const now = Date.now();
+    // Visual rules live in assets/branding/forgejo/components.css, which every
+    // Forge page loads; only the open/closed display rule is pinned here.
     return html`<style>
-        .soda-providers-dialog[open] { display:block !important; }
-        .soda-providers-dialog:not([open]) { display:none !important; }
-        .soda-providers-dialog::backdrop { background:rgb(0 0 0 / 35%); }
-        .soda-providers-dialog { box-sizing:border-box; width:min(520px,calc(100vw - 32px)); max-height:calc(100dvh - 32px); overflow:auto; padding:24px; border:1px solid var(--soda-page-text); border-top:3px solid var(--soda-page-link); border-radius:0; background:var(--soda-page-surface); color:var(--soda-page-text); font:var(--soda-font-body); }
-        .soda-providers-dialog > header { display:flex; justify-content:space-between; align-items:center; gap:16px; margin-bottom:16px; }
-        .soda-providers-dialog h2 { margin:0; font:var(--soda-font-title); }
-        .soda-providers-dialog .soda-provider-eyebrow { margin:0 0 4px; color:var(--soda-page-muted); font:var(--soda-font-button); font-size:11px; text-transform:uppercase; letter-spacing:.06em; }
-        .soda-providers-dialog > p { color:var(--soda-page-muted); font:var(--soda-font-meta); }
-        .soda-providers-dialog > ul { list-style:none; padding:0; margin:20px 0 0; }
-        .soda-provider-row { border-top:1px solid var(--soda-page-edge); padding:12px 0; }
-        .soda-providers-dialog .soda-provider-choice { display:flex; align-items:center; justify-content:space-between; width:100%; gap:16px; text-align:start; background:var(--soda-page-selected); border:1px solid transparent; }
-        .soda-providers-dialog .soda-provider-choice strong { font:var(--soda-font-label); }
-        .soda-provider-choice > span { font:var(--soda-font-caption); }
-        .soda-provider-row[data-connected=true] .soda-provider-choice:disabled { opacity:1 !important; color:var(--soda-page-text); }
-        .soda-provider-row[data-connected=true] .soda-provider-indicator { color:var(--soda-page-success); }
-        .soda-provider-indicator { font-size:18px; margin-inline-end:4px; }
-        .soda-provider-detail { padding:12px 4px 0; overflow-wrap:anywhere; font:var(--soda-font-meta); }
-        .soda-provider-detail summary { min-height:32px; cursor:pointer; color:var(--soda-page-muted); }
-        .soda-provider-code { display:inline-block; padding:8px 12px; background:var(--soda-page-selected); border:1px solid var(--soda-page-edge); font:var(--soda-font-mono); letter-spacing:.1em; user-select:all; }
-        .soda-providers-dialog :focus-visible { outline:2px solid var(--soda-page-focus); outline-offset:3px; }
-        .soda-providers-dialog [role=status]:empty { display:none; }
-        @media(max-width:480px) { .soda-providers-dialog { padding:16px; } }
-      </style>${this.externalTrigger ? nothing : html`<button type="button" class="ui basic button" @click=${this.open} ?disabled=${!this.current}>AI accounts</button>`}
-      <dialog class="soda-providers-dialog" aria-label="AI accounts" >
-        <header><div><p class="soda-provider-eyebrow">Your AI subscriptions</p><h2>AI accounts</h2></div>
-          <button type="button" class="ui basic button" @click=${() => this.querySelector('dialog')?.close()}>Close</button></header>
-        <p>Connect an account to use it in Factory. Connecting lets SodaOS securely store your account credentials and use them in authorized repository work.</p>
-        ${!this.loaded ? html`<p role="status">${this.busy ? 'Loading AI accounts…' : 'AI account status unavailable.'}</p>` : nothing}
-        <ul>${providers.map(provider => this.row(provider))}</ul>
-        <p role="status">${this.message}</p>
-        ${this.message ? html`<button type="button" class="ui basic button" ?disabled=${this.busy} @click=${() => this.run(() => this.readStatus())}>Check status</button>` : nothing}
+        .soda-providers-dialog[open] {
+          display: block !important;
+        }
+        .soda-providers-dialog:not([open]) {
+          display: none !important;
+        }
+      </style>
+      <dialog class="soda-providers-dialog" aria-labelledby="soda-providers-title">
+        <div class="soda-providers-head">
+          <div>
+            <h2 id="soda-providers-title" tabindex="-1">AI accounts</h2>
+            <p class="soda-provider-intro">
+              Connect a subscription so Factory and your terminals can use it. You sign in on the provider’s own page.
+            </p>
+          </div>
+          <button type="button" class="soda-providers-close" aria-label="Close" @click=${() => this.dialog()?.close()}>
+            <svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true">
+              <path d="M3 3l10 10M13 3L3 13" stroke="currentColor" stroke-width="1.8" stroke-linecap="square" />
+            </svg>
+          </button>
+        </div>
+        <div class="soda-providers-content">
+          ${this.loadNotice()}
+          <ul class="soda-provider-cards">
+            ${providerIDs.map((provider) => this.card(provider, now))}
+          </ul>
+        </div>
       </dialog>`;
   }
 }
+
+/** A reply that arrived after the transport changed; it is dropped silently. */
+class Superseded extends Error {}
 
 customElements.define('soda-providers', SodaProviders);

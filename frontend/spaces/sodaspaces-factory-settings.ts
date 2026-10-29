@@ -7,7 +7,7 @@ import {factoryAccessResponse} from './sodaspaces-factory-access-response.js';
 import type {FactoryAccess, FactoryAccessEditable, FactoryAccessUsage} from './sodaspaces-factory-access-response.js';
 import './sodaspaces-factory-work.js';
 import './sodaspaces-factory-repair.js';
-import './soda-providers.js';
+import {openProviders, providersChangedEvent} from './soda-providers-events.js';
 
 type FactoryContext = {
   transport: PreparedExtensionMount;
@@ -351,11 +351,29 @@ export class SodaFactorySettings extends LitElement {
     if (this.needsLoad && this.activeValue && this.contextValue) void this.refresh();
   }
 
+  connectedCallback() {
+    super.connectedCallback();
+    // The AI accounts dialog is global; refresh when it changes a connection.
+    document.addEventListener(providersChangedEvent, this.connectionsChanged);
+  }
+
   disconnectedCallback() {
+    document.removeEventListener(providersChangedEvent, this.connectionsChanged);
     this.serial++;
     this.contextValue = undefined;
     super.disconnectedCallback();
   }
+
+  private connectionsChanged = () => {
+    if (!this.contextValue) return;
+    void this.loadConnections()
+      .then((connections) => {
+        this.view = {...this.view, connections};
+      })
+      .catch(() => {
+        this.view = {...this.view, message: 'Could not refresh connected accounts. Try Refresh.'};
+      });
+  };
 
   private async request(path: string, method = 'GET', body?: Record<string, unknown>, timeoutMs = 15000) {
     const context = this.contextValue;
@@ -929,19 +947,8 @@ export class SodaFactorySettings extends LitElement {
     if (!context) return html`<p>Factory authority requires an active project binding.</p>`;
     const status = this.view.status || {};
     if (context.place) return this.renderPlaceAuthority(context, status);
-    return html`<soda-providers
-        .transport=${this.activeValue ? context.transport : undefined}
-        @soda-provider-connections-changed=${() => {
-          void this.loadConnections()
-            .then((connections) => {
-              this.view = {...this.view, connections};
-            })
-            .catch(() => {
-              this.view = {...this.view, message: 'Could not refresh connected accounts. Try Refresh.'};
-            });
-        }}
-      ></soda-providers
-      >${this.renderSummary(status)}
+    return html`<button type="button" class="ui basic button" @click=${openProviders}>AI accounts</button>
+      ${this.renderSummary(status)}
       <soda-factory-activity .context=${this.activeValue ? context : undefined}></soda-factory-activity>
       <soda-factory-repair .context=${this.activeValue ? context : undefined}></soda-factory-repair>
       ${context.environment ? this.renderPreparation() : html`<p>No Project exists for this repository, so preparation controls are unavailable.</p>`}
@@ -953,7 +960,8 @@ export class SodaFactorySettings extends LitElement {
   // personal account connect and Execution usage stay out;
   // the operator grant sits alone under "Operator only", for the operator.
   private renderPlaceAuthority(context: FactoryContext, status: Record<string, unknown>) {
-    return html`${this.renderEffective(asObject(status.effective || {}), status)} ${this.renderSponsorshipSummary(status)}
+    return html`${this.renderEffective(asObject(status.effective || {}), status)}
+      ${this.renderSponsorshipSummary(status)}
       <soda-factory-activity .context=${this.activeValue ? context : undefined}></soda-factory-activity>
       <soda-factory-repair .context=${this.activeValue ? context : undefined}></soda-factory-repair>
       ${context.environment ? this.renderPreparation() : html`<p>No development environment exists for this repository, so preparation controls are unavailable.</p>`}
@@ -1344,28 +1352,28 @@ ${selection?.required_tools.join('\n') || ''}</textarea>
   private renderOperatorGrant(status: Record<string, unknown>) {
     const operator = asObject(status.operator_grant || {});
     return html`<form data-action="operator-grant" @submit=${this.submit}>
-        <fieldset class="soda-factory-permission" ?disabled=${this.view.busy || !this.canAction('operator-grant')}>
-          <label
-            ><input type="checkbox" name="operator_active" .checked=${operator.active === true} /> Active operator
-            grant</label
-          >
-          ${this.submitButton('Save operator grant')}
-        </fieldset>
-      </form>`;
+      <fieldset class="soda-factory-permission" ?disabled=${this.view.busy || !this.canAction('operator-grant')}>
+        <label
+          ><input type="checkbox" name="operator_active" .checked=${operator.active === true} /> Active operator
+          grant</label
+        >
+        ${this.submitButton('Save operator grant')}
+      </fieldset>
+    </form>`;
   }
 
   private renderEnvironmentGrantForm(status: Record<string, unknown>) {
     const environment = asObject(status.environment_grant || {});
     return html`<form data-action="environment-grant" @submit=${this.submit}>
-        <fieldset class="soda-factory-permission" ?disabled=${this.view.busy || !this.canAction('environment-grant')}>
-          <p>The selected Project profile is also the profile that will be authorized.</p>
-          <label
-            ><input type="checkbox" name="environment_active" .checked=${environment.active === true} /> Permit factory
-            Project setup</label
-          >
-          ${this.submitButton('Save Project grant')}
-        </fieldset>
-      </form>`;
+      <fieldset class="soda-factory-permission" ?disabled=${this.view.busy || !this.canAction('environment-grant')}>
+        <p>The selected Project profile is also the profile that will be authorized.</p>
+        <label
+          ><input type="checkbox" name="environment_active" .checked=${environment.active === true} /> Permit factory
+          Project setup</label
+        >
+        ${this.submitButton('Save Project grant')}
+      </fieldset>
+    </form>`;
   }
 
   private renderPolicy(status: Record<string, unknown>) {

@@ -1,15 +1,9 @@
-import './soda-providers.js';
 import {LitElement, html, nothing} from 'lit';
 import {check, id, object, projectId, readSodaJSON} from './sodaspaces-api.js';
 import type {PreparedExtensionMount} from './soda-extension.js';
-import {
-  availableConnectionView,
-  connectionView,
-  grantView,
-  items,
-  leaseView,
-} from './soda-identity-response.js';
+import {availableConnectionView, connectionView, grantView, items, leaseView} from './soda-identity-response.js';
 import type {Connection, Grant, Lease} from './soda-identity-response.js';
+import {openProviders, providersChangedEvent} from './soda-providers-events.js';
 
 export class SodaIdentity extends LitElement {
   static properties = {
@@ -83,7 +77,13 @@ export class SodaIdentity extends LitElement {
     this.members = [];
     this.message = 'Reload this Forgejo page before managing connections.';
   };
+  connectedCallback() {
+    super.connectedCallback();
+    // The AI accounts dialog is global; refresh when it changes a connection.
+    document.addEventListener(providersChangedEvent, this.refresh);
+  }
   disconnectedCallback() {
+    document.removeEventListener(providersChangedEvent, this.refresh);
     this.retire();
     super.disconnectedCallback();
   }
@@ -139,9 +139,12 @@ export class SodaIdentity extends LitElement {
       );
       const result = object(await this.request('/environments/' + this.project + '/members'));
       check(Array.isArray(result.items));
-      this.members = result.items.map(raw => { const row = object(raw); check(id(row.user_id) && typeof row.login === 'string'); return {user_id: row.user_id, login: row.login}; });
+      this.members = result.items.map((raw) => {
+        const row = object(raw);
+        check(id(row.user_id) && typeof row.login === 'string');
+        return {user_id: row.user_id, login: row.login};
+      });
     }
-
   }
   private async loadSelected() {
     this.grants = [];
@@ -248,9 +251,12 @@ export class SodaIdentity extends LitElement {
     return html`<form @submit=${this.delegate}>
         <h3>Delegate this subscription in this project</h3>
         <label
-          >Project member <select name="user_id" required><option value="">Choose a member</option>
-            ${this.members.map(member => html`<option value=${member.user_id}>${member.login}</option>`)}
-          </select></label>
+          >Project member
+          <select name="user_id" required>
+            <option value="">Choose a member</option>
+            ${this.members.map((member) => html`<option value=${member.user_id}>${member.login}</option>`)}
+          </select></label
+        >
         <label
           ><input type="checkbox" name="subscription" required />I confirm my provider terms allow this named user to
           use my subscription.</label
@@ -281,7 +287,7 @@ export class SodaIdentity extends LitElement {
       <fieldset ?disabled=${this.blocked()}>
         <legend>Your AI accounts</legend>
         <button type="button" @click=${this.refresh}>Refresh status</button>
-        ${this.sharingOnly ? nothing : html`<soda-providers .transport=${this.transport} @soda-provider-connections-changed=${this.refresh}></soda-providers>`}
+        ${this.sharingOnly ? nothing : html`<button type="button" class="ui basic button" @click=${openProviders}>AI accounts</button>`}
         <label
           >Your AI accounts
           <select .value=${this.selected} @change=${this.select}>

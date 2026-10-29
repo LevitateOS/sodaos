@@ -5,7 +5,6 @@ import {prepareExtensionMount} from './soda-extension.js';
 import {nativeAppSubUrl} from './soda-native-paths.js';
 import './sodaspaces-factory-feed.js';
 import './sodaspaces-applications.js';
-import './soda-providers.js';
 
 export function mount(root: HTMLElement, context: ExtensionMountContext): MountHandle {
   // The repository page has its own entry (soda-repository-entry.ts); this one
@@ -30,18 +29,22 @@ export function mount(root: HTMLElement, context: ExtensionMountContext): MountH
     render(
       html`
         ${
-          // The providers dialog host stays mounted on every feed page for
-          // the navbar button. Apps (M14) has no sub-menu: each launch card
-          // links to the App tab of the repository it was built from.
+          // Apps (M14) has no sub-menu: each launch card links to the App
+          // tab of the repository it was built from.
           applications
             ? html`<header class="soda-feed-page-heading">
-                <div><h1>Apps</h1><p>Open the apps your repositories build. Each app opens at its own address in a new tab.</p></div>
+                <div>
+                  <h1>Apps</h1>
+                  <p>Open the apps your repositories build. Each app opens at its own address in a new tab.</p>
+                </div>
               </header>`
             : html`<header class="soda-feed-page-heading">
-                <div><h1>Feed</h1><p>Role updates, choices and results from the repositories you follow.</p></div>
+                <div>
+                  <h1>Feed</h1>
+                  <p>Role updates, choices and results from the repositories you follow.</p>
+                </div>
               </header>`
         }
-        <soda-providers .externalTrigger=${true} .transport=${visible ? transport : undefined}></soda-providers>
         ${
           applications
             ? html`<soda-applications

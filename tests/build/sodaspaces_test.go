@@ -40,8 +40,11 @@ func TestSodaspacesManifestDeclaresNoWorkspace(t *testing.T) {
 		page := entry.(map[string]any)
 		Check(t, page["id"] != "spaces" && page["title"] != "Workspace", "Workspace page declared: %v", page)
 	}
-	_, panels := extension["panels"]
-	Check(t, !panels, "panels declared: %v", extension["panels"])
+	panels, _ := extension["panels"].([]any)
+	Require(t, len(panels) == 1, "panels = %v", extension["panels"])
+	panel := panels[0].(map[string]any)
+	Check(t, panel["id"] == "providers" && panel["entry"] == "soda-providers-entry.js" && panel["owner"] == nil,
+		"only the AI accounts panel mounts on every page: %v", panel)
 	_, present := manifest["public/assets/sodaspaces.js"]
 	Check(t, !present, "retired sodaspaces.js in manifest")
 	_, present = manifest["public/assets/soda-spaces-entry.js"]

@@ -334,7 +334,60 @@ body:has(.soda-login) {
  html[data-theme^="soda-"] body #navbar .navbar-mobile-right > :is(a,button) { box-sizing: border-box; display: inline-flex; align-items: center; justify-content: center; width: 44px; min-width: 44px; height: 44px; padding: 0 !important; margin: 0; }
 }
 
-/* Provider rows are selection controls, not the native uppercase CTA pattern. */
-html[data-theme^="soda-"] body .soda-providers-dialog .ui.basic.button.soda-provider-choice { display: flex; justify-content: space-between; text-transform: none; letter-spacing: 0; background: var(--soda-page-selected); border: 1px solid var(--soda-page-edge); }
-html[data-theme^="soda-"] body .soda-providers-dialog { box-shadow: none; }
-html[data-theme^="soda-"] body .soda-providers-dialog > header { padding: 0 0 16px; background: transparent; border-bottom: 1px solid var(--soda-page-edge); }
+/* AI accounts dialog (frontend/spaces/soda-providers.ts). It renders on every
+   Forge page, so these rules out-rank native dialog/header and basic-button
+   defaults; it uses no <header> because native "dialog header" pads and rules. */
+html[data-theme^="soda-"] body .soda-providers-dialog { box-sizing: border-box; width: min(560px, calc(100vw - 32px)); max-height: calc(100dvh - 32px); overflow: auto; padding: 0; border: 1px solid var(--soda-page-edge); border-top: 3px solid var(--soda-page-link); border-radius: 0; background: var(--soda-page-surface); color: var(--soda-page-text); font: var(--soda-font-body); box-shadow: 0 18px 48px rgb(0 0 0 / 35%); }
+html[data-theme^="soda-"] body .soda-providers-dialog::backdrop { background: rgb(0 0 0 / 55%); }
+html[data-theme^="soda-"] body .soda-providers-dialog .soda-providers-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 16px; padding: 22px 24px 4px; }
+html[data-theme^="soda-"] body .soda-providers-dialog h2 { margin: 0; font: var(--soda-font-heading); font-size: 28px; color: var(--soda-page-text); outline: none; }
+html[data-theme^="soda-"] body .soda-providers-dialog .soda-provider-intro { margin: 6px 0 0; max-width: 56ch; color: var(--soda-page-muted); font: var(--soda-font-meta); }
+html[data-theme^="soda-"] body .soda-providers-dialog .soda-providers-close { flex: none; display: grid; place-items: center; width: 32px; height: 32px; margin: -4px -8px 0 0; padding: 0; border: 0; background: transparent; color: var(--soda-page-muted); cursor: pointer; }
+html[data-theme^="soda-"] body .soda-providers-dialog .soda-providers-close:hover { background: var(--soda-page-hover); color: var(--soda-page-text); }
+html[data-theme^="soda-"] body .soda-providers-dialog .soda-providers-content { padding: 12px 24px 24px; }
+html[data-theme^="soda-"] body .soda-providers-dialog .soda-provider-cards { list-style: none; margin: 0; padding: 0; display: grid; gap: 12px; }
+html[data-theme^="soda-"] body .soda-providers-dialog .soda-provider-card { display: grid; gap: 14px; margin: 0; padding: 16px 18px; border: 1px solid var(--soda-page-edge); background: var(--soda-page-canvas); }
+html[data-theme^="soda-"] body .soda-providers-dialog .soda-provider-card[data-state="connected"] { border-left: 3px solid var(--soda-page-success); }
+html[data-theme^="soda-"] body .soda-providers-dialog .soda-provider-card:is([data-state="starting"], [data-state="awaiting"], [data-state="cancelling"]) { border-left: 3px solid var(--soda-page-link); }
+html[data-theme^="soda-"] body .soda-providers-dialog .soda-provider-card[data-state="failed"] { border-left: 3px solid var(--soda-page-warning-edge); }
+html[data-theme^="soda-"] body .soda-providers-dialog .soda-provider-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; }
+html[data-theme^="soda-"] body .soda-providers-dialog .soda-provider-head > div { min-width: 0; }
+html[data-theme^="soda-"] body .soda-providers-dialog .soda-provider-card h3 { margin: 0; font: var(--soda-font-label); font-size: 17px; color: var(--soda-page-text); }
+html[data-theme^="soda-"] body .soda-providers-dialog .soda-provider-hint { margin: 2px 0 0; color: var(--soda-page-muted); font: var(--soda-font-meta); }
+html[data-theme^="soda-"] body .soda-providers-dialog .soda-provider-pill { flex: none; display: inline-flex; align-items: center; gap: 6px; padding: 2px 10px; border: 1px solid var(--soda-page-edge); color: var(--soda-page-muted); font: var(--soda-font-caption); white-space: nowrap; }
+html[data-theme^="soda-"] body .soda-providers-dialog .soda-provider-pill::before { content: ""; width: 7px; height: 7px; border-radius: 50%; background: currentColor; }
+html[data-theme^="soda-"] body .soda-providers-dialog .soda-provider-pill[data-tone="good"] { color: var(--soda-page-success); border-color: var(--soda-page-success); }
+html[data-theme^="soda-"] body .soda-providers-dialog .soda-provider-pill[data-tone="busy"] { color: var(--soda-page-text); }
+html[data-theme^="soda-"] body .soda-providers-dialog .soda-provider-pill[data-tone="busy"]::before { background: var(--soda-page-link); animation: soda-provider-pulse 1.2s ease-in-out infinite; }
+@keyframes soda-provider-pulse { 50% { opacity: 0.25; } }
+html[data-theme^="soda-"] body .soda-providers-dialog .soda-provider-pill[data-tone="bad"] { color: var(--soda-page-warning); border-color: var(--soda-page-warning-edge); background: var(--soda-page-warning-bg); }
+html[data-theme^="soda-"] body .soda-providers-dialog .soda-provider-card .ui.button { justify-self: start; margin: 0; }
+html[data-theme^="soda-"] body .soda-providers-dialog .ui.basic.button { background: transparent !important; color: var(--soda-page-text) !important; box-shadow: inset 0 0 0 1px var(--soda-page-edge) !important; text-transform: none; letter-spacing: 0; }
+html[data-theme^="soda-"] body .soda-providers-dialog .ui.basic.button:hover { background: var(--soda-page-hover) !important; }
+html[data-theme^="soda-"] body .soda-providers-dialog .soda-provider-progress { display: flex; align-items: flex-start; gap: 10px; }
+html[data-theme^="soda-"] body .soda-providers-dialog .soda-provider-progress p { margin: 0; }
+html[data-theme^="soda-"] body .soda-providers-dialog .soda-provider-spinner { flex: none; width: 16px; height: 16px; margin-top: 3px; border: 2px solid var(--soda-page-edge); border-top-color: var(--soda-page-link); border-radius: 50%; animation: soda-provider-spin 0.8s linear infinite; }
+@keyframes soda-provider-spin { to { transform: rotate(360deg); } }
+@media (prefers-reduced-motion: reduce) { html[data-theme^="soda-"] body .soda-providers-dialog .soda-provider-spinner, html[data-theme^="soda-"] body .soda-providers-dialog .soda-provider-pill::before { animation: none; } }
+html[data-theme^="soda-"] body .soda-providers-dialog .soda-provider-steps { margin: 0; padding: 0; list-style: none; counter-reset: soda-step; display: grid; gap: 14px; }
+html[data-theme^="soda-"] body .soda-providers-dialog .soda-provider-steps > li { counter-increment: soda-step; display: grid; grid-template-columns: 24px 1fr; column-gap: 10px; row-gap: 6px; align-items: start; }
+html[data-theme^="soda-"] body .soda-providers-dialog .soda-provider-steps > li::before { content: counter(soda-step); grid-row: span 2; display: grid; place-items: center; width: 24px; height: 24px; border: 1px solid var(--soda-page-edge); font: var(--soda-font-caption); color: var(--soda-page-muted); }
+html[data-theme^="soda-"] body .soda-providers-dialog .soda-provider-steps > li > span:first-child { font: var(--soda-font-label); line-height: 24px; }
+html[data-theme^="soda-"] body .soda-providers-dialog .soda-provider-code-row { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+html[data-theme^="soda-"] body .soda-providers-dialog .soda-provider-code { padding: 6px 14px; background: var(--soda-page-selected); border: 1px solid var(--soda-page-edge); font: var(--soda-font-mono); font-size: 20px; letter-spacing: 0.14em; user-select: all; }
+html[data-theme^="soda-"] body .soda-providers-dialog .soda-provider-account { margin: 0; overflow-wrap: anywhere; }
+html[data-theme^="soda-"] body .soda-providers-dialog .soda-provider-account span { color: var(--soda-page-muted); }
+html[data-theme^="soda-"] body .soda-providers-dialog .soda-provider-manage { margin: 0; }
+html[data-theme^="soda-"] body .soda-providers-dialog .soda-provider-manage summary { width: fit-content; cursor: pointer; color: var(--soda-page-muted); font: var(--soda-font-meta); }
+html[data-theme^="soda-"] body .soda-providers-dialog .soda-provider-manage summary:hover { color: var(--soda-page-text); }
+html[data-theme^="soda-"] body .soda-providers-dialog .soda-provider-manage[open] summary { margin-bottom: 8px; }
+html[data-theme^="soda-"] body .soda-providers-dialog .soda-provider-manage p { margin: 0 0 10px; font: var(--soda-font-meta); color: var(--soda-page-muted); }
+html[data-theme^="soda-"] body .soda-providers-dialog .soda-provider-error { margin: 0; padding: 10px 12px; border: 1px solid var(--soda-page-warning-edge); background: var(--soda-page-warning-bg); color: var(--soda-page-text); font: var(--soda-font-meta); overflow-wrap: anywhere; }
+html[data-theme^="soda-"] body .soda-providers-dialog .soda-provider-external { display: inline-flex; align-items: center; gap: 8px; }
+html[data-theme^="soda-"] body .soda-providers-dialog .soda-provider-error p { margin: 0 0 8px; }
+html[data-theme^="soda-"] body .soda-providers-dialog .soda-providers-content > .soda-provider-error { margin-bottom: 12px; }
+html[data-theme^="soda-"] body .soda-providers-dialog .soda-providers-content > [role="status"] { margin: 0 0 10px; }
+html[data-theme^="soda-"] body .soda-providers-dialog .soda-provider-refreshing:empty { display: none; }
+html[data-theme^="soda-"] body .soda-providers-dialog :focus-visible { outline: 2px solid var(--soda-page-focus); outline-offset: 2px; }
+html[data-theme^="soda-"] body .soda-providers-dialog h2:focus-visible { outline: none !important; }
+@media (max-width: 480px) { html[data-theme^="soda-"] body .soda-providers-dialog .soda-providers-head, html[data-theme^="soda-"] body .soda-providers-dialog .soda-providers-content { padding-inline: 16px; } }

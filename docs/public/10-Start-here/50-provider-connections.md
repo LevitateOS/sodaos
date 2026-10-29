@@ -7,10 +7,10 @@ Provider connections are account-owned, encrypted broker records. Their owners c
 ## Enroll or reconnect an account
 
 Soda supports Codex ChatGPT and Muse Code subscription device sign-in. From a
-signed-in page, choose **AI providers** in the navigation to open the
-**Providers** dialog. The control may take you to the Feed to open that dialog.
+signed-in page, choose **AI accounts** (the robot icon) in the navigation to
+open the **AI accounts** dialog on the current page.
 Choose the provider and complete its native device sign-in. Confirm its status
-is **Connected**, rather than **Awaiting sign-in**, before launching the
+is **Connected**, rather than **Waiting for you**, before launching the
 corresponding CLI.
 
 When more than one authorized connection is available, select the intended connection for the run. If the provider rejects a credential or requires renewed sign-in, reconnect that account through the same controls.

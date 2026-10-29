@@ -27,7 +27,7 @@ function isPageMount(context: ExtensionMountContext): boolean {
 }
 
 function isPanelMount(context: ExtensionMountContext): boolean {
-  return context.panelId === 'workspace' && !context.pageId;
+  return (context.panelId === 'workspace' || context.panelId === 'providers') && !context.pageId;
 }
 
 function validateMountContext(context: ExtensionMountContext): void {

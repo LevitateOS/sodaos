@@ -5,9 +5,12 @@ import {readFile} from 'node:fs/promises';
 test('the manifest declares no global Workspace page or panel', async () => {
   const manifest = JSON.parse(
     await readFile(new URL('../../system/containers/extension/extension.json', import.meta.url), 'utf8')
-  ) as {pages: Array<{id: string; title: string}>; panels?: unknown[]};
+  ) as {pages: Array<{id: string; title: string}>; panels?: Array<{id: string}>};
   assert(!manifest.pages.some((page) => page.id === 'spaces' || page.title === 'Workspace'));
-  assert.equal(manifest.panels, undefined);
+  assert.deepEqual(
+    manifest.panels?.map((panel) => panel.id),
+    ['providers']
+  );
 });
 
 test('shared Workspace entry returns a real MountHandle without host-ancestor workarounds', async () => {

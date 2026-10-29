@@ -67,7 +67,8 @@ func allowedContribution(request extensions.ContributionRequest) bool {
 			return false
 		}
 	}
-	return contribution.Kind == "panel" && contribution.Scope == "panel" && contribution.ID == "workspace"
+	return contribution.Kind == "panel" && contribution.Scope == "panel" &&
+		(contribution.ID == "workspace" || contribution.ID == "providers")
 }
 
 func main() {

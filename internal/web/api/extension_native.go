@@ -136,12 +136,26 @@ func extensionProductContribution(path string, contribution extensions.Contribut
 	if path == "/api/settings/tailnet" || strings.HasPrefix(path, "/api/settings/tailnet/") {
 		return auth.ExtensionContribution("tailnet", contribution)
 	}
+	// The AI accounts panel mounts on every page, so it reaches only the
+	// person's own provider connections and sign-ins.
+	if extensionProvidersPanelContribution(contribution) {
+		for _, family := range []string{"/api/identity/connections", "/api/identity/enrollments"} {
+			if path == family || strings.HasPrefix(path, family+"/") {
+				return true
+			}
+		}
+		return false
+	}
 	return extensionPageContribution(contribution, "spaces") || extensionPageContribution(contribution, "feed") || extensionPageContribution(contribution, "applications") ||
 		contribution.Kind == "page" && (contribution.ID == "repository-feed" || contribution.ID == "repository-settings") && contribution.Scope == "repository" || extensionWorkspacePanelContribution(contribution)
 }
 
 func extensionPageContribution(contribution extensions.Contribution, id string) bool {
 	return contribution.Kind == "page" && contribution.Scope == "global" && contribution.ID == id
+}
+
+func extensionProvidersPanelContribution(contribution extensions.Contribution) bool {
+	return contribution.Kind == "panel" && contribution.ID == "providers" && contribution.Scope == "panel"
 }
 
 func extensionWorkspacePanelContribution(contribution extensions.Contribution) bool {

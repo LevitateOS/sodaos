@@ -3,7 +3,7 @@
      apart from the element parts in custom/soda/places). The derivation
      below is a copy of the one in custom/soda/places; keep them identical.
      Parts: "issues-active" and "settings-active" print "active " for the
-     header class; "feed-url" prints the repository's SodaOS Feed address. */ -}}
+     header class. */ -}}
 {{- $p := .Page -}}{{- $part := .Part -}}
 {{- $soda := "" -}}{{- $sodaExtension := "" -}}{{- $named := false -}}
 {{- with $p.ExtensionPages}}{{range index . "repository"}}{{if eq .ID "repository-feed" -}}
@@ -30,6 +30,4 @@
 	{{- if and $issues (StringUtils.HasPrefix $here $issues)}}active {{end -}}
 {{- else if eq $part "settings-active" -}}
 	{{- if and $settings (StringUtils.HasPrefix $here $settings)}}active {{end -}}
-{{- else if eq $part "feed-url" -}}
-	{{- $feed -}}
 {{- end -}}

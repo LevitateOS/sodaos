@@ -991,8 +991,6 @@ html[data-theme^="soda-"] body .soda-feed .soda-feed-utility:hover { background:
    the page follows the system theme. Keep these shared controls readable. */
 html[data-theme^="soda-"] body #navbar :is(.item, .item > a):not(.active):not(.disabled) { color: var(--soda-page-text) !important; }
 html[data-theme^="soda-"] body .soda-repository-header .active.item { color: var(--soda-page-link) !important; }
-html[data-theme^="soda-"] body soda-providers > .ui.basic.button,
-html[data-theme^="soda-"] body .soda-providers-dialog > header .ui.basic.button { background: var(--soda-page-surface) !important; color: var(--soda-page-text) !important; border: 2px solid var(--soda-page-text); }
 html[data-theme^="soda-"] body .soda-repository-header .ui.button:not(.disabled):not(:disabled) { color: var(--soda-page-text) !important; background: transparent; }
 
 /* SodaOS repository places (soda-repository-entry.ts). The place bar shows

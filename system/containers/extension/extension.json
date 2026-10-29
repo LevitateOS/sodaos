@@ -26,6 +26,9 @@
     {"id": "feed", "route": "feed", "title": "Feed", "scope": "global", "entry": "soda-feed-entry.js"},
     {"id": "applications", "route": "applications", "title": "Apps", "scope": "global", "entry": "soda-feed-entry.js"}
   ],
+  "panels": [
+    {"id": "providers", "title": "AI accounts", "entry": "soda-providers-entry.js"}
+  ],
   "capabilities": [
     "native.actor.read",
     "native.repository.read",

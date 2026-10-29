@@ -7,7 +7,6 @@ import type {SavedRequest, IntentPlanStatus} from './sodaspaces-intent-response.
 import {renderProjectWork} from './sodaspaces-project-work-view.js';
 import {SodaFactoryVerificationAllowance} from './sodaspaces-factory-verification-allowance.js';
 import './sodaspaces-factory-feed.js';
-import './soda-providers.js';
 import './sodaspaces-factory-acceptance.js';
 import './sodaspaces-factory-context-resolution.js';
 import type {SodaFactoryContextResolution} from './sodaspaces-factory-context-resolution.js';

@@ -122,6 +122,9 @@
       "entry": "soda-feed-entry.js"
     }
   ],
+  "panels": [
+    {"id": "providers", "title": "AI accounts", "entry": "soda-providers-entry.js"}
+  ],
   "capabilities": [
     "native.actor.read",
     "native.repository.read",

@@ -4,8 +4,8 @@
 use crate::providers::resolution::BoundBinary;
 use crate::store::Store;
 use crate::wire::{provider_valid, Connection, Enrollment, Error, Lease};
-use std::collections::HashMap;
-use std::sync::Mutex;
+use std::collections::{HashMap, HashSet};
+use std::sync::{Arc, Mutex};
 
 pub trait EnrollmentSession: Send {
     fn snapshot(&self) -> Enrollment;
@@ -102,9 +102,13 @@ pub(crate) struct EnrollmentEntry {
 
 pub(crate) struct State {
     pub(crate) store: Store,
-    pub(crate) providers: HashMap<String, Box<dyn Provider>>,
+    /// Shared so a slow provider start runs without the controller lock.
+    pub(crate) providers: HashMap<String, Arc<dyn Provider>>,
     pub(crate) runtime: Box<dyn Runtime>,
     pub(crate) enrollments: HashMap<String, EnrollmentEntry>,
+    /// Owner/provider pairs whose provider start is running unlocked; a
+    /// second start for the same pair is refused as busy until it settles.
+    pub(crate) starting: HashSet<(i64, String)>,
     /// Live lease pins against provider-store cleanup: lease id to the
     /// exact bound bundle. Present only for store-mode providers; the pin
     /// is released once no live lease row references the bundle, so a
@@ -135,9 +139,13 @@ impl Controller {
         Ok(Controller {
             state: Mutex::new(State {
                 store,
-                providers,
+                providers: providers
+                    .into_iter()
+                    .map(|(id, provider)| (id, Arc::from(provider)))
+                    .collect(),
                 runtime,
                 enrollments: HashMap::new(),
+                starting: HashSet::new(),
                 lease_refs: Mutex::new(HashMap::new()),
             }),
         })

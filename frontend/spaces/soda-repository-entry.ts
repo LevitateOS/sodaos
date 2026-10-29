@@ -27,7 +27,6 @@ import {mountKnowledgePlace} from './soda-place-knowledge.js';
 import {mountTerminalsPlace} from './soda-place-terminals.js';
 import {mountSettingsPlace} from './soda-place-settings.js';
 import {mountFactoryStatusPlace} from './soda-place-factory-status.js';
-import './soda-providers.js';
 
 interface PlaceDefinition {
   title: string;
@@ -173,10 +172,9 @@ export function mount(root: HTMLElement, context: ExtensionMountContext): MountH
   const page = document.createElement('div');
   page.className = 'soda-feed-page soda-repository-page';
   const bar = document.createElement('div');
-  const providers = document.createElement('div');
   const viewsLayer = document.createElement('div');
   viewsLayer.className = 'soda-place-views';
-  page.append(bar, providers, viewsLayer);
+  page.append(bar, viewsLayer);
   root.append(page);
 
   let place: Place | undefined;
@@ -189,10 +187,6 @@ export function mount(root: HTMLElement, context: ExtensionMountContext): MountH
     render(
       settingsOnly || headerHasSodaTabs(root) ? html`` : placeBar(placeBarItems(places, prefix, viewer, place)),
       bar
-    );
-    render(
-      html`<soda-providers .externalTrigger=${true} .transport=${visible ? transport : undefined}></soda-providers>`,
-      providers
     );
   };
 
@@ -368,7 +362,6 @@ export function mount(root: HTMLElement, context: ExtensionMountContext): MountH
       retired = true;
       releaseAll();
       render(html``, bar);
-      render(html``, providers);
       page.remove();
       styles.forEach((el) => el.remove());
       transport.dispose();
