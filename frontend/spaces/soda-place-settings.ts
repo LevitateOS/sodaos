@@ -91,6 +91,11 @@ export const mountSettingsPlace: PlaceMount = (host, context, initial) => {
         page: true,
         settings: true,
         place: true,
+        placeLinks: {
+          terminals: context.places.terminals(),
+          network: context.places.settings('network'),
+          navigate: (path) => context.navigate(path),
+        },
         transport: context.transport,
         forgejoPrefix: context.prefix,
       });

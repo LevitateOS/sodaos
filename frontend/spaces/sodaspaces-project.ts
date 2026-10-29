@@ -21,7 +21,14 @@ import {
   renderRepositoryContext,
   renderViewTabs,
 } from './sodaspaces-project-settings-view.js';
-import type {Lifecycle, SettingsViewInput, View} from './sodaspaces-project-settings-view.js';
+import type {
+  EnvironmentOperation,
+  EnvironmentResult,
+  Lifecycle,
+  PlaceLinks,
+  SettingsViewInput,
+  View,
+} from './sodaspaces-project-settings-view.js';
 import {views} from './sodaspaces-project-settings-view.js';
 import {refresh as runRefresh} from './sodaspaces-project-refresh.js';
 import type {RefreshInput} from './sodaspaces-project-refresh.js';
@@ -72,6 +79,8 @@ export interface ProjectContext {
    * stay out of this presentation.
    */
   place?: boolean;
+  /** With `place`: where Terminals and Network settings live. */
+  placeLinks?: PlaceLinks;
   transport: PreparedExtensionMount;
   forgejoPrefix?: string;
 }
@@ -85,6 +94,9 @@ function viewFromTabKey(key: string, current: View): View | undefined {
 
 export class SodaProjectControls extends LitElement {
   static properties = {
+    operation: {state: true},
+    operationResult: {state: true},
+    reads: {state: true},
     presentation: {state: true},
     acceptedRequest: {state: true},
     networkReview: {state: true},
@@ -229,6 +241,8 @@ export class SodaProjectControls extends LitElement {
     this.observedOS = undefined;
     this.osStatus = '';
     this.status = 'Refresh to inspect your shared environment.';
+    this.operation = this.operationResult = undefined;
+    this.reads = 0;
     this.outcome = this.repository = this.repositoryName = this.repositoryURL = this.draft = '';
     this.environment =
       this.detail =
@@ -299,6 +313,40 @@ export class SodaProjectControls extends LitElement {
     return this.active(epoch) && !this.closest('[hidden], [inert]') && this.selected === target;
   }
   // Busy is checked synchronously, not only via Lit's eventually updated disabled attribute.
+  /** The environment operation in flight, for the settings page's state machine. */
+  declare private operation: EnvironmentOperation | undefined;
+  /** How the last tracked operation ended; cleared when the next one starts. */
+  declare private operationResult: EnvironmentResult | undefined;
+  /** Completed status reads; 0 until the first one finishes. */
+  declare private reads: number;
+
+  /** Run an environment operation so the page can say what is happening and how it ended. */
+  private track(kind: EnvironmentOperation['kind'], action: () => void | Promise<void>) {
+    return async () => {
+      this.operation = {kind, since: Date.now()};
+      this.operationResult = undefined;
+      if (kind !== 'refresh' && kind !== 'inspect') {
+        // A refused or early-returning command must not inherit an older failure.
+        this.outcomeNeedsAttention = false;
+        this.outcome = '';
+      }
+      const tick = window.setInterval(() => this.requestUpdate(), 1000);
+      try {
+        await action();
+      } finally {
+        window.clearInterval(tick);
+        this.operation = undefined;
+        if (kind === 'refresh') this.reads++;
+        this.operationResult = {
+          kind,
+          // A failed read clears the repository; other failures flag the outcome.
+          failed: kind === 'refresh' ? !this.repository : kind !== 'inspect' && this.outcomeNeedsAttention,
+          message: kind === 'refresh' ? this.status : this.outcome,
+        };
+      }
+    };
+  }
+
   private command(event: Event, action: () => void | Promise<void>) {
     const button = event.currentTarget;
     if (
@@ -411,7 +459,21 @@ export class SodaProjectControls extends LitElement {
       ${renderRepositoryContext(this.settingsViewInput())} ${renderViewTabs(this.settingsViewInput())}
       ${renderEnvironmentView(this.settingsViewInput())} ${renderAccessView(this.settingsViewInput())}
       ${renderNetworkView(this.settingsViewInput())} ${renderFactoryView(this.settingsViewInput())}
-      ${renderProjectStatus(this.repository, this.sessionCaption(), this.projectAccountCaption(), this.status, this.outcome)}
+      ${
+        // The settings place names the repository and account itself; only results remain,
+        // and the Environment section shows its own notices.
+        this.binding?.place
+          ? this.selected === 'environment'
+            ? ''
+            : renderProjectStatus('', '', '', this.status, this.outcome)
+          : renderProjectStatus(
+              this.repository,
+              this.sessionCaption(),
+              this.projectAccountCaption(),
+              this.status,
+              this.outcome
+            )
+      }
       ${this.renderIdentity()}
     </section>`;
   }
@@ -441,6 +503,7 @@ export class SodaProjectControls extends LitElement {
       readBindingSettings: () => !!this.binding?.settings || this.presentation === 'settings',
       readBindingPage: () => !!this.binding?.page,
       readBindingPlace: () => !!this.binding?.place,
+      readPlaceLinks: () => this.binding?.placeLinks,
       readBindingRepository: () => this.binding?.repositoryId || '',
       readFactoryTransport: () => this.binding?.transport,
       readRepository: () => this.repository,
@@ -481,13 +544,35 @@ export class SodaProjectControls extends LitElement {
       setCreateNetworkEnabled: (enabled) => setCreateNetworkEnabled(this.networkInput(), enabled),
       selectProfile: (value) => this.onSelectProfile(value),
       setUseSavedKeys: (checked) => setUseSavedKeys(this.accessInput(), checked),
+      readOperation: () => this.operation,
+      readOperationResult: () => this.operationResult,
+      readReads: () => this.reads,
+      dismissOperationResult: () => {
+        this.operationResult = undefined;
+      },
       requestRefresh: (event) => this.command(event, () => this.refresh()),
-      requestCreate: (event) => this.command(event, () => createProject(this.requestInput())),
+      requestCreate: (event) =>
+        this.command(
+          event,
+          this.track('create', () => createProject(this.requestInput()))
+        ),
       requestJoin: (event) => this.command(event, () => joinEnvironment(this.accessInput())),
-      requestStart: (event) => this.command(event, () => changeLifecycle(this.runtimeInput(), false)),
-      requestStop: (event) => this.command(event, () => changeLifecycle(this.runtimeInput(), true)),
+      requestStart: (event) =>
+        this.command(
+          event,
+          this.track('start', () => changeLifecycle(this.runtimeInput(), false))
+        ),
+      requestStop: (event) =>
+        this.command(
+          event,
+          this.track('stop', () => changeLifecycle(this.runtimeInput(), true))
+        ),
       setStopConfirmed: (checked) => setStopConfirmed(this.runtimeInput(), checked),
-      requestInspectOS: (event) => this.command(event, () => inspectOS(this.runtimeInput())),
+      requestInspectOS: (event) =>
+        this.command(
+          event,
+          this.track('inspect', () => inspectOS(this.runtimeInput()))
+        ),
       reloadPage: (event) => this.onReloadPage(event),
       copyConnection: () => {
         void copyConnection(this.connectionInput());
@@ -672,7 +757,7 @@ export class SodaProjectControls extends LitElement {
       'Page context changed. Reload the full repository page; no action was replayed or undone. A dispatched operation may still have completed.';
   }
   async refresh() {
-    await runRefresh(this.refreshInput());
+    await this.track('refresh', () => runRefresh(this.refreshInput()))();
   }
   private requestInput(): RequestInput {
     return {

@@ -10,6 +10,7 @@ import type {CreationProfile, Detail, Environment, OSObservation} from './sodasp
 import type {KeyPreview, ProfileKeys, SavedKey} from './sodaspaces-keys-response.js';
 import type {ProjectNetwork, ProjectOptions} from '../tailnet/soda-tailnet-response.js';
 import type {PreparedExtensionMount} from './soda-extension.js';
+import {renderEnvironmentPlace} from './soda-settings-environment-view.js';
 
 export const views = ['environment', 'access', 'network', 'factory'] as const;
 export type View = (typeof views)[number];
@@ -84,7 +85,31 @@ function lifecycleCaption(lifecycle: Lifecycle | undefined): string {
   return `Running: ${lifecycle.running ? 'yes' : 'no'}; starts on host boot: ${lifecycle.boot ? 'yes' : 'no'}. Start restores boot start; Stop disables it.`;
 }
 
+/** Links the Settings → SodaOS place supplies to the views it hosts. */
+export interface PlaceLinks {
+  terminals: string;
+  network: string;
+  navigate: (path: string) => void;
+}
+
+/** An environment operation the project controls are running. */
+export interface EnvironmentOperation {
+  kind: 'refresh' | 'create' | 'start' | 'stop' | 'inspect';
+  since: number;
+}
+/** How a tracked environment operation ended. */
+export interface EnvironmentResult {
+  kind: EnvironmentOperation['kind'];
+  failed: boolean;
+  message: string;
+}
+
 export interface SettingsViewInput {
+  readPlaceLinks: () => PlaceLinks | undefined;
+  readOperation: () => EnvironmentOperation | undefined;
+  readOperationResult: () => EnvironmentResult | undefined;
+  readReads: () => number;
+  dismissOperationResult: () => void;
   readBindingSettings: () => boolean;
   readBindingPage: () => boolean;
   /** Settings → SodaOS place: no tablist, link row or personal key editor. */
@@ -262,6 +287,7 @@ function renderCreateOwnerOnly(input: SettingsViewInput) {
 }
 
 export function renderEnvironmentView(input: SettingsViewInput) {
+  if (input.readBindingPlace()) return renderEnvironmentPlace(input);
   return html`<section
     id=${'soda-project-' + input.readBindingRepository() + '-environment'}
     class="soda-spaces-view"
@@ -349,25 +375,25 @@ export function renderAccessView(input: SettingsViewInput) {
 // "Your development keys": personal, so Settings → SodaOS leaves it to Terminals.
 function renderPersonalKeys(input: SettingsViewInput) {
   return renderKeys(
-      {
-        saved: input.readSavedKeys(),
-        preview: input.readKeyPreview(),
-        joined: !!input.readDetailLogin(),
-        executionAllowed: input.readExecutionAllowed(),
-        running: input.isRunning(),
-        blocked: input.isBlocked(),
-        draft: input.readDraft(),
-        emptyConfirmed: input.readEmptyConfirmed(),
-      },
-      {
-        remove: (event, key) => input.removeSavedKey(event, key),
-        draft: (value) => input.setDraft(value),
-        save: (event) => input.requestSaveKey(event),
-        review: (event) => input.requestReviewKeys(event),
-        confirmEmpty: (checked) => input.setConfirmEmpty(checked),
-        apply: (event) => input.requestApplyKeys(event),
-      }
-    );
+    {
+      saved: input.readSavedKeys(),
+      preview: input.readKeyPreview(),
+      joined: !!input.readDetailLogin(),
+      executionAllowed: input.readExecutionAllowed(),
+      running: input.isRunning(),
+      blocked: input.isBlocked(),
+      draft: input.readDraft(),
+      emptyConfirmed: input.readEmptyConfirmed(),
+    },
+    {
+      remove: (event, key) => input.removeSavedKey(event, key),
+      draft: (value) => input.setDraft(value),
+      save: (event) => input.requestSaveKey(event),
+      review: (event) => input.requestReviewKeys(event),
+      confirmEmpty: (checked) => input.setConfirmEmpty(checked),
+      apply: (event) => input.requestApplyKeys(event),
+    }
+  );
 }
 
 function renderForgejoKeyReview(input: SettingsViewInput) {
