@@ -20,7 +20,7 @@ use super::{
 const HARNESS_TRANSFER_STDOUT_LIMIT: usize = 64 * 1024;
 const HARNESS_TRANSFER_STDERR_LIMIT: usize = 1024 * 1024;
 
-pub(super) fn run_harness_pipeline(
+pub(crate) fn run_harness_pipeline(
     exec: &dyn Executor,
     tar: &str,
     podman: &str,

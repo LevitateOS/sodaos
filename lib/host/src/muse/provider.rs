@@ -24,7 +24,9 @@ use std::path::PathBuf;
 /// the launch semantics of `soda_provider_tools::resolve::resolve_new` but
 /// returns the admitted `Selection` itself, so digest and version stay paired
 /// from one value. The moving current record is never re-read afterwards.
-fn fresh_selection() -> Result<soda_provider_tools::Selection, soda_provider_tools::Error> {
+fn fresh_selection(
+    provider: super::LaunchProvider,
+) -> Result<soda_provider_tools::Selection, soda_provider_tools::Error> {
     use soda_provider_tools::{config, refresh, store};
     let root = config::store_root();
     let ttl = config::check_ttl();
@@ -32,25 +34,18 @@ fn fresh_selection() -> Result<soda_provider_tools::Selection, soda_provider_too
         .duration_since(std::time::UNIX_EPOCH)
         .map(|d| d.as_secs())
         .unwrap_or(0);
-    let stored = store::read_selection(&root, soda_provider_tools::Provider::Muse)?;
+    let stored = store::read_selection(&root, provider.store())?;
     let due = match &stored {
         None => true,
         Some(selection) => now.saturating_sub(selection.checked_at_secs) > ttl.as_secs(),
     };
     let selection = if due {
-        refresh::refresh(soda_provider_tools::Provider::Muse)?
+        refresh::refresh(provider.store())?
     } else {
         stored.expect("selection exists when refresh is not due")
     };
-    match &selection.freshness {
-        store::Freshness::Current | store::Freshness::UpdateFailed { .. } => Ok(selection),
-        store::Freshness::Stale { latest } => Err(soda_provider_tools::Error::blocked(format!(
-            "known newer muse {latest} blocks new muse work; refresh before launching",
-        ))),
-        store::Freshness::Unknown { reason } => Err(soda_provider_tools::Error::blocked(format!(
-            "no usable muse selection for new work ({reason})",
-        ))),
-    }
+    gate_snapshot(provider, &selection)?;
+    Ok(selection)
 }
 
 /// One coherent admitted snapshot for a NEW invocation sequence: the gated
@@ -71,17 +66,17 @@ pub struct ProviderSnapshot {
 /// store lock, then confirm no concurrent admission replaced it in between.
 /// `Stale` (a newer release is known but unadmitted) refuses visibly so the
 /// operator refreshes; `Unknown` or an unverifiable bundle denies.
-pub fn fresh_provider_snapshot() -> Result<ProviderSnapshot, String> {
+pub fn fresh_provider_snapshot(
+    provider: super::LaunchProvider,
+) -> Result<ProviderSnapshot, String> {
     // Shared fresh authority: read, refresh when the check is due, gate. An
     // indefinitely old `Current` performs the upstream check here instead of
     // launching stale bytes; `Unknown` or known-newer fails closed.
-    let first = fresh_selection().map_err(map_store_error)?;
+    let first = fresh_selection(provider).map_err(map_store_error)?;
     let root = soda_provider_tools::config::store_root();
-    let (executable, token) = soda_provider_tools::resolve::resolve_pinned(
-        soda_provider_tools::Provider::Muse,
-        &first.release.digest,
-    )
-    .map_err(map_store_error)?;
+    let (executable, token) =
+        soda_provider_tools::resolve::resolve_pinned(provider.store(), &first.release.digest)
+            .map_err(map_store_error)?;
     let snapshot = ProviderSnapshot {
         selection: first,
         executable,
@@ -91,9 +86,8 @@ pub fn fresh_provider_snapshot() -> Result<ProviderSnapshot, String> {
     // (new digest, or the same digest flipped Stale by a failed check while
     // a newer release is known) fails this invocation closed. The next
     // invocation snapshots the new world. Never stage drifted bytes.
-    let live =
-        soda_provider_tools::store::read_selection(&root, soda_provider_tools::Provider::Muse)
-            .map_err(|_| terminal::err_denied())?;
+    let live = soda_provider_tools::store::read_selection(&root, provider.store())
+        .map_err(|_| terminal::err_denied())?;
     let current = match live {
         Some(current) => current,
         None => {
@@ -108,7 +102,7 @@ pub fn fresh_provider_snapshot() -> Result<ProviderSnapshot, String> {
         release_provider_snapshot(snapshot);
         return Err(terminal::err_denied());
     }
-    if let Err(blocked) = gate_snapshot(&current) {
+    if let Err(blocked) = gate_snapshot(provider, &current) {
         release_provider_snapshot(snapshot);
         return Err(map_store_error(blocked));
     }
@@ -121,16 +115,18 @@ pub fn fresh_provider_snapshot() -> Result<ProviderSnapshot, String> {
 /// (no newer release confirmed) may run their retained bytes; `Stale` and
 /// `Unknown` block.
 fn gate_snapshot(
+    provider: super::LaunchProvider,
     selection: &soda_provider_tools::store::Selection,
 ) -> Result<(), soda_provider_tools::Error> {
     use soda_provider_tools::store::Freshness;
+    let name = provider.id();
     match &selection.freshness {
         Freshness::Current | Freshness::UpdateFailed { .. } => Ok(()),
         Freshness::Stale { latest } => Err(soda_provider_tools::Error::blocked(format!(
-            "known newer muse {latest} blocks new muse work; refresh before launching",
+            "known newer {name} {latest} blocks new {name} work; refresh before launching",
         ))),
         Freshness::Unknown { reason } => Err(soda_provider_tools::Error::blocked(format!(
-            "no usable muse selection for new work ({reason})",
+            "no usable {name} selection for new work ({reason})",
         ))),
     }
 }
@@ -162,13 +158,17 @@ impl ProviderSnapshot {
 /// `stop_execution` confirms retirement, never when cleanup is
 /// unconfirmed. Idempotent (`NotFound` is `Ok`), so an accidental second
 /// release is safe; an empty token name is a no-op for unstamped runs.
-pub fn release_provider_ref(provider_digest: &str, ref_token: &str) {
+pub fn release_provider_ref(
+    provider: super::LaunchProvider,
+    provider_digest: &str,
+    ref_token: &str,
+) {
     if ref_token.is_empty() {
         return;
     }
     let token = soda_provider_tools::resolve::RefToken {
         token: ref_token.to_string(),
-        provider: soda_provider_tools::Provider::Muse,
+        provider: provider.store(),
         digest: provider_digest.to_string(),
     };
     let _ = soda_provider_tools::resolve::release(&token);
@@ -177,11 +177,14 @@ pub fn release_provider_ref(provider_digest: &str, ref_token: &str) {
 /// Exact retained executable for EXISTING work by bundle digest (T00
 /// `resolve_existing`). Fails closed when that bundle is no longer
 /// admitted; callers must not fall back to the current selection here.
-pub fn retained_muse_executable(digest: &str) -> Result<PathBuf, String> {
+pub fn retained_muse_executable(
+    provider: super::LaunchProvider,
+    digest: &str,
+) -> Result<PathBuf, String> {
     if digest.len() != 64 || !digest.bytes().all(|b| b.is_ascii_hexdigit()) {
         return Err(terminal::err_denied());
     }
-    soda_provider_tools::resolve::resolve_existing(soda_provider_tools::Provider::Muse, digest)
+    soda_provider_tools::resolve::resolve_existing(provider.store(), digest)
         .map_err(|_| terminal::err_denied())
 }
 
@@ -194,4 +197,43 @@ fn map_store_error(err: soda_provider_tools::Error) -> String {
         Store::Blocked(_) => terminal::err_stale(),
         _ => terminal::err_denied(),
     }
+}
+
+/// Digest of the snapshot's executable file. Muse releases are the
+/// executable itself; a Codex release is a bundle whose inventory records
+/// `bin/codex`, and the inventory must name the admitted release.
+pub fn snapshot_executable_digest(
+    provider: super::LaunchProvider,
+    snapshot: &ProviderSnapshot,
+) -> Result<String, String> {
+    if provider == super::LaunchProvider::Muse {
+        return Ok(snapshot.selection.release.digest.clone());
+    }
+    let bundle = snapshot_bundle(snapshot)?;
+    let body = std::fs::read(bundle.join("inventory.json")).map_err(|_| terminal::err_denied())?;
+    let inventory: serde_json::Value =
+        serde_json::from_slice(&body).map_err(|_| terminal::err_denied())?;
+    if inventory["digest"].as_str() != Some(snapshot.selection.release.digest.as_str()) {
+        return Err(terminal::err_denied());
+    }
+    let relpath = provider.store().executable_relpath();
+    inventory["entries"]
+        .as_array()
+        .into_iter()
+        .flatten()
+        .find(|entry| entry["path"].as_str() == Some(relpath))
+        .and_then(|entry| entry["sha256"].as_str())
+        .filter(|sha| sha.len() == 64 && sha.bytes().all(|b| b.is_ascii_hexdigit()))
+        .map(str::to_ascii_lowercase)
+        .ok_or_else(terminal::err_denied)
+}
+
+/// Bundle directory holding the snapshot's executable.
+pub fn snapshot_bundle(snapshot: &ProviderSnapshot) -> Result<PathBuf, String> {
+    snapshot
+        .executable
+        .parent()
+        .and_then(|bin| bin.parent())
+        .map(PathBuf::from)
+        .ok_or_else(terminal::err_denied)
 }

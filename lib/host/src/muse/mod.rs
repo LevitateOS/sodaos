@@ -14,6 +14,10 @@
 //! [`MuseExecution`] record; the argv, delivery, control and finish steps
 //! are separate methods so routes can stage them around process spawn.
 
+mod launch_provider;
+
+pub use self::launch_provider::LaunchProvider;
+
 mod wire;
 
 pub use self::wire::{
@@ -27,7 +31,10 @@ pub use self::args::muse_arguments;
 
 mod connection;
 
-pub use self::connection::{muse_connection_authorized, select_muse_connection, MuseConnection};
+pub use self::connection::{
+    connection_authorized, muse_connection_authorized, select_connection, select_muse_connection,
+    MuseConnection,
+};
 
 mod runtime_types;
 
@@ -46,7 +53,9 @@ pub use self::validate::{
 
 mod argv;
 
-pub use self::argv::{muse_command_argv, unit_active_argv, unit_invocation_argv};
+pub use self::argv::{
+    launch_command_argv, muse_command_argv, unit_active_argv, unit_invocation_argv,
+};
 
 // ---------- runtime ----------
 

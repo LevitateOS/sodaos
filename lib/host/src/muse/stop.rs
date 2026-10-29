@@ -1,11 +1,56 @@
 use std::time::{Duration, Instant};
 
-use super::{sleep_until, unit_active_argv, unit_invocation_argv, MuseHooks, MuseRuntime};
+use super::{
+    sleep_until, unit_active_argv, unit_invocation_argv, LaunchProvider, MuseExecution, MuseHooks,
+    MuseRuntime,
+};
 use crate::domain;
 use crate::project::Executor;
 use crate::terminal::{self, Binding};
 
+/// Supervised guest unit of one recorded launch binding.
+pub(in crate::muse) fn binding_unit(binding: &Binding) -> String {
+    LaunchProvider::of_binding(binding)
+        .unwrap_or_default()
+        .unit(&binding.id)
+}
+
 impl<E: Executor, H: MuseHooks> MuseRuntime<E, H> {
+    /// Shell end: retire one execution and return its custody, then release
+    /// its retained bundle. A Codex credential rotates while it runs, so a
+    /// delivered Codex run stops its unit and lets the broker capture the
+    /// credential (`finish`) before its files retire; Muse retires locally
+    /// first. Under uncertainty the bundle reference is kept.
+    pub fn retire_execution(
+        &self,
+        execution: &MuseExecution,
+        deadline: Instant,
+    ) -> Result<(), String> {
+        let binding = &execution.binding;
+        let actor = execution.caller.actor;
+        let lease = &execution.lease.id;
+        let result =
+            if execution.provider == LaunchProvider::Codex && !binding.invocation_id.is_empty() {
+                let returned = self
+                    .stop_unit(binding, deadline)
+                    .and_then(|_| self.hooks.end(actor, lease, deadline));
+                // The broker's stop retires the files; this confirms it
+                // even when custody return failed.
+                let retired = self.retire_execution_files(binding, deadline);
+                returned.and(retired)
+            } else {
+                self.stop_execution(binding, actor, lease, true, deadline)
+            };
+        if result.is_ok() {
+            super::release_provider_ref(
+                execution.provider,
+                &execution.provider_digest,
+                &execution.provider_ref_token,
+            );
+        }
+        result
+    }
+
     /// `MuseRuntime.stopExecution`: stop the unit, verify its cgroup is
     /// gone, retire files, return custody.
     pub fn stop_execution(
@@ -16,8 +61,18 @@ impl<E: Executor, H: MuseHooks> MuseRuntime<E, H> {
         return_custody: bool,
         deadline: Instant,
     ) -> Result<(), String> {
+        self.stop_unit(binding, deadline)?;
+        self.retire_execution_files(binding, deadline)?;
+        if return_custody {
+            return self.hooks.end(actor, lease_id, deadline);
+        }
+        Ok(())
+    }
+
+    /// Stop the unit and confirm it is inactive with its cgroup gone.
+    fn stop_unit(&self, binding: &Binding, deadline: Instant) -> Result<(), String> {
         let container = binding.project.clone();
-        let unit = format!("soda-muse-{}.service", binding.id);
+        let unit = binding_unit(binding);
         let stop_result = self.guest_refs(
             &container,
             &[],
@@ -44,10 +99,6 @@ impl<E: Executor, H: MuseHooks> MuseRuntime<E, H> {
             )
             .map_err(|_| terminal::err_uncertain())?;
         }
-        self.retire_execution_files(binding, deadline)?;
-        if return_custody {
-            return self.hooks.end(actor, lease_id, deadline);
-        }
         Ok(())
     }
 
@@ -67,7 +118,7 @@ impl<E: Executor, H: MuseHooks> MuseRuntime<E, H> {
         if !terminal::valid_terminal_id(&binding.invocation_id) {
             return Err(terminal::err_stale());
         }
-        let unit = format!("soda-muse-{}.service", binding.id);
+        let unit = binding_unit(binding);
         let invocation = self
             .guest(
                 &binding.project,

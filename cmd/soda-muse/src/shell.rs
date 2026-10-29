@@ -1,4 +1,5 @@
 use super::paths::{go_join, go_strerror};
+use super::tool::Tool;
 use std::io;
 use std::os::unix::ffi::OsStrExt;
 use std::os::unix::io::AsRawFd;
@@ -23,7 +24,7 @@ pub(crate) fn shell_request(argv: &[String]) -> Result<ShellRequest, String> {
     // Go carries cwd bytes through JSON, replacing invalid UTF-8.
     let cwd = String::from_utf8_lossy(&cwd).into_owned();
     let home = env_lossy("HOME");
-    let connection_id = env_lossy("SODA_MUSE_CONNECTION");
+    let connection_id = env_lossy(Tool::current().connection_setting());
     let mut config_home = env_lossy("XDG_CONFIG_HOME");
     if config_home.is_empty() {
         if home.is_empty() {

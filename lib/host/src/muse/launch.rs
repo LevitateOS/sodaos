@@ -332,21 +332,8 @@ impl<E: Executor + Send + Sync + 'static, H: MuseHooks + Send + Sync + 'static> 
         control_cancel.store(true, Ordering::SeqCst);
         result = finish_supervisor(result, supervisor.join());
         let cleanup = Instant::now() + Duration::from_secs(30);
-        if self
-            .runtime
-            .stop_execution(
-                &execution.binding,
-                execution.caller.actor,
-                &execution.lease.id,
-                true,
-                cleanup,
-            )
-            .is_ok()
-        {
-            // Retirement confirmed: the exact staged bundle may now be
-            // collected once unreferenced elsewhere.
-            super::release_provider_ref(&execution.provider_digest, &execution.provider_ref_token);
-        } else {
+        // Retirement confirmed releases the exact staged bundle.
+        if self.runtime.retire_execution(&execution, cleanup).is_err() {
             // Retirement unconfirmed: preserve the reference (conservative
             // leak) so cleanup can never collect a possibly-live bundle.
             result = LaunchExit::cleanup_unconfirmed();
@@ -356,18 +343,7 @@ impl<E: Executor + Send + Sync + 'static, H: MuseHooks + Send + Sync + 'static> 
 
     fn denied_after_cleanup(&self, execution: &MuseExecution) -> LaunchExit {
         let cleanup = Instant::now() + Duration::from_secs(30);
-        if self
-            .runtime
-            .stop_execution(
-                &execution.binding,
-                execution.caller.actor,
-                &execution.lease.id,
-                true,
-                cleanup,
-            )
-            .is_ok()
-        {
-            super::release_provider_ref(&execution.provider_digest, &execution.provider_ref_token);
+        if self.runtime.retire_execution(execution, cleanup).is_ok() {
             LaunchExit::denied()
         } else {
             LaunchExit::cleanup_unconfirmed()

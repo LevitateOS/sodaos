@@ -338,7 +338,9 @@ fn open_backend(config: &config::Config) -> DaemonBackend {
             broker_socket: config.identity_socket.clone(),
             tailnet_image: config.tailnet_image.clone(),
             release_payload: config.release_payload.clone(),
-            muse: if config.muse_sha256.is_empty() {
+            // The launch runtime serves broker callbacks for every launcher
+            // run; legacy release pins never select bytes.
+            muse: if config.muse_sha256.is_empty() && config.muse_socket.is_empty() {
                 None
             } else {
                 Some(MuseConfig {

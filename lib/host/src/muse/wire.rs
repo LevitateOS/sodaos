@@ -77,6 +77,8 @@ impl<'de> Deserialize<'de> for NestedRegistration {
 /// Invocation preferences, never caller authority (`identity.LaunchRequest`).
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub struct LaunchRequest {
+    /// Provider CLI the launcher was invoked as: empty (Muse) or `codex`.
+    pub provider: String,
     pub home: String,
     pub register: Option<NestedRegistration>,
     pub config_home: String,
@@ -97,6 +99,12 @@ fn apply_launch_head_fields<'de, A>(
 where
     A: MapAccess<'de>,
 {
+    if key.eq_ignore_ascii_case("provider") {
+        if let Some(v) = map.next_value::<Option<String>>()? {
+            out.provider = v;
+        }
+        return Ok(true);
+    }
     if key.eq_ignore_ascii_case("home") {
         if let Some(v) = map.next_value::<Option<String>>()? {
             out.home = v;
@@ -223,6 +231,7 @@ impl<'de> Deserialize<'de> for LaunchRequest {
                     return Err(de::Error::unknown_field(
                         &key,
                         &[
+                            "provider",
                             "home",
                             "register",
                             "config_home",
@@ -371,9 +380,24 @@ fn launch_arguments_valid(args: &[String]) -> bool {
 }
 
 impl LaunchRequest {
+    /// Requested provider CLI; `None` for an unknown name.
+    pub fn launch_provider(&self) -> Option<super::LaunchProvider> {
+        match self.provider.as_str() {
+            "" | "muse" => Some(super::LaunchProvider::Muse),
+            "codex" => Some(super::LaunchProvider::Codex),
+            _ => None,
+        }
+    }
+
     /// `LaunchRequest.Validate()`.
     pub fn validate(&self) -> Result<(), String> {
+        if self.launch_provider().is_none() {
+            return Err(terminal::err_denied());
+        }
         if self.register.is_some() {
+            if !self.provider.is_empty() {
+                return Err(terminal::err_denied());
+            }
             return self.registration_valid();
         }
         if !launch_absolute_path(&self.cwd, false)

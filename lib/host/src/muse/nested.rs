@@ -244,7 +244,7 @@ impl<E: Executor, H: MuseHooks> MuseRuntime<E, H> {
         let mappings = std::fs::read_to_string(format!("/proc/{}/gid_map", peer.pid))
             .map_err(|_| terminal::err_denied())?;
         caller.gid = muse_mapped_uid(&mappings, peer.gid)?;
-        if !self.authorized_caller(&caller, peer, deadline) {
+        if !self.authorized_caller(super::LaunchProvider::Muse, &caller, peer, deadline) {
             return Err(terminal::err_denied());
         }
         Ok(caller)

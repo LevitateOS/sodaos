@@ -116,7 +116,13 @@ impl MuseHooks for FakeHooks {
             .push((actor, lease_id.to_string()));
         Ok(())
     }
-    fn authorize(&self, _actor: i64, _project: &str, _deadline: Instant) -> Result<(), String> {
+    fn authorize(
+        &self,
+        _provider: muse::LaunchProvider,
+        _actor: i64,
+        _project: &str,
+        _deadline: Instant,
+    ) -> Result<(), String> {
         Ok(())
     }
     fn nested_authorize(
@@ -129,6 +135,7 @@ impl MuseHooks for FakeHooks {
     }
     fn select(
         &self,
+        _provider: muse::LaunchProvider,
         _actor: i64,
         _project: &str,
         _selected: &str,
@@ -1012,7 +1019,8 @@ fn host_snapshot_performs_due_check() {
     let _g0 = EnvGuard::set("SODA_PROVIDERS_ROOT", root.to_str().unwrap());
     let _g1 = EnvGuard::set("SODA_PROVIDERS_CHANNEL", "review-invalid");
     let _g2 = EnvGuard::set("SODA_PROVIDERS_CHECK_TTL_SECS", "0");
-    let snap = muse::fresh_provider_snapshot().expect("expired selection checks, retains bytes");
+    let snap = muse::fresh_provider_snapshot(muse::LaunchProvider::Muse)
+        .expect("expired selection checks, retains bytes");
     assert_eq!(snap.selection.release.digest, release.digest);
     assert!(
         matches!(
@@ -1026,7 +1034,7 @@ fn host_snapshot_performs_due_check() {
     let empty = dir.join("empty");
     std::fs::create_dir_all(&empty).unwrap();
     unsafe { std::env::set_var("SODA_PROVIDERS_ROOT", &empty) };
-    assert!(muse::fresh_provider_snapshot().is_err());
+    assert!(muse::fresh_provider_snapshot(muse::LaunchProvider::Muse).is_err());
     cleanup(&dir);
 }
 
@@ -1051,7 +1059,8 @@ fn prepare_ignores_legacy_pins_restages_store() {
     let _g2 = EnvGuard::set("SODA_PROVIDERS_CHECK_TTL_SECS", "86400");
     let digest = release.digest.clone();
     // Predict the guest receipt: the snapshot resolves the same record.
-    let predicted = muse::fresh_provider_snapshot().expect("fixture snapshot");
+    let predicted =
+        muse::fresh_provider_snapshot(muse::LaunchProvider::Muse).expect("fixture snapshot");
     let receipt = serde_json::to_vec_pretty(&predicted.selection).unwrap();
     muse::release_provider_snapshot(predicted);
     let stale = "aa".repeat(32);
@@ -1079,9 +1088,10 @@ fn prepare_ignores_legacy_pins_restages_store() {
         container: "c".to_string(),
         ..Default::default()
     };
-    let snap = muse::fresh_provider_snapshot().expect("pinned runtime snapshots store");
+    let snap = muse::fresh_provider_snapshot(muse::LaunchProvider::Muse)
+        .expect("pinned runtime snapshots store");
     let staged = rt
-        .ensure_guest_provider(&caller, &snap, deadline())
+        .ensure_guest_provider(muse::LaunchProvider::Muse, &caller, &snap, deadline())
         .expect("legacy pins do not block store restage");
     assert_eq!(staged, digest);
     muse::release_provider_snapshot(snap);
@@ -1151,7 +1161,7 @@ fn host_execution_ref_survives_cleanup_until_released() {
 
     // Stage exactly like `prepare_execution`: snapshot, transfer the
     // reference out of the snapshot into the execution holder.
-    let mut snap = muse::fresh_provider_snapshot().expect("snapshot A");
+    let mut snap = muse::fresh_provider_snapshot(muse::LaunchProvider::Muse).expect("snapshot A");
     assert_eq!(snap.selection.release.digest, rel_a.digest);
     let digest_a = rel_a.digest.clone();
     let token = snap
@@ -1179,20 +1189,29 @@ fn host_execution_ref_survives_cleanup_until_released() {
     store::cleanup(&root).expect("cleanup runs");
     let bundle_a = root.join("bundles").join("muse").join(&digest_a);
     assert!(bundle_a.is_dir(), "held A bundle survives cleanup past B/C");
-    muse::retained_muse_executable(&digest_a).expect("held A still admitted");
+    muse::retained_muse_executable(muse::LaunchProvider::Muse, &digest_a)
+        .expect("held A still admitted");
 
     // Retire + release through the owner helper, then cleanup: the old
     // unreferenced A becomes collectable while current C is untouched.
     // An empty token is a no-op for unstamped runs.
-    muse::release_provider_ref(&digest_a, "");
+    muse::release_provider_ref(muse::LaunchProvider::Muse, &digest_a, "");
     assert!(bundle_a.is_dir(), "empty-token release touches nothing");
-    muse::release_provider_ref(&execution.provider_digest, &execution.provider_ref_token);
+    muse::release_provider_ref(
+        muse::LaunchProvider::Muse,
+        &execution.provider_digest,
+        &execution.provider_ref_token,
+    );
     // Release is idempotent: a second release is safe (NotFound is Ok).
-    muse::release_provider_ref(&execution.provider_digest, &execution.provider_ref_token);
+    muse::release_provider_ref(
+        muse::LaunchProvider::Muse,
+        &execution.provider_digest,
+        &execution.provider_ref_token,
+    );
     store::cleanup(&root).expect("cleanup runs after release");
     assert!(!bundle_a.exists(), "released A is collected");
     assert!(
-        muse::retained_muse_executable(&digest_a).is_err(),
+        muse::retained_muse_executable(muse::LaunchProvider::Muse, &digest_a).is_err(),
         "released A fails closed"
     );
     assert!(
@@ -1223,15 +1242,15 @@ fn host_execution_ref_released_on_reserve_failure_preserved_when_uncertain() {
 
     // Staged D, reservation failed: `prepare_execution` releases the
     // transferred reference on this path (no live run can need it).
-    let mut snap_d = muse::fresh_provider_snapshot().expect("snapshot D");
+    let mut snap_d = muse::fresh_provider_snapshot(muse::LaunchProvider::Muse).expect("snapshot D");
     let token_d = snap_d.take_ref_token().expect("snapshot carries a ref");
     muse::release_provider_snapshot(snap_d);
-    muse::release_provider_ref(&rel_d.digest, &token_d.token);
+    muse::release_provider_ref(muse::LaunchProvider::Muse, &rel_d.digest, &token_d.token);
 
     // Uncertain retirement for E: the owner preserves the reference.
     let (rel_e, _) = fixture_bundle(&root, "7.0.0-e");
     fixture_selection(&root, &rel_e, now, store::Freshness::Current);
-    let mut snap_e = muse::fresh_provider_snapshot().expect("snapshot E");
+    let mut snap_e = muse::fresh_provider_snapshot(muse::LaunchProvider::Muse).expect("snapshot E");
     let token_e = snap_e.take_ref_token().expect("snapshot carries a ref");
     muse::release_provider_snapshot(snap_e);
     // `stop_execution` returned Err (cleanup unconfirmed): NO release here.
@@ -1247,10 +1266,11 @@ fn host_execution_ref_released_on_reserve_failure_preserved_when_uncertain() {
     let bundle_e = root.join("bundles").join("muse").join(&rel_e.digest);
     assert!(!bundle_d.exists(), "reserve-failed D released, collected");
     assert!(bundle_e.is_dir(), "uncertain E preserved across cleanup");
-    muse::retained_muse_executable(&rel_e.digest).expect("uncertain E still admitted");
+    muse::retained_muse_executable(muse::LaunchProvider::Muse, &rel_e.digest)
+        .expect("uncertain E still admitted");
 
     // Late confirmation for E releases, and the next cleanup collects it.
-    muse::release_provider_ref(&rel_e.digest, &token_e.token);
+    muse::release_provider_ref(muse::LaunchProvider::Muse, &rel_e.digest, &token_e.token);
     store::cleanup(&root).expect("cleanup runs after late release");
     assert!(!bundle_e.exists(), "late-released E collected");
     assert!(

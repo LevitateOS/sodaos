@@ -1,5 +1,6 @@
 use super::paths::{errno_str, go_base, go_quote_rune, go_strerror, is_clean_absolute_path};
 use super::store_resolve::{enforce_receipt, resolve_muse_native};
+use super::tool::Tool;
 use std::ffi::CString;
 use std::fs;
 use std::time::{Duration, Instant};
@@ -19,11 +20,17 @@ pub(crate) fn execute(root: &str, cwd: &str, args: &[String]) -> (i32, Option<St
     if let Err(e) = await_admission(root) {
         return (1, Some(e));
     }
-    let state = match execution_state(root) {
-        Ok(s) => s,
-        Err(e) => return (1, Some(e)),
+    let tool = Tool::current();
+    let env = match tool {
+        Tool::Muse => match execution_state(root) {
+            Ok(state) => muse_environment(root, &state),
+            Err(e) => return (1, Some(e)),
+        },
+        Tool::Codex => match link_codex_home(root) {
+            Ok(()) => Vec::new(),
+            Err(e) => return (1, Some(e)),
+        },
     };
-    let env = muse_environment(root, &state);
     // The shared store's selected bundle wins over the staged binary; a
     // known-stale or unusable selection refuses instead of running old
     // bytes, and the staged receipt must agree with the staged file.
@@ -34,6 +41,11 @@ pub(crate) fn execute(root: &str, cwd: &str, args: &[String]) -> (i32, Option<St
     if let Err(e) = enforce_receipt(&binary_path) {
         return (1, Some(e));
     }
+    let env = if tool == Tool::Codex {
+        codex_environment(root, &binary_path)
+    } else {
+        env
+    };
     // execve only returns on failure; success replaces this process.
     let binary = match CString::new(binary_path) {
         Ok(binary) => binary,
@@ -44,7 +56,7 @@ pub(crate) fn execute(root: &str, cwd: &str, args: &[String]) -> (i32, Option<St
             )
         }
     };
-    let mut argv: Vec<CString> = vec![CString::new("muse").unwrap()];
+    let mut argv: Vec<CString> = vec![CString::new(tool.name()).unwrap()];
     for a in args {
         match CString::new(a.as_str()) {
             Ok(c) => argv.push(c),
@@ -156,6 +168,82 @@ pub(crate) fn muse_environment_with(
     ];
     for name in ["HOME", "USER", "LOGNAME", "TERM", "COLORTERM"] {
         if let Some(value) = lookup(name) {
+            if !value.is_empty() {
+                env.push(format!("{name}={value}"));
+            }
+        }
+    }
+    env
+}
+
+// Codex keeps its credential in the private, writable CODEX_HOME the host
+// staged; everything else there links back to the account's ~/.codex, so
+// config, sessions and history persist across runs.
+fn link_codex_home(root: &str) -> Result<(), String> {
+    let home = env_lossy_opt("HOME").unwrap_or_default();
+    if !is_clean_absolute_path(&home) {
+        return Err(String::from("codex needs an absolute $HOME"));
+    }
+    let persistent = format!("{home}/.codex");
+    let private = format!("{root}/codex");
+    ensure_dir(&persistent)?;
+    ensure_dir(&format!("{persistent}/sessions"))?;
+    let history = format!("{persistent}/history.jsonl");
+    if fs::symlink_metadata(&history).is_err() {
+        use std::os::unix::fs::OpenOptionsExt;
+        fs::OpenOptions::new()
+            .create(true)
+            .append(true)
+            .mode(0o600)
+            .open(&history)
+            .map_err(|e| format!("create {history}: {e}"))?;
+    }
+    let entries = fs::read_dir(&persistent).map_err(|e| format!("read {persistent}: {e}"))?;
+    for entry in entries {
+        let entry = entry.map_err(|e| format!("read {persistent}: {e}"))?;
+        let name = entry.file_name();
+        if name == "auth.json" {
+            continue;
+        }
+        let target = std::path::Path::new(&private).join(&name);
+        if fs::symlink_metadata(&target).is_ok() {
+            continue;
+        }
+        std::os::unix::fs::symlink(entry.path(), &target)
+            .map_err(|e| format!("link {}: {e}", target.display()))?;
+    }
+    Ok(())
+}
+
+fn ensure_dir(path: &str) -> Result<(), String> {
+    match fs::symlink_metadata(path) {
+        Ok(meta) if meta.is_dir() => Ok(()),
+        Ok(_) => Err(format!("{path} is not a directory")),
+        Err(_) => mkdir_mode(path, 0o700),
+    }
+}
+
+fn codex_environment(root: &str, binary: &str) -> Vec<String> {
+    // The bundle ships helper tools (ripgrep, bubblewrap) beside the
+    // executable.
+    let helpers = std::path::Path::new(binary)
+        .parent()
+        .and_then(|bin| bin.parent())
+        .map(|bundle| {
+            format!(
+                "{}:{}:",
+                bundle.join("codex-path").display(),
+                bundle.join("codex-resources").display()
+            )
+        })
+        .unwrap_or_default();
+    let mut env = vec![
+        format!("PATH={helpers}/usr/local/bin:/usr/bin:/bin"),
+        String::from("LANG=C.UTF-8"),
+        format!("CODEX_HOME={root}/codex"),
+    ];
+    for name in ["HOME", "USER", "LOGNAME", "TERM", "COLORTERM"] {
+        if let Some(value) = env_lossy_opt(name) {
             if !value.is_empty() {
                 env.push(format!("{name}={value}"));
             }

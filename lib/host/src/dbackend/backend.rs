@@ -560,12 +560,13 @@ impl ExecBackend for DaemonBackend {
                 .map_err(internal)?;
             return Ok(out.encode().into_bytes());
         }
-        let muse_scoped = delivery.lease.provider_id == terminal::PROVIDER_MUSE
-            && delivery
-                .lease
-                .binding
-                .as_ref()
-                .is_some_and(|b| b.scope == "muse-project");
+        // Launcher runs (Muse or Codex) carry their provider's scope.
+        let muse_scoped = delivery
+            .lease
+            .binding
+            .as_ref()
+            .and_then(crate::muse::LaunchProvider::of_binding)
+            .is_some_and(|provider| delivery.lease.provider_id == provider.id());
         if muse_scoped {
             if let Some(m) = &self.muse {
                 let out = m

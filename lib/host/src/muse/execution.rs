@@ -3,8 +3,8 @@ use std::time::{Duration, Instant};
 
 use super::{
     host_go_arch, muse_arguments, muse_elf, muse_peer_alive, muse_resize, muse_signal,
-    unit_invocation_argv, LaunchControl, LaunchRequest, MuseCaller, MuseExecution, MuseHooks,
-    MusePeer, MuseRuntime,
+    unit_invocation_argv, LaunchControl, LaunchProvider, LaunchRequest, MuseCaller, MuseExecution,
+    MuseHooks, MusePeer, MuseRuntime,
 };
 use crate::domain;
 use crate::project::Executor;
@@ -32,6 +32,7 @@ impl<E: Executor, H: MuseHooks> MuseRuntime<E, H> {
     /// exact bytes across refreshes. Never caches one hash.
     pub(in crate::muse) fn verify_guest_digest(
         &self,
+        provider: LaunchProvider,
         container: &str,
         child: &str,
         expected_sha256: &str,
@@ -44,7 +45,7 @@ impl<E: Executor, H: MuseHooks> MuseRuntime<E, H> {
         let mut hash_argv = prefix.clone();
         hash_argv.extend([
             "/usr/bin/sha256sum".to_string(),
-            "/usr/local/libexec/soda/muse".to_string(),
+            provider.guest_executable().to_string(),
         ]);
         let hash = match self.guest(container, &[], &hash_argv, deadline) {
             Ok(hash) => hash,
@@ -59,17 +60,14 @@ impl<E: Executor, H: MuseHooks> MuseRuntime<E, H> {
         head_argv.extend([
             "/usr/bin/head".to_string(),
             "--bytes=64".to_string(),
-            "/usr/local/libexec/soda/muse".to_string(),
+            provider.guest_executable().to_string(),
         ]);
         let header = self
             .guest(container, &[], &head_argv, deadline)
             .map_err(|_| terminal::err_denied())?;
         muse_elf(&header, host_go_arch())?;
         let mut check_argv = prefix;
-        check_argv.extend([
-            "/usr/local/bin/muse".to_string(),
-            "--soda-check".to_string(),
-        ]);
+        check_argv.extend([provider.launcher().to_string(), "--soda-check".to_string()]);
         self.guest(container, &[], &check_argv, deadline)
             .map(|_| expected_sha256.to_string())
     }
@@ -85,21 +83,31 @@ impl<E: Executor, H: MuseHooks> MuseRuntime<E, H> {
         request: &LaunchRequest,
         deadline: Instant,
     ) -> Result<MuseExecution, String> {
-        let budget = deadline.min(Instant::now() + Duration::from_secs(30));
         let mut request = request.clone();
         if request.validate().is_err() {
             return Err(terminal::err_denied());
         }
-        request.args = muse_arguments(&request.args)?;
-        let caller = self.resolve(peer, budget)?;
+        let provider = request.launch_provider().ok_or_else(terminal::err_denied)?;
+        // A first Codex launch copies its whole release bundle in.
+        let staging = match provider {
+            LaunchProvider::Muse => 30,
+            LaunchProvider::Codex => 300,
+        };
+        let budget = deadline.min(Instant::now() + Duration::from_secs(staging));
+        if provider == LaunchProvider::Muse {
+            request.args = muse_arguments(&request.args)?;
+        }
+        let caller = self.resolve(peer, provider, budget)?;
         // Store-authoritative for ALL new executions: legacy configured pins
         // never select bytes for new work (mandatory freshness supersedes
         // them for host launches exactly as for broker sessions). Historical
         // bytes survive only through the bound-digest recovery path, never
         // through startup config. One coherent snapshot per invocation,
         // restaged into the running Project, then bound to this run.
-        let mut snapshot = super::provider::fresh_provider_snapshot()?;
-        let verified_digest = match self.ensure_guest_provider(&caller, &snapshot, budget) {
+        let snapshot = super::provider::fresh_provider_snapshot(provider)?;
+        let mut snapshot = snapshot;
+        let verified_digest = match self.ensure_guest_provider(provider, &caller, &snapshot, budget)
+        {
             Ok(digest) => digest,
             Err(err) => {
                 super::provider::release_provider_snapshot(snapshot);
@@ -117,12 +125,16 @@ impl<E: Executor, H: MuseHooks> MuseRuntime<E, H> {
         // Dropping the now-tokenless snapshot must not release the
         // execution's reference.
         super::provider::release_provider_snapshot(snapshot);
-        let mut execution = match self.reserve_execution(&caller, &request, budget) {
+        let mut execution = match self.reserve_execution(provider, &caller, &request, budget) {
             Ok(execution) => execution,
             Err(err) => {
                 // Staged but never reserved: no live run can need this
                 // bundle, so the transferred reference is released here.
-                super::provider::release_provider_ref(&verified_digest, &provider_ref_token);
+                super::provider::release_provider_ref(
+                    provider,
+                    &verified_digest,
+                    &provider_ref_token,
+                );
                 return Err(err);
             }
         };
@@ -143,13 +155,20 @@ impl<E: Executor, H: MuseHooks> MuseRuntime<E, H> {
                 .is_ok()
             {
                 super::provider::release_provider_ref(
+                    provider,
                     &execution.provider_digest,
                     &execution.provider_ref_token,
                 );
             }
             return Err(terminal::err_denied());
         }
-        if let Err(err) = self.stage(&caller, &execution.path, &request.config_home, budget) {
+        if let Err(err) = self.stage(
+            provider,
+            &caller,
+            &execution.path,
+            &request.config_home,
+            budget,
+        ) {
             let cleanup = Instant::now() + Duration::from_secs(30);
             if self
                 .stop_execution(
@@ -162,6 +181,7 @@ impl<E: Executor, H: MuseHooks> MuseRuntime<E, H> {
                 .is_ok()
             {
                 super::provider::release_provider_ref(
+                    provider,
                     &execution.provider_digest,
                     &execution.provider_ref_token,
                 );
@@ -174,11 +194,13 @@ impl<E: Executor, H: MuseHooks> MuseRuntime<E, H> {
     /// `MuseRuntime.reserveExecution`: broker connection, lease, binding.
     pub fn reserve_execution(
         &self,
+        provider: LaunchProvider,
         caller: &MuseCaller,
         request: &LaunchRequest,
         deadline: Instant,
     ) -> Result<MuseExecution, String> {
         let connection = self.hooks.select(
+            provider,
             caller.actor,
             &caller.project,
             &request.connection_id,
@@ -192,7 +214,7 @@ impl<E: Executor, H: MuseHooks> MuseRuntime<E, H> {
                 connection_id: connection,
                 project_id: caller.project.clone(),
                 kind: terminal::KIND_TERMINAL.to_string(),
-                provider_id: terminal::PROVIDER_MUSE.to_string(),
+                provider_id: provider.id().to_string(),
                 deadline_secs: terminal::now_unix() + 12 * 3600,
                 ..Default::default()
             },
@@ -213,17 +235,18 @@ impl<E: Executor, H: MuseHooks> MuseRuntime<E, H> {
             gid: caller.gid,
             login: caller.login.clone(),
             generation: lease.generation,
-            scope: "muse-project".to_string(),
+            scope: provider.scope().to_string(),
             credential_root: path.clone(),
             ..Default::default()
         };
         Ok(MuseExecution {
+            provider,
             caller: caller.clone(),
             request: request.clone(),
             lease,
             binding,
             path: path.clone(),
-            unit: format!("soda-muse-{id}.service"),
+            unit: provider.unit(&id),
             // Stamped by `prepare_execution` with the verified bundle digest
             // and the transferred store reference token; empty until then,
             // never a cached selection.
@@ -258,7 +281,7 @@ impl<E: Executor, H: MuseHooks> MuseRuntime<E, H> {
         if !terminal::credential_valid(&credential) {
             return Err(terminal::err_denied());
         }
-        let target = format!("{}/auth.json", execution.path);
+        let target = execution.provider.credential_file(&execution.path);
         let dd = [
             "/usr/bin/dd".to_string(),
             format!("of={target}"),

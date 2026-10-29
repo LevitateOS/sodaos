@@ -1,4 +1,4 @@
-use super::{muse_command_argv, muse_host_environment, MuseExecution};
+use super::{launch_command_argv, muse_host_environment, MuseExecution};
 
 /// Spawn the prepared execution with owned stdio files.
 pub(in crate::muse) fn spawn_execution(
@@ -6,7 +6,8 @@ pub(in crate::muse) fn spawn_execution(
     stdio: [std::fs::File; 3],
 ) -> Result<std::process::Child, String> {
     let [stdin, stdout, stderr] = stdio;
-    let argv = muse_command_argv(
+    let argv = launch_command_argv(
+        execution.provider,
         &execution.caller,
         &execution.request,
         &execution.unit,

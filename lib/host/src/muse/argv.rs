@@ -1,10 +1,23 @@
-use super::{LaunchRequest, MuseCaller};
+use super::{LaunchProvider, LaunchRequest, MuseCaller};
 
 // ---------- argv builders ----------
 
 /// `museCommand` argv (after the `/usr/bin/podman` argv0): the fixed
 /// systemd-run boundary plus the pinned dispatcher. Golden-pinned.
 pub fn muse_command_argv(
+    caller: &MuseCaller,
+    request: &LaunchRequest,
+    unit: &str,
+    path: &str,
+) -> Vec<String> {
+    launch_command_argv(LaunchProvider::Muse, caller, request, unit, path)
+}
+
+/// Supervised launch argv for either provider. Codex keeps the account's
+/// own XDG directories (its tools read them) and gets a writable private
+/// `CODEX_HOME` holding the delivered credential.
+pub fn launch_command_argv(
+    provider: LaunchProvider,
     caller: &MuseCaller,
     request: &LaunchRequest,
     unit: &str,
@@ -47,20 +60,32 @@ pub fn muse_command_argv(
         format!("--setenv=USER={}", caller.login),
         format!("--setenv=LOGNAME={}", caller.login),
         format!("--setenv=TERM={}", request.term),
-        format!("--setenv=XDG_CONFIG_HOME={path}/config"),
-        format!("--setenv=XDG_STATE_HOME={path}/state"),
-        format!("--setenv=XDG_CACHE_HOME={path}/cache"),
-        "--setenv=TBH_CREDENTIAL_BACKEND=file".to_string(),
-        "--setenv=PATH=/usr/local/bin:/usr/bin:/bin".to_string(),
     ]);
+    if provider == LaunchProvider::Codex {
+        args.push(format!("--setenv=CODEX_HOME={path}/codex"));
+    } else {
+        args.extend([
+            format!("--setenv=XDG_CONFIG_HOME={path}/config"),
+            format!("--setenv=XDG_STATE_HOME={path}/state"),
+            format!("--setenv=XDG_CACHE_HOME={path}/cache"),
+            "--setenv=TBH_CREDENTIAL_BACKEND=file".to_string(),
+        ]);
+    }
+    args.push("--setenv=PATH=/usr/local/bin:/usr/bin:/bin".to_string());
     if caller.child.is_empty() {
         args.extend([
             format!("--uid={}", caller.login),
             format!("--gid={}", caller.gid),
             format!("--working-directory={}", request.cwd),
-            format!("--property=ReadOnlyPaths={path}/auth.json"),
-            format!("--property=BindReadOnlyPaths={path}/auth.json:{path}/config/muse/auth.json"),
         ]);
+        if provider == LaunchProvider::Muse {
+            args.extend([
+                format!("--property=ReadOnlyPaths={path}/auth.json"),
+                format!(
+                    "--property=BindReadOnlyPaths={path}/auth.json:{path}/config/muse/auth.json"
+                ),
+            ]);
+        }
     }
     args.push(if request.tty {
         "--pty".to_string()
@@ -84,7 +109,7 @@ pub fn muse_command_argv(
         ]);
     }
     args.extend([
-        "/usr/local/bin/muse".to_string(),
+        provider.launcher().to_string(),
         "--soda-exec".to_string(),
         config_path,
         request.cwd.clone(),

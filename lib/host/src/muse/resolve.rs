@@ -2,7 +2,7 @@ use std::time::Instant;
 
 use super::{
     muse_account_modes, muse_mapped_uid, muse_passwd_valid, muse_peer_alive, muse_project_cgroup,
-    MuseCaller, MuseHooks, MusePeer, MuseRuntime,
+    LaunchProvider, MuseCaller, MuseHooks, MusePeer, MuseRuntime,
 };
 use crate::project::Executor;
 use crate::terminal;
@@ -87,17 +87,28 @@ impl<E: Executor, H: MuseHooks> MuseRuntime<E, H> {
     }
 
     /// `MuseRuntime.resolve`: full caller authority resolution.
-    pub fn resolve(&self, peer: &MusePeer, deadline: Instant) -> Result<MuseCaller, String> {
-        match self.resolve_inner(peer, deadline) {
+    pub fn resolve(
+        &self,
+        peer: &MusePeer,
+        provider: LaunchProvider,
+        deadline: Instant,
+    ) -> Result<MuseCaller, String> {
+        match self.resolve_inner(peer, provider, deadline) {
             Ok(caller) => Ok(caller),
             Err(_) => Err(terminal::err_denied()),
         }
     }
 
-    fn resolve_inner(&self, peer: &MusePeer, deadline: Instant) -> Result<MuseCaller, String> {
+    fn resolve_inner(
+        &self,
+        peer: &MusePeer,
+        provider: LaunchProvider,
+        deadline: Instant,
+    ) -> Result<MuseCaller, String> {
         let caller = self.resolve_project(peer, deadline)?;
         if !caller.child.is_empty() {
-            if !caller.muse_allowed {
+            // Nested compose children launch Muse only.
+            if !caller.muse_allowed || provider != LaunchProvider::Muse {
                 return Err(terminal::err_denied());
             }
             return self.nested_caller(caller, peer, deadline);
@@ -108,7 +119,7 @@ impl<E: Executor, H: MuseHooks> MuseRuntime<E, H> {
         let caller = self.project_account(caller, deadline)?;
         let mut caller = caller;
         caller.actor = self.project_actor(&caller, deadline)?;
-        if !self.authorized_caller(&caller, peer, deadline) {
+        if !self.authorized_caller(provider, &caller, peer, deadline) {
             return Err(terminal::err_denied());
         }
         Ok(caller)
@@ -182,12 +193,13 @@ impl<E: Executor, H: MuseHooks> MuseRuntime<E, H> {
 
     pub(in crate::muse) fn authorized_caller(
         &self,
+        provider: LaunchProvider,
         caller: &MuseCaller,
         peer: &MusePeer,
         deadline: Instant,
     ) -> bool {
         self.hooks
-            .authorize(caller.actor, &caller.project, deadline)
+            .authorize(provider, caller.actor, &caller.project, deadline)
             .is_ok()
             && muse_peer_alive(peer)
     }

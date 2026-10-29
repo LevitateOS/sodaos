@@ -1,5 +1,6 @@
 use super::paths::{go_strerror, path_error};
 use super::store_resolve::{enforce_receipt, resolve_muse_native};
+use super::tool::Tool;
 use std::ffi::CString;
 use std::fs;
 use std::io;
@@ -9,10 +10,10 @@ use std::time::{Duration, Instant};
 pub(crate) fn check_runtime() -> Result<(), String> {
     // Resolve through the shared store first: a known-stale selection
     // fails the check instead of probing a superseded binary.
-    let binary = resolve_muse_native()
-        .map_err(|e| format!("muse native runtime prerequisite failed: {e}"))?;
-    enforce_receipt(&binary)
-        .map_err(|e| format!("muse native runtime prerequisite failed: {e}"))?;
+    let tool = Tool::current().name();
+    let failed = |e: String| format!("{tool} native runtime prerequisite failed: {e}");
+    let binary = resolve_muse_native().map_err(failed)?;
+    enforce_receipt(&binary).map_err(failed)?;
     let private = make_private_dir("soda-muse-check-")?;
     struct Cleanup(String);
     impl Drop for Cleanup {
@@ -21,13 +22,11 @@ pub(crate) fn check_runtime() -> Result<(), String> {
         }
     }
     let _cleanup = Cleanup(private.clone());
-    run_pristine(
-        &binary,
-        &["exec".to_string(), "--help".to_string()],
-        &private,
-        Duration::from_secs(5),
-    )
-    .map_err(|e| format!("muse native runtime prerequisite failed: {e}"))?;
+    let probe = match Tool::current() {
+        Tool::Muse => vec!["exec".to_string(), "--help".to_string()],
+        Tool::Codex => vec!["--version".to_string()],
+    };
+    run_pristine(&binary, &probe, &private, Duration::from_secs(5)).map_err(failed)?;
     Ok(())
 }
 
@@ -71,6 +70,7 @@ fn run_pristine(
         .env("XDG_DATA_HOME", format!("{root}/data"))
         .env("TMPDIR", root)
         .env("TBH_CREDENTIAL_BACKEND", "file")
+        .env("CODEX_HOME", root)
         .stdout(Stdio::piped())
         .stderr(Stdio::piped())
         .spawn()

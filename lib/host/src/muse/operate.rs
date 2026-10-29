@@ -1,7 +1,8 @@
 use std::time::Instant;
 
 use super::{
-    muse_delivery_valid, muse_project_credential_root, state_container, MuseHooks, MuseRuntime,
+    muse_delivery_valid, muse_project_credential_root, state_container, LaunchProvider, MuseHooks,
+    MuseRuntime,
 };
 use crate::project::Executor;
 use crate::terminal::{self, Binding, Delivery};
@@ -22,11 +23,43 @@ impl<E: Executor, H: MuseHooks> MuseRuntime<E, H> {
             .binding
             .as_ref()
             .ok_or_else(terminal::err_denied)?;
-        match binding.scope.as_str() {
-            "muse-project" => self.project_operation(action, delivery, deadline)?,
-            _ => return Err(terminal::err_denied()),
+        match LaunchProvider::of_binding(binding) {
+            Some(LaunchProvider::Codex) if action == "finish" => {
+                let credential = self.capture_codex(delivery, deadline)?;
+                let mut out = delivery.clone();
+                out.credential = Some(credential);
+                return Ok(out);
+            }
+            Some(_) => self.project_operation(action, delivery, deadline)?,
+            None => return Err(terminal::err_denied()),
         }
         Ok(delivery.clone())
+    }
+
+    /// Broker `finish` for a Codex run: read back the credential Codex may
+    /// have rotated while it ran.
+    fn capture_codex(&self, delivery: &Delivery, deadline: Instant) -> Result<Vec<u8>, String> {
+        let binding = delivery
+            .lease
+            .binding
+            .as_ref()
+            .ok_or_else(terminal::err_denied)?;
+        if !muse_project_credential_root(binding) || !binding.child_id.is_empty() {
+            return Err(terminal::err_denied());
+        }
+        let path = LaunchProvider::Codex.credential_file(&binding.credential_root);
+        let body = self
+            .guest_refs(
+                &binding.project,
+                &[],
+                &["/usr/bin/cat", "--", &path],
+                deadline,
+            )
+            .map_err(|_| terminal::err_uncertain())?;
+        if !terminal::credential_valid(&body) {
+            return Err(terminal::err_uncertain());
+        }
+        Ok(body)
     }
 
     fn project_operation(
@@ -60,6 +93,13 @@ impl<E: Executor, H: MuseHooks> MuseRuntime<E, H> {
         if self.muse_execution_retired(binding, deadline) {
             return Ok(());
         }
+        // A Codex run whose process already ended stops after its capture:
+        // retire the exact finished incarnation's files.
+        if LaunchProvider::of_binding(binding) == Some(LaunchProvider::Codex)
+            && self.unit_finished(binding, deadline)
+        {
+            return self.retire_execution_files(binding, deadline);
+        }
         self.validate_muse_binding(binding, deadline)?;
         self.stop_execution(
             binding,
@@ -71,10 +111,24 @@ impl<E: Executor, H: MuseHooks> MuseRuntime<E, H> {
     }
 
     fn muse_execution_retired(&self, binding: &Binding, deadline: Instant) -> bool {
+        self.unit_finished(binding, deadline)
+            && self
+                .guest_refs(
+                    &binding.project,
+                    &[],
+                    &["/usr/bin/test", "!", "-e", &binding.credential_root],
+                    deadline,
+                )
+                .is_ok()
+    }
+
+    /// The exact incarnation's unit is inactive (or collected) with its
+    /// cgroup gone.
+    fn unit_finished(&self, binding: &Binding, deadline: Instant) -> bool {
         if binding.validate().is_err() {
             return false;
         }
-        let unit = format!("soda-muse-{}.service", binding.id);
+        let unit = super::stop::binding_unit(binding);
         let inactive = self
             .guest(
                 &binding.project,
@@ -109,14 +163,6 @@ impl<E: Executor, H: MuseHooks> MuseRuntime<E, H> {
                         "-d",
                         &format!("/sys/fs/cgroup/system.slice/{unit}"),
                     ],
-                    deadline,
-                )
-                .is_ok()
-            && self
-                .guest_refs(
-                    &binding.project,
-                    &[],
-                    &["/usr/bin/test", "!", "-e", &binding.credential_root],
                     deadline,
                 )
                 .is_ok()

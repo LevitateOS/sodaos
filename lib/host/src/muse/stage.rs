@@ -1,13 +1,10 @@
 use std::time::Instant;
 
-use super::{decode_config_view, MuseCaller, MuseHooks, MuseRuntime, ProviderSnapshot};
+use super::{
+    decode_config_view, LaunchProvider, MuseCaller, MuseHooks, MuseRuntime, ProviderSnapshot,
+};
 use crate::project::Executor;
 use crate::terminal;
-
-/// Guest provider installation paths, fixed by the installed project
-/// interface (same destinations the maintain staging pipe installs).
-const GUEST_NATIVE: &str = "/usr/local/libexec/soda/muse";
-const GUEST_RECEIPT: &str = "/usr/local/libexec/soda/muse-selection.json";
 
 impl<E: Executor, H: MuseHooks> MuseRuntime<E, H> {
     /// Ensure the RUNNING Project serves this invocation's admitted
@@ -21,18 +18,34 @@ impl<E: Executor, H: MuseHooks> MuseRuntime<E, H> {
     /// exec sees the admitted bytes. Fails closed on any mismatch.
     pub fn ensure_guest_provider(
         &self,
+        provider: LaunchProvider,
         caller: &MuseCaller,
         snapshot: &ProviderSnapshot,
         deadline: Instant,
     ) -> Result<String, String> {
-        let digest = snapshot.selection.release.digest.clone();
+        let release = snapshot.selection.release.digest.clone();
+        let digest = super::provider::snapshot_executable_digest(provider, snapshot)?;
         let receipt =
             serde_json::to_vec_pretty(&snapshot.selection).map_err(|_| terminal::err_denied())?;
         if receipt.len() > 65536 {
             return Err(terminal::err_denied());
         }
-        if self.guest_provider_current(caller, &digest, &receipt, deadline) {
-            return Ok(digest);
+        if self.guest_provider_current(provider, caller, &digest, &receipt, deadline) {
+            return Ok(release);
+        }
+        if provider == LaunchProvider::Codex {
+            // Codex is a bundle directory: never nested, staged whole.
+            if !caller.child.is_empty() {
+                return Err(terminal::err_denied());
+            }
+            let bundle = super::provider::snapshot_bundle(snapshot)?;
+            self.stage_guest_bundle(caller, provider.guest_native(), &bundle, deadline)?;
+            self.stage_guest_file(caller, provider.guest_receipt(), &receipt, "0644", deadline)?;
+            self.verify_guest_digest(provider, &caller.container, "", &digest, deadline)?;
+            if !self.guest_receipt_current(provider, caller, &receipt, deadline) {
+                return Err(terminal::err_denied());
+            }
+            return Ok(release);
         }
         // Staged under the snapshot's active store reference: cleanup
         // cannot collect the bundle mid-copy.
@@ -40,23 +53,85 @@ impl<E: Executor, H: MuseHooks> MuseRuntime<E, H> {
         if bytes.is_empty() || bytes.len() as u64 != snapshot.selection.release.size {
             return Err(terminal::err_denied());
         }
-        self.stage_guest_file(caller, GUEST_RECEIPT, &receipt, "0644", deadline)?;
-        self.stage_guest_file(caller, GUEST_NATIVE, &bytes, "0755", deadline)?;
+        self.stage_guest_file(caller, provider.guest_receipt(), &receipt, "0644", deadline)?;
+        self.stage_guest_file(caller, provider.guest_native(), &bytes, "0755", deadline)?;
         // Re-verify exactly what the execution will run: digest, ELF
         // header, command availability. The receipt must corroborate the
         // staged bytes, matching the in-project enforcement.
-        let verified =
-            self.verify_guest_digest(&caller.container, &caller.child, &digest, deadline)?;
-        if !self.guest_receipt_current(caller, &receipt, deadline) {
+        self.verify_guest_digest(
+            provider,
+            &caller.container,
+            &caller.child,
+            &digest,
+            deadline,
+        )?;
+        if !self.guest_receipt_current(provider, caller, &receipt, deadline) {
             return Err(terminal::err_denied());
         }
-        Ok(verified)
+        Ok(release)
+    }
+
+    /// Copy one host bundle directory into the running container at `path`:
+    /// extract beside it, then swap directories. Running processes keep
+    /// their open inodes; the next exec sees the new bundle.
+    fn stage_guest_bundle(
+        &self,
+        caller: &MuseCaller,
+        path: &str,
+        bundle: &std::path::Path,
+        deadline: Instant,
+    ) -> Result<(), String> {
+        let id = terminal::rand_id().map_err(|_| terminal::err_denied())?;
+        let tmp = format!("{path}.soda-restage-{id}");
+        let retired = format!("{path}.soda-retired-{id}");
+        let bundle = bundle.to_str().ok_or_else(terminal::err_denied)?;
+        let staged = self
+            .guest_refs(
+                &caller.container,
+                &[],
+                &["/usr/bin/install", "--directory", "--mode=0755", &tmp],
+                deadline,
+            )
+            .and_then(|_| {
+                crate::terminal::run_harness_pipeline(
+                    &self.exec,
+                    "/usr/bin/tar",
+                    "/usr/bin/podman",
+                    bundle,
+                    &caller.container,
+                    &tmp,
+                    deadline,
+                )
+            })
+            .and_then(|_| {
+                // A previous bundle moves aside first; absence is fine.
+                let _ = self.guest_refs(
+                    &caller.container,
+                    &[],
+                    &["/usr/bin/mv", "-T", "--", path, &retired],
+                    deadline,
+                );
+                self.guest_refs(
+                    &caller.container,
+                    &[],
+                    &["/usr/bin/mv", "-T", "--", &tmp, path],
+                    deadline,
+                )
+            });
+        let _ = self.guest_refs(
+            &caller.container,
+            &[],
+            &["/usr/bin/rm", "-rf", "--", &tmp, &retired],
+            deadline,
+        );
+        staged.map(|_| ()).map_err(|_| terminal::err_denied())
     }
 
     /// True when the guest binary hashes to the snapshot digest AND the
     /// guest receipt byte-matches the snapshot receipt.
     fn guest_provider_current(
         &self,
+        provider: LaunchProvider,
         caller: &MuseCaller,
         digest: &str,
         receipt: &[u8],
@@ -64,7 +139,10 @@ impl<E: Executor, H: MuseHooks> MuseRuntime<E, H> {
     ) -> bool {
         let prefix = self.guest_binary_prefix(&caller.child);
         let mut hash_argv = prefix;
-        hash_argv.extend(["/usr/bin/sha256sum".to_string(), GUEST_NATIVE.to_string()]);
+        hash_argv.extend([
+            "/usr/bin/sha256sum".to_string(),
+            provider.guest_executable().to_string(),
+        ]);
         let hash = match self.guest(&caller.container, &[], &hash_argv, deadline) {
             Ok(hash) => hash,
             Err(_) => return false,
@@ -74,18 +152,22 @@ impl<E: Executor, H: MuseHooks> MuseRuntime<E, H> {
         if fields.len() != 2 || fields[0] != digest {
             return false;
         }
-        self.guest_receipt_current(caller, receipt, deadline)
+        self.guest_receipt_current(provider, caller, receipt, deadline)
     }
 
     /// True when the guest receipt byte-matches the snapshot receipt.
     fn guest_receipt_current(
         &self,
+        provider: LaunchProvider,
         caller: &MuseCaller,
         receipt: &[u8],
         deadline: Instant,
     ) -> bool {
         let mut cat_argv = self.guest_binary_prefix(&caller.child);
-        cat_argv.extend(["/usr/bin/cat".to_string(), GUEST_RECEIPT.to_string()]);
+        cat_argv.extend([
+            "/usr/bin/cat".to_string(),
+            provider.guest_receipt().to_string(),
+        ]);
         match self.guest(&caller.container, &[], &cat_argv, deadline) {
             Ok(body) => body == receipt,
             Err(_) => false,
@@ -163,6 +245,7 @@ impl<E: Executor, H: MuseHooks> MuseRuntime<E, H> {
     /// `MuseRuntime.stage`: credential directory plus config population.
     pub fn stage(
         &self,
+        provider: LaunchProvider,
         caller: &MuseCaller,
         path: &str,
         config_home: &str,
@@ -181,15 +264,75 @@ impl<E: Executor, H: MuseHooks> MuseRuntime<E, H> {
                 &[
                     "/usr/bin/mount",
                     "--types=tmpfs",
-                    "--options=mode=0700,size=4M",
+                    provider.root_tmpfs(),
                     "tmpfs",
                     path,
                 ],
                 deadline,
             )?;
         }
+        if provider == LaunchProvider::Codex {
+            // The launcher links the account's ~/.codex entries in itself;
+            // only the private credential lives here.
+            return self.stage_codex_home(caller, path, deadline);
+        }
         self.stage_files(caller, path, deadline)?;
         self.stage_config(caller, path, config_home, deadline)
+    }
+
+    /// Writable private `CODEX_HOME` holding a placeholder credential the
+    /// delivery overwrites in place (keeping account ownership).
+    fn stage_codex_home(
+        &self,
+        caller: &MuseCaller,
+        path: &str,
+        deadline: Instant,
+    ) -> Result<(), String> {
+        let dir = format!("{path}/codex");
+        self.guest_refs(
+            &caller.container,
+            &[],
+            &[
+                "/usr/bin/install",
+                "--directory",
+                "--mode=0700",
+                &format!("--owner={}", caller.uid),
+                &format!("--group={}", caller.gid),
+                &dir,
+            ],
+            deadline,
+        )?;
+        self.guest_refs(
+            &caller.container,
+            &[],
+            &["/usr/bin/chmod", "0711", path],
+            deadline,
+        )?;
+        let auth = LaunchProvider::Codex.credential_file(path);
+        self.guest(
+            &caller.container,
+            b"{}",
+            &[
+                "/usr/bin/dd".to_string(),
+                format!("of={auth}"),
+                "status=none".to_string(),
+            ],
+            deadline,
+        )?;
+        let ownership = format!("{}:{}", caller.uid, caller.gid);
+        self.guest_refs(
+            &caller.container,
+            &[],
+            &["/usr/bin/chown", &ownership, &auth],
+            deadline,
+        )?;
+        self.guest_refs(
+            &caller.container,
+            &[],
+            &["/usr/bin/chmod", "0600", &auth],
+            deadline,
+        )
+        .map(|_| ())
     }
 
     fn stage_files(

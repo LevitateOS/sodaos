@@ -45,6 +45,8 @@ trap 'rm -rf -- "$stage"' EXIT
 tar --extract --file=- --directory="$stage" --no-same-owner
 chmod 0755 "$stage/muse" "$stage/soda-identity-compose" "$stage/muse-native"
 mv -T -- "$stage/muse" "$1"
+# The same launcher runs Codex when invoked by that name.
+ln -sfnT muse "$(dirname "$1")/codex"
 mv -T -- "$stage/soda-identity-compose" "$2"
 mv -T -- "$stage/muse-native" "$3"
 if [ -e "$stage/muse-selection.json" ]; then

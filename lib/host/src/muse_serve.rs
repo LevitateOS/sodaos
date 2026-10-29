@@ -29,9 +29,8 @@ use std::os::unix::net::UnixListener;
 use std::time::{Duration, Instant};
 
 use crate::muse::{
-    muse_command_argv, muse_command_exit, muse_host_environment, prepare_muse_listener_dir,
-    release_provider_ref, LaunchExit, LaunchRequest, MuseExecution, MuseHooks, MusePeer,
-    MuseRuntime,
+    launch_command_argv, muse_command_exit, muse_host_environment, prepare_muse_listener_dir,
+    LaunchExit, LaunchRequest, MuseExecution, MuseHooks, MusePeer, MuseRuntime,
 };
 use crate::project::Executor;
 use crate::terminal::Delivery;
@@ -140,20 +139,8 @@ impl<E: Executor, H: MuseHooks> MuseRuntime<E, H> {
         outcome: Result<LaunchExit, String>,
     ) -> Result<LaunchExit, String> {
         let cleanup = Instant::now() + Duration::from_secs(CLEANUP_SECS);
-        if self
-            .stop_execution(
-                &execution.binding,
-                execution.caller.actor,
-                &execution.lease.id,
-                true,
-                cleanup,
-            )
-            .is_ok()
-        {
-            // Retirement confirmed: release the execution's exact-bundle
-            // reference so the staged bundle becomes collectable.
-            release_provider_ref(&execution.provider_digest, &execution.provider_ref_token);
-        } else {
+        // Retirement confirmed releases the execution's exact bundle.
+        if self.retire_execution(execution, cleanup).is_err() {
             // Retirement unconfirmed: preserve the reference (conservative
             // leak); the outcome mapping is unchanged.
             return Ok(LaunchExit::cleanup_unconfirmed());
@@ -168,7 +155,8 @@ impl<E: Executor, H: MuseHooks> MuseRuntime<E, H> {
 /// (`muse_command_argv` with `muse_host_environment`); stdio is null because
 /// [`MuseRuntime::start`] carries no descriptors.
 fn spawn_detached(execution: &MuseExecution) -> Result<std::process::Child, String> {
-    let argv = muse_command_argv(
+    let argv = launch_command_argv(
+        execution.provider,
         &execution.caller,
         &execution.request,
         &execution.unit,

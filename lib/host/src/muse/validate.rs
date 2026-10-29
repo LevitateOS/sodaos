@@ -524,7 +524,8 @@ pub fn muse_delivery_valid(delivery: &Delivery) -> bool {
     let Some(binding) = &delivery.lease.binding else {
         return false;
     };
-    delivery.lease.provider_id == terminal::PROVIDER_MUSE
+    super::LaunchProvider::of_binding(binding)
+        .is_some_and(|provider| delivery.lease.provider_id == provider.id())
         && terminal::valid_terminal_id(&delivery.lease.execution_id)
         && binding.id == delivery.lease.execution_id
         && terminal::valid_terminal_id(&binding.invocation_id)

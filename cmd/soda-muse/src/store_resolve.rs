@@ -14,25 +14,23 @@
 //! is due and gates `Current`/`UpdateFailed` vs `Stale`/`Unknown`). This
 //! module holds no mirror of those records or that gate.
 
-use super::MUSE_NATIVE;
+use super::tool::Tool;
 use std::process::Stdio;
 use std::time::{Duration, Instant};
 
-use soda_provider_tools::{store, Provider};
-
-const DEFAULT_RECEIPT: &str = "/usr/local/libexec/soda/muse-selection.json";
+use soda_provider_tools::store;
 
 fn staged_path() -> String {
     match std::env::var("SODA_MUSE_STAGED_PATH") {
         Ok(path) if !path.is_empty() => path,
-        _ => MUSE_NATIVE.to_string(),
+        _ => Tool::current().staged().to_string(),
     }
 }
 
 fn receipt_path() -> String {
     match std::env::var("SODA_MUSE_RECEIPT_PATH") {
         Ok(path) if !path.is_empty() => path,
-        _ => DEFAULT_RECEIPT.to_string(),
+        _ => Tool::current().receipt().to_string(),
     }
 }
 
@@ -44,11 +42,14 @@ fn is_hex64(s: &str) -> bool {
 /// exact provider, exact release identity, never a fallback presented as
 /// usable. Pure check: never refreshes.
 fn validate_receipt(selection: &store::Selection) -> Result<(), String> {
-    if selection.provider != Provider::Muse {
-        return Err(String::from("staged muse receipt unreadable"));
+    if selection.provider != Tool::current().store() {
+        return Err(format!(
+            "staged {tool} receipt unreadable",
+            tool = Tool::current().name()
+        ));
     }
     let release = &selection.release;
-    if release.provider != Provider::Muse
+    if release.provider != Tool::current().store()
         || release.version.is_empty()
         || !is_hex64(&release.digest)
         || release.size == 0
@@ -56,7 +57,10 @@ fn validate_receipt(selection: &store::Selection) -> Result<(), String> {
             || release.artifact_url.starts_with("http://localhost")
             || release.artifact_url.starts_with("http://127."))
     {
-        return Err(String::from("staged muse receipt unreadable"));
+        return Err(format!(
+            "staged {tool} receipt unreadable",
+            tool = Tool::current().name()
+        ));
     }
     Ok(())
 }
@@ -72,11 +76,13 @@ fn gate_live(selection: &store::Selection) -> Result<(), String> {
             Ok(())
         }
         store::Freshness::Stale { latest } => Err(format!(
-            "muse provider is known-stale (latest {latest}); refresh before launching"
+            "{tool} provider is known-stale (latest {latest}); refresh before launching",
+            tool = Tool::current().name()
         )),
-        store::Freshness::Unknown { reason } => {
-            Err(format!("no usable muse selection for new work ({reason})"))
-        }
+        store::Freshness::Unknown { reason } => Err(format!(
+            "no usable {tool} selection for new work ({reason})",
+            tool = Tool::current().name()
+        )),
     }
 }
 
@@ -89,14 +95,14 @@ fn gate_live(selection: &store::Selection) -> Result<(), String> {
 /// store knowledge, and on bundle bytes that do not fully verify.
 pub(crate) fn resolve_muse_native() -> Result<String, String> {
     let root = soda_provider_tools::config::store_root();
-    match store::read_selection(&root, Provider::Muse) {
+    match store::read_selection(&root, Tool::current().store()) {
         Ok(None) => Ok(staged_path()),
         Err(_) => Err(String::from("provider store selection unreadable")),
         Ok(Some(_)) => {
             // Store knowledge exists: the shared resolver is authoritative
             // (due-check refresh, staleness gate, full bundle verification).
             // Its refusal message stays visible to the operator.
-            let executable = soda_provider_tools::resolve::resolve_new(Provider::Muse)
+            let executable = soda_provider_tools::resolve::resolve_new(Tool::current().store())
                 .map_err(|e| e.to_string())?;
             Ok(executable.to_string_lossy().into_owned())
         }
@@ -120,7 +126,7 @@ pub(crate) fn enforce_receipt(binary: &str) -> Result<(), String> {
         return Ok(());
     }
     let root = soda_provider_tools::config::store_root();
-    let live = match store::read_selection(&root, Provider::Muse) {
+    let live = match store::read_selection(&root, Tool::current().store()) {
         Ok(live) => live,
         Err(_) => {
             return Err(String::from("provider store selection unreadable"));
@@ -135,25 +141,36 @@ pub(crate) fn enforce_receipt(binary: &str) -> Result<(), String> {
             if live.is_none() {
                 return Ok(());
             }
-            return Err(String::from(
-                "staged muse receipt missing; resolve through the provider store before launching",
-            ));
+            return Err(format!("staged {tool} receipt missing; resolve through the provider store before launching", tool = Tool::current().name()));
         }
-        Err(_) => return Err(String::from("staged muse receipt unreadable")),
+        Err(_) => {
+            return Err(format!(
+                "staged {tool} receipt unreadable",
+                tool = Tool::current().name()
+            ))
+        }
     };
-    let receipt: store::Selection = serde_json::from_slice(&bytes)
-        .map_err(|_| String::from("staged muse receipt unreadable"))?;
+    let receipt: store::Selection = serde_json::from_slice(&bytes).map_err(|_| {
+        format!(
+            "staged {tool} receipt unreadable",
+            tool = Tool::current().name()
+        )
+    })?;
     validate_receipt(&receipt)?;
     match receipt.freshness {
         store::Freshness::Current => {}
         store::Freshness::UpdateFailed { .. } => {}
         store::Freshness::Stale { latest } => {
             return Err(format!(
-                "staged muse is known-stale (latest {latest}); refresh before launching"
+                "staged {tool} is known-stale (latest {latest}); refresh before launching",
+                tool = Tool::current().name()
             ));
         }
         _ => {
-            return Err(String::from("no usable staged muse receipt for new work"));
+            return Err(format!(
+                "no usable staged {tool} receipt for new work",
+                tool = Tool::current().name()
+            ));
         }
     }
     match live {
@@ -177,9 +194,46 @@ pub(crate) fn enforce_receipt(binary: &str) -> Result<(), String> {
             // Digest agreement is still required below.
         }
     }
-    verify_executable(&staged, &receipt.release.digest, receipt.release.size)
-        .map_err(|_| String::from("staged muse binary does not match the admitted receipt"))?;
+    let (digest, size) = match Tool::current() {
+        Tool::Muse => (receipt.release.digest.clone(), receipt.release.size),
+        Tool::Codex => bundle_executable(&staged, &receipt.release.digest)?,
+    };
+    verify_executable(&staged, &digest, size).map_err(|_| {
+        format!(
+            "staged {tool} binary does not match the admitted receipt",
+            tool = Tool::current().name()
+        )
+    })?;
     Ok(())
+}
+
+/// A Codex release is a bundle: its staged inventory must name the admitted
+/// release, and yields the expected digest and size of `bin/codex`.
+fn bundle_executable(staged: &str, release: &str) -> Result<(String, u64), String> {
+    let unreadable = || String::from("staged codex bundle does not match the admitted receipt");
+    let bundle = std::path::Path::new(staged)
+        .parent()
+        .and_then(|bin| bin.parent())
+        .ok_or_else(unreadable)?;
+    let body = std::fs::read(bundle.join("inventory.json")).map_err(|_| unreadable())?;
+    let inventory: serde_json::Value = serde_json::from_slice(&body).map_err(|_| unreadable())?;
+    if !inventory["digest"]
+        .as_str()
+        .is_some_and(|digest| digest.eq_ignore_ascii_case(release))
+    {
+        return Err(unreadable());
+    }
+    let relpath = Tool::current().store().executable_relpath();
+    let entry = inventory["entries"]
+        .as_array()
+        .into_iter()
+        .flatten()
+        .find(|entry| entry["path"].as_str() == Some(relpath))
+        .ok_or_else(unreadable)?;
+    match (entry["sha256"].as_str(), entry["size"].as_u64()) {
+        (Some(sha), Some(size)) if is_hex64(sha) => Ok((sha.to_lowercase(), size)),
+        _ => Err(unreadable()),
+    }
 }
 
 /// The staged bytes must fully hash to the admitted digest:
@@ -212,7 +266,12 @@ fn sha256_of(path: &str) -> Result<String, String> {
         .stdout(std::process::Stdio::piped())
         .stderr(Stdio::null())
         .spawn()
-        .map_err(|_| String::from("muse executable verification unavailable"))?;
+        .map_err(|_| {
+            format!(
+                "{tool} executable verification unavailable",
+                tool = Tool::current().name()
+            )
+        })?;
     let output = child
         .stdout
         .take()
@@ -228,7 +287,10 @@ fn sha256_of(path: &str) -> Result<String, String> {
         match child.try_wait() {
             Ok(Some(status)) => {
                 if !status.success() {
-                    return Err(String::from("muse executable verification unavailable"));
+                    return Err(format!(
+                        "{tool} executable verification unavailable",
+                        tool = Tool::current().name()
+                    ));
                 }
                 let sum = output
                     .split_whitespace()
@@ -236,7 +298,10 @@ fn sha256_of(path: &str) -> Result<String, String> {
                     .unwrap_or_default()
                     .to_lowercase();
                 if !is_hex64(&sum) {
-                    return Err(String::from("muse executable verification unavailable"));
+                    return Err(format!(
+                        "{tool} executable verification unavailable",
+                        tool = Tool::current().name()
+                    ));
                 }
                 return Ok(sum);
             }
@@ -244,11 +309,19 @@ fn sha256_of(path: &str) -> Result<String, String> {
                 if Instant::now() >= deadline {
                     let _ = child.kill();
                     let _ = child.wait();
-                    return Err(String::from("muse executable verification unavailable"));
+                    return Err(format!(
+                        "{tool} executable verification unavailable",
+                        tool = Tool::current().name()
+                    ));
                 }
                 std::thread::sleep(Duration::from_millis(50));
             }
-            Err(_) => return Err(String::from("muse executable verification unavailable")),
+            Err(_) => {
+                return Err(format!(
+                    "{tool} executable verification unavailable",
+                    tool = Tool::current().name()
+                ))
+            }
         }
     }
 }

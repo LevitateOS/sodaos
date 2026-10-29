@@ -8,6 +8,7 @@ mod paths;
 mod runtime;
 mod shell;
 mod store_resolve;
+mod tool;
 
 use account::account_for;
 use config::{copy_config, read_config};
@@ -15,9 +16,9 @@ use execution::execute;
 use launch::{launch_shell, seqpacket_connect};
 use runtime::check_runtime;
 use shell::shell_request;
+use tool::Tool;
 
 const MUSE_LAUNCH_SOCKET: &str = "/run/soda-muse-interface/launch.sock";
-const MUSE_NATIVE: &str = "/usr/local/libexec/soda/muse";
 
 fn main() {
     let (code, err) = run();
@@ -42,9 +43,30 @@ fn run() -> (i32, Option<String>) {
     };
     let fd = match seqpacket_connect(MUSE_LAUNCH_SOCKET) {
         Ok(fd) => fd,
-        Err(_) => return (1, Some(String::from("muse launch service unavailable"))),
+        Err(_) => {
+            return (
+                1,
+                Some(format!(
+                    "{} launch service unavailable",
+                    Tool::current().name()
+                )),
+            )
+        }
     };
-    launch_shell(fd, &request)
+    let (code, err) = launch_shell(fd, &request);
+    (code, err.map(explain_denial))
+}
+
+// The host answers every refusal with one opaque denial; say what a person
+// can do about it.
+fn explain_denial(error: String) -> String {
+    if error != "Muse launch denied" || Tool::current() != Tool::Codex {
+        return error;
+    }
+    String::from(
+        "codex: launch denied. Connect a Codex account under AI accounts for this project, \
+and make sure Codex is not already running in another terminal.",
+    )
 }
 
 fn native_action(args: &[String]) -> Option<(i32, Option<String>)> {

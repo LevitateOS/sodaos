@@ -369,6 +369,69 @@ pub fn load_config(path: &str, release_path: &str) -> Result<Config, String> {
         .unwrap_or_default();
     c.release_payload = release_path.to_string();
     apply_release_images(&mut c, release_path)?;
+    if !release_path.is_empty() {
+        apply_provider_defaults(&mut c);
+    }
     validate_runtime_config(&c)?;
     Ok(c)
+}
+
+/// Fixed appliance paths of the identity broker and the in-project launch
+/// interface (`muse`, `codex`).
+const APPLIANCE_IDENTITY_SOCKET: &str = "/run/soda/identity/runtime.sock";
+const APPLIANCE_LAUNCH_SOCKET: &str = "/run/soda-muse-interface/launch.sock";
+
+/// Appliance installs never name provider wiring: the broker and launch
+/// sockets sit at fixed paths, and managed Codex sessions run the provider
+/// store's current admitted bundle unless a harness is pinned explicitly.
+fn apply_provider_defaults(c: &mut Config) {
+    if c.identity_socket.is_empty() {
+        c.identity_socket = APPLIANCE_IDENTITY_SOCKET.to_string();
+    }
+    if c.muse_socket.is_empty() {
+        c.muse_socket = APPLIANCE_LAUNCH_SOCKET.to_string();
+    }
+    if c.codex_harness.is_empty() {
+        if let Some((harness, sha256, version)) = store_codex_harness() {
+            c.codex_harness = harness;
+            c.codex_harness_sha256 = sha256;
+            c.codex_harness_version = version;
+        }
+    }
+}
+
+/// The current admitted Codex bundle: its directory, the inventory digest
+/// of `bin/codex` and the upstream version. `None` until the provider
+/// store has admitted one.
+fn store_codex_harness() -> Option<(String, String, String)> {
+    use soda_provider_tools::{config, store, Provider};
+    let root = config::store_root();
+    let selection = store::read_selection(&root, Provider::Codex).ok()??;
+    let bundle = selection.bundle_dir(&root);
+    let body = std::fs::read(bundle.join("inventory.json")).ok()?;
+    let inventory: serde_json::Value = serde_json::from_slice(&body).ok()?;
+    if inventory["digest"].as_str() != Some(selection.release.digest.as_str()) {
+        return None;
+    }
+    let sha256 = inventory["entries"]
+        .as_array()?
+        .iter()
+        .find(|entry| entry["path"].as_str() == Some(Provider::Codex.executable_relpath()))?
+        ["sha256"]
+        .as_str()?
+        .to_ascii_lowercase();
+    let version = selection
+        .release
+        .version
+        .trim_start_matches("rust-v")
+        .to_string();
+    Some((
+        bundle.to_str()?.to_string(),
+        sha256,
+        if factory::valid_harness_version(&version) {
+            version
+        } else {
+            String::new()
+        },
+    ))
 }

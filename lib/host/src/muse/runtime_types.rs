@@ -3,7 +3,7 @@ use std::os::fd::OwnedFd;
 use std::sync::Mutex;
 use std::time::Instant;
 
-use super::LaunchRequest;
+use super::{LaunchProvider, LaunchRequest};
 use crate::terminal::{AcquireRequest, Binding, Delivery, Lease};
 
 // ---------- runtime types ----------
@@ -50,6 +50,8 @@ pub struct MuseNested {
 /// broker lease/binding, credential path and unit name.
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub struct MuseExecution {
+    /// Provider CLI this execution runs (from the launch request).
+    pub provider: LaunchProvider,
     pub caller: MuseCaller,
     pub request: LaunchRequest,
     pub lease: Lease,
@@ -83,10 +85,17 @@ pub trait MuseHooks {
         deadline: Instant,
     ) -> Result<Delivery, String>;
     fn end(&self, actor: i64, lease_id: &str, deadline: Instant) -> Result<(), String>;
-    fn authorize(&self, actor: i64, project: &str, deadline: Instant) -> Result<(), String>;
+    fn authorize(
+        &self,
+        provider: LaunchProvider,
+        actor: i64,
+        project: &str,
+        deadline: Instant,
+    ) -> Result<(), String>;
     fn nested_authorize(&self, actor: i64, project: &str, deadline: Instant) -> Result<(), String>;
     fn select(
         &self,
+        provider: LaunchProvider,
         actor: i64,
         project: &str,
         selected: &str,

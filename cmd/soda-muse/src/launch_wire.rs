@@ -4,9 +4,12 @@ use serde::{Deserialize, Serialize};
 use std::fmt;
 
 use super::shell::ShellRequest;
+use super::tool::Tool;
 
 #[derive(Serialize)]
 struct ShellLaunchRequest<'a> {
+    #[serde(skip_serializing_if = "str::is_empty")]
+    provider: &'a str,
     #[serde(skip_serializing_if = "Option::is_none")]
     home: Option<&'a str>,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -25,6 +28,7 @@ struct ShellLaunchRequest<'a> {
 // shell: empty home/config_home/term omitted, argv always an array.
 pub(crate) fn shell_request_json(r: &ShellRequest) -> String {
     serde_json::to_string(&ShellLaunchRequest {
+        provider: Tool::current().wire(),
         home: (!r.home.is_empty()).then_some(r.home.as_str()),
         config_home: (!r.config_home.is_empty()).then_some(r.config_home.as_str()),
         term: (!r.term.is_empty()).then_some(r.term.as_str()),

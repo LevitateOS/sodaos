@@ -138,24 +138,32 @@ impl muse::MuseHooks for BrokerClient {
         BrokerClient::end_lease(self, actor, lease_id, deadline)
     }
 
-    fn authorize(&self, actor: i64, project: &str, deadline: Instant) -> Result<(), String> {
-        // A Muse+Ready connection must exist before launch.
+    fn authorize(
+        &self,
+        provider: muse::LaunchProvider,
+        actor: i64,
+        project: &str,
+        deadline: Instant,
+    ) -> Result<(), String> {
+        // A ready connection of the launched provider must exist.
         let available = BrokerClient::available(self, actor, project, deadline)?;
-        muse::muse_connection_authorized(&available)
+        muse::connection_authorized(&available, provider)
     }
 
     fn nested_authorize(&self, actor: i64, project: &str, deadline: Instant) -> Result<(), String> {
-        muse::MuseHooks::authorize(self, actor, project, deadline)
+        // Nested compose children launch Muse only.
+        muse::MuseHooks::authorize(self, muse::LaunchProvider::Muse, actor, project, deadline)
     }
 
     fn select(
         &self,
+        provider: muse::LaunchProvider,
         actor: i64,
         project: &str,
         selected: &str,
         deadline: Instant,
     ) -> Result<String, String> {
         let available = BrokerClient::available(self, actor, project, deadline)?;
-        muse::select_muse_connection(&available, selected)
+        muse::select_connection(&available, provider, selected)
     }
 }

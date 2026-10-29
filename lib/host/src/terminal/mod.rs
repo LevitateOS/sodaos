@@ -27,7 +27,8 @@ pub use self::core::{
     err_denied, err_stale, err_uncertain, now_unix, valid_terminal_id, BROKER_RESPONSE_LIMIT,
     CREDENTIAL_LIMIT, ERR_DENIED, ERR_IDENTITY_UNCONFIRMED, ERR_INVALID_IDENTITY_OPERATION,
     ERR_NOT_FOUND, ERR_STALE, ERR_UNCERTAIN, FRAME_LIMIT, KIND_FACTORY, KIND_TERMINAL,
-    PROVIDER_CODEX, PROVIDER_MUSE, SCOPE_MUSE_PROJECT, STREAM_LIMIT, TERMINAL_LIMIT,
+    PROVIDER_CODEX, PROVIDER_MUSE, SCOPE_CODEX_PROJECT, SCOPE_MUSE_PROJECT, STREAM_LIMIT,
+    TERMINAL_LIMIT,
 };
 
 mod text;
@@ -74,6 +75,7 @@ mod transfer;
 pub(crate) use self::transfer::harness_pipeline_argv;
 
 mod native;
+pub(crate) use self::native::run_harness_pipeline;
 
 pub use self::native::{
     agent_program_hash, agent_program_path, clean_path, is_clean_absolute_path, native_argv,

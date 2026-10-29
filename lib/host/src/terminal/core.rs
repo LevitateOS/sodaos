@@ -36,6 +36,8 @@ pub const KIND_FACTORY: &str = "factory";
 pub const KIND_TERMINAL: &str = "terminal";
 /// Muse project-execution scope carried in broker bindings.
 pub const SCOPE_MUSE_PROJECT: &str = "muse-project";
+/// A `codex` typed in a Project terminal (the launcher, not a managed session).
+pub const SCOPE_CODEX_PROJECT: &str = "codex-project";
 
 pub fn err_denied() -> String {
     ERR_DENIED.to_string()
