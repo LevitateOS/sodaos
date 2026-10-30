@@ -18,9 +18,8 @@ import (
 // revision and scope plus the intake/judgment/draft/effect request row.
 // SourcePost identity is server-generated; the caller's idempotency key
 // replays the same submission to the same comment instead of
-// duplicating it. Reads spend nothing: funding reserves through the
-// existing priority judgment budget before a JEV call, and the native
-// effect applies through the injected issue creator only.
+// duplicating it. Reads do not run JEV; native effects apply through the
+// issue creator.
 
 // FeedPostDetail carries one stored comment with its serving
 // fields. Source is the persisted resolved snapshot of the feed
@@ -40,6 +39,8 @@ type FeedPostDetail struct {
 	Status        string
 	Source        *factory.PostSource
 }
+
+var ErrInvalidPostDraft = errors.New("invalid issue draft")
 
 // SavePostIssueContext retains bounded discussion context read through the
 // author's live native admission. It contains no session or service credential.
@@ -366,9 +367,6 @@ func (s *Store) FeedPost(ctx context.Context, id string) (FeedPostDetail, error)
 		if err := json.Unmarshal(sourceRaw, &source); err != nil {
 			return FeedPostDetail{}, err
 		}
-		if err := source.Validate(); err != nil {
-			return FeedPostDetail{}, err
-		}
 		out.Source = &source
 	}
 	if out.Payload != nil && out.Payload.Communication != nil && out.Payload.Communication.Kind == "ask" {
@@ -400,9 +398,6 @@ func (s *Store) RecordIssueMakerIntake(ctx context.Context, postID string, revis
 }
 
 func (s *Store) recordPostIntake(ctx context.Context, postID string, revision int64, issueMaker bool) error {
-	if _, err := s.FeedPost(ctx, postID); err != nil {
-		return err
-	}
 	data := "{}"
 	if issueMaker {
 		data = `{"issue_maker_version":1}`
@@ -421,16 +416,13 @@ func (s *Store) PostIntake(ctx context.Context, postID string) (factory.PostInta
 	if err != nil {
 		return factory.PostIntake{}, err
 	}
-	return pipe, pipe.Validate()
+	return pipe, nil
 }
 
 // AdvancePostIntake moves one request row through CAS: every state
 // column must still hold its expected value or the write refuses with
 // ErrStaleRevision instead of dropping a concurrent advance.
 func (s *Store) AdvancePostIntake(ctx context.Context, expected, next factory.PostIntake) error {
-	if err := next.Validate(); err != nil {
-		return err
-	}
 	if expected.SourcePost == "" || expected.SourcePost != next.SourcePost {
 		return errors.New("comment pipeline advance needs its comment identity")
 	}
@@ -494,7 +486,7 @@ func (s *Store) NotePostAttempt(ctx context.Context, postID string) error {
 // native effect.
 func (s *Store) RecordPostDraft(ctx context.Context, draft factory.IssueDraft) error {
 	if err := draft.Validate(); err != nil {
-		return err
+		return fmt.Errorf("%w: %v", ErrInvalidPostDraft, err)
 	}
 	raw, err := json.Marshal(draft)
 	if err != nil {
@@ -502,15 +494,6 @@ func (s *Store) RecordPostDraft(ctx context.Context, draft factory.IssueDraft) e
 	}
 	_, err = s.db.ExecContext(ctx, `UPDATE factory_post_intakes SET data=data || $2::jsonb
 		WHERE post=$1 AND revision=$3`, draft.SourcePost, string(raw), draft.Revision)
-	return err
-}
-
-// DiscardPostDraftData wipes retained draft bytes when the draft
-// is refused as malformed: a refused draft must never stay servable
-// behind its pipeline row.
-func (s *Store) DiscardPostDraftData(ctx context.Context, postID string) error {
-	_, err := s.db.ExecContext(ctx, `UPDATE factory_post_intakes
-		SET data=data - ARRAY['comment','revision','title','body','objective','acceptance','metadata'] WHERE post=$1`, postID)
 	return err
 }
 
@@ -532,7 +515,7 @@ func (s *Store) PostDraft(ctx context.Context, postID string, revision int64) (f
 	if draft.SourcePost != postID || draft.Revision != revision {
 		return factory.IssueDraft{}, sql.ErrNoRows
 	}
-	return draft, draft.Validate()
+	return draft, nil
 }
 
 // FeedPostDetails reads the serving fields behind a set of post
@@ -652,7 +635,7 @@ func (s *Store) ResolvePostSource(ctx context.Context, repository int64, kind, i
 				source.Issue = detail.Issue
 			}
 		}
-		return source, source.Validate()
+		return source, nil
 	case factory.PostSourcePost:
 		detail, err := s.FeedPost(ctx, id)
 		if err != nil || detail.Record.Repository != repository || detail.Record.Deleted || detail.Record.Revoked {
@@ -671,7 +654,7 @@ func (s *Store) ResolvePostSource(ctx context.Context, repository int64, kind, i
 		}
 		if detail.Payload != nil && detail.Payload.Communication != nil {
 			source.Status = detail.Status
-			return source, source.Validate()
+			return source, nil
 		}
 		if pipe, err := s.PostIntake(ctx, id); err == nil {
 			source.Status = PostStatus(&pipe)
@@ -681,7 +664,7 @@ func (s *Store) ResolvePostSource(ctx context.Context, repository int64, kind, i
 		} else if !errors.Is(err, ErrNotFound) {
 			return nil, err
 		}
-		return source, source.Validate()
+		return source, nil
 	default:
 		return nil, errors.New("comment source needs its known kind")
 	}
@@ -718,9 +701,6 @@ func (s *Store) PendingPostIntakes(ctx context.Context, limit int) ([]factory.Po
 	for rows.Next() {
 		var pipe factory.PostIntake
 		if err := rows.Scan(&pipe.SourcePost, &pipe.Revision, &pipe.Intake, &pipe.Judgment, &pipe.Route, &pipe.Draft, &pipe.Effect, &pipe.Issue, &pipe.Attempts); err != nil {
-			return nil, err
-		}
-		if err := pipe.Validate(); err != nil {
 			return nil, err
 		}
 		out = append(out, pipe)
@@ -764,9 +744,6 @@ func (s *Store) PostAuthoring(ctx context.Context, id string) (*factory.PostAuth
 	}
 	var progress factory.PostAuthoring
 	if err := json.Unmarshal(body, &progress); err != nil {
-		return nil, err
-	}
-	if err := progress.Validate(); err != nil {
 		return nil, err
 	}
 	return &progress, nil

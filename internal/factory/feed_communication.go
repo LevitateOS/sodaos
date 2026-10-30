@@ -322,44 +322,6 @@ func PostDecisionID(kind, comment string, revision int64) string {
 	return "d" + hex.EncodeToString(sum[:])[:24]
 }
 
-// Validate admits one pipeline row with known states and a bounded
-// attempt count.
-func (p PostIntake) Validate() error {
-	if !postID.MatchString(p.SourcePost) {
-		return errors.New("comment pipeline needs its comment identity")
-	}
-	if p.Revision < 0 {
-		return errors.New("comment pipeline needs its non-negative source revision")
-	}
-	if p.Intake != PostIntakeRecorded {
-		return errors.New("comment pipeline needs its recorded intake")
-	}
-	switch p.Judgment {
-	case PostJudgmentPending, PostJudgmentApplied, PostJudgmentFailed:
-	default:
-		return errors.New("comment pipeline needs its known judgment state")
-	}
-	switch p.Route {
-	case "", PostRouteNewIssue, PostRouteExistingWork, PostRouteDiscussion, PostRouteClarify:
-	default:
-		return errors.New("comment pipeline needs its known route")
-	}
-	switch p.Draft {
-	case PostDraftPending, PostDraftApplied, PostDraftInvalid:
-	default:
-		return errors.New("comment pipeline needs its known draft state")
-	}
-	switch p.Effect {
-	case PostEffectPending, PostEffectApplied, PostEffectVerified, PostEffectFailed, PostEffectBlocked:
-	default:
-		return errors.New("comment pipeline needs its known effect state")
-	}
-	if p.Issue < 0 || p.Attempts < 0 || p.Attempts > PostAttemptLimit {
-		return errors.New("comment pipeline needs its bounded issue and attempts")
-	}
-	return nil
-}
-
 // AdmitPostJudgment reports whether one funded judgment call may run
 // for the pipeline: intake recorded, judgment still pending, attempts
 // remaining. Reads and re-serves never pass this gate.

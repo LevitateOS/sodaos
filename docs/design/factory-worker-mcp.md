@@ -367,6 +367,15 @@ answer once; selection applies the existing probability and confidence cutoffs.
 Calls record their actual outcomes; a service pass does not infer a failed
 assessment from the post's age.
 
+Human-post intake reads its recorded stage state directly. Stage admission and
+concurrent-update checks control progress; reading and advancing the state do
+not revalidate its shape. The draft writer validates issue content before
+saving it. Draft reads check source revision without validating that content
+again. A malformed new draft records the existing invalid/blocked outcome
+without a cleanup write for bytes that were never saved.
+Post reads also use saved source and authoring fields directly; repository,
+deletion, revocation and revision checks still govern access to referenced work.
+
 `factory.context` supplies typed required role inputs independently of optional
 history selection. Large role fields travel as ordered UTF-8 JSON fragments in
 `current_role_page`: concatenate a field's parts and decode its JSON. The complete

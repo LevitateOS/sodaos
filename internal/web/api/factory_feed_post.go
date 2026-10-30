@@ -244,13 +244,6 @@ func (j *TypeSafePostJudge) JudgePost(ctx context.Context, input PostJudgeInput)
 	if err != nil {
 		return empty, err
 	}
-	request := factory.PriorityRequest{Rubric: postRouteRubric}
-	for _, key := range keys {
-		request.Candidates = append(request.Candidates, factory.PriorityCandidate{ID: key})
-	}
-	if err := answer.Validate(request); err != nil {
-		return empty, err
-	}
 	judgment, err := postJudgmentFromSelection(answer.Selected, input.Candidates)
 	if err != nil {
 		return empty, err
@@ -867,20 +860,17 @@ func drivePostDraft(ctx context.Context, st *store.Store, drafter PostDrafter, p
 	}
 	draft.SourcePost = pipe.SourcePost
 	draft.Revision = pipe.Revision
-	if err := draft.Validate(); err != nil {
+	if err := st.RecordPostDraft(ctx, draft); err != nil {
+		if !errors.Is(err, store.ErrInvalidPostDraft) {
+			return false, err
+		}
 		next := pipe
 		next.Draft = factory.PostDraftInvalid
 		next.Effect = factory.PostEffectBlocked
 		if advanceErr := st.AdvancePostIntake(ctx, pipe, next); advanceErr != nil {
 			return false, advanceErr
 		}
-		if wipeErr := st.DiscardPostDraftData(ctx, pipe.SourcePost); wipeErr != nil {
-			return false, wipeErr
-		}
 		return true, nil
-	}
-	if err := st.RecordPostDraft(ctx, draft); err != nil {
-		return false, err
 	}
 	next := pipe
 	next.Draft = factory.PostDraftApplied

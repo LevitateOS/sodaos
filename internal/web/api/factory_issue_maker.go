@@ -45,11 +45,11 @@ func (s *API) drivePostIssueMaker(ctx context.Context, pipe factory.PostIntake, 
 		save("creating", "Recording your original request as an issue. AI refinement follows afterward.")
 		if pipe.AdmitPostDraft() {
 			draft := originalRequestIssue(comment)
-			if err = draft.Validate(); err != nil {
-				save("failed", err.Error())
-				return postResponse(pipe), err
-			}
 			if err = s.Store.RecordPostDraft(ctx, draft); err != nil {
+				if errors.Is(err, store.ErrInvalidPostDraft) {
+					save("failed", err.Error())
+					return postResponse(pipe), err
+				}
 				return factory.PostResponse{}, err
 			}
 			next := pipe
