@@ -15,7 +15,7 @@ const MaxRepairDiagnosisBytes = 8192
 const MaxRepairDiagnoses = MaxRepairObservations
 
 // RepairDiagnosis is an attributed worker report of cause evidence and
-// uncertainty. Its submission ID names the immutable observation, never an
+// uncertainty. Its post ID names the observation, never an
 // accepted repair, native fact, judgment or changed graph.
 type RepairDiagnosis struct {
 	Subject         string         `json:"subject"`
@@ -89,9 +89,6 @@ func (d RepairDiagnosis) Validate() error {
 }
 
 func (d RepairDiagnosis) ValidateFor(cap MCPCapability, a Assignment, current CurrentContext) error {
-	if err := d.Validate(); err != nil {
-		return err
-	}
 	if cap.Profile != MCPProfileStrategist || a.Role != project.RoleCoder || a.Issue != 0 || a.ID != cap.AssignmentID || a.Run != cap.RunID || a.Repository != cap.Repository || a.ProjectID != cap.Project || a.Subject.SubjectKey(a.Repository) != cap.Subject || d.Subject != cap.Subject || d.InputDigest != cap.ScopeDigest() || d.SourceCommit != a.SourceCommit {
 		return errors.New("diagnosis differs from its admitted Strategist")
 	}

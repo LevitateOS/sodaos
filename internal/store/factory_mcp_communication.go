@@ -5,7 +5,6 @@ import (
 	"database/sql"
 	"encoding/json"
 	"errors"
-	"slices"
 	"strings"
 	"time"
 
@@ -19,7 +18,7 @@ var ErrMCPCommunicationCap = errors.New("assignment communication bound reached;
 // there is no second submission record or receipt to recover.
 func (s *Store) RecordWorkerPost(ctx context.Context, submission factory.MCPSubmission) (FeedPostDetail, error) {
 	var out FeedPostDetail
-	if !(submission.Tool == factory.MCPToolRecordJourneyResult || slices.Contains(factory.MCPCommunicationTools, submission.Tool)) || !factory.ValidID(submission.SubmissionID) {
+	if !factory.MCPIsCommunication(submission.Tool) || !factory.ValidID(submission.SubmissionID) {
 		return out, errors.New("worker post needs a communication tool and stable identity")
 	}
 	tx, err := s.db.BeginTx(ctx, nil)
@@ -53,11 +52,20 @@ func (s *Store) RecordWorkerPost(ctx context.Context, submission factory.MCPSubm
 		}
 		return s.FeedPost(ctx, postID)
 	}
-	if submission.Tool == factory.MCPToolRecordJourneyResult {
+	switch submission.Tool {
+	case factory.MCPToolRecordJourneyResult:
 		if _, err := recordVerificationJourneyPostTx(ctx, tx, capability, submission); err != nil {
 			return out, err
 		}
-	} else {
+	case factory.MCPToolRecordDiagnosis:
+		if _, err := recordRepairDiagnosisPostTx(ctx, tx, capability, submission); err != nil {
+			return out, err
+		}
+	case factory.MCPToolDraftRepair:
+		if _, err := recordRepairDraftPostTx(ctx, tx, capability, submission); err != nil {
+			return out, err
+		}
+	default:
 		content, err := factory.DecodeMCPCommunication(submission.Tool, submission.Payload)
 		if err != nil {
 			return out, err
@@ -117,8 +125,13 @@ func recordWorkerPostTx(ctx context.Context, tx *sql.Tx, capability factory.MCPC
 		"actor": string(capability.Profile), "assignment": capability.AssignmentID, "run": capability.RunID,
 		"project": capability.Project, "communication": content,
 	}
-	if submission.Tool == factory.MCPToolRecordJourneyResult {
+	switch submission.Tool {
+	case factory.MCPToolRecordJourneyResult:
 		fields["journey"] = json.RawMessage(submission.Payload)
+	case factory.MCPToolRecordDiagnosis:
+		fields["diagnosis"] = json.RawMessage(submission.Payload)
+	case factory.MCPToolDraftRepair:
+		fields["repair_draft"] = string(submission.Payload)
 	}
 	if content.ParentID == "" && (content.Kind == "partial" || content.Kind == "reply") {
 		fields["source"] = factory.PostSource{Kind: factory.PostSourceRecord, ID: capability.AssignmentID, Issue: issue, Ref: capability.AcceptedRevision}

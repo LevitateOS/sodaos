@@ -65,6 +65,7 @@ type fakeCatalogSink struct {
 	mu          sync.Mutex
 	capability  factory.MCPCapability
 	submissions map[string]fakeCatalogRecord
+	posts       map[string]factory.MCPSubmission
 	assignments map[string]factory.Assignment
 	receipts    map[string]factory.PriorityReceipt
 	runs        map[string]factory.Run
@@ -75,6 +76,7 @@ func newFakeCatalogSink() *fakeCatalogSink {
 	sink := &fakeCatalogSink{
 		capability:  capability,
 		submissions: map[string]fakeCatalogRecord{},
+		posts:       map[string]factory.MCPSubmission{},
 		receipts:    map[string]factory.PriorityReceipt{},
 		runs:        map[string]factory.Run{},
 		assignments: map[string]factory.Assignment{
@@ -168,6 +170,16 @@ func (f *fakeCatalogSink) RecordMCPSubmission(_ context.Context, submission fact
 	f.mu.Lock()
 	defer f.mu.Unlock()
 	return f.record(submission, factory.MCPReceipt{SubmissionID: submission.SubmissionID, Tool: submission.Tool, State: factory.MCPReceiptRecorded, InputDigest: submission.PayloadHash})
+}
+
+func (f *fakeCatalogSink) RecordWorkerPost(_ context.Context, submission factory.MCPSubmission) (store.FeedPostDetail, error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	id := factory.MCPInputDigest([]byte(submission.AssignmentID + "\n" + submission.SubmissionID))[:32]
+	if _, exists := f.posts[id]; !exists {
+		f.posts[id] = submission
+	}
+	return store.FeedPostDetail{Record: factory.PostRecord{ID: id}, Assignment: submission.AssignmentID, Actor: string(f.capability.Profile)}, nil
 }
 
 func (f *fakeCatalogSink) MCPReceipt(_ context.Context, assignmentID, submissionID string) (factory.MCPReceipt, error) {

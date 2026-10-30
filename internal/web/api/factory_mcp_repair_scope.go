@@ -22,8 +22,8 @@ type factoryMCPRepairObservationSource interface {
 func repairScopePayloadSchema() *jsonschema.Schema {
 	shape := contextPayloadSchema()
 	shape.Properties["after"] = &jsonschema.Schema{Type: "integer", Description: "Continue this assignment's diagnosis and draft references after the previous next_after sequence."}
-	shape.Properties["record"] = &jsonschema.Schema{Type: "string", MaxLength: ptrInt(32), Description: "Recover one exact submission ID from reassessment_scope.records as bounded immutable JSON fragments."}
-	shape.Properties["offset"] = &jsonschema.Schema{Type: "integer", Description: "Continue the selected record using record_page.next_offset. Concatenate content, verify payload_hash, then decode JSON."}
+	shape.Properties["record"] = &jsonschema.Schema{Type: "string", MaxLength: ptrInt(32), Description: "Read one post ID from reassessment_scope.records as bounded JSON fragments."}
+	shape.Properties["offset"] = &jsonschema.Schema{Type: "integer", Description: "Continue the selected post using record_page.next_offset. Concatenate content, then decode JSON."}
 	return shape
 }
 
@@ -70,7 +70,7 @@ func (s *factoryCatalogServer) serveReassessmentScope(ctx context.Context, args 
 	if payload.Record != "" {
 		reader, ok := s.deps.Submissions.(factoryMCPRepairObservationSource)
 		if !ok {
-			return nil, nil, errors.New("repair observation recovery is unavailable")
+			return nil, nil, errors.New("repair observation is unavailable")
 		}
 		page, err := reader.ReadRepairObservation(ctx, read.capability, payload.Record, payload.Offset)
 		if err != nil {

@@ -623,23 +623,24 @@ and fresh validation. Installed native preview qualification remains separate.
 
 `factory.reassessment_scope` reuses canonical required-context pages for the
 complete admitted cause/inventory and remaining allowance, plus eight own
-diagnosis/draft receipt references per feed-sequence page. Reads reserve nothing.
+diagnosis/draft post references per feed-sequence page. Reads reserve nothing.
 `factory.record_diagnosis` persists a cause-bound report with reported causal
-state, evidence, alternatives and uncertainty. Its immutable submission ID is the
-diagnosis ID, and its receipt and attributed ST02 feed post commit together.
-Exact replay returns the original identity; changed bytes, foreign cause/input/
-source/inventory, unowned artifacts and inactive workers refuse. Payloads are
+state, evidence, alternatives and uncertainty on its attributed ST02 post.
+The post ID is the diagnosis ID. A repeated post key returns the original post;
+foreign cause/input/source/inventory, unowned artifacts and inactive workers
+refuse. Payloads are
 at most 8 KiB and each assignment has 32 diagnosis slots while retaining its
 terminal slot. Diagnosis can report under a context-selection hold; it never
 supplies missing work authority, paid assessment or native truth.
 
 `factory.draft_repair` records the complete cause-specific typed report and
-optional `diagnosis:<submission ID>` references belonging to the exact same
+optional `diagnosis:<post ID>` references belonging to the exact same
 assignment/input. Its ST06 post is a bounded proposed-graph preview with explicit
-abbreviation notices; the canonical submission retains every byte. Both diagnosis
-and draft references can be recovered through `reassessment_scope` using
+abbreviation notices; the same post retains the complete original report. Both
+diagnosis and draft posts can be read through `reassessment_scope` using
 `record` and byte `offset`: concatenate UTF-8 JSON fragments of at most 4 KiB,
-verify the canonical payload hash, then decode the full original report. Missing,
+then decode the full original report. No parallel MCP receipt or payload hash is
+recorded. Missing,
 foreign, stale or mid-rune reads refuse. There are 32 draft slots per assignment,
 within the 64 KiB payload bound, independently of diagnosis slots and the terminal
 slot. A draft does not pass graph preflight or a paid judgment by being recorded.

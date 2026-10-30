@@ -15,7 +15,6 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
-	"slices"
 	"strings"
 	"sync"
 	"time"
@@ -403,12 +402,6 @@ func (s *factoryCatalogServer) checkPayload(tool factory.MCPTool, payload map[st
 	if isIssueMakerTool(tool) {
 		return checkIssueMakerPayload(payload)
 	}
-	if tool == factory.MCPToolRecordDiagnosis {
-		return checkRepairDiagnosisPayload(payload)
-	}
-	if tool == factory.MCPToolDraftRepair {
-		return checkRepairDraftPayload(payload)
-	}
 	if tool == factory.MCPToolResolvePost {
 		return checkResolvePostPayload(tool, payload)
 	}
@@ -553,7 +546,7 @@ func (s *factoryCatalogServer) serve(ctx context.Context, tool factory.MCPTool, 
 	if factory.MCPIsLibraryRead(tool) {
 		return s.serveLibraryRead(ctx, tool, args)
 	}
-	if tool == factory.MCPToolRecordJourneyResult || slices.Contains(factory.MCPCommunicationTools, tool) {
+	if factory.MCPIsCommunication(tool) {
 		return s.serveWorkerPost(ctx, tool, args)
 	}
 	switch tool {

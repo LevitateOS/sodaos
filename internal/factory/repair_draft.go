@@ -9,7 +9,7 @@ import (
 )
 
 // RepairDraft preserves the worker's complete typed proposal. It is neither a
-// terminal result nor an approved graph. Its submission ID is the draft ID.
+// terminal result nor an approved graph. Its post ID is the draft ID.
 type RepairDraft struct {
 	Report        json.RawMessage `json:"report"`
 	DiagnosisRefs []string        `json:"diagnosis_refs,omitempty"`
@@ -80,11 +80,7 @@ func DecodeRepairDraft(raw []byte) (RepairDraft, error) {
 	if err := decodeRepairDraftValue(raw, &out); err != nil {
 		return out, err
 	}
-	if _, err := out.typedReport(); err != nil {
-		return out, err
-	}
-	_, err := out.DiagnosisIDs()
-	return out, err
+	return out, nil
 }
 
 func (d RepairDraft) DiagnosisIDs() ([]string, error) {
@@ -108,9 +104,6 @@ func (d RepairDraft) DiagnosisIDs() ([]string, error) {
 // suitability remains a preview/paid-adoption decision, never draft authority.
 func (d RepairDraft) ValidateFor(cap MCPCapability, a Assignment, current CurrentContext) (RepairDraftContent, error) {
 	var out RepairDraftContent
-	if _, err := d.DiagnosisIDs(); err != nil {
-		return out, err
-	}
 	r, err := d.typedReport()
 	if err != nil {
 		return out, err

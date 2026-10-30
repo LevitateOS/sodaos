@@ -3,6 +3,7 @@ package store
 import (
 	"context"
 	"database/sql"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"strings"
@@ -10,49 +11,46 @@ import (
 	"github.com/levitateos/sodaos/internal/factory"
 )
 
-func recordMCPRepairDraftTx(ctx context.Context, tx *sql.Tx, cap factory.MCPCapability, sub factory.MCPSubmission, receipt *factory.MCPReceipt) error {
-	if sub.Tool != factory.MCPToolDraftRepair {
-		return nil
-	}
+func recordRepairDraftPostTx(ctx context.Context, tx *sql.Tx, cap factory.MCPCapability, sub factory.MCPSubmission) (string, error) {
 	draft, err := factory.DecodeRepairDraft(sub.Payload)
 	if err != nil {
-		return err
+		return "", err
 	}
 	a, current, err := repairObservationScopeTx(ctx, tx, cap)
 	if err != nil {
-		return err
+		return "", err
 	}
 	proposal, err := draft.ValidateFor(cap, a, current)
 	if err != nil {
-		return err
+		return "", err
 	}
 	ids, err := draft.DiagnosisIDs()
 	if err != nil {
-		return err
+		return "", err
 	}
 	for _, id := range ids {
 		var raw []byte
-		var capability, input, digest string
-		if err := tx.QueryRowContext(ctx, `SELECT capability,input_digest,payload_hash,payload FROM factory_mcp_submissions WHERE assignment=$1 AND submission=$2 AND tool=$3 FOR SHARE`, a.ID, id, string(factory.MCPToolRecordDiagnosis)).Scan(&capability, &input, &digest, &raw); err != nil {
+		if err := tx.QueryRowContext(ctx, `SELECT data->'diagnosis' FROM factory_feed_posts WHERE id=$1 AND repository=$2 AND data->>'assignment'=$3 AND data->>'run'=$4 AND data->'communication'->>'kind'='diagnosis' FOR SHARE`, id, a.Repository, a.ID, a.Run).Scan(&raw); err != nil {
 			if errors.Is(err, sql.ErrNoRows) {
-				return errors.New("draft diagnosis is not a recorded observation of this assignment")
+				return "", errors.New("draft diagnosis is not a recorded observation of this assignment")
 			}
-			return err
+			return "", err
 		}
-		diagnosis, err := factory.DecodeRepairDiagnosis(raw)
-		if err != nil || capability != cap.ID || input != cap.ScopeDigest() || digest != factory.MCPInputDigest(raw) || diagnosis.ValidateFor(cap, a, current) != nil {
-			return errors.New("draft diagnosis differs from its canonical cause and input")
+		var diagnosis factory.RepairDiagnosis
+		if json.Unmarshal(raw, &diagnosis) != nil || diagnosis.ValidateFor(cap, a, current) != nil {
+			return "", errors.New("draft diagnosis differs from its canonical cause and input")
 		}
 	}
 	var count int
-	if err := tx.QueryRowContext(ctx, `SELECT count(*) FROM factory_mcp_submissions WHERE assignment=$1 AND tool=$2`, a.ID, string(sub.Tool)).Scan(&count); err != nil {
-		return err
+	if err := tx.QueryRowContext(ctx, `SELECT count(*) FROM factory_feed_posts WHERE data->>'assignment'=$1 AND data->'communication'->>'kind'='repair_draft'`, a.ID).Scan(&count); err != nil {
+		return "", err
 	}
 	if count >= factory.MaxRepairObservations {
-		return errors.New("repair draft limit reached; finish remains available")
+		return "", errors.New("repair draft limit reached; finish remains available")
 	}
 	content := factory.FeedCommunication{Kind: "repair_draft", Title: "Proposed repair graph", Summary: "Recorded draft (" + proposal.Outcome + "). Not submitted for judgment or adopted; graph and readiness are unchanged.", Scope: cap.Subject, Before: "Sealed inventory " + proposal.InventoryDigest, After: "Proposed tasks only; use preview for deterministic adoption feedback.", EvidenceRefs: append([]string{}, draft.DiagnosisRefs...)}
-	content.EvidenceRefs = append(content.EvidenceRefs, proposal.SourceCommit, "input:"+cap.ScopeDigest(), "inventory:"+proposal.InventoryDigest, "draft:"+sub.SubmissionID)
+	postID := factory.MCPInputDigest([]byte(a.ID + "\n" + sub.SubmissionID))[:32]
+	content.EvidenceRefs = append(content.EvidenceRefs, proposal.SourceCommit, "input:"+cap.ScopeDigest(), "inventory:"+proposal.InventoryDigest, "draft:"+postID)
 	rows, abbreviated := 0, false
 	appendPreview := func(item factory.FeedCommunicationItem) {
 		rows++
@@ -73,10 +71,9 @@ func recordMCPRepairDraftTx(ctx context.Context, tx *sql.Tx, cap factory.MCPCapa
 			appendPreview(factory.FeedCommunicationItem{ID: task.Key, DependsOn: append([]string{}, task.DependsOn...), Label: task.Objective, Detail: "Outcomes: " + strings.Join(task.Outcomes, "; ") + "\nAccepted ideas: " + strings.Join(task.IdeaIDs, ", "), State: "proposed"})
 		}
 	}
-	content.Remaining = []string{fmt.Sprintf("Preview shows %d of %d proposed graph rows. Recover the complete immutable report through draft:%s.", len(content.Items), rows, sub.SubmissionID)}
+	content.Remaining = []string{fmt.Sprintf("Preview shows %d of %d proposed graph rows. Read the complete report through draft:%s.", len(content.Items), rows, postID)}
 	if abbreviated {
 		content.Remaining = append(content.Remaining, "Long text or prerequisite lists are abbreviated in this preview; the recorded draft retains every byte.")
 	}
-	receipt.FeedPostID, err = recordWorkerPostTx(ctx, tx, cap, sub, content)
-	return err
+	return recordWorkerPostTx(ctx, tx, cap, sub, content)
 }

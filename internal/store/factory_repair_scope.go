@@ -13,8 +13,8 @@ import (
 	"github.com/levitateos/sodaos/internal/project"
 )
 
-// repairObservationScopeTx is shared by scope reads and the existing immutable
-// submission transaction. It neither creates a guard row nor buys any work.
+// repairObservationScopeTx binds post reads and writes to the active
+// investigator and its admitted cause. It buys no work.
 func repairObservationScopeTx(ctx context.Context, tx *sql.Tx, cap factory.MCPCapability) (factory.Assignment, factory.CurrentContext, error) {
 	var a factory.Assignment
 	var current factory.CurrentContext
@@ -44,12 +44,6 @@ func repairObservationScopeTx(ctx context.Context, tx *sql.Tx, cap factory.MCPCa
 	if err := tx.QueryRowContext(ctx, `SELECT root_assignment FROM factory_attempt_allowances WHERE repository=$1 AND root_assignment=$2 FOR SHARE`, a.Repository, a.AttemptRoot).Scan(&locked); err != nil {
 		return a, current, err
 	}
-	if _, frozen, err := terminalMCPProposalTx(ctx, tx, a.ID); err != nil || frozen {
-		if err == nil {
-			err = ErrMCPSubmissionFrozen
-		}
-		return a, current, err
-	}
 	current, err := factoryCurrentContextTx(ctx, tx, cap, time.Now())
 	if err != nil {
 		return a, current, err
@@ -77,20 +71,16 @@ func (s *Store) ReassessmentScope(ctx context.Context, cap factory.MCPCapability
 		return out, err
 	}
 	out = factory.RepairScopeView{Assignment: a.ID, Run: a.Run, InputDigest: cap.ScopeDigest(), Subject: cap.Subject, SourceCommit: a.SourceCommit, InventoryDigest: factory.RepairInventoryDigest(current), Records: []factory.RepairScopeRecord{}, Limit: factory.RepairObservationPageSize, MaximumPerTool: factory.MaxRepairObservations}
-	var projected int
-	if err := tx.QueryRowContext(ctx, `SELECT count(*),count(p.id) FROM factory_mcp_submissions s LEFT JOIN factory_feed_posts p ON p.id=s.receipt->>'feed_post_id' AND p.repository=$2 AND p.data->>'assignment'=$1 AND s.capability=$3 AND s.input_digest=$4 WHERE s.assignment=$1 AND s.tool IN ($5,$6)`, a.ID, a.Repository, cap.ID, cap.ScopeDigest(), string(factory.MCPToolRecordDiagnosis), string(factory.MCPToolDraftRepair)).Scan(&out.Total, &projected); err != nil {
+	if err := tx.QueryRowContext(ctx, `SELECT count(*) FROM factory_feed_posts WHERE repository=$1 AND data->>'assignment'=$2 AND data->>'run'=$3 AND data->'communication'->>'kind' IN ('diagnosis','repair_draft')`, a.Repository, a.ID, a.Run).Scan(&out.Total); err != nil {
 		return out, err
 	}
-	if projected != out.Total {
-		return out, errors.New("repair observation projection is incomplete")
-	}
-	rows, err := tx.QueryContext(ctx, `SELECT s.submission,s.tool,s.receipt->>'feed_post_id',p.seq FROM factory_mcp_submissions s JOIN factory_feed_posts p ON p.id=s.receipt->>'feed_post_id' AND p.repository=$2 AND p.data->>'assignment'=$1 WHERE s.assignment=$1 AND s.capability=$3 AND s.input_digest=$4 AND s.tool IN ($5,$6) AND p.seq>$7 ORDER BY p.seq LIMIT $8`, a.ID, a.Repository, cap.ID, cap.ScopeDigest(), string(factory.MCPToolRecordDiagnosis), string(factory.MCPToolDraftRepair), after, out.Limit+1)
+	rows, err := tx.QueryContext(ctx, `SELECT id,CASE data->'communication'->>'kind' WHEN 'diagnosis' THEN $4 ELSE $5 END,seq FROM factory_feed_posts WHERE repository=$1 AND data->>'assignment'=$2 AND data->>'run'=$3 AND data->'communication'->>'kind' IN ('diagnosis','repair_draft') AND seq>$6 ORDER BY seq LIMIT $7`, a.Repository, a.ID, a.Run, string(factory.MCPToolRecordDiagnosis), string(factory.MCPToolDraftRepair), after, out.Limit+1)
 	if err != nil {
 		return out, err
 	}
 	for rows.Next() {
 		var record factory.RepairScopeRecord
-		if err := rows.Scan(&record.ID, &record.Tool, &record.FeedPostID, &record.Sequence); err != nil {
+		if err := rows.Scan(&record.ID, &record.Tool, &record.Sequence); err != nil {
 			rows.Close()
 			return out, err
 		}
@@ -109,9 +99,8 @@ func (s *Store) ReassessmentScope(ctx context.Context, cap factory.MCPCapability
 	return out, tx.Commit()
 }
 
-// ReadRepairObservation recovers only this active investigator's immutable
-// diagnosis or draft. The submission and its attributed feed post must still
-// agree with the current admitted cause; a reference grants no broader read.
+// ReadRepairObservation reads only this active investigator's diagnosis or
+// draft post. A reference grants no broader read.
 func (s *Store) ReadRepairObservation(ctx context.Context, cap factory.MCPCapability, id string, offset int) (factory.RepairObservationPage, error) {
 	var out factory.RepairObservationPage
 	if !factory.ValidID(id) || offset < 0 {
@@ -126,13 +115,9 @@ func (s *Store) ReadRepairObservation(ctx context.Context, cap factory.MCPCapabi
 	if err != nil {
 		return out, err
 	}
-	var capability string
 	var raw []byte
-	if err := tx.QueryRowContext(ctx, `SELECT s.tool,s.capability,s.input_digest,s.payload_hash,s.payload FROM factory_mcp_submissions s JOIN factory_feed_posts p ON p.id=s.receipt->>'feed_post_id' AND p.repository=$2 AND p.data->>'assignment'=$1 WHERE s.assignment=$1 AND s.submission=$3 AND s.tool IN ($4,$5) FOR SHARE OF s,p`, a.ID, a.Repository, id, string(factory.MCPToolRecordDiagnosis), string(factory.MCPToolDraftRepair)).Scan(&out.Tool, &capability, &out.InputDigest, &out.PayloadHash, &raw); err != nil {
+	if err := tx.QueryRowContext(ctx, `SELECT CASE data->'communication'->>'kind' WHEN 'diagnosis' THEN $5 ELSE $6 END,CASE data->'communication'->>'kind' WHEN 'diagnosis' THEN (data->'diagnosis')::text ELSE data->>'repair_draft' END FROM factory_feed_posts WHERE id=$1 AND repository=$2 AND data->>'assignment'=$3 AND data->>'run'=$4 AND data->'communication'->>'kind' IN ('diagnosis','repair_draft') FOR SHARE`, id, a.Repository, a.ID, a.Run, string(factory.MCPToolRecordDiagnosis), string(factory.MCPToolDraftRepair)).Scan(&out.Tool, &raw); err != nil {
 		return out, err
-	}
-	if capability != cap.ID || out.InputDigest != cap.ScopeDigest() || len(raw) == 0 || len(raw) > factory.MCPMaxSubmissionPayload || !utf8.Valid(raw) || !json.Valid(raw) || factory.MCPInputDigest(raw) != out.PayloadHash {
-		return factory.RepairObservationPage{}, errors.New("repair observation differs from its canonical admitted report")
 	}
 	if offset >= len(raw) || !utf8.RuneStart(raw[offset]) {
 		return factory.RepairObservationPage{}, errors.New("repair observation offset is outside its UTF-8 content")

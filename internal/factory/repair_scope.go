@@ -25,26 +25,23 @@ type RepairScopeView struct {
 }
 
 type RepairScopeRecord struct {
-	ID         string  `json:"id"`
-	Tool       MCPTool `json:"tool"`
-	FeedPostID string  `json:"feed_post_id"`
-	Sequence   int64   `json:"sequence"`
+	ID       string  `json:"id"`
+	Tool     MCPTool `json:"tool"`
+	Sequence int64   `json:"sequence"`
 }
 
-// RepairObservationPage recovers exact immutable report bytes in bounded UTF-8
-// fragments. Concatenate content by offset, then decode the JSON and verify
-// payload_hash. This grants no terminal or adoption authority.
+// RepairObservationPage reads a post's complete report in bounded UTF-8
+// fragments. Concatenate content by offset, then decode the JSON.
+// This grants no terminal or adoption authority.
 type RepairObservationPage struct {
-	ID          string  `json:"id"`
-	Tool        MCPTool `json:"tool"`
-	InputDigest string  `json:"input_digest"`
-	PayloadHash string  `json:"payload_hash"`
-	Offset      int     `json:"offset"`
-	NextOffset  int     `json:"next_offset,omitempty"`
-	TotalBytes  int     `json:"total_bytes"`
-	Encoding    string  `json:"encoding"`
-	Content     string  `json:"content"`
-	Complete    bool    `json:"complete"`
+	ID         string  `json:"id"`
+	Tool       MCPTool `json:"tool"`
+	Offset     int     `json:"offset"`
+	NextOffset int     `json:"next_offset,omitempty"`
+	TotalBytes int     `json:"total_bytes"`
+	Encoding   string  `json:"encoding"`
+	Content    string  `json:"content"`
+	Complete   bool    `json:"complete"`
 }
 
 // RepairInventoryDigest selects only the complete cause admitted to this

@@ -138,12 +138,18 @@ func TestFactoryBoundMCPIdentityDiscoveryAndRevocation(t *testing.T) {
 				t.Fatal("typed diagnosis transport refused", err)
 			}
 			if i > 0 && catalogText(t, result) != firstDiagnosis {
-				t.Fatal("diagnosis exact replay changed the acknowledged receipt")
+				t.Fatal("repeated diagnosis changed its post")
 			}
 			firstDiagnosis = catalogText(t, result)
 		}
+		var diagnosisPost struct {
+			ID string `json:"post_id"`
+		}
+		if json.Unmarshal([]byte(firstDiagnosis), &diagnosisPost) != nil || !factory.ValidID(diagnosisPost.ID) {
+			t.Fatal("diagnosis did not return its post")
+		}
 		reportJSON, _ := json.Marshal(report)
-		draft := factory.RepairDraft{Report: reportJSON, DiagnosisRefs: []string{"diagnosis:" + strings.Repeat("8", 32)}}
+		draft := factory.RepairDraft{Report: reportJSON, DiagnosisRefs: []string{"diagnosis:" + diagnosisPost.ID}}
 		firstDraft := ""
 		for i := 0; i < 2; i++ {
 			result, err := bound.CallTool(ctx, &mcp.CallToolParams{Name: string(factory.MCPToolDraftRepair), Arguments: map[string]any{"submission_id": strings.Repeat("9", 32), "payload": draft}})
@@ -152,21 +158,27 @@ func TestFactoryBoundMCPIdentityDiscoveryAndRevocation(t *testing.T) {
 			}
 			firstDraft = catalogText(t, result)
 		}
+		var draftPost struct {
+			ID string `json:"post_id"`
+		}
+		if json.Unmarshal([]byte(firstDraft), &draftPost) != nil || !factory.ValidID(draftPost.ID) {
+			t.Fatal("draft did not return its post")
+		}
 		invalidDraft := draft
 		invalidDraft.DiagnosisRefs = []string{"foreign-reference"}
 		result, err = bound.CallTool(ctx, &mcp.CallToolParams{Name: string(factory.MCPToolDraftRepair), Arguments: map[string]any{"submission_id": factory.NewID(), "payload": invalidDraft}})
 		if !catalogRefused(result, err) {
 			t.Fatal("typed draft schema accepted a malformed diagnosis reference")
 		}
-		result, err = bound.CallTool(ctx, &mcp.CallToolParams{Name: string(factory.MCPToolReassessmentScope), Arguments: map[string]any{"payload": map[string]any{"record": strings.Repeat("9", 32), "offset": 0}}})
+		result, err = bound.CallTool(ctx, &mcp.CallToolParams{Name: string(factory.MCPToolReassessmentScope), Arguments: map[string]any{"payload": map[string]any{"record": draftPost.ID, "offset": 0}}})
 		if catalogRefused(result, err) {
 			t.Fatal("bound draft recovery transport refused", err)
 		}
 		var recovered struct {
 			Page factory.RepairObservationPage `json:"record_page"`
 		}
-		if err := json.Unmarshal([]byte(catalogText(t, result)), &recovered); err != nil || recovered.Page.Tool != factory.MCPToolDraftRepair || !recovered.Page.Complete || factory.MCPInputDigest([]byte(recovered.Page.Content)) != recovered.Page.PayloadHash {
-			t.Fatal("bound draft recovery lost canonical payload/hash", err)
+		if err := json.Unmarshal([]byte(catalogText(t, result)), &recovered); err != nil || recovered.Page.Tool != factory.MCPToolDraftRepair || !recovered.Page.Complete || !json.Valid([]byte(recovered.Page.Content)) {
+			t.Fatal("bound draft read lost its report", err)
 		}
 		for _, args := range []map[string]any{{"payload": map[string]any{"after": -1}}, {"payload": map[string]any{"after": 0, "repository": 8}}, {"payload": map[string]any{"cursor": "unbound cursor"}}} {
 			result, err := bound.CallTool(ctx, &mcp.CallToolParams{Name: string(factory.MCPToolReassessmentScope), Arguments: args})
@@ -177,7 +189,7 @@ func TestFactoryBoundMCPIdentityDiscoveryAndRevocation(t *testing.T) {
 		badDiagnosis := diagnosis
 		badDiagnosis.State = "adopted"
 		result, err = bound.CallTool(ctx, &mcp.CallToolParams{Name: string(factory.MCPToolRecordDiagnosis), Arguments: map[string]any{"submission_id": factory.NewID(), "payload": badDiagnosis}})
-		if !catalogRefused(result, err) || len(strategist.submissions) != 2 {
+		if !catalogRefused(result, err) || len(strategist.posts) != 2 || len(strategist.submissions) != 0 {
 			t.Fatal("diagnosis claimed adoption or duplicated a row")
 		}
 		strategist.capability.State = factory.MCPCapabilityRevoked
@@ -243,11 +255,11 @@ func (f *fakeCatalogSink) ReassessmentScope(_ context.Context, cap factory.MCPCa
 func (f *fakeCatalogSink) ReadRepairObservation(_ context.Context, cap factory.MCPCapability, id string, offset int) (factory.RepairObservationPage, error) {
 	f.mu.Lock()
 	defer f.mu.Unlock()
-	record, ok := f.submissions[cap.AssignmentID+"/"+id]
-	if !ok || offset < 0 || offset >= len(record.payload) {
+	record, ok := f.posts[id]
+	if !ok || record.AssignmentID != cap.AssignmentID || offset < 0 || offset >= len(record.Payload) {
 		return factory.RepairObservationPage{}, store.ErrNotFound
 	}
-	return factory.RepairObservationPage{ID: id, Tool: record.tool, InputDigest: cap.ScopeDigest(), PayloadHash: record.hash, Offset: offset, TotalBytes: len(record.payload), Encoding: "utf8-json-fragment", Content: string(record.payload[offset:]), Complete: true}, nil
+	return factory.RepairObservationPage{ID: id, Tool: record.Tool, Offset: offset, TotalBytes: len(record.Payload), Encoding: "utf8-json-fragment", Content: string(record.Payload[offset:]), Complete: true}, nil
 }
 
 func TestFactoryBoundMCPRejectsForeignSecret(t *testing.T) {
