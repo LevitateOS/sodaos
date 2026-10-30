@@ -207,7 +207,7 @@ agent-reported completion shortcut. Target behavior/limits belong to the
 The following are logical routes beneath Soda's existing authenticated extension
 API. The host supplies the private native-web API prefix; do not expose a second
 unauthenticated backend entrypoint. `R` is native repository ID, `I` native issue
-ID, `P` Project ID, `A` attempt ID, `X` run ID and `C` command ID.
+ID, `P` Project ID, `A` attempt ID, `X` run ID.
 
 | Route | Input / result | Admission and UI action |
 | --- | --- | --- |
@@ -219,7 +219,7 @@ ID, `P` Project ID, `A` attempt ID, `X` run ID and `C` command ID.
 | `GET /api/repositories/R/factory/issues/I` | Current acceptance and native source links, readiness evidence/blockers, attempt, usage, native PR/check/review/operation links, pending controls. | Native issue visibility; **Factory work** view. |
 | `POST /api/repositories/R/factory/issues/I/acceptances` | `decision_id`, expected acceptance predecessor, observed native revision and complete selected native source versions/digests, direct dependency occurrences/outcomes, resolution references. Returns immutable receipt. | Current code-write maintainer; **Adopt issue**, **Accept requirements/answer**, **Confirm resolution**. Show exact selected native text and changes before sending. |
 | `POST /api/repositories/R/factory/issues/I/actions` | Command envelope, target attempt/revision and one of `pause`, `resume`, `cancel`, `retry`, `takeover`. Takeover identifies the admitted member's Project destination, not a filesystem path. | Current code-write maintainer; named work controls. Human membership/join remains separately required for takeover. Retry is explicit fresh-attempt admission after prior work is reconciled. |
-| `GET /api/factory/attempts/A` and `GET /api/factory/commands/C` | Stage, remaining allowances, run/evidence/native result references, requested versus confirmed stopping/cancellation. | Current visibility of the bound repository; refresh after pending commands or lost replies. |
+| `GET /api/factory/runs/X` | Stage, remaining allowances, run/evidence/native result references, requested versus confirmed stopping/cancellation. | Current visibility of the bound repository; reads show actual run state. |
 | `GET /api/factory/runs/X/output` | Read-only bounded stream, run/process identity, output cursor, explicit truncation/gap and terminal status. | Current code-write authority at attach and during streaming; **Watch agent** in Spaces. Reject input, resize, signals and human-terminal End frames. Reattachment never launches or resumes an agent. |
 | `GET /api/projects/P/preparation` | Current approved preparation ID, maintenance state, role readiness observations and failures. | Authorized Project/repository access; environment readiness view. |
 | `POST /api/projects/P/preparation/acceptances` | Decision ID, expected requirement predecessor and exact approved-base source/configuration definitions and effective input digests; returns a maintainer acceptance receipt. | Current code-write maintainer; **Accept environment requirements**. This does not authorize privileged installation. |

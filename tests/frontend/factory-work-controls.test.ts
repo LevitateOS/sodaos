@@ -30,7 +30,6 @@ interface StubRoute {
   readonly echoCommand?: boolean;
   readonly echoAcceptance?: boolean;
   readonly loseReply?: boolean;
-  readonly receiptPending?: boolean;
 }
 interface WorkCall {
   readonly method: string;
@@ -575,7 +574,7 @@ test('work overview renders the authoritative request overview on a real engine'
   );
 });
 
-test('work detail retries the same completion command after lost replies and runs all interventions', async (t) => {
+test('work detail repeats a completion request directly and runs all interventions', async (t) => {
   const page = await openView(t, 'detail', [
     {method: 'GET', path: 'repositories/7/factory/issues/12', status: 200, json: attentionIssueDetail},
     {method: 'GET', path: 'repositories/7/factory/access', status: 200, json: access},
@@ -586,7 +585,6 @@ test('work detail retries the same completion command after lost replies and run
       status: 200,
       echoCommand: true,
       loseReply: true,
-      receiptPending: true,
       json: {
         command_id: '',
         event_id: attentionCompletion.completion_id,
@@ -722,7 +720,7 @@ test('work detail retries the same completion command after lost replies and run
   );
   await retryCompletion.click();
   await completion
-    .getByText('Completion review retry queued. The original command receipt was recovered.', {exact: true})
+    .getByText('Completion review retry queued. Factory will reassess the recorded result in a new bounded attempt.', {exact: true})
     .waitFor();
   assert.equal(await retryCompletion.isDisabled(), true);
   const retries = (await workCalls(page)).filter(
@@ -734,7 +732,7 @@ test('work detail retries the same completion command after lost replies and run
     event_id: attentionCompletion.completion_id,
     expected_prior_cycle: attentionCompletion.cycle_id,
   });
-  assert.equal((await workCalls(page)).filter((call) => call.path.startsWith('factory/commands/')).length, 2);
+  assert.equal((await workCalls(page)).filter((call) => call.path.startsWith('factory/commands/')).length, 0);
   const contextChoice = detail.getByRole('region', {name: 'Context choice needs attention'});
   await contextChoice.getByRole('button', {name: 'Use current required context', exact: true}).waitFor();
   assert.equal(
@@ -826,6 +824,17 @@ test('work detail retries the same completion command after lost replies and run
   const afterLostTakeover = await workCalls(page);
   assert.equal(afterLostTakeover.filter((call) => call.path.startsWith('factory/commands/')).length, 0);
   assert.deepEqual(afterLostTakeover.at(-1)?.body, {action: 'takeover'});
+
+  await page.evaluate((run) => window.factoryWork.setRoutes([{
+    method: 'POST', path: `factory/runs/${run}/actions`, action: 'retry',
+    status: 200, json: {queued: true}, loseReply: true,
+  }]), RUN);
+  await detail.getByRole('button', {name: 'Retry run'}).click();
+  await detail.getByRole('listitem').filter({has: page.getByRole('button', {name: 'Retry run', exact: true})})
+    .getByText('No reply was confirmed. Refresh before acting again.').waitFor();
+  const afterLostRetry = await workCalls(page);
+  assert.equal(afterLostRetry.filter((call) => call.method === 'POST').length, 1);
+  assert.equal(afterLostRetry.filter((call) => call.path.startsWith('factory/commands/')).length, 0);
 
   await page.evaluate((run) => window.factoryWork.setRoutes([{
     method: 'POST', path: `factory/runs/${run}/actions`, action: 'use_current_context',

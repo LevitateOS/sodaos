@@ -92,6 +92,10 @@ test('Project Work opens explicit requirements review for an imported native iss
   await verification.getByRole('button', {name: 'Retry application verification', exact: true}).waitFor();
   assert.equal(await writes(page), 0, 'reading verification availability must not queue work');
   await verification.getByRole('button', {name: 'Retry application verification', exact: true}).click();
+  await verification.getByRole('status').filter({hasText: 'No Retry was confirmed.'}).waitFor();
+  assert.equal(await writes(page), 1, 'an unconfirmed reply must not trigger another write');
+  assert.equal(await page.evaluate(() => window.workspaceFixture.calls.filter((call) => call.path.includes('/factory/commands/')).length), 0);
+  await verification.getByRole('button', {name: 'Retry same verification request', exact: true}).click();
   await verification.getByRole('status').filter({hasText: 'Verification Retry queued'}).waitFor();
   assert.equal(
     await verification.getByRole('button', {name: 'Retry application verification', exact: true}).count(),
@@ -100,11 +104,12 @@ test('Project Work opens explicit requirements review for an imported native iss
   const retryCalls = await page.evaluate(() =>
     window.workspaceFixture.calls.filter((call) => call.method === 'POST' && call.body?.action === 'retry')
   );
-  assert.equal(retryCalls.length, 1);
+  assert.equal(retryCalls.length, 2);
+  assert.deepEqual(retryCalls[1]?.body, retryCalls[0]?.body);
   assert(retryCalls[0]?.path.endsWith(`/api/factory/runs/${'d'.repeat(32)}/actions`));
   assert.match(String(retryCalls[0]?.body?.command_id), /^[a-f0-9]{32}$/);
   assert.equal(retryCalls[0]?.body?.action, 'retry');
-  assert.equal(await writes(page), 1, 'lost reply recovery must read the same command, never issue another Retry');
+  assert.equal(await writes(page), 2, 'only an explicit repeat posts the same queued-work request');
   await page.evaluate(async () => {
     window.workspaceFixture.calls.length = 0;
     window.workspaceFixture.enableVerificationRetry(true);

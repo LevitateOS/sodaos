@@ -13,7 +13,6 @@ import type {FactoryRunDetail} from './sodaspaces-factory-response.js';
 import {statusText} from './sodaspaces-factory-display.js';
 import {nativePath} from './sodaspaces-factory-activity.js';
 import {
-  factoryCommandRecord,
   factoryIssueDetail,
   factoryRepositorySummary,
   pendingRuns,
@@ -743,11 +742,7 @@ export class SodaFactoryWorkDetail extends LitElement {
       if (refreshesDetail(kind)) void this.load();
     } catch {
       if (serial !== this.serial) return;
-      if (kind !== 'retry') {
-        this.setMark(kind, 'pending', 'No reply was confirmed. Refresh before acting again.');
-        return;
-      }
-      await this.readBack(context, kind, commandID, serial);
+      this.setMark(kind, 'pending', 'No reply was confirmed. Refresh before acting again.');
     }
   }
   private applyPosted(
@@ -763,18 +758,6 @@ export class SodaFactoryWorkDetail extends LitElement {
       this.setMark(kind, rendered.result, rendered.text);
     } catch {
       this.setMark(kind, 'failed', 'The reply could not be understood; refresh before acting again.');
-    }
-  }
-  private async readBack(context: WorkDetailContext, kind: InterventionKind, commandID: string, serial: number) {
-    try {
-      const record = factoryCommandRecord(await getJSON(context.transport, `factory/commands/${commandID}`), commandID);
-      if (serial !== this.serial) return;
-      const rendered = interventionResultText({kind: 'command', record});
-      this.setMark(kind, rendered.result, rendered.text);
-    } catch {
-      if (serial !== this.serial) return;
-      const rendered = interventionResultText({kind: 'unconfirmed', commandID});
-      this.setMark(kind, rendered.result, rendered.text);
     }
   }
   private requestWatch(runID: string) {

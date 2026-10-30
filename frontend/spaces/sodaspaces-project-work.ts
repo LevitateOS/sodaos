@@ -15,7 +15,7 @@ import './sodaspaces-factory-work-journey.js';
 import {nativePath} from './sodaspaces-factory-activity.js';
 import {factoryCommandId, factoryRunStatusResponse} from './sodaspaces-factory-response.js';
 import type {DeliveryRepairProgress, FactoryRunDetail} from './sodaspaces-factory-response.js';
-import {deliveryRepairDecision, factoryCommandRecord, retryDecision} from './sodaspaces-factory-work-response.js';
+import {deliveryRepairDecision, retryDecision} from './sodaspaces-factory-work-response.js';
 import {terminalID} from './sodaspaces-terminal-response.js';
 
 export interface ProjectWorkContext {
@@ -618,24 +618,10 @@ class SodaFactoryVerificationRetry extends LitElement {
       else repair = deliveryRepairDecision(value, run);
       if (serial === this.serial) this.confirmed(run, action, repair);
     } catch {
-      if (action === 'repair_delivery') {
-        if (serial === this.serial)
-          this.message = 'No repair request was confirmed. Retry this same request or refresh; the original verification is retained.';
-        return;
-      }
-      try {
-        const response = await context.transport.request(`factory/commands/${pending.command}`, {
-          signal: AbortSignal.timeout(15000),
-        });
-        check(response.ok);
-        const record = factoryCommandRecord(await readSodaJSON(response), pending.command);
-        check(record.type === 'retry' && record.target === `run/${run}` && typeof record.outcome === 'string');
-        retryDecision(JSON.parse(record.outcome), pending.command, run);
-        if (serial === this.serial) this.confirmed(run, action);
-      } catch {
-        if (serial === this.serial)
-          this.message = 'No Retry was confirmed. Retry this same request or refresh; the original verification is retained.';
-      }
+      if (serial === this.serial)
+        this.message = action === 'retry'
+          ? 'No Retry was confirmed. Retry this same request or refresh the verification status.'
+          : 'No repair request was confirmed. Retry this same request or refresh the verification status.';
     } finally {
       if (serial === this.serial) this.busy = false;
     }

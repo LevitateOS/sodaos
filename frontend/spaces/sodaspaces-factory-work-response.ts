@@ -461,14 +461,6 @@ export interface TakeoverRecord {
   destination: string;
   copied: string;
 }
-export interface FactoryCommandRecord {
-  id: string;
-  type: string;
-  principal: string;
-  digest: string;
-  target?: string;
-  outcome?: string;
-}
 // stopFields reads the confirmed/uncertain/outcome/reason facts shared by
 // run-stop outcomes. Confirmed and uncertain stay distinct; '' reads as absent.
 function stopFields(raw: Record<string, unknown>) {
@@ -538,17 +530,6 @@ export function takeoverRecord(value: unknown, runID: string): TakeoverRecord {
     project: text(data.project),
     destination: text(data.destination),
     copied: text(data.copied),
-  };
-}
-export function factoryCommandRecord(value: unknown, commandID: string): FactoryCommandRecord {
-  const data = object(value);
-  return {
-    id: commandID,
-    type: text(data.type),
-    principal: text(data.principal),
-    digest: text(data.digest),
-    ...(typeof data.target === 'string' ? {target: data.target} : {}),
-    ...(typeof data.outcome === 'string' ? {outcome: data.outcome} : {}),
   };
 }
 export interface ProjectStopResult {

@@ -3,7 +3,6 @@ package api
 import (
 	"errors"
 	"net/http"
-	"strings"
 
 	"github.com/levitateos/sodaos/internal/web/auth"
 
@@ -224,103 +223,4 @@ func (s *API) apiFactoryRunActions(w http.ResponseWriter, r *http.Request, v sto
 		}
 		auth.JSONResponse(w, 200, record)
 	}
-}
-
-// commandRepository resolves the repository authorizing one durable
-// command for read-back. Operator stop targets carry a bare run identity;
-// settings and lifecycle targets name their repository, run or project.
-// Targets without a repository stay undisclosed.
-func (s *API) commandRepository(w http.ResponseWriter, r *http.Request, v store.Session, cmd factory.Command) (int64, bool) {
-	target := cmd.Target
-	if cmd.Type == factory.CommandVerificationAllowance {
-		intent, ok := strings.CutPrefix(target, "intent/")
-		intent, suffix := strings.CutSuffix(intent, "/verification-allowance")
-		if !ok || !suffix || !factory.ValidVerificationAllowanceIntent(intent) {
-			auth.JSONError(w, 404, "not_found", "Command not found.")
-			return 0, false
-		}
-		head, err := s.Store.IntentRevision(r.Context(), intent, v.User.ID)
-		if err != nil {
-			auth.JSONError(w, 404, "not_found", "Command not found.")
-			return 0, false
-		}
-		return head.Repository, true
-	}
-	if rest, ok := strings.CutPrefix(target, "repository/"); ok {
-		id, _, _ := strings.Cut(rest, "/")
-		repository, valid := auth.PositiveID(id)
-		if !valid {
-			auth.JSONError(w, 404, "not_found", "Command not found.")
-			return 0, false
-		}
-		return repository, true
-	}
-	if target == "capacity" {
-		if v.User.ID != s.Config.OperatorID {
-			auth.JSONError(w, 403, "operator_required", "Only the configured Soda operator can read appliance capacity commands.")
-			return 0, false
-		}
-		return 0, true
-	}
-	runID := target
-	if rest, ok := strings.CutPrefix(target, "run/"); ok {
-		runID = rest
-	}
-	projectID := ""
-	if rest, ok := strings.CutPrefix(target, "project/"); ok {
-		projectID, _, _ = strings.Cut(rest, "/")
-	}
-	if projectID == "" {
-		if !factory.ValidID(runID) {
-			auth.JSONError(w, 404, "not_found", "Command not found.")
-			return 0, false
-		}
-		run, err := s.Store.FactoryRun(r.Context(), runID)
-		if err != nil {
-			auth.JSONError(w, 404, "not_found", "Command not found.")
-			return 0, false
-		}
-		projectID = run.ProjectID
-	}
-	p, err := s.Store.Project(r.Context(), projectID)
-	if err != nil {
-		auth.JSONError(w, 404, "not_found", "Command not found.")
-		return 0, false
-	}
-	return p.RepositoryID, true
-}
-
-// apiFactoryCommand reads back one durable command outcome after a pending
-// command or lost reply. Visibility of the bound repository authorizes
-// the read; the outcome carries receipts and reason codes, never secrets.
-func (s *API) apiFactoryCommand(w http.ResponseWriter, r *http.Request, v store.Session) {
-	if r.URL.RawQuery != "" || r.URL.ForceQuery {
-		auth.JSONError(w, 400, "invalid_request", "No query parameters are accepted.")
-		return
-	}
-	commandID := r.PathValue("commandID")
-	if !factory.ValidID(commandID) {
-		auth.JSONError(w, 404, "not_found", "Command not found.")
-		return
-	}
-	cmd, err := s.Store.FactoryCommand(r.Context(), commandID)
-	if err != nil {
-		if errors.Is(err, store.ErrNotFound) {
-			auth.JSONError(w, 404, "not_found", "Command not found.")
-		} else {
-			auth.JSONError(w, 503, "store_unavailable", "Could not read command.")
-		}
-		return
-	}
-	repository, ok := s.commandRepository(w, r, v, cmd)
-	if !ok {
-		return
-	}
-	if repository > 0 {
-		if _, err = s.visibleRepository(r, v, repository); err != nil {
-			auth.ProviderError(w, err)
-			return
-		}
-	}
-	auth.JSONResponse(w, 200, cmd)
 }

@@ -3,7 +3,6 @@ import type {TemplateResult} from 'lit';
 import {activityTimestamp, nativePath} from './sodaspaces-factory-activity.js';
 import {id} from './sodaspaces-api.js';
 import type {
-  FactoryCommandRecord,
   FactoryIssueDetail,
   PauseResult,
   PendingRuns,
@@ -434,9 +433,7 @@ export type InterventionOutcome =
   | {kind: 'takeover'; receipt: TakeoverRecord}
   | {kind: 'project_stop'; receipt: ProjectStopResult}
   | {kind: 'pending_runs'; pending: PendingRuns}
-  | {kind: 'command'; record: FactoryCommandRecord}
-  | {kind: 'refused'; status: number; message: string}
-  | {kind: 'unconfirmed'; commandID: string};
+  | {kind: 'refused'; status: number; message: string};
 
 function settledRunCount(runs: readonly {confirmed: boolean; uncertain: boolean}[]): {
   settled: number;
@@ -462,7 +459,7 @@ function stopOutcomeText(receipt: StopReceipt): {result: InterventionResult; tex
       text: 'Stop uncertain: the run effect is not confirmed. Inspect the run before retrying.',
     };
   if (!receipt.confirmed)
-    return {result: 'pending', text: 'Stop recorded but not confirmed. Read the command back before acting again.'};
+    return {result: 'pending', text: 'Stop not confirmed. Refresh the run before acting again.'};
   return {result: 'confirmed', text: `Stop confirmed${receipt.outcome ? `: ${receipt.outcome}` : ''}.`};
 }
 function projectStopOutcomeText(receipt: ProjectStopResult): {result: InterventionResult; text: string} {
@@ -489,18 +486,8 @@ function runOutcomeText(outcome: RunOutcome): {result: InterventionResult; text:
         result: 'failed',
         text: `Refused: ${outcome.pending.runs.length} recorded run${outcome.pending.runs.length === 1 ? ' is' : 's are'} not settled. Stop or reconcile them first.`,
       };
-    case 'command':
-      return {
-        result: 'pending',
-        text: `Command recorded (${outcome.record.type}). ${outcome.record.outcome ? `Outcome: ${outcome.record.outcome}.` : 'Outcome not yet recorded; refresh before acting again.'}`,
-      };
     case 'refused':
       return {result: 'failed', text: `Refused: ${outcome.message}`};
-    case 'unconfirmed':
-      return {
-        result: 'pending',
-        text: 'No reply was confirmed. The command may still apply; read it back before retrying.',
-      };
   }
 }
 // interventionResultText turns one parsed intervention outcome into a

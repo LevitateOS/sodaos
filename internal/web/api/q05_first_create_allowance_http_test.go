@@ -185,8 +185,8 @@ func TestFirstCreateAllowanceHTTPBoundary(t *testing.T) {
 				t.Fatalf("foreign verification owner: %d %s", code, body)
 			}
 		}
-		if code, body := call(http.MethodGet, "/api/factory/commands/"+first.CommandID, ""); code != 200 || !strings.Contains(string(body), first.CommandID) {
-			t.Fatalf("immutable command readback: %d %s", code, body)
+		if code, body := call(http.MethodGet, "/api/factory/commands/"+first.CommandID, ""); code != 404 {
+			t.Fatalf("removed command readback endpoint remained available: %d %s", code, body)
 		}
 		code, body = call(http.MethodGet, path, "")
 		var current factory.AppVerificationAllowance

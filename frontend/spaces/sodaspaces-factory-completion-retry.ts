@@ -3,7 +3,6 @@ import type {PreparedExtensionMount} from './soda-extension.js';
 import {check, id, object, readSodaJSON} from './sodaspaces-api.js';
 import {factoryCommandId} from './sodaspaces-factory-response.js';
 import {factoryAccess} from './sodaspaces-factory-progress-response.js';
-import {factoryCommandRecord, factoryIssueDetail} from './sodaspaces-factory-work-response.js';
 import {workJourney} from './sodaspaces-factory-work-journey-response.js';
 import type {JourneyGate} from './sodaspaces-factory-work-journey-response.js';
 
@@ -78,7 +77,6 @@ export class SodaFactoryCompletionRetry extends LitElement {
         this.read(context, `repositories/${context.repository}/factory/issues/${context.issue}`),
       ]);
       const access = factoryAccess(accessValue, context.repository);
-      factoryIssueDetail(issueValue, context.repository, context.issue);
       const journey = object(issueValue).journey;
       const gates = journey === undefined ? [] : workJourney(journey, context.repository, context.issue).gates;
       if (serial !== this.serial) return;
@@ -103,34 +101,11 @@ export class SodaFactoryCompletionRetry extends LitElement {
   private sameGate(command: RetryCommand, gate: JourneyGate) {
     return command.event === gate.completion_id && command.cycle === gate.cycle_id;
   }
-  private verify(value: unknown, context: RetryContext, command: RetryCommand) {
-    const row = object(value);
-    check(
-      row.command_id === command.command &&
-        row.event_id === command.event &&
-        row.prior_cycle === command.cycle &&
-        row.successor_cycle === command.command &&
-        row.repository === context.repository &&
-        row.queued === true
-    );
-  }
-  private confirmed(context: RetryContext, command: RetryCommand, recovered: boolean) {
+  private confirmed(context: RetryContext, command: RetryCommand) {
     this.pending = {...command, confirmed: true};
-    this.message = recovered
-      ? 'Completion review retry queued. The original command receipt was recovered.'
-      : 'Completion review retry queued. Factory will reassess the recorded result in a new bounded attempt.';
+    this.message = 'Completion review retry queued. Factory will reassess the recorded result in a new bounded attempt.';
     this.dispatchEvent(new CustomEvent('soda-completion-retry-queued', {bubbles: true, composed: true}));
     void this.load(context, this.serial);
-  }
-  private async recover(context: RetryContext, command: RetryCommand) {
-    const value = await this.read(context, `factory/commands/${command.command}`);
-    const receipt = factoryCommandRecord(value, command.command);
-    check(
-      receipt.type === 'retry-completion' &&
-        receipt.target === `repository/${context.repository}/completion/${command.event}` &&
-        receipt.outcome !== undefined
-    );
-    this.verify(JSON.parse(receipt.outcome), context, command);
   }
   private async retry(gate: JourneyGate) {
     const context = this.current,
@@ -157,19 +132,11 @@ export class SodaFactoryCompletionRetry extends LitElement {
           completion: {event_id: command.event, expected_prior_cycle: command.cycle},
         }),
       });
-      const value = await readSodaJSON(response);
       check(response.ok);
-      this.verify(value, context, command);
-      if (serial === this.serial) this.confirmed(context, command, false);
+      if (serial === this.serial) this.confirmed(context, command);
     } catch {
-      try {
-        await this.recover(context, command);
-        if (serial === this.serial) this.confirmed(context, command, true);
-      } catch {
-        if (serial === this.serial)
-          this.message =
-            'No retry was confirmed. Retry this same request or refresh the work detail; the recorded decision is unchanged.';
-      }
+      if (serial === this.serial)
+        this.message = 'No retry was confirmed. Retry this same request or refresh the work detail.';
     } finally {
       if (serial === this.serial) this.busy = false;
     }

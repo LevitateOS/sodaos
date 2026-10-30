@@ -133,24 +133,15 @@ export function createWorkspaceModel(
           cause_id: 'a'.repeat(32), cycle_id: 'b'.repeat(32), state: 'queued',
         });
       }
-      if (!verificationCommand) verificationCommand = String(body.command_id);
-      if (body.command_id !== verificationCommand) return Response.json({}, {status: 409});
       verificationAvailable = false;
       repairAvailable = false;
-      throw new TypeError('Fixture lost the recorded Retry reply');
+      if (!verificationCommand) {
+        verificationCommand = String(body.command_id);
+        throw new TypeError('Fixture lost the recorded Retry reply');
+      }
+      if (body.command_id !== verificationCommand) return Response.json({}, {status: 409});
+      return Response.json({command_id: verificationCommand, prior_run: factoryRunId, queued: true, reason: 'New verification queued'});
     }
-    if (verificationCommand && path.endsWith(`/api/factory/commands/${verificationCommand}`))
-      return Response.json({
-        id: verificationCommand,
-        type: 'retry',
-        principal: 'native:1',
-        digest: 'a'.repeat(64),
-        target: `run/${factoryRunId}`,
-        outcome: JSON.stringify({
-          command_id: verificationCommand, prior_run: factoryRunId,
-          queued: true, reason: 'New verification queued',
-        }),
-      });
     const factoryStatusPath = new URL(path, origin).pathname.match(/\/api\/factory\/runs\/([a-f0-9]{32})$/);
     if (factoryStatusPath) {
       if (!factoryRunEnabled || factoryStatusPath[1] !== factoryRunId) return new Response(null, {status: 404});

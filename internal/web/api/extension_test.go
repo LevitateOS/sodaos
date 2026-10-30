@@ -244,7 +244,7 @@ func TestExtensionProductRouteAllowlist(t *testing.T) {
 		{http.MethodGet, "/repositories/12/factory/actions", false},
 		{http.MethodPost, "/factory/runs/0123456789abcdef0123456789abcdef/actions", true},
 		{http.MethodGet, "/factory/runs/0123456789abcdef0123456789abcdef/actions", false},
-		{http.MethodGet, "/factory/commands/0123456789abcdef0123456789abcdef", true},
+		{http.MethodGet, "/factory/commands/0123456789abcdef0123456789abcdef", false},
 		{http.MethodPost, "/factory/commands/0123456789abcdef0123456789abcdef", false},
 		{http.MethodGet, "/factory/runs/0123456789abcdef0123456789abcdef", true},
 		{http.MethodPost, "/factory/runs/0123456789abcdef0123456789abcdef", false},

@@ -351,9 +351,6 @@ func extensionFactoryRoute(parts []string, method string) bool {
 	case 2:
 		return parts[1] == "capacity" && method == http.MethodPut
 	case 3:
-		if parts[1] == "commands" && extensionProductID(parts[2]) {
-			return method == http.MethodGet
-		}
 		return parts[1] == "runs" && extensionProductID(parts[2]) && method == http.MethodGet
 	case 4:
 		if parts[1] != "runs" || !extensionProductID(parts[2]) {
