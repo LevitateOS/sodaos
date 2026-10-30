@@ -6,7 +6,7 @@ package api
 // per admitted harness and over the fixed HTTP route: discovery of
 // the fourteen tools, capability-bound reads, immutable mutations
 // with exact-replay receipts, conflicting-byte refusal, terminal
-// freezing, lost-response receipt recovery, cross-profile and
+// freezing, cross-profile and
 // unknown-tool refusal, unknown-field refusal, and the fixed-route
 // shape (POST initializes as JSON, GET is 405 with no SSE, browser
 // Origin refuses). The in-memory submission sink mirrors the store
@@ -15,7 +15,6 @@ package api
 import (
 	"context"
 	"encoding/json"
-	"errors"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -68,7 +67,6 @@ type fakeCatalogSink struct {
 	submissions map[string]fakeCatalogRecord
 	assignments map[string]factory.Assignment
 	receipts    map[string]factory.PriorityReceipt
-	reserved    map[string]bool
 	runs        map[string]factory.Run
 }
 
@@ -78,7 +76,6 @@ func newFakeCatalogSink() *fakeCatalogSink {
 		capability:  capability,
 		submissions: map[string]fakeCatalogRecord{},
 		receipts:    map[string]factory.PriorityReceipt{},
-		reserved:    map[string]bool{},
 		runs:        map[string]factory.Run{},
 		assignments: map[string]factory.Assignment{
 			capability.AssignmentID: {
@@ -121,39 +118,6 @@ func (f *fakeCatalogSink) PriorityJudgment(_ context.Context, snapshot string) (
 		return factory.PriorityReceipt{}, store.ErrNotFound
 	}
 	return receipt, nil
-}
-
-// ReservePriorityJudgment mirrors the store fund-once semantics: a
-// recorded receipt or an existing reservation reports false with no
-// new spend, otherwise the snapshot reserves one consultation.
-func (f *fakeCatalogSink) ReservePriorityJudgment(_ context.Context, snapshot string, maxCalls int) (bool, error) {
-	f.mu.Lock()
-	defer f.mu.Unlock()
-	if !factory.ValidDigest(snapshot) || maxCalls < 1 || maxCalls > control.PriorityDefaultMaxCalls {
-		return false, errors.New("invalid priority reservation")
-	}
-	if f.reserved[snapshot] {
-		return false, nil
-	}
-	if _, ok := f.receipts[snapshot]; ok {
-		return false, nil
-	}
-	f.reserved[snapshot] = true
-	return true, nil
-}
-
-// RecordPriorityJudgment keeps the first recorded receipt, mirroring
-// the store's first-writer conflict rule for call-free receipts.
-func (f *fakeCatalogSink) RecordPriorityJudgment(_ context.Context, r factory.PriorityReceipt) error {
-	f.mu.Lock()
-	defer f.mu.Unlock()
-	if !factory.ValidDigest(r.Snapshot) || r.CreatedUnix <= 0 {
-		return errors.New("invalid priority receipt")
-	}
-	if _, ok := f.receipts[r.Snapshot]; !ok {
-		f.receipts[r.Snapshot] = r
-	}
-	return nil
 }
 
 func (f *fakeCatalogSink) Assignment(_ context.Context, id string) (factory.Assignment, error) {
@@ -528,21 +492,6 @@ func TestFactoryCatalogTransportPerHarness(t *testing.T) {
 	if res, err := catalogCall(t, ctx, session, "factory.finish_implementation", clash); !catalogRefused(res, err) {
 		t.Fatal("conflicting bytes under recorded ID admitted")
 	}
-	lost, err := catalogCall(t, ctx, session, "factory.receipt", map[string]any{
-		"capability_id": capability, "submission_id": finishID,
-	})
-	if err != nil {
-		t.Fatalf("receipt recovery: %v", err)
-	}
-	if catalogText(t, lost) != catalogText(t, first) {
-		t.Fatal("recovered receipt differs from recorded receipt")
-	}
-	if res, err := catalogCall(t, ctx, session, "factory.receipt", map[string]any{
-		"capability_id": capability, "submission_id": strings.Repeat("3", 32),
-	}); !catalogRefused(res, err) {
-		t.Fatal("unknown receipt disclosed")
-	}
-
 	// Terminal freeze: a second terminal identity and post-terminal
 	// output both refuse.
 	otherPayload, _ := catalogPayload(map[string]any{"candidate": "cand-2"}, admittedDigest)
@@ -591,7 +540,7 @@ func TestFactoryCatalogTransportPerHarness(t *testing.T) {
 // TestFactoryCatalogReadsSpendNothingAndDiscloseNothing proves the R31
 // read contract through the actual handlers: context, status, evidence
 // and receipt record no submission rows, unknown capabilities refuse on
-// every read, receipts never cross assignments, and evidence stays
+// every read, and evidence stays
 // honestly incomplete instead of an empty success.
 func TestFactoryCatalogReadsSpendNothingAndDiscloseNothing(t *testing.T) {
 	sink := newFakeCatalogSink()
@@ -633,16 +582,11 @@ func TestFactoryCatalogReadsSpendNothingAndDiscloseNothing(t *testing.T) {
 			}
 		}
 	}
-	if _, _, err := server.serve(ctx, factory.MCPToolReceipt, reads(factory.MCPToolReceipt, sink.capability.ID, factory.NewID())); err == nil {
-		t.Fatal("unknown receipt admitted")
-	} else if !strings.Contains(err.Error(), "receipt not found") {
-		t.Fatalf("unknown receipt refusal %q discloses", err)
-	}
 	if count() != 0 {
 		t.Fatalf("reads recorded %d submissions", count())
 	}
 	unknown := strings.Repeat("f", 32)
-	for _, tool := range []factory.MCPTool{factory.MCPToolContext, factory.MCPToolStatus, factory.MCPToolEvidence, factory.MCPToolReceipt} {
+	for _, tool := range []factory.MCPTool{factory.MCPToolContext, factory.MCPToolStatus, factory.MCPToolEvidence} {
 		if _, _, err := server.serve(ctx, tool, reads(tool, unknown, factory.NewID())); err == nil {
 			t.Fatalf("%s read admitted an unknown capability", tool)
 		}
@@ -660,26 +604,6 @@ func TestFactoryCatalogReadsSpendNothingAndDiscloseNothing(t *testing.T) {
 		Payload: mutPayload,
 	}); err != nil {
 		t.Fatalf("recording mutation refused: %v", err)
-	}
-	if _, _, err := server.serve(ctx, factory.MCPToolReceipt, reads(factory.MCPToolReceipt, sink.capability.ID, submissionID)); err != nil {
-		t.Fatalf("own receipt refused: %v", err)
-	}
-	other := newFakeCatalogSink()
-	other.capability.ID = strings.Repeat("c", 32)
-	other.capability.AssignmentID = strings.Repeat("e", 32)
-	otherAssignment := other.assignments[sink.capability.AssignmentID]
-	otherAssignment.ID = other.capability.AssignmentID
-	delete(other.assignments, sink.capability.AssignmentID)
-	other.assignments[other.capability.AssignmentID] = otherAssignment
-	otherServer := &factoryCatalogServer{
-		deps:    FactoryMCPDeps{Capabilities: other, Submissions: other, Assignments: other},
-		limiter: newMCPRateLimiter(),
-	}
-	if _, _, err := otherServer.serve(ctx, factory.MCPToolReceipt, mcpCallArgs{
-		CapabilityID: other.capability.ID, SubmissionID: submissionID}); err == nil {
-		t.Fatal("receipt crossed assignments")
-	} else if !strings.Contains(err.Error(), "receipt not found") {
-		t.Fatalf("cross-assignment refusal %q discloses", err)
 	}
 	if count() != 1 {
 		t.Fatalf("recorded %d submissions, want exactly the mutation", count())

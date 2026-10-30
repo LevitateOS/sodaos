@@ -231,24 +231,19 @@ inputs and consumers; a worker's free-form judgment cannot substitute for their
 receipt or approve its own work. The context-preparation once-per-capability
 rule applies to that controller operation, not to all generic consultations.
 
-**Execution and failure:** these are explicit paid evaluations, not spend-free
-Factory reads. Keep secrets server-side; validate request shape/size and each
+**Execution and failure:** these are explicit provider calls; Factory reads
+do not dispatch them. Keep secrets server-side; validate request shape/size and each
 answer's question/type/options/levels before exposing it as a result. Missing
-configuration, unavailable allowance, authentication failure, rate limiting,
+configuration, authentication failure, rate limiting,
 timeout and malformed/partial answers return explicit errors, never a made-up
 zero, false or default choice. An uncertain valid answer remains available with
 its distribution; no universal confidence threshold or automatic triple-call
 policy is built into the tools. The consumer decides whether more evidence or
-another evaluation is useful within its allowance.
+another evaluation is useful.
 
-Use the generic invocation identity and actual recorded state to recover lost
-replies. Replaying a completed invocation returns its existing result; changed
-inputs require a new invocation. A provider timeout may leave execution/charge
-unknown: expose that uncertainty, and make any retry an explicitly accounted
-attempt rather than claiming provider-wide exactly-once execution. Retiring a
-worker prevents new calls and new dependent work; an already sent request still
-needs accounting. Source changes can make a stored answer inapplicable without
-rewriting the historical answer.
+Each explicit consultation calls the provider. The work discussion displays the
+question and actual answer; reading it does not dispatch another call. Failed
+calls return an error, with no reservation or replay receipt to recover.
 
 **Work, feed and library:** a judgment returns to its caller. It neither records
 a Factory decision nor publishes a post, creates knowledge or advances an issue
@@ -276,7 +271,6 @@ three tools, not new role-specific judgment endpoints or acceptance authorities.
 | `factory.context` | Start or reorient after interruption. | Required role facts, admitted scope, current source/plan/candidate, available controls, knowledge references, open questions and missing-input indicators. Required facts remain discoverable across bounded pages. |
 | `factory.status` | Check what is progressing and what prevents the next action. | Actual task/operation states, allowance, stop state and actionable unmet conditions. Reported state and confirmed state are separate. |
 | `factory.evidence` | Inspect an authorized evidence reference. | Bounded content, exact source identity, completeness and provenance; source/diff/check/artifact evidence uses its existing owner. |
-| `factory.receipt` | Recover an uncertain submission outcome. | The original submission, validation/consumer state and resulting object references. Retrying a lost reply does not create another action. |
 | `factory.inbox` | Find new answers, changed prerequisites, findings, stale knowledge and routed requests. | Ordered updates since a cursor, affected work and links to current records. Reading does not mark anything acted upon or resolve anything. |
 | `factory.discussion` | Read a relevant thread and exact comment revisions. | Attributed, authorized context and explicit missing history. A comment is input; changed execution scope still follows the appropriate adoption route. |
 | `factory.validate_result` | Check whether the current draft/result can be submitted. | Deterministic missing coverage, unresolved inputs, invalid references and stale bindings. No spending, publication, reservation or state transition; finish revalidates. |
@@ -320,20 +314,21 @@ is possible. An answer arriving after retirement follows existing fresh admissio
 it does not revive the old process or capability. Reporting during a context hold
 needs an explicitly permitted reporting path and cannot bypass the work gate.
 
-The current implementation checks the prepared selection and required inputs
-before an authenticated native launch, a new work proposal or a new paid worker
-System One call. Missing inputs, absent receipts and uncertain choices hold
-those actions. A prepared choice records the actual scoped input digest, bounded
-own-run and authorized parent previews, and fixed bundle descriptions; later
-status changes reuse that frozen request without another consultation. Packet
-staging and its start timestamp supply no execution history: the attempt
-bundle requires a retained native observation, credential delegation or final
-checkpoint. A never-launched or confirmed-unused run cannot make it eligible.
-Existing immutable action replays, receipt reads, communication reports and
-`factory.finish_incomplete` remain available. A later context hold preserves
-reconciliation and adoption of already admitted durable proposals; their normal
-authority, prerequisite and native evidence checks still apply. A new child
-launch passes its own context gate.
+Worker tool admission checks the authenticated run, role and tool authority.
+Result submission checks the result's required content through its owning
+consumer. Native task execution uses the native task controller's checks.
+Required work inputs are checked directly, without rendering context pages or
+revalidating the optional context-selection receipt. The existing submission
+admission result handles replay without a second receipt/terminal lookup.
+Missing context remains visible in `factory.context`.
+
+Generic worker System One consultations call JEV directly and record the question
+and actual answer in the work discussion. They create no funding reservation or
+replay receipt. The separate `factory.receipt` recovery tool is removed; workers
+read `factory.status` for current progress. A repeated question is a new provider
+call; a failed call returns its error. Reading the discussion never calls the
+provider. Controller-owned
+JEV judgments, confidence cutoffs, roles and stage transitions are unchanged.
 
 `factory.context` supplies typed required role inputs independently of optional
 history selection. Large role fields travel as ordered UTF-8 JSON fragments in

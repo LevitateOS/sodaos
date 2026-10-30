@@ -791,10 +791,6 @@ func verifyLiveMCPConsultations(t *testing.T, ctx context.Context, st *store.Sto
 		if err := json.Unmarshal([]byte(catalogText(t, result)), &response); err != nil || response.Consultation.PostID != posts[instructions[i]] || response.Consultation.WorkPost.Kind != "record" || response.Consultation.WorkPost.ID != cap.AssignmentID {
 			t.Fatal("MCP response returned a different consultation or work thread identity", err)
 		}
-		replay, err := session.CallTool(ctx, &mcp.CallToolParams{Name: string(factory.MCPToolSystemOneChoice), Arguments: args[i]})
-		if catalogRefused(replay, err) || catalogText(t, result) != catalogText(t, replay) {
-			t.Fatalf("live consultation %d replay differs: %v", i+1, err)
-		}
 	}
 	if wire.calls.Load() != 3 || len(wire.exchanges) != 3 {
 		t.Fatalf("expected three real calls and no replay dispatch, got %d", wire.calls.Load())
@@ -823,11 +819,6 @@ func verifyLiveMCPConsultations(t *testing.T, ctx context.Context, st *store.Sto
 		assertLiveJSON("recorded question", post.Consultation.Instructions, question["instructions"])
 		assertLiveJSON("recorded alternatives", post.Consultation.Criteria, question["criteria"])
 		assertLiveJSON("recorded answer", post.Consultation.Answer, actualAnswer)
-		receipt, err := st.PriorityJudgment(ctx, snapshot)
-		if err != nil || receipt.Outcome != systemOneAnswerOutcome {
-			t.Fatal("real answer lacks its durable funding receipt", err)
-		}
-		assertLiveJSON("funding answer", receipt.Answer, actualAnswer)
 		if post.Consultation.Model == "" || post.Consultation.Model != exchange.response["model"] {
 			t.Fatal("actual provider identity was lost")
 		}
@@ -861,5 +852,5 @@ func verifyLiveMCPConsultations(t *testing.T, ctx context.Context, st *store.Sto
 	if wire.calls.Load() != 3 {
 		t.Fatalf("consultation/reply replay called the provider again: calls=%d", wire.calls.Load())
 	}
-	t.Logf("Real TypeSafe MCP boundary: models=%v, provider calls=3, replay calls=0, exact consultation comments=3, separate follow-up=1; native worker liveness is simulated.", models)
+	t.Logf("Real TypeSafe MCP boundary: models=%v, provider calls=3, exact consultation comments=3, separate follow-up=1; native worker liveness is simulated.", models)
 }

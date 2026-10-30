@@ -120,7 +120,6 @@ const (
 	MCPToolContext              MCPTool = "factory.context"
 	MCPToolEvidence             MCPTool = "factory.evidence"
 	MCPToolStatus               MCPTool = "factory.status"
-	MCPToolReceipt              MCPTool = "factory.receipt"
 	MCPToolInbox                MCPTool = "factory.inbox"
 	MCPToolDiscussion           MCPTool = "factory.discussion"
 	MCPToolAsk                  MCPTool = "factory.ask"
@@ -160,7 +159,6 @@ var MCPTools = []MCPTool{
 	MCPToolContext,
 	MCPToolEvidence,
 	MCPToolStatus,
-	MCPToolReceipt,
 	MCPToolInbox,
 	MCPToolDiscussion,
 	MCPToolSearchLibrary,
@@ -230,7 +228,6 @@ var mcpReadTools = map[MCPTool]bool{
 	MCPToolContext:              true,
 	MCPToolEvidence:             true,
 	MCPToolStatus:               true,
-	MCPToolReceipt:              true,
 	MCPToolInbox:                true,
 	MCPToolDiscussion:           true,
 }
@@ -274,7 +271,6 @@ var mcpToolProfiles = map[MCPTool]map[MCPProfile]bool{
 	MCPToolContext:              allMCPProfiles(),
 	MCPToolEvidence:             allMCPProfiles(),
 	MCPToolStatus:               allMCPProfiles(),
-	MCPToolReceipt:              allMCPProfiles(),
 	MCPToolInbox:                allMCPProfiles(),
 	MCPToolDiscussion:           allMCPProfiles(),
 	MCPToolAsk:                  allMCPProfiles(),

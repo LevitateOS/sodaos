@@ -55,9 +55,7 @@ func bindMCPToolSchema(definition *mcp.Tool, tool factory.MCPTool, capability fa
 	schema := definition.InputSchema.(*jsonschema.Schema)
 	delete(schema.Properties, "capability_id")
 	schema.Required = nil
-	if tool == factory.MCPToolReceipt {
-		schema.Required = []string{"submission_id"}
-	} else if !factory.MCPIsRead(tool) {
+	if !factory.MCPIsRead(tool) {
 		schema.Required = []string{"payload"}
 	}
 	definition.Description += ". Bound to your " + string(capability.Profile) + " assignment. Project, issue, author and run are supplied by the server."
@@ -98,7 +96,6 @@ func factoryToolDescription(tool factory.MCPTool) string {
 		factory.MCPToolContext:              "Read your assigned role, project, issue, run, current inputs and available feed presentations.",
 		factory.MCPToolStatus:               "Read the current assignment state, recorded submissions and whether a terminal result has been submitted.",
 		factory.MCPToolEvidence:             "Read the evidence available to this assignment, with explicit completeness information. Includes the recorded research report or maintenance result when the assignment finished one.",
-		factory.MCPToolReceipt:              "Recover the result and feed post identity of an earlier submission without publishing it again.",
 		factory.MCPToolInbox:                "Read recent posts and human or worker replies for your assignment. Use the returned cursor for earlier messages.",
 		factory.MCPToolDiscussion:           "Read a post and its replies within your assignment, including the full question or answer.",
 		factory.MCPToolAsk:                  "Publish a specific question with optional suggested answers. Read responses with factory.inbox or factory.discussion.",
@@ -198,9 +195,9 @@ func unavailableFactoryMCP(err error) http.Handler {
 }
 
 // mcpTakesSubmission reports whether a tool records a submission. Reads,
-// receipt recovery, discussion, previews and native task requests do not.
+// discussion, previews and native task requests do not.
 func mcpTakesSubmission(tool factory.MCPTool) bool {
-	return !factory.MCPIsRead(tool) && tool != factory.MCPToolReceipt && tool != factory.MCPToolDiscussion &&
+	return !factory.MCPIsRead(tool) && tool != factory.MCPToolDiscussion &&
 		tool != factory.MCPToolReadLibraryItem &&
 		tool != factory.MCPToolPreviewRepair && !isNativeTaskTool(tool)
 }

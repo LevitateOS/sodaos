@@ -83,10 +83,7 @@ type SystemOneWorkerQuestion struct {
 }
 
 // SystemOneWorkerSnapshot binds one worker consultation to its exact
-// admitted caller, tool and question bytes. Same inputs always hash to
-// the same snapshot, so a retry replays the recorded answer instead of
-// spending a second consultation; different inputs never collide into
-// another caller's answer.
+// admitted caller, tool and question bytes for its work-discussion entry.
 func SystemOneWorkerSnapshot(capabilityID string, tool MCPTool, state, instructions, criteria any) (string, error) {
 	raw, err := json.Marshal(struct {
 		State        any `json:"state"`
@@ -102,9 +99,8 @@ func SystemOneWorkerSnapshot(capabilityID string, tool MCPTool, state, instructi
 
 // SystemOneWorkerBatchSnapshot binds one batched worker consultation
 // to its exact admitted caller, tool, shared state and question map.
-// The batch namespace never collides with single-question snapshots,
-// so a batch never replays a single answer and vice versa. Question
-// maps marshal with sorted keys, keeping the snapshot deterministic.
+// Its work-discussion entry is distinct from a single-question entry.
+// Question maps marshal with sorted keys.
 func SystemOneWorkerBatchSnapshot(capabilityID string, tool MCPTool, state any, questions map[string]SystemOneWorkerQuestion) (string, error) {
 	raw, err := json.Marshal(struct {
 		State     any                                `json:"state"`

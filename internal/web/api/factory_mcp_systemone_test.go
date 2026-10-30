@@ -21,7 +21,6 @@ type fakeSystemOne struct {
 	calls int
 	kinds []string
 	fail  bool
-	delay time.Duration
 }
 
 func (f *fakeSystemOne) count() int {
@@ -51,13 +50,6 @@ func (f *fakeSystemOne) EvaluateQuestions(_ context.Context, k string, _ any, qu
 }
 
 func (f *fakeSystemOne) Evaluate(ctx context.Context, k string, state, instructions, criteria any) (map[string]any, error) {
-	if f.delay > 0 {
-		select {
-		case <-ctx.Done():
-			return nil, ctx.Err()
-		case <-time.After(f.delay):
-		}
-	}
 	f.mu.Lock()
 	f.calls++
 	f.kinds = append(f.kinds, k)
@@ -112,11 +104,9 @@ func TestBoundGenericSystemOneTools(t *testing.T) {
 	}
 }
 
-// TestBoundSystemOneConsultationFundsOnce proves the R30.3/R11.2
-// funding: an identical second call replays the recorded answer with
-// no second provider call, and a failed consultation holds on retry
-// instead of spending again.
-func TestBoundSystemOneConsultationFundsOnce(t *testing.T) {
+// Consultations call the provider directly, including repeated questions and
+// a new request after a provider failure. No reservation can strand the worker.
+func TestBoundSystemOneConsultationWithoutReplayReceipts(t *testing.T) {
 	ctx := context.Background()
 	sink := newFakeCatalogSink()
 	provider := &fakeSystemOne{}
@@ -124,7 +114,7 @@ func TestBoundSystemOneConsultationFundsOnce(t *testing.T) {
 	secret, _ := factory.DeriveMCPCapabilitySecret(key, sink.capability)
 	srv := httptest.NewServer(factoryBoundCatalogHandler(FactoryMCPDeps{Capabilities: sink, Submissions: sink, Assignments: sink, PriorityJudgments: sink, SystemOne: provider}, key))
 	defer srv.Close()
-	client := mcp.NewClient(&mcp.Implementation{Name: "funding-test"}, nil)
+	client := mcp.NewClient(&mcp.Implementation{Name: "consultation-test"}, nil)
 	session, err := client.Connect(ctx, &mcp.StreamableClientTransport{Endpoint: srv.URL + FactoryMCPRoute, HTTPClient: &http.Client{Transport: workerMCPTransport{sink.capability.ID, secret}}}, nil)
 	if err != nil {
 		t.Fatal(err)
@@ -139,8 +129,8 @@ func TestBoundSystemOneConsultationFundsOnce(t *testing.T) {
 	if catalogRefused(repeat, err) {
 		t.Fatalf("replay: %v %v", repeat, err)
 	}
-	if provider.count() != 1 {
-		t.Fatalf("replay spent a second consultation: calls=%d", provider.count())
+	if provider.count() != 2 {
+		t.Fatalf("repeated question did not call the provider: calls=%d", provider.count())
 	}
 	if catalogText(t, first) != catalogText(t, repeat) {
 		t.Fatal("replay returned a different answer")
@@ -154,19 +144,21 @@ func TestBoundSystemOneConsultationFundsOnce(t *testing.T) {
 	}
 	held, err := session.CallTool(ctx, &mcp.CallToolParams{Name: "systemone.noul", Arguments: failing})
 	if !catalogRefused(held, err) {
-		t.Fatal("failed consultation retried on the retained reservation")
+		t.Fatal("failed consultation reported success on a second request")
 	}
-	if provider.count() != 2 {
-		t.Fatalf("calls=%d, want 1 success plus 1 failure", provider.count())
+	if provider.count() != 4 {
+		t.Fatalf("calls=%d, want two successes and two failures", provider.count())
+	}
+	provider.fail = false
+	result, err := session.CallTool(ctx, &mcp.CallToolParams{Name: "systemone.noul", Arguments: failing})
+	if catalogRefused(result, err) || provider.count() != 5 {
+		t.Fatal("a failed consultation left a reservation blocking the next request", result, err)
 	}
 }
 
-// TestBoundSystemOneConsultationFundsThroughRealJournal proves the
-// R47.2 generic-call accounting: the bound worker consultation funds
-// through the real store priority journal, so the recorded receipt
-// is durable in PostgreSQL and a second identical call replays
-// without new spend or a second provider call.
-func TestBoundSystemOneConsultationFundsThroughRealJournal(t *testing.T) {
+// The real PostgreSQL conversation keeps the question and answer without a
+// second durable copy in the priority judgment journal.
+func TestBoundSystemOneConsultationKeepsConversationWithoutReceipts(t *testing.T) {
 	ctx := context.Background()
 	admin, ok := store.TestFixtureDSN()
 	if !ok {
@@ -188,8 +180,6 @@ func TestBoundSystemOneConsultationFundsThroughRealJournal(t *testing.T) {
 	if err := st.ActivateMCPCapability(ctx, capability.ID, capability.Generation, capability.RunID, capability.AssignmentID, capability.Authority, time.Now().Unix(), false); err != nil {
 		t.Fatal(err)
 	}
-	// This case isolates the real paid journal from the independently
-	// qualified role producer exercised in the bound current PG case.
 	qualified := newFakeCatalogSink()
 	assignment := qualified.assignments[qualified.capability.AssignmentID]
 	assignment.ID = capability.AssignmentID
@@ -199,19 +189,7 @@ func TestBoundSystemOneConsultationFundsThroughRealJournal(t *testing.T) {
 	seedLiveMCPAssignment(t, ctx, dsn, assignment)
 	qualified.capability = capability
 	qualified.assignments = map[string]factory.Assignment{assignment.ID: assignment}
-	storeSelectionReceipt(t, qualified, assignment, false, false, factory.ContextBundleCurrent)
-	selection := qualified.receipts[qualified.capability.ContextSelectionSnapshot]
-	selection.CreatedUnix = time.Now().Unix()
-	if reserved, err := st.ReservePriorityJudgment(ctx, selection.Snapshot, 1); err != nil || !reserved {
-		t.Fatal("cannot reserve qualified preparation selection", err)
-	}
-	if err := st.RecordPriorityJudgment(ctx, selection); err != nil {
-		t.Fatal(err)
-	}
-	capability.ContextSelectionSnapshot = selection.Snapshot
 	capability.State = factory.MCPCapabilityActive
-	// The auth fixture supplies the saved selection pointer and qualified
-	// projection; PostgreSQL owns the paid reservation and answer journal.
 	qualified.capability = capability
 	provider := &fakeSystemOne{}
 	key := []byte(strings.Repeat("k", 32))
@@ -221,7 +199,7 @@ func TestBoundSystemOneConsultationFundsThroughRealJournal(t *testing.T) {
 	}
 	srv := httptest.NewServer(factoryBoundCatalogHandler(FactoryMCPDeps{Capabilities: qualified, Submissions: qualified, Assignments: qualified, PriorityJudgments: st, Runs: qualified, SystemOne: provider}, key))
 	defer srv.Close()
-	client := mcp.NewClient(&mcp.Implementation{Name: "funding-pg-test"}, nil)
+	client := mcp.NewClient(&mcp.Implementation{Name: "consultation-pg-test"}, nil)
 	session, err := client.Connect(ctx, &mcp.StreamableClientTransport{Endpoint: srv.URL + FactoryMCPRoute, HTTPClient: &http.Client{Transport: workerMCPTransport{capability.ID, secret}}}, nil)
 	if err != nil {
 		t.Fatal(err)
@@ -238,19 +216,15 @@ func TestBoundSystemOneConsultationFundsThroughRealJournal(t *testing.T) {
 	if catalogRefused(repeat, err) {
 		t.Fatalf("replay: %v %v", repeat, err)
 	}
-	if provider.count() != 1 {
-		t.Fatalf("replay spent a second consultation: calls=%d", provider.count())
+	if provider.count() != 2 {
+		t.Fatalf("repeated question did not call the provider: calls=%d", provider.count())
 	}
 	snapshot, err := factory.SystemOneWorkerSnapshot(capability.ID, factory.MCPToolSystemOneNoul, state, instructions, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
-	receipt, err := st.PriorityJudgment(ctx, snapshot)
-	if err != nil {
-		t.Fatalf("no durable journal receipt: %v", err)
-	}
-	if receipt.Outcome != systemOneAnswerOutcome || receipt.Answer == nil {
-		t.Fatalf("journal receipt is not the recorded answer: %+v", receipt)
+	if _, err := st.PriorityJudgment(ctx, snapshot); !errors.Is(err, store.ErrNotFound) {
+		t.Fatalf("consultation wrote an unnecessary judgment receipt: %v", err)
 	}
 	comment, err := st.FeedPost(ctx, factory.FeedConsultationPostID(snapshot))
 	if err != nil || comment.Consultation == nil || comment.Consultation.Status != "returned" || comment.Consultation.Instructions != instructions || comment.Consultation.Answer == nil {
@@ -262,69 +236,7 @@ func TestBoundSystemOneConsultationFundsThroughRealJournal(t *testing.T) {
 	}
 }
 
-// TestBoundSystemOneConcurrentRetriesDispatchOnce proves the FA02
-// custody: eight concurrent identical consultations produce exactly
-// one provider dispatch, and every caller recovers the same recorded
-// answer by retrying until the winner's receipt lands.
-func TestBoundSystemOneConcurrentRetriesDispatchOnce(t *testing.T) {
-	ctx := context.Background()
-	sink := newFakeCatalogSink()
-	provider := &fakeSystemOne{delay: 50 * time.Millisecond}
-	key := []byte(strings.Repeat("k", 32))
-	secret, _ := factory.DeriveMCPCapabilitySecret(key, sink.capability)
-	srv := httptest.NewServer(factoryBoundCatalogHandler(FactoryMCPDeps{Capabilities: sink, Submissions: sink, Assignments: sink, PriorityJudgments: sink, SystemOne: provider}, key))
-	defer srv.Close()
-	const callers = 8
-	answers := make([]string, callers)
-	var wg sync.WaitGroup
-	for i := 0; i < callers; i++ {
-		wg.Add(1)
-		go func(i int) {
-			defer wg.Done()
-			client := mcp.NewClient(&mcp.Implementation{Name: "funding-race-test"}, nil)
-			session, err := client.Connect(ctx, &mcp.StreamableClientTransport{Endpoint: srv.URL + FactoryMCPRoute, HTTPClient: &http.Client{Transport: workerMCPTransport{sink.capability.ID, secret}}}, nil)
-			if err != nil {
-				t.Errorf("connect: %v", err)
-				return
-			}
-			defer session.Close()
-			args := map[string]any{"state": map[string]any{"task": "demo"}, "instructions": "Judge the supplied task"}
-			for range 200 {
-				result, err := session.CallTool(ctx, &mcp.CallToolParams{Name: "systemone.noul", Arguments: args})
-				if catalogRefused(result, err) {
-					continue
-				}
-				if len(result.Content) != 1 {
-					t.Errorf("caller %d: %d content frames", i, len(result.Content))
-					return
-				}
-				text, ok := result.Content[0].(*mcp.TextContent)
-				if !ok {
-					t.Errorf("caller %d: non-text content %T", i, result.Content[0])
-					return
-				}
-				answers[i] = text.Text
-				return
-			}
-			t.Errorf("caller %d never recovered the recorded answer", i)
-		}(i)
-	}
-	wg.Wait()
-	if provider.count() != 1 {
-		t.Fatalf("concurrent retries dispatched %d provider calls, want exactly 1", provider.count())
-	}
-	for i := 1; i < callers; i++ {
-		if answers[i] == "" || answers[i] != answers[0] {
-			t.Fatalf("caller %d recovered a different answer", i)
-		}
-	}
-}
-
-// TestBoundSystemOneBatchQuestionsSingleRoundTrip proves FA10: one
-// funded round trip answers independent same-primitive questions over
-// shared state, an identical batch replays without new spend, and
-// mixing single-question fields or exceeding the batch bound refuses
-// before spending.
+// A batch uses one provider call. Invalid batches refuse before dispatch.
 func TestBoundSystemOneBatchQuestionsSingleRoundTrip(t *testing.T) {
 	ctx := context.Background()
 	sink := newFakeCatalogSink()
@@ -367,8 +279,8 @@ func TestBoundSystemOneBatchQuestionsSingleRoundTrip(t *testing.T) {
 	if catalogRefused(repeat, err) {
 		t.Fatalf("batch replay: %v %v", repeat, err)
 	}
-	if provider.count() != 1 {
-		t.Fatalf("batch replay spent a second consultation: calls=%d", provider.count())
+	if provider.count() != 2 {
+		t.Fatalf("repeated batch did not call the provider: calls=%d", provider.count())
 	}
 	if catalogText(t, repeat) != catalogText(t, first) {
 		t.Fatal("batch replay returned different bytes")
@@ -384,7 +296,7 @@ func TestBoundSystemOneBatchQuestionsSingleRoundTrip(t *testing.T) {
 	if res, err := session.CallTool(ctx, &mcp.CallToolParams{Name: "systemone.noul", Arguments: over}); !catalogRefused(res, err) {
 		t.Fatal("over-bound batch admitted")
 	}
-	if provider.count() != 1 {
+	if provider.count() != 2 {
 		t.Fatalf("refused batches spent consultations: calls=%d", provider.count())
 	}
 }

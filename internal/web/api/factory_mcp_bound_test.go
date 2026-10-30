@@ -122,8 +122,8 @@ func TestFactoryBoundMCPIdentityDiscoveryAndRevocation(t *testing.T) {
 				t.Fatal("invalid preview arguments reached a read", args)
 			}
 		}
-		if calls != 2 || len(strategist.submissions) != 0 || len(strategist.reserved) != 0 {
-			t.Fatal("preview wrote a submission or reserved a judgment", calls)
+		if calls != 2 || len(strategist.submissions) != 0 {
+			t.Fatal("preview wrote a submission", calls)
 		}
 		result, err := bound.CallTool(ctx, &mcp.CallToolParams{Name: string(factory.MCPToolReassessmentScope), Arguments: map[string]any{}})
 		if catalogRefused(result, err) || !strings.Contains(catalogText(t, result), strategist.capability.ScopeDigest()) || !strings.Contains(catalogText(t, result), "current_role_page") {
@@ -177,8 +177,8 @@ func TestFactoryBoundMCPIdentityDiscoveryAndRevocation(t *testing.T) {
 		badDiagnosis := diagnosis
 		badDiagnosis.State = "adopted"
 		result, err = bound.CallTool(ctx, &mcp.CallToolParams{Name: string(factory.MCPToolRecordDiagnosis), Arguments: map[string]any{"submission_id": factory.NewID(), "payload": badDiagnosis}})
-		if !catalogRefused(result, err) || len(strategist.submissions) != 2 || len(strategist.reserved) != 0 {
-			t.Fatal("diagnosis claimed adoption, duplicated a row or reserved judgment")
+		if !catalogRefused(result, err) || len(strategist.submissions) != 2 {
+			t.Fatal("diagnosis claimed adoption or duplicated a row")
 		}
 		strategist.capability.State = factory.MCPCapabilityRevoked
 		result, err = bound.CallTool(ctx, &mcp.CallToolParams{Name: string(factory.MCPToolPreviewRepair), Arguments: map[string]any{"payload": map[string]any{"report": report}}})
@@ -1023,10 +1023,6 @@ func TestFactoryBoundCurrentContextUsesRecordedScopeAndState(t *testing.T) {
 	}
 	defer legacySession.Close()
 	beforeLegacyReplay := counts()
-	recovered, err := legacySession.CallTool(ctx, &mcp.CallToolParams{Name: string(factory.MCPToolReceipt), Arguments: map[string]any{"submission_id": legacyProposal.SubmissionID}})
-	if catalogRefused(recovered, err) {
-		t.Fatal("dedicated legacy receipt recovery refused", err)
-	}
 	for _, invalid := range []map[string]any{
 		{"submission_id": legacyProposal.SubmissionID},
 		{"submission_id": legacyProposal.SubmissionID, "payload": []any{}},
@@ -1042,7 +1038,7 @@ func TestFactoryBoundCurrentContextUsesRecordedScopeAndState(t *testing.T) {
 	if catalogRefused(replayed, err) {
 		t.Fatal("SDK schema prevented retained legacy plan replay", err, catalogText(t, replayed))
 	}
-	if catalogText(t, replayed) != catalogText(t, recovered) || counts() != beforeLegacyReplay {
+	if counts() != beforeLegacyReplay {
 		t.Fatal("legacy replay changed its receipt, journal or budget")
 	}
 	legacyPayload["approach"] = "Changed legacy bytes"

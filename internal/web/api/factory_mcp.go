@@ -38,7 +38,6 @@ type FactoryMCPCapabilitySource interface {
 type FactoryMCPSubmissionSink interface {
 	control.MCPSubmissionJournal
 	RecordMCPSubmission(ctx context.Context, submission factory.MCPSubmission, receipt factory.MCPReceipt) (factory.MCPReceipt, error)
-	MCPReceipt(ctx context.Context, assignmentID, submissionID string) (factory.MCPReceipt, error)
 	MCPSubmissionCount(ctx context.Context, assignmentID string) (int, error)
 }
 
@@ -49,12 +48,10 @@ type FactoryMCPAssignmentSource interface {
 	Assignment(ctx context.Context, id string) (factory.Assignment, error)
 }
 
-// FactoryMCPPriorityJudgmentSource is the funded consultation journal:
-// recorded selection receipts for read foregrounding plus the
-// reserve/record pair that attributes worker consultations to the
-// admitted caller. *store.Store implements it; tests stub it.
+// FactoryMCPPriorityJudgmentSource reads the prepared context choice.
+// *store.Store implements it; tests stub it.
 type FactoryMCPPriorityJudgmentSource interface {
-	control.PriorityJournal
+	PriorityJudgment(context.Context, string) (factory.PriorityReceipt, error)
 }
 
 // FactoryMCPRunSource loads recorded run rows behind an assignment
@@ -93,23 +90,21 @@ type FactoryMCPDeps struct {
 
 // mcpCallArgs is the tool envelope. The bound server supplies capability
 // identity and scope; the worker sends only its payload and, optionally, a
-// submission_id to recover a receipt. CapabilityID remains an internal
+// submission_id to identify the submission. CapabilityID remains an internal
 // admission field used by the unbound transport fixtures.
 type mcpCallArgs struct {
 	CapabilityID string         `json:"capability_id" jsonschema:"recorded capability identity"`
-	SubmissionID string         `json:"submission_id,omitempty" jsonschema:"optional; any string you choose, reused to recover a receipt"`
+	SubmissionID string         `json:"submission_id,omitempty" jsonschema:"optional submission identity"`
 	Payload      map[string]any `json:"payload,omitempty" jsonschema:"tool payload within 64 KiB"`
 }
 
 // mcpEnvelopeSchema advertises and enforces the envelope per tool.
 // additionalProperties false refuses unknown top-level fields
 // server-side through SDK schema validation, and required lists
-// differ for reads, receipt and mutations.
+// differ for reads and mutations.
 func mcpEnvelopeSchema(tool factory.MCPTool) *mcp.Tool {
 	required := []string{"capability_id"}
-	if tool == factory.MCPToolReceipt {
-		required = []string{"capability_id", "submission_id"}
-	} else if !factory.MCPIsRead(tool) {
+	if !factory.MCPIsRead(tool) {
 		required = []string{"capability_id", "payload"}
 	}
 	definition := &mcp.Tool{
@@ -492,19 +487,14 @@ func (s *factoryCatalogServer) admitMutation(ctx context.Context, tool factory.M
 		Tool:         tool,
 		PayloadHash:  factory.MCPInputDigest(raw), Payload: raw,
 	}
-	if err := submission.Validate(); err != nil {
-		release()
-		return factory.MCPCapability{}, factory.MCPSubmission{}, nil, err
-	}
 	replay, err := control.AdmitMCPSubmission(ctx, s.deps.Submissions, capability, submission)
 	if err == nil && !replay {
 		err = s.checkNewFinish(ctx, capability, submission, args.Payload)
+		if err == nil && tool != factory.MCPToolFinishIncomplete && !factory.MCPIsCommunication(tool) && tool != factory.MCPToolResolvePost {
+			err = s.requireCurrentWork(ctx, capability)
+		}
 	}
 	if err != nil {
-		release()
-		return factory.MCPCapability{}, factory.MCPSubmission{}, nil, err
-	}
-	if err := s.requireNewSubmissionContext(ctx, capability, submission); err != nil {
 		release()
 		return factory.MCPCapability{}, factory.MCPSubmission{}, nil, err
 	}
@@ -603,8 +593,6 @@ func (s *factoryCatalogServer) serve(ctx context.Context, tool factory.MCPTool, 
 		return s.serveReassessmentScope(ctx, args)
 	case factory.MCPToolEvidence:
 		return s.serveEvidence(ctx, args)
-	case factory.MCPToolReceipt:
-		return s.serveReceipt(ctx, args)
 	case factory.MCPToolInbox, factory.MCPToolDiscussion:
 		return s.serveInbox(ctx, tool, args)
 	default:
@@ -866,25 +854,6 @@ func (s *factoryCatalogServer) serveEvidence(ctx context.Context, args mcpCallAr
 		body["runs_truncated"] = true
 	}
 	return mcpJSONResult(body)
-}
-
-// serveReceipt recovers the durable receipt for one submission: the
-// lost-response path. Unknown IDs refuse without disclosing other
-// assignments.
-func (s *factoryCatalogServer) serveReceipt(ctx context.Context, args mcpCallArgs) (*mcp.CallToolResult, any, error) {
-	capability, release, err := s.admitCall(ctx, factory.MCPToolReceipt, args)
-	if err != nil {
-		return nil, nil, err
-	}
-	defer release()
-	if !factory.ValidID(args.SubmissionID) {
-		return nil, nil, errors.New("receipt not found")
-	}
-	receipt, err := s.deps.Submissions.MCPReceipt(ctx, capability.AssignmentID, args.SubmissionID)
-	if err != nil {
-		return nil, nil, errors.New("receipt not found")
-	}
-	return mcpJSONResult(s.receiptBody(ctx, capability.AssignmentID, receipt))
 }
 
 // serveMutation records one immutable proposal with its durable

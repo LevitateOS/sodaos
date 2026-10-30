@@ -96,19 +96,14 @@ func recordConsultationResult(deps FactoryMCPDeps, ctx context.Context, snapshot
 	return sink.RecordConsultationResult(writeCtx, snapshot, consultationModel(result), store.ConsultationStatusReturned, result)
 }
 
-// systemOneAnswerOutcome marks a recorded worker consultation answer:
-// the replayable counterpart to the tournament selected/fairness
-// outcomes, read only through the funding snapshot.
-const systemOneAnswerOutcome = "answered"
-
 func (s *factoryCatalogServer) addSystemOneTool(server *mcp.Server, tool factory.MCPTool) {
 	kind := strings.TrimPrefix(string(tool), "systemone.")
 	// instructions/criteria stay optional in the schema so a batch can
 	// supply questions instead; the handler enforces the required
-	// fields per invocation shape before any funding.
+	// fields per invocation shape before calling the provider.
 	schema := &jsonschema.Schema{Type: "object", Properties: map[string]*jsonschema.Schema{"state": {}, "instructions": {Types: []string{"string", "object", "array"}}, "criteria": {}}, Required: []string{"state"}, AdditionalProperties: &jsonschema.Schema{Not: &jsonschema.Schema{}}}
 	schema.Properties["questions"] = &jsonschema.Schema{Type: "object", Description: "Up to 8 independent same-primitive questions over the shared state, answered in one round trip. Mutually exclusive with instructions/criteria.", AdditionalProperties: &jsonschema.Schema{Type: "object", Properties: map[string]*jsonschema.Schema{"instructions": {}, "criteria": {}}, Required: []string{"instructions"}}}
-	schema.Properties["consultation_group"] = &jsonschema.Schema{Type: "string", Description: "Optional shared 32-character lowercase hex identity for three separate consultations supporting the same decision. Grouping does not change funding or replay identity."}
+	schema.Properties["consultation_group"] = &jsonschema.Schema{Type: "string", Description: "Optional shared 32-character lowercase hex identity for three separate consultations supporting the same decision. Grouping affects discussion display only."}
 	description := "Ask a generic System One " + kind + " judgment using supplied state. Records the question and result in your work post and returns their comment identity. Advice does not authorize or implement changes. Never include credentials. Pass questions to batch up to 8 independent same-primitive judgments over the shared state in one round trip. Follow with your interpretation and resulting decision as a reply to consultation.post_id."
 	switch kind {
 	case "noul":
@@ -157,28 +152,19 @@ func (s *factoryCatalogServer) addSystemOneTool(server *mcp.Server, tool factory
 				return nil, nil, errors.New("score requires 2–10 levels")
 			}
 		}
-		if s.deps.PriorityJudgments == nil {
-			return nil, nil, errors.New("priority consultation is unavailable")
-		}
-		// Funded worker consultation (R30.3/R11.2): one reservation
-		// per admitted caller, tool and question bytes. A recorded
-		// answer replays without new spend or a second provider call;
-		// a reservation without an answer means the prior consultation
-		// failed, and the retained reservation holds instead of
-		// spending again. Provider failures keep their spend.
 		snapshot, err := factory.SystemOneWorkerSnapshot(capability.ID, tool, args.State, args.Instructions, args.Criteria)
 		if err != nil {
 			return nil, nil, errors.New("System One question is not hashable")
 		}
-		return s.serveFundedConsultation(ctx, capability, snapshot, tool, kind, args, nil, func() (map[string]any, error) {
+		return s.serveConsultation(ctx, capability, snapshot, tool, kind, args, nil, func() (map[string]any, error) {
 			return s.deps.SystemOne.Evaluate(ctx, kind, args.State, args.Instructions, args.Criteria)
 		})
 	})
 }
 
 // serveSystemOneBatch judges one batch of independent same-primitive
-// questions over shared state in a single funded round trip. The whole
-// envelope funds, replays and records as one consultation; a question
+// questions over shared state in a single round trip. The batch is
+// recorded as one consultation in the work discussion; a question
 // needing an earlier result or new evidence belongs in a later call.
 func (s *factoryCatalogServer) serveSystemOneBatch(ctx context.Context, capability factory.MCPCapability, tool factory.MCPTool, kind string, args systemOneArgs) (*mcp.CallToolResult, any, error) {
 	if args.Instructions != nil || args.Criteria != nil {
@@ -197,9 +183,6 @@ func (s *factoryCatalogServer) serveSystemOneBatch(ctx context.Context, capabili
 		}
 		questions[id] = factory.SystemOneWorkerQuestion{Instructions: question.Instructions, Criteria: question.Criteria}
 	}
-	if s.deps.PriorityJudgments == nil {
-		return nil, nil, errors.New("priority consultation is unavailable")
-	}
 	snapshot, err := factory.SystemOneWorkerBatchSnapshot(capability.ID, tool, args.State, questions)
 	if err != nil {
 		return nil, nil, errors.New("System One question is not hashable")
@@ -208,7 +191,7 @@ func (s *factoryCatalogServer) serveSystemOneBatch(ctx context.Context, capabili
 	for id, question := range questions {
 		batchQuestions[id] = map[string]any{"instructions": question.Instructions, "criteria": question.Criteria}
 	}
-	return s.serveFundedConsultation(ctx, capability, snapshot, tool, kind, args, batchQuestions, func() (map[string]any, error) {
+	return s.serveConsultation(ctx, capability, snapshot, tool, kind, args, batchQuestions, func() (map[string]any, error) {
 		return s.deps.SystemOne.EvaluateQuestions(ctx, kind, args.State, questions)
 	})
 }
@@ -222,65 +205,25 @@ func consultationResponse(cap factory.MCPCapability, snapshot string, answer map
 	return mcpJSONResult(result)
 }
 
-func (s *factoryCatalogServer) serveFundedConsultation(ctx context.Context, cap factory.MCPCapability, snapshot string, tool factory.MCPTool, kind string, args systemOneArgs, questions map[string]any, call func() (map[string]any, error)) (*mcp.CallToolResult, any, error) {
-	recordRequest := func() error {
-		group := args.ConsultationGroup
-		if group == "" {
-			group = snapshot
-		}
-		return recordConsultationRequest(s.deps, ctx, cap, snapshot, group, tool, kind, args.State, args.Instructions, args.Criteria, questions)
+// serveConsultation calls JEV and attaches the actual question and answer to
+// the worker's discussion. Consultations have no funding or replay receipt.
+func (s *factoryCatalogServer) serveConsultation(ctx context.Context, cap factory.MCPCapability, snapshot string, tool factory.MCPTool, kind string, args systemOneArgs, questions map[string]any, call func() (map[string]any, error)) (*mcp.CallToolResult, any, error) {
+	group := args.ConsultationGroup
+	if group == "" {
+		group = snapshot
 	}
-	replay := func(answer map[string]any) (*mcp.CallToolResult, any, error) {
-		if err := recordRequest(); err != nil {
-			return nil, nil, err
-		}
-		if err := recordConsultationResult(s.deps, ctx, snapshot, answer, nil); err != nil {
-			return nil, nil, err
-		}
-		return consultationResponse(cap, snapshot, answer)
-	}
-	if prior, err := s.deps.PriorityJudgments.PriorityJudgment(ctx, snapshot); err == nil && prior.Outcome == systemOneAnswerOutcome && prior.Answer != nil {
-		return replay(prior.Answer)
-	}
-	if err := s.requireCurrentWork(ctx, cap); err != nil {
+	if err := recordConsultationRequest(s.deps, ctx, cap, snapshot, group, tool, kind, args.State, args.Instructions, args.Criteria, questions); err != nil {
 		return nil, nil, err
 	}
-	if err := recordRequest(); err != nil {
-		return nil, nil, errors.New("consultation could not be recorded; provider was not called")
-	}
-	unavailable := func(message string) (*mcp.CallToolResult, any, error) {
-		var writeErr error
-		if sink, ok := s.deps.PriorityJudgments.(consultationSink); ok {
-			writeCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), 5*time.Second)
-			defer cancel()
-			writeErr = sink.RecordConsultationResult(writeCtx, snapshot, "", store.ConsultationStatusUnavailable, nil)
-		}
-		return nil, nil, errors.Join(errors.New(message), writeErr)
-	}
 	if s.deps.SystemOne == nil {
-		return unavailable("System One provider is not configured")
+		err := errors.New("System One provider is not configured")
+		return nil, nil, errors.Join(err, recordConsultationResult(s.deps, ctx, snapshot, nil, err))
 	}
-	reserved, err := s.deps.PriorityJudgments.ReservePriorityJudgment(ctx, snapshot, 1)
+	result, err := call()
 	if err != nil {
-		return unavailable("priority consultation is unavailable")
+		return nil, nil, errors.Join(err, recordConsultationResult(s.deps, ctx, snapshot, nil, err))
 	}
-	if !reserved {
-		prior, err := s.deps.PriorityJudgments.PriorityJudgment(ctx, snapshot)
-		if err != nil || prior.Outcome != systemOneAnswerOutcome || prior.Answer == nil {
-			callErr := errors.New("System One recorded an answer for this request that cannot be replayed")
-			return nil, nil, errors.Join(callErr, recordConsultationResult(s.deps, ctx, snapshot, nil, callErr))
-		}
-		return replay(prior.Answer)
-	}
-	result, callErr := call()
-	if callErr != nil {
-		return nil, nil, errors.Join(callErr, recordConsultationResult(s.deps, ctx, snapshot, nil, callErr))
-	}
-	writeCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), 5*time.Second)
-	defer cancel()
-	journalErr := s.deps.PriorityJudgments.RecordPriorityJudgment(writeCtx, factory.PriorityReceipt{Snapshot: snapshot, Outcome: systemOneAnswerOutcome, Answer: result, CreatedUnix: time.Now().Unix()})
-	commentErr := recordConsultationResult(s.deps, ctx, snapshot, result, nil)
-	if err := errors.Join(journalErr, commentErr); err != nil {
+	if err := recordConsultationResult(s.deps, ctx, snapshot, result, nil); err != nil {
 		return nil, nil, err
 	}
 	return consultationResponse(cap, snapshot, result)

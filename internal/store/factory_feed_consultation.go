@@ -11,7 +11,7 @@ import (
 )
 
 // Consultation comments use the existing authorized conversation store. The
-// funding journal owns replay and charging; a comment owns its recorded display.
+// comment owns the displayed question and actual answer.
 // Neither reading a comment nor refreshing its thread dispatches a call.
 type SystemOneConsultation struct {
 	factory.FeedConsultation
@@ -95,7 +95,7 @@ func (s *Store) RecordConsultationRequest(ctx context.Context, c SystemOneConsul
 		return err
 	}
 	data, err := json.Marshal(map[string]any{
-		"actor": string(c.Role), "author_name": recordPersona(c.Role), "assignment": c.Assignment,
+		"actor": string(c.Role), "author_name": recordPersona(c.Role), "assignment": c.Assignment, "parent_id": c.Assignment,
 		"issue": issue, "at": c.CreatedUnix, "status": "consultation:pending",
 		"source":       factory.PostSource{Kind: factory.PostSourceRecord, ID: c.Assignment, Issue: issue, Ref: c.SourceRevision},
 		"consultation": c.FeedConsultation,

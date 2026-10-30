@@ -37,7 +37,7 @@ var (
 	// the assignment recorded a terminal proposal: exact replay of a
 	// recorded ID and the same terminal content under another ID
 	// remain allowed, other new identities refuse.
-	ErrMCPSubmissionFrozen = errors.New("assignment already recorded a terminal proposal: do not finish again under a new submission_id; read the result with factory.receipt and the first submission_id")
+	ErrMCPSubmissionFrozen = errors.New("assignment already recorded a terminal proposal: do not finish again under a new submission_id; read factory.status for the current result")
 )
 
 // MCPRunObservation is the host-observed run state read outside SQL:
@@ -134,7 +134,7 @@ func AdmitMCPSubmission(ctx context.Context, journal MCPSubmissionJournal, capab
 		// persistence decides this identically under its guard.
 		// Nonterminal proposals after a terminal record nothing
 		// new: the assignment is settled. Reads still serve the
-		// recorded receipt through factory.receipt.
+		// assignment through factory.status.
 		if submission.Tool == terminal.Tool && submission.PayloadHash == terminal.InputDigest {
 			return true, nil
 		}
