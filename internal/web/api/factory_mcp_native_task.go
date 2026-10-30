@@ -97,7 +97,7 @@ func (s *API) factoryNativeTask(ctx context.Context, cap factory.MCPCapability, 
 	observeCtx, cancel := context.WithTimeout(ctx, 5*time.Second)
 	state, err := s.Host.FactoryInspect(observeCtx, project.FactoryInspect{Project: cap.Project, ID: cap.RunID})
 	cancel()
-	if err != nil || !state.Live || state.Phase != project.FactoryRunning || state.Role != a.Role || state.Generation != run.IdentityGeneration || state.Invocation != binding.InvocationID || state.Unit == "" || state.Container == "" {
+	if err != nil || state.ID != run.ID || state.Project != run.ProjectID || !state.Live || state.Phase != project.FactoryRunning || state.Role != a.Role || state.Generation != run.IdentityGeneration || state.Invocation != binding.InvocationID || state.Unit == "" || state.Container == "" {
 		return nil, errors.New("native task process differs from retained binding")
 	}
 	requestCtx, finish := context.WithTimeout(ctx, 30*time.Second)
