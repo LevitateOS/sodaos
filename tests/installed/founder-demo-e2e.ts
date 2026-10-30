@@ -822,14 +822,14 @@ const REHEARSAL_OBJECTIVE = 'Replace our equipment-request spreadsheet with a sm
 async function phaseNewRequest(page: Page, out: string): Promise<string> {
   await page.goto(`${ORIGIN}${PLACES.feed}`);
   await mountRepoPage(page, 'repository-feed');
-  const box = page.locator('.soda-feed-comment-box textarea');
+  const box = page.locator('.soda-feed-post-box textarea');
   await box.waitFor({timeout: 30000});
   assert((await box.inputValue()) === '', 'New request: the feed composer must start empty');
   await box.click();
   await box.fill(REHEARSAL_OBJECTIVE);
   await shot(page, `${out}/new-request-typed.png`);
   const posting = page.waitForResponse(
-    (r) => r.url().endsWith('/api/factory/feed/comments') && r.request().method() === 'POST',
+    (r) => r.url().endsWith('/api/factory/feed/posts') && r.request().method() === 'POST',
     {timeout: 60000}
   );
   await page.getByRole('button', {name: 'Post request', exact: true}).click();

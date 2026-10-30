@@ -193,6 +193,7 @@ jq --exit-status --arg hash "$package_sha" '.package_id == "soda" and .archive_s
 ln -s -- "$release" "$transaction/current.new"
 mv -Tf -- "$transaction/current.new" "$root/current"
 changed=0
+rm -f -- "$root/browser-override.json"
 printf 'Development overlay active: %s\n' "$release"
 "#,
     );
@@ -208,6 +209,7 @@ changed=1
 rm -f -- "$forgejo_dropin" "$dashboard_dropin"
 restart_services
 rm -f -- "$root/current"
+rm -f -- "$root/browser-override.json"
 changed=0
 printf '%s\n' 'Development overlay disabled; installed SodaOS assets are active.'
 "#,
@@ -232,6 +234,9 @@ else
 fi
 if [[ -L "$root/current" ]]; then
     printf 'release=%s\n' "$(readlink "$root/current")"
+fi
+if [[ -f "$root/browser-override.json" ]]; then
+    printf 'browser_release=%s\n' "$(jq -r '.release' "$root/browser-override.json")"
 fi
 for service in forgejo soda-dashboard; do
     printf '%s=' "$service"

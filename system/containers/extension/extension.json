@@ -7,13 +7,12 @@
   "pages": [
     {
       "id": "repository-feed",
-      "route": "workspace",
-      "title": "SodaOS",
+      "route": "feed",
+      "title": "Feed",
       "scope": "repository",
       "permission": "read",
       "entry": "soda-repository-entry.js",
       "subroutes": [
-        {"pattern": "requests", "title": "Requests"},
         {"pattern": "requests/{request}", "title": "Request"},
         {"pattern": "app", "title": "App"},
         {"pattern": "knowledge", "title": "Knowledge"},
@@ -38,6 +37,7 @@
     "native.contribution.authorize",
     "native.service.bridge",
     "native.background.operations",
+    "native.repository.issues.intake",
     "native.extension.lifecycle"
   ],
   "policies": [

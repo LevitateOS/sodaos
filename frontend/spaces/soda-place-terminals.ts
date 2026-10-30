@@ -784,9 +784,6 @@ const terminalsStyle = `
 
 export const mountTerminalsPlace: PlaceMount = (host, context, initial) => {
   host.classList.add('soda-terminals-place');
-  const terminalStyles = document.createElement('link');
-  terminalStyles.rel = 'stylesheet';
-  terminalStyles.href = context.transport.assetBase + 'sodaspaces-terminal.css';
   const style = document.createElement('style');
   style.textContent = terminalsStyle;
   const environmentHost = document.createElement('div');
@@ -804,7 +801,7 @@ export const mountTerminalsPlace: PlaceMount = (host, context, initial) => {
   bench.append(benchHead, workspaceHost);
   const sshHost = document.createElement('div');
   bench.hidden = true;
-  host.append(terminalStyles, style, environmentHost, bench, sshHost);
+  host.append(style, environmentHost, bench, sshHost);
 
   let run = initial.place === 'terminals' ? initial.run : undefined;
   let active = true;

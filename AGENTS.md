@@ -13,11 +13,12 @@ SodaOS is unreleased and has zero users. Deliver working features quickly. Burea
 ## Implement and keep moving
 
 - Own the full authorized outcome. Make the smallest useful change, get it working locally, fix actual failures and continue until the task is handled.
+- For Soda extension layout, CSS and browser-code edits, use `bun run dev:ui` or `bun run dev:watch` from the [development loop](docs/development/forge-development.md). These update the active development browser assets without rebuilding backends or restarting services. Use full deployment for backend, manifest, native-template or host changes; reuse its remembered compatible host/SDK instead of stripping unrelated working code from a copy.
 - Prefer fixing observed bugs over building elaborate defenses against bugs we might encounter later. Cross those bridges when the problem exists.
 - Do not add reproducibility work, release machinery, compatibility layers, migrations, speculative recovery systems, abstractions or frameworks unless the current task actually requires them.
 - Do not turn implementation into a planning audit, status reconciliation, architecture exercise or documentation cleanup. Stale plans and procedural requirements must not block useful work.
 - Resolve routine implementation and setup choices yourself. Do not introduce approval gates, exception paperwork, bookkeeping commits or repeated requests for permission already given.
-- Keep one current implementation. Replace obsolete code and its callers together; remove dead paths instead of preserving them for imaginary users.
+- Keep one current implementation. Replace obsolete code and its callers together; remove dead paths instead of preserving them for imaginary users. Do not add backward-compatible aliases, redirects, dual versions or legacy decoders.
 - Reuse existing code, mature tools and working outputs. Test an uncertain assumption cheaply before investing in an approach that depends on it.
 - Check official upstream release metadata to establish freshness; evaluate compatibility through required behavior instead of guessed version cutoffs. Fix actual integration failures on current tools; do not downgrade to satisfy stale guidance.
 

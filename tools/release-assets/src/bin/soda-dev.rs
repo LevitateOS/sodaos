@@ -16,21 +16,26 @@ use soda_release_assets::{
 
 #[path = "../dev_remote.rs"]
 mod remote;
+#[path = "../dev_ui.rs"]
+mod ui;
 
 type Result<T> = std::result::Result<T, Box<dyn std::error::Error>>;
 
-const HELP: &str = "usage: soda-dev [deploy|build|status|disable] [options]
+const HELP: &str = "usage: soda-dev [ui|watch-ui|deploy|build|status|disable] [options]
 
 Build local Soda Forge changes and activate them on a retained SodaOS host.
   --host NAME          SSH host (default: soda; root login required)
   --ssh-config FILE    SSH config (default: ~/.ssh/config when present)
   --work-dir DIR       Local builds/cache (default: ../.soda-dev)
-  --fountain-bin FILE  Optional compatible Linux amd64 Fountain executable
-  --sdk-dir DIR        Matching Fountain SDK (default: cached pinned source SDK)
-  --track 1|2          Browser/extension route track (default: 1)
+  --fountain-bin FILE  Compatible host executable (default: remembered, then cached)
+  --sdk-dir DIR        Matching SDK (default: remembered, then cached source SDK)
 
+ui updates only extension browser assets in the active development deployment.
+watch-ui repeats that update when browser sources change. Refresh to see edits.
+Neither command builds Go, changes the database, or restarts services.
 deploy builds, uploads, activates and checks health; build only stages locally.
 status inspects the host; disable removes the owned development overlay.
+Successful full deployments remember their host executable and SDK per SSH host.
 The working tree is deployed, including uncommitted source changes.";
 
 struct Args {
@@ -40,7 +45,6 @@ struct Args {
     work: PathBuf,
     fountain: Option<PathBuf>,
     sdk: Option<PathBuf>,
-    track: String,
 }
 
 fn args(source: &Path) -> Result<Args> {
@@ -57,7 +61,6 @@ fn args(source: &Path) -> Result<Args> {
             .join(".soda-dev"),
         fountain: None,
         sdk: None,
-        track: "1".into(),
     };
     let mut tokens = std::env::args().skip(1).peekable();
     if tokens.peek().is_some_and(|s| !s.starts_with('-')) {
@@ -80,12 +83,10 @@ fn args(source: &Path) -> Result<Args> {
             "--work-dir" => result.work = PathBuf::from(value),
             "--fountain-bin" => result.fountain = Some(PathBuf::from(value)),
             "--sdk-dir" => result.sdk = Some(PathBuf::from(value)),
-            "--track" => result.track = value,
             _ => return Err(format!("unknown option {name}\n{HELP}").into()),
         }
     }
-    if !["deploy", "build", "status", "disable"].contains(&result.action.as_str())
-        || !["1", "2"].contains(&result.track.as_str())
+    if !["ui", "watch-ui", "deploy", "build", "status", "disable"].contains(&result.action.as_str())
     {
         return Err(HELP.into());
     }
@@ -102,6 +103,38 @@ fn args(source: &Path) -> Result<Args> {
     result.work = result.work.canonicalize()?;
     if !result.work.starts_with("/home") {
         return Err("development builds must be under /home".into());
+    }
+    let saved = result
+        .work
+        .join(format!("deploy-inputs-{}.json", result.host));
+    if saved.is_file() {
+        let saved: Value = serde_json::from_slice(&fs::read(saved)?)?;
+        if matches!(result.action.as_str(), "deploy" | "build") {
+            if result.fountain.is_none() {
+                result.fountain = saved["fountain"].as_str().map(PathBuf::from);
+            }
+            if result.sdk.is_none() {
+                result.sdk = saved["sdk"].as_str().map(PathBuf::from);
+            }
+        }
+    }
+    if matches!(result.action.as_str(), "deploy" | "build") {
+        if let Some(path) = &result.fountain {
+            if !path.is_file() {
+                return Err(format!(
+                    "host executable missing at {}; supply --fountain-bin",
+                    path.display()
+                )
+                .into());
+            }
+        }
+        if let Some(path) = &result.sdk {
+            if !path.join("go.mod").is_file() {
+                return Err(
+                    format!("host SDK missing at {}; supply --sdk-dir", path.display()).into(),
+                );
+            }
+        }
     }
     Ok(result)
 }
@@ -210,12 +243,8 @@ fn version_presentation(context: &Path, id: &str) -> Result<()> {
     Ok(())
 }
 
-fn package(source: &Path, build: &Path, context: &Path, id: &str, track: &str) -> Result<()> {
-    let manifest_path = if track == "2" {
-        "system/containers/extension/extension.track2.json"
-    } else {
-        "system/containers/extension/extension.json"
-    };
+fn package(source: &Path, build: &Path, context: &Path, id: &str) -> Result<()> {
+    let manifest_path = "system/containers/extension/extension.json";
     let mut manifest: Value = serde_json::from_slice(&fs::read(source.join(manifest_path))?)?;
     let version = format!("0.0.0-dev.{id}");
     manifest["version"] = json!(version);
@@ -348,9 +377,7 @@ fn build(source: &Path, args: &Args) -> Result<(PathBuf, String)> {
         .args(["scripts/build-soda-extension.ts", "--package=soda", "--out"])
         .arg(build.join("extension"))
         .arg("--terminal-assets")
-        .arg(terminal)
-        .arg("--track")
-        .arg(&args.track))?;
+        .arg(terminal))?;
     let lock: Value =
         serde_json::from_slice(&fs::read(source.join("frontend/forgejo/locale.lock.json"))?)?;
     let locale = fountain_source.join("options/locale/locale_en-US.ini");
@@ -397,7 +424,7 @@ fn build(source: &Path, args: &Args) -> Result<(PathBuf, String)> {
     for entry in fs::read_dir(context.join("bin"))? {
         fs::set_permissions(entry?.path(), fs::Permissions::from_mode(0o755))?;
     }
-    package(source, &build, &context, &id, &args.track)?;
+    package(source, &build, &context, &id)?;
     let mut entries = Vec::new();
     files(&context, &context, &mut entries)?;
     let mut checksums = String::new();
@@ -424,6 +451,8 @@ fn execute() -> Result<()> {
     let source = source_root()?;
     let args = args(&source)?;
     match args.action.as_str() {
+        "ui" => ui::deploy(&source, &args),
+        "watch-ui" => ui::watch(&source, &args),
         "status" => remote_script(&args, &remote::status_script()),
         "disable" => remote_script(&args, &remote::disable_script()),
         _ => {
@@ -447,6 +476,23 @@ fn execute() -> Result<()> {
                 ))
                 .stdin(Stdio::from(fs::File::open(archive)?)))?;
             remote_script(&args, &remote::activate_script(&destination))?;
+            // Retain the actual working inputs, rather than silently selecting
+            // the cached release SDK/host again on the next small change.
+            let sdk = args.sdk.clone().or_else(|| {
+                let text = fs::read_to_string(context.parent()?.join("build/go.mod")).ok()?;
+                text.lines().find_map(|line| {
+                    line.strip_prefix("replace forgejo.org/extension-sdk => ")
+                        .map(PathBuf::from)
+                })
+            });
+            let fountain = context.join("bin/fountain");
+            fs::write(
+                args.work.join(format!("deploy-inputs-{}.json", args.host)),
+                serde_json::to_vec_pretty(&json!({
+                    "fountain": fountain.is_file().then(|| fountain.to_string_lossy().into_owned()),
+                    "sdk": sdk
+                }))?,
+            )?;
             println!(
                 "Development Forge active on {}. Refresh the browser to test changes.",
                 args.host

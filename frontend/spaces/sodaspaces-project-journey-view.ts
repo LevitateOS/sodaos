@@ -146,7 +146,7 @@ function joinAction(input: JourneyViewInput) {
 
 function projectFeedAction(input: JourneyViewInput) {
   const url = input.readRepositoryURL?.();
-  return url ? html`<a class="ui primary button" href=${url + '/workspace'}>Open project feed</a>` : '';
+  return url ? html`<a class="ui primary button" href=${url + '/feed'}>Open project feed</a>` : '';
 }
 
 function joinFeedback(input: JourneyViewInput) {

@@ -384,7 +384,7 @@ export async function exerciseFirstUse(
 }
 
 /** Shared installed path after the native planning POST. Both initial creation
- * and comment-driven changes use the same actual planner, authored walkthrough,
+ * and post-driven changes use the same actual planner, authored walkthrough,
  * explicit review, accepted revision and graph owner. */
 export async function completeInstalledIntentPlan(
   page: Page,
@@ -608,7 +608,7 @@ export async function exerciseProductChange(
   evidence.stage = 'explicit Finance comment review';
   const review = page.waitForResponse(
     (response) =>
-      response.url().endsWith(`/api/factory/feed/comments/${input.comment}/review`) &&
+      response.url().endsWith(`/api/factory/feed/posts/${input.comment}/review`) &&
       response.request().method() === 'POST',
     {timeout: 60000}
   );
@@ -617,7 +617,7 @@ export async function exerciseProductChange(
       response.url().endsWith(`/api/factory/intents/${input.intent}`) && response.request().method() === 'GET',
     {timeout: 60000}
   );
-  const reviewButton = spaces.locator(`[data-comment-product-change="${input.comment}"]`);
+  const reviewButton = spaces.locator(`[data-post-product-change="${input.comment}"]`);
   assert.equal((await reviewButton.textContent())?.trim(), 'Review proposed change');
   await reviewButton.click();
   const reviewed = await review;

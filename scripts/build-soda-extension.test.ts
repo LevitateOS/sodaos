@@ -34,6 +34,7 @@ test('native Soda package contains its entire local browser asset graph', async 
     const out = resolve(work, 'output');
     const files = await buildSodaExtensionAssets(out, terminal, 'soda');
     expect(files).not.toContain('soda-tailnet-entry.js');
+    expect(files).not.toContain('soda-spaces-entry.js');
     const optionalOut = resolve(work, 'tailnet');
     const optionalFiles = await buildSodaExtensionAssets(optionalOut, terminal, 'tailnet');
     expect(optionalFiles).toContain('soda-tailnet-entry.js');
@@ -54,7 +55,7 @@ test('native Soda package contains its entire local browser asset graph', async 
       }
     }
     for (const name of [
-      'soda-spaces-entry.js',
+      'soda-repository-entry.js',
       'components.css',
       'sodaspaces.css',
       'sodaspaces-page.css',

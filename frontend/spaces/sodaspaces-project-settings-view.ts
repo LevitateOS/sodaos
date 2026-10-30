@@ -192,7 +192,7 @@ export function renderRepositoryContext(input: SettingsViewInput) {
     <h2>${input.readRepository()}</h2>
     <nav aria-label="Repository destinations">
       <a href=${input.readRepositoryURL() + '/settings'}>Native repository settings</a> ·
-      <a href=${input.readRepositoryURL() + '/workspace'}>Open project feed</a> ·
+      <a href=${input.readRepositoryURL() + '/feed'}>Open project feed</a> ·
       <a href=${input.readRepositoryURL()}>Repository</a>
     </nav>
     <p>

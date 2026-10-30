@@ -12,6 +12,7 @@
 
 		{{template "repo/settings/options_danger" .}}
 	</div>
-{{template "repo/settings/layout_footer" .}}
 
+{{/* Keep confirmation dialogs in the native content region during in-app navigation. */}}
 {{template "repo/settings/options_modals" .}}
+{{template "repo/settings/layout_footer" .}}

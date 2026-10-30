@@ -29,6 +29,8 @@
     "build:preview": "bun scripts/build-forgejo-preview.ts",
     "dev:spaces": "bun run build:forgejo && bun scripts/preview-spaces.ts",
     "dev:deploy": "cargo run --release --locked -p soda-release-assets --bin soda-dev -- deploy",
+    "dev:ui": "cargo run --release --locked -p soda-release-assets --bin soda-dev -- ui",
+    "dev:watch": "cargo run --release --locked -p soda-release-assets --bin soda-dev -- watch-ui",
     "dev:status": "cargo run --release --locked -p soda-release-assets --bin soda-dev -- status",
     "dev:disable": "cargo run --release --locked -p soda-release-assets --bin soda-dev -- disable"
   },

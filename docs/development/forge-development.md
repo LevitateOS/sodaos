@@ -9,8 +9,30 @@ bun run dev:deploy
 bun run dev:status
 ```
 
-Edit the source, run the relevant [focused checks](testing.md#source-checks),
-then run `bun run dev:deploy` again and refresh the browser. The deploy builds
+For post layout, styling and other extension browser changes, use the fast loop:
+
+```sh
+bun run dev:ui       # build and upload browser files once
+bun run dev:watch    # update automatically after browser-source edits
+```
+
+Refresh the app after the command reports the update ready. These commands need
+an active development deployment. They build only the extension's JavaScript and
+CSS and copy its browser assets; they do not compile Go or Forgejo, install a
+package, run a database migration, or restart either service. Existing pages can
+still load their older hashed chunks while a refreshed page loads the new build.
+
+The update is an explicit development override of the installed Soda package's
+browser files. Its previous assets and checksum inventory are retained beneath
+`/var/home/soda-dev/ui/`, and `dev:status` reports the browser release separately.
+The installed backend, manifest and package receipt stay unchanged. A full
+deployment or disabling development mode restores the catalog-selected package.
+Changes to the extension manifest, APIs, permissions, backend, native templates
+or host styles need the normal full deployment. A manifest mismatch makes the
+browser-only command stop with that explanation.
+
+For those full changes, run the relevant [focused checks](testing.md#source-checks),
+then `bun run dev:deploy` and refresh the browser. The full deploy builds
 Forge presentation templates, CSS and browser modules, the Soda extension
 assets/backend, and the Go dashboard. It transfers the prepared files over SSH
 and restarts Forge and the dashboard to activate them.
@@ -20,7 +42,12 @@ and `bun install --frozen-lockfile`. The build uses the matching cached SDK at
 `WORK/inputs/fountain-source-REVISION/sdk`, where `REVISION` is the first seven
 characters of the source pin in `fountain-source.json`. Otherwise it uses the
 sibling `forgejo-ext` SDK checkout selected by `go.mod`; `--sdk-dir PATH`
-selects an explicit SDK. These inputs are already prepared on this machine.
+selects an explicit SDK. Successful full deployments remember the actual host
+executable and SDK per SSH host in
+`WORK/deploy-inputs-HOST.json`; explicit command-line options override those
+selections. This keeps subsequent deployments on the working custom host rather
+than silently returning to the cached release executable or SDK. These inputs
+are already prepared on this machine.
 The SSH account needs root access to the retained appliance.
 The command explicitly reads `~/.ssh/config`; `--ssh-config PATH` selects a
 different client configuration.
@@ -46,7 +73,7 @@ The initial `soda-metal` setup copied schema 67 into a development database at
 schema 69; the native database stays at 67. Forge accounts and Git repositories
 are shared with the installed Forge and remain visible in either mode.
 
-Only Forge and the dashboard restart. The appliance keeps its retained data,
+Only full deployments restart Forge and the dashboard. The appliance keeps its retained data,
 configuration and Project containers. This development loop does not perform
 a `bootc` update, rebuild installation media, or publish a release.
 
@@ -61,19 +88,31 @@ cargo run --release --locked -p soda-release-assets --bin soda-dev -- build
 
 ## Fountain changes and repository routes
 
-The default asset/manifest track is `1`, matching the published Fountain
-contract. Deployments reuse the compatible cached executable at
-`WORK/inputs/fountain` when present. An explicit binary can be supplied when
-testing changes to Fountain itself:
+Repository routes use one tree rooted at `/{owner}/{repo}/feed`, with
+`/requests/{request}`, `/app`, `/knowledge`, `/terminals`,
+`/settings/{section}` and `/issues[/{issue}]` beneath it. Links, native
+templates, manifest and host routing use this tree directly. There are no
+repository `/workspace` routes or redirects and no alternate route tracks.
+
+Deployments reuse the remembered compatible host executable. Supply an
+explicit binary when testing changes to Fountain itself:
 
 ```sh
 cargo run --release --locked -p soda-release-assets --bin soda-dev -- deploy \
   --fountain-bin /absolute/path/to/fountain
 ```
 
-Use `--track 2` only with a Fountain build that supports the named repository
-routes in `system/containers/extension/extension.track2.json`. Selecting a
-track does not build Fountain.
+Request intake consumes the session-scoped `repository.issues` read and
+request-scoped native issue-intake authorization. The extension explicitly
+declares `native.repository.issues.intake`; it does not enroll a Factory bot.
+Until these capabilities ship in the pinned Fountain release, deploy with both
+`--fountain-bin` pointing to the updated host build and `--sdk-dir` pointing to
+the matching SDK in the sibling `forgejo-ext` checkout. The cached pinned host
+and SDK do not provide this callback.
+
+Once a full deployment succeeds with these explicit paths, later deployments
+reuse the remembered paths without repeating the flags. Browser-only updates do
+not need a host executable or SDK at all.
 
 ## Return to the installed version
 

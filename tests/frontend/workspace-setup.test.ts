@@ -348,7 +348,7 @@ test('first use: resumed draft explicitly raises work limit before planning the 
     const calls = window.workspaceFixture.calls;
     const saved = calls.filter((call) => call.method === 'POST' && call.path.endsWith('/api/factory/intents')).at(-1)!;
     const prior = saved.body!;
-    // Declared server peer supplies the canonical comment-review draft. The
+    // Declared server peer supplies the canonical post-review draft. The
     // PostgreSQL integration verifies its real accepted-generation provenance.
     const ideas = prior.ideas as Record<string, unknown>[];
     const finance = {
@@ -374,7 +374,7 @@ test('first use: resumed draft explicitly raises work limit before planning the 
       headers: {'Content-Type': 'application/json'},
       body: JSON.stringify(draft),
     });
-    if (!response.ok) throw Error('Synthetic comment-review draft unavailable');
+    if (!response.ok) throw Error('Synthetic post-review draft unavailable');
     return draft;
   });
   assert.equal(original.max_issues, 1);
