@@ -90,7 +90,7 @@ func (s *factoryCatalogServer) addCheckpointContext(ctx context.Context, read *r
 		"manifest_digest":  project.ExecutionManifestDigest(run.ExecutionManifest),
 		"parent_only":      phase == project.ExecutionCorrect,
 		"integration_head": head, "tasks": tasks, "ready_outputs": ready,
-		"guidance": "Submit each ready output with factory.submit_task_output and its task_id; SodaOS fills the observed digest and native child. Poll the submission receipt; successors need a committed native checkpoint. Do not write Git metadata. Finish implementation only after integration.status is committed; SodaOS fills the candidate from it.",
+		"guidance": "Submit each ready output with factory.submit_task_output and its task_id; SodaOS fills the observed digest and native child. Read factory.status for checkpoint progress; successors need a committed native checkpoint. Do not write Git metadata. Finish implementation only after integration.status is committed; SodaOS fills the candidate from it.",
 	}
 	if run.FinalCheckpoint != nil {
 		execution["integration"] = run.FinalCheckpoint

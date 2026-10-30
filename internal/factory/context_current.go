@@ -66,7 +66,6 @@ type CurrentContextEvidence struct {
 // CurrentRoleContext contains only registered, explicitly projected inputs.
 // New producers can fill their own role header without widening a parent grant.
 type CurrentRoleContext struct {
-	Submissions    []CurrentSubmissionReceipt    `json:"submission_receipts"`
 	Tools          []MCPTool                     `json:"tools,omitempty"`
 	ResultTool     MCPTool                       `json:"result_tool,omitempty"`
 	ResultSchema   json.RawMessage               `json:"result_schema,omitempty"`
@@ -83,17 +82,6 @@ type CurrentRoleContext struct {
 	DeliveryRepair *CurrentDeliveryRepairContext `json:"delivery_repair,omitempty"`
 	Delivery       *DeliverySubject              `json:"delivery,omitempty"`
 	Acceptance     *CurrentAcceptanceContext     `json:"acceptance,omitempty"`
-}
-
-// CurrentSubmissionReceipt exposes only this assignment's recovery metadata.
-// Payloads and another assignment's receipts are never part of current context.
-type CurrentSubmissionReceipt struct {
-	SubmissionID string  `json:"submission_id"`
-	Tool         MCPTool `json:"tool"`
-	PayloadHash  string  `json:"payload_hash"`
-	State        string  `json:"state"`
-	InputDigest  string  `json:"input_digest"`
-	Reason       string  `json:"reason"`
 }
 
 type CurrentPlanContext struct {

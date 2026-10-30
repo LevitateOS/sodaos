@@ -39,7 +39,7 @@ func (r ContextCurrentResolution) ValidateFor(cap MCPCapability) error {
 // CurrentRequiredSemanticDigest binds admitted requirements while allowing
 // receipts and verified progress to refresh under the saved current template.
 func CurrentRequiredSemanticDigest(role CurrentRoleContext) (string, error) {
-	role.Submissions, role.Tools, role.ResultSchema = nil, nil, nil
+	role.Tools, role.ResultSchema = nil, nil
 	role.ResultTool, role.RecordSource = "", ""
 	if role.Plan != nil {
 		plan := *role.Plan

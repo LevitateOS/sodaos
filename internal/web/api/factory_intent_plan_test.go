@@ -317,11 +317,21 @@ func TestIssueMakerBoundMCPPublishesIssuesDuringItsOwnRun(t *testing.T) {
 		if catalogRefused(result, err) {
 			t.Fatalf("%s: %v %s", tool, err, catalogText(t, result))
 		}
+		var reply map[string]any
+		if err := json.Unmarshal([]byte(catalogText(t, result)), &reply); err != nil {
+			t.Fatal(err)
+		}
+		if reply["issue"] == nil || reply["post_id"] == nil || reply["receipt"] != nil {
+			t.Fatal("issue action must return its native issue and post", reply)
+		}
 		return result
 	}
 	call("factory.create_issue", "notifications", "notifications", "Notification preferences", "Allow the user to select notification preferences.")
 	call("factory.create_issue", "notifications", "notifications", "Notification preferences", "Allow the user to select notification preferences.")
 	call("factory.refine_issue", "refine-login", "request", "Login screen", "Provide a login screen. Acceptance: valid credentials open the app.")
+	if count, err := s.MCPSubmissionCount(ctx, attempt.ID); err != nil || count != 0 {
+		t.Fatal("issue posts acquired a duplicate submission journal", count, err)
+	}
 	post, err := s.PostIssueMaker(ctx, id, revision)
 	if err != nil {
 		t.Fatal(err)

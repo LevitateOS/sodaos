@@ -7,6 +7,7 @@ import (
 
 	"github.com/google/jsonschema-go/jsonschema"
 	"github.com/levitateos/sodaos/internal/factory"
+	"github.com/levitateos/sodaos/internal/factory/control"
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 )
 
@@ -32,31 +33,29 @@ func checkIssueMakerPayload(payload map[string]any) error {
 }
 
 func (s *factoryCatalogServer) serveIssueMaker(ctx context.Context, tool factory.MCPTool, args mcpCallArgs) (*mcp.CallToolResult, any, error) {
-	cap, submission, release, err := s.admitMutation(ctx, tool, args)
+	cap, release, err := s.admitCall(ctx, tool, args)
 	if err != nil {
 		return nil, nil, err
 	}
 	defer release()
-	if receipt, err := s.deps.Submissions.MCPReceipt(ctx, cap.AssignmentID, submission.SubmissionID); err == nil {
-		if receipt.InputDigest != submission.PayloadHash {
-			return nil, nil, errors.New("submission identity already records different issue content")
-		}
-		return mcpJSONResult(s.receiptBody(ctx, cap.AssignmentID, receipt))
+	if err := checkIssueMakerPayload(args.Payload); err != nil {
+		return nil, nil, err
+	}
+	if _, frozen, err := s.deps.Submissions.TerminalMCPProposal(ctx, cap.AssignmentID); err != nil {
+		return nil, nil, err
+	} else if frozen {
+		return nil, nil, control.ErrMCPSubmissionFrozen
 	}
 	if s.deps.IssueMaker == nil {
 		return nil, nil, errors.New("Issue Maker native tools are unavailable")
 	}
-	result, err := s.deps.IssueMaker(ctx, cap, tool, args.Payload, submission.SubmissionID)
+	if err := s.requireCurrentWork(ctx, cap); err != nil {
+		return nil, nil, err
+	}
+	result, err := s.deps.IssueMaker(ctx, cap, tool, args.Payload, args.SubmissionID)
 	if err != nil {
 		return nil, nil, err
 	}
-	post, _ := result["post_id"].(string)
-	receipt := factory.MCPReceipt{SubmissionID: submission.SubmissionID, Tool: tool, State: factory.MCPReceiptRecorded, InputDigest: submission.PayloadHash, FeedPostID: post}
-	recorded, err := s.deps.Submissions.RecordMCPSubmission(ctx, submission, receipt)
-	if err != nil {
-		return nil, nil, err
-	}
-	result["receipt"] = s.receiptBody(ctx, cap.AssignmentID, recorded)
 	return mcpJSONResult(result)
 }
 

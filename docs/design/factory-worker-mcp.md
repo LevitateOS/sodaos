@@ -322,6 +322,14 @@ revalidating the optional context-selection receipt. The existing submission
 admission result handles replay without a second receipt/terminal lookup.
 Missing context remains visible in `factory.context`.
 
+Worker context does not carry a submission-receipt history; communications and
+results are available through the work posts and discussion. Issue Maker creates
+and refines issues through the native writer and returns the issue and post
+identities directly, without a second MCP submission record. Checkpoint progress
+is read through `factory.status`. Other submission callers supply only the
+submission; the Store derives its initial recorded state instead of accepting
+and validating a second envelope copying the same identity and digest.
+
 Generic worker System One consultations call JEV directly and record the question
 and actual answer in the work discussion. They create no funding reservation or
 replay receipt. The separate `factory.receipt` recovery tool is removed; workers

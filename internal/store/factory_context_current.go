@@ -76,9 +76,6 @@ func factoryCurrentContextTx(ctx context.Context, tx *sql.Tx, cap factory.MCPCap
 	if err = currentAllowanceTx(ctx, tx, assignment, cap, now, &out); err != nil {
 		return out, err
 	}
-	if err = currentSubmissionsTx(ctx, tx, assignment, &out); err != nil {
-		return out, err
-	}
 	if assignment.Acceptance != "" && assignment.Issue > 0 {
 		if err = currentAcceptanceTx(ctx, tx, assignment, &out); err != nil {
 			return out, err
@@ -290,34 +287,4 @@ func currentPlanTx(ctx context.Context, tx *sql.Tx, a factory.Assignment, run fa
 	}
 	out.Role.Plan = projected
 	return nil
-}
-
-// maxCurrentSubmissions bounds the submissions one context read projects.
-const maxCurrentSubmissions = 257
-
-func currentSubmissionsTx(ctx context.Context, tx *sql.Tx, a factory.Assignment, out *factory.CurrentContext) error {
-	rows, err := tx.QueryContext(ctx, `SELECT submission,tool,input_digest,payload_hash,state,reason,receipt FROM factory_mcp_submissions WHERE assignment=$1 ORDER BY submission LIMIT $2`, a.ID, maxCurrentSubmissions+1)
-	if err != nil {
-		return err
-	}
-	defer rows.Close()
-	out.Role.Submissions = []factory.CurrentSubmissionReceipt{}
-	for rows.Next() {
-		var projected factory.CurrentSubmissionReceipt
-		var inputDigest string
-		var raw []byte
-		if err = rows.Scan(&projected.SubmissionID, &projected.Tool, &inputDigest, &projected.PayloadHash, &projected.State, &projected.Reason, &raw); err != nil {
-			return err
-		}
-		var receipt factory.MCPReceipt
-		if json.Unmarshal(raw, &receipt) != nil || receipt.Validate() != nil || receipt.SubmissionID != projected.SubmissionID || receipt.Tool != projected.Tool || receipt.State != projected.State || receipt.Reason != projected.Reason || !factory.ValidDigest(projected.PayloadHash) {
-			return errors.New("current submission metadata is malformed")
-		}
-		projected.InputDigest = receipt.InputDigest
-		out.Role.Submissions = append(out.Role.Submissions, projected)
-		if len(out.Role.Submissions) > maxCurrentSubmissions {
-			return errors.New("current submissions exceed assignment bound")
-		}
-	}
-	return rows.Err()
 }

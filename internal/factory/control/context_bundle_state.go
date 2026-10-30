@@ -22,7 +22,6 @@ type contextSelectionCurrent struct {
 	RequiredBytes  int                      `json:"required_bytes"`
 	Tasks          int                      `json:"tasks"`
 	Findings       int                      `json:"findings"`
-	Submissions    int                      `json:"submissions"`
 	Stage          string                   `json:"stage"`
 	Active         *bool                    `json:"active"`
 	Settled        *bool                    `json:"settled"`
@@ -112,7 +111,7 @@ func loadContextBundleState(ctx context.Context, st *store.Store, cap factory.MC
 		return state, false, false, errors.New("required current context exceeds its bound")
 	}
 	digest := sha256.Sum256(raw)
-	state.Current = contextSelectionCurrent{Availability: current.Evidence.Availability, MissingReasons: current.Evidence.MissingReasons, RequiredDigest: hex.EncodeToString(digest[:]), RequiredBytes: len(raw), Submissions: len(current.Role.Submissions), Stage: a.Stage}
+	state.Current = contextSelectionCurrent{Availability: current.Evidence.Availability, MissingReasons: current.Evidence.MissingReasons, RequiredDigest: hex.EncodeToString(digest[:]), RequiredBytes: len(raw), Stage: a.Stage}
 	state.Current.SemanticDigest, err = factory.CurrentRequiredSemanticDigest(current.Role)
 	if err != nil {
 		return state, false, false, err
