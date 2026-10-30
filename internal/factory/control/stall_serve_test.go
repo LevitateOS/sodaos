@@ -367,7 +367,7 @@ func stallRepairGraphMode(t *testing.T, mode string) {
 			decision.ID, decision.Predecessor = generatedDecisionID("human-result", revision.ID, binding.TaskKey), decision.ID
 			decision.NativeRev, decision.ContentDigest, decision.ContentVersion = graph.revision, snapshot.Issue.ContentDigest, snapshot.Issue.ContentVersion
 			decision.Prerequisites = []factory.AcceptedPrerequisite{{Occurrence: "801", DependsOn: native, EndpointRepo: fx.repo, EndpointIssue: endpoint, Outcome: factory.PrereqResult}}
-			if _, err = coord.AdmitAcceptance(ctx, factory.NewID(), "soda-tester", decision); err != nil {
+			if _, err = coord.AdmitAcceptance(ctx, decision); err != nil {
 				t.Fatal("human result requirement", err)
 			}
 			protectedHeads[index] = decision.ID

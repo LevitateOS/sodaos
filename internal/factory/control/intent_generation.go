@@ -779,7 +779,7 @@ func (a *intentAdoption) persistAdoptedTask(evidence adoptEvidence, decision fac
 	// Reuse only that exact deterministic decision, never a similar issue.
 	old, e := a.c.Store.AcceptanceDecision(a.ctx, decision.ID)
 	if errors.Is(e, store.ErrNotFound) {
-		_, e = a.c.AdmitAcceptance(a.ctx, generatedDecisionID("command", a.r.ID, evidence.task.Key), "accepted-intent:"+a.r.ID, decision)
+		_, e = a.c.AdmitAcceptance(a.ctx, decision)
 	} else if e == nil {
 		if !adoptionDecisionMatches(old, decision) {
 			return store.ErrCommandConflict

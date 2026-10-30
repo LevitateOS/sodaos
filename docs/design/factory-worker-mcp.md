@@ -362,6 +362,10 @@ save directly under their expected revisions. Saving the grant, closing dispatch
 and recording native cancellation intents remain one transaction; no separate
 command journal repeats the settings result. Finite repair funding retains its
 grant identity for actual spending and charges.
+Issue requirements acceptance likewise uses its immutable decision and
+predecessor chain directly. Repeating a decision checks current visibility and
+returns its chain state; there is no second command ID, payload digest or saved
+response. New decisions still verify exact native inputs and prerequisite heads.
 
 Worker context does not carry a submission-receipt history; communications and
 results are available through the work posts and discussion. Ordinary worker

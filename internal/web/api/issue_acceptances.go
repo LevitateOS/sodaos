@@ -42,7 +42,6 @@ type acceptancePrerequisiteRequest struct {
 }
 
 type issueAcceptanceRequest struct {
-	CommandID       string                          `json:"command_id"`
 	DecisionID      string                          `json:"decision_id"`
 	Predecessor     string                          `json:"predecessor,omitempty"`
 	TitleDigest     string                          `json:"title_digest"`
@@ -72,7 +71,7 @@ func (s *API) apiIssueAcceptances(w http.ResponseWriter, r *http.Request, v stor
 		return
 	}
 	var in issueAcceptanceRequest
-	if !auth.DecodeAPIObject(w, r, &in) || !settingsCommandID(w, in.CommandID) {
+	if !auth.DecodeAPIObject(w, r, &in) {
 		return
 	}
 	decision, ok := acceptanceDecision(w, repository, issue, v.User.ID, in)
@@ -83,12 +82,12 @@ func (s *API) apiIssueAcceptances(w http.ResponseWriter, r *http.Request, v stor
 		auth.JSONError(w, 500, "coordinator_unavailable", "Factory coordination is unavailable.")
 		return
 	}
-	receipt, err := s.Coordinator.AdmitAcceptance(r.Context(), in.CommandID, factoryPrincipal(v), decision)
+	result, err := s.Coordinator.AdmitAcceptance(r.Context(), decision)
 	if err != nil {
 		acceptanceDecisionError(w, err)
 		return
 	}
-	auth.JSONResponse(w, 201, receipt)
+	auth.JSONResponse(w, 201, result)
 }
 
 func acceptanceDecision(w http.ResponseWriter, repository int64, issue string, approver int64, in issueAcceptanceRequest) (factory.Acceptance, bool) {

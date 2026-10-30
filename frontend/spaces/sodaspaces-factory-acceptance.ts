@@ -2,7 +2,6 @@ import {LitElement, html} from 'lit';
 import {id, readSodaJSON} from './sodaspaces-api.js';
 import type {PreparedExtensionMount} from './soda-extension.js';
 import {newDecisionID} from './sodaspaces-intent-response.js';
-import {factoryCommandId} from './sodaspaces-factory-response.js';
 import {nativePath} from './sodaspaces-factory-activity.js';
 import {factoryAccess} from './sodaspaces-factory-progress-response.js';
 import {factoryIssueDetail, sodaErrorDetail} from './sodaspaces-factory-work-response.js';
@@ -10,7 +9,6 @@ import {
   acceptanceCommentIDs,
   acceptanceErrorMessage,
   acceptancePreview,
-  acceptanceReceipt,
 } from './sodaspaces-factory-acceptance-response.js';
 import type {AcceptancePreview} from './sodaspaces-factory-acceptance-response.js';
 
@@ -27,8 +25,7 @@ interface PrerequisiteChoice {
   readonly endpoint_issue: string;
   readonly outcome: '' | 'code' | 'result';
 }
-interface AcceptanceCommand {
-  readonly command_id: string;
+interface AcceptanceDecision {
   readonly decision_id: string;
   readonly predecessor?: string;
   readonly title_digest: string;
@@ -73,7 +70,7 @@ export class SodaFactoryRequirementsAcceptance extends LitElement {
   declare private resolutions: string;
   declare private choices: PrerequisiteChoice[];
   declare private reviewed: boolean;
-  declare private pending: AcceptanceCommand | undefined;
+  declare private pending: AcceptanceDecision | undefined;
   private current: RequirementsAcceptanceContext | undefined;
   private predecessor: string | undefined;
   private serial = 0;
@@ -193,7 +190,7 @@ export class SodaFactoryRequirementsAcceptance extends LitElement {
   }
   private async selectedPrerequisites(
     context: RequirementsAcceptanceContext
-  ): Promise<AcceptanceCommand['prerequisites']> {
+  ): Promise<AcceptanceDecision['prerequisites']> {
     return Promise.all(
       this.choices.map(async (choice) => {
         if (!id(choice.endpoint_repository) || !id(choice.endpoint_issue) || choice.outcome === '')
@@ -224,7 +221,6 @@ export class SodaFactoryRequirementsAcceptance extends LitElement {
         if (serial !== this.serial) return;
         const sources = new Set(acceptanceCommentIDs(this.sources));
         this.pending = {
-          command_id: factoryCommandId(),
           decision_id: newDecisionID(),
           ...(this.predecessor ? {predecessor: this.predecessor} : {}),
           title_digest: preview.title_digest,
@@ -237,12 +233,12 @@ export class SodaFactoryRequirementsAcceptance extends LitElement {
           prerequisites,
         };
       }
-      const command = this.pending;
-      if (!command) return;
+      const decision = this.pending;
+      if (!decision) return;
       const response = await context.transport.request(`${this.base(context)}/acceptances`, {
         method: 'POST',
         headers: {'Content-Type': 'application/json'},
-        body: JSON.stringify(command),
+        body: JSON.stringify(decision),
         signal: AbortSignal.timeout(30000),
       });
       const value = await readSodaJSON(response);
@@ -259,7 +255,6 @@ export class SodaFactoryRequirementsAcceptance extends LitElement {
             'Acceptance was not confirmed. Refresh the preview before accepting current requirements.'
         );
       }
-      acceptanceReceipt(value, command.command_id, command.decision_id);
       this.pending = undefined;
       this.preview = undefined;
       this.reviewed = false;

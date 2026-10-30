@@ -416,7 +416,7 @@ test('maintainer reaccepts exact reviewed requirements and code prerequisite on 
   await page.waitForSelector('[data-requirements-preview]');
   assert.equal(
     await panel.getByRole('link', {name: 'Review comment 21', exact: true}).getAttribute('href'),
-    '/soda-tester/demo/issues/12#issuepost-21'
+    '/soda-tester/demo/issues/12#issuecomment-21'
   );
   await panel.getByLabel('Prerequisite repository ID', {exact: true}).fill('7');
   await panel.getByLabel('Prerequisite issue number', {exact: true}).fill('11');
@@ -435,7 +435,7 @@ test('maintainer reaccepts exact reviewed requirements and code prerequisite on 
   const writes = (await workCalls(page)).filter((call) => call.method === 'POST');
   assert.equal(writes.length, 1);
   const body = writes[0]?.body as Record<string, unknown>;
-  assert.match(String(body.command_id), /^[a-f0-9]{32}$/);
+  assert.equal('command_id' in body, false);
   assert.match(String(body.decision_id), /^d[a-f0-9]{24}$/);
   assert.equal(body.predecessor, prior);
   assert.equal(body.content_digest, requirementsPreview.body_digest);
@@ -487,7 +487,7 @@ test('requirements preview changes and explicit stale refusal require a new revi
   assert.equal((await workCalls(page)).filter((call) => call.method === 'POST').length, 1);
 });
 
-test('unconfirmed acceptance retries its exact command and payload', async (t) => {
+test('unconfirmed acceptance repeats its exact decision', async (t) => {
   const routes: StubRoute[] = [
     {method: 'GET', path: 'repositories/7/factory/access', status: 200, json: acceptanceAccess},
     {method: 'GET', path: 'repositories/7/factory/issues/12', status: 200, json: issueDetail},

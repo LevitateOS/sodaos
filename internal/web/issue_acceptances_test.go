@@ -191,8 +191,8 @@ func issueWebFixture(t *testing.T) (*Server, *issueWebSource) {
 	return s, source
 }
 
-func issueAcceptanceBody(commandID, decisionID, predecessor string) string {
-	return `{"command_id":"` + commandID + `","decision_id":"` + decisionID + `","predecessor":"` + predecessor + `",` +
+func issueAcceptanceBody(decisionID, predecessor string) string {
+	return `{"decision_id":"` + decisionID + `","predecessor":"` + predecessor + `",` +
 		`"native_revision":41,"title_digest":"` + strings.Repeat("a", 64) + `","title_occurrence":"original","content_digest":"` + strings.Repeat("b", 64) + `","content_version":2,` +
 		`"sources":[{"id":"11","digest":"` + strings.Repeat("c", 64) + `","content_version":0}],` +
 		`"prerequisites":[{"occurrence":"21","depends_on":"9","endpoint_repository":"7","endpoint_issue":"2","outcome":"result"}],` +
@@ -200,18 +200,45 @@ func issueAcceptanceBody(commandID, decisionID, predecessor string) string {
 }
 
 func TestIssueAcceptanceJourney(t *testing.T) {
-	s, _ := issueWebFixture(t)
+	s, source := issueWebFixture(t)
 	decision := "d0123456789abcdef01234567"
-	admit := lifecycleAction(t, s, "POST", "/api/repositories/7/factory/issues/3/acceptances", issueAcceptanceBody(factory.NewID(), decision, ""), "alice")
+	admit := lifecycleAction(t, s, "POST", "/api/repositories/7/factory/issues/3/acceptances", issueAcceptanceBody(decision, ""), "alice")
 	if admit.Code != 201 {
 		t.Fatal(admit.Code, admit.Body.String())
 	}
-	var receipt control.AcceptanceReceipt
-	decodeBody(t, admit, &receipt)
-	if receipt.DecisionID != decision || receipt.Head != decision || receipt.Depth != 1 {
-		t.Fatalf("receipt: %+v", receipt)
+	var result control.AcceptanceResult
+	decodeBody(t, admit, &result)
+	if result.DecisionID != decision || result.Head != decision || result.Depth != 1 {
+		t.Fatalf("acceptance result: %+v", result)
 	}
 	assertNoSecrets(t, admit.Body.String())
+	if strings.Contains(admit.Body.String(), "command_id") {
+		t.Fatal("acceptance returned a command receipt", admit.Body.String())
+	}
+	// Repeating an admitted decision reads its accepted inputs even after the
+	// native issue changes. It must not accept the changed issue or advance twice.
+	source.evidence.Revision = 42
+	source.evidence.Issue.ContentVer++
+	repeated := lifecycleAction(t, s, "POST", "/api/repositories/7/factory/issues/3/acceptances", issueAcceptanceBody(decision, ""), "alice")
+	if repeated.Code != 201 {
+		t.Fatal("recorded decision required unchanged native inputs", repeated.Code, repeated.Body.String())
+	}
+	decodeBody(t, repeated, &result)
+	stored, err := s.Store.AcceptanceDecision(t.Context(), decision)
+	if err != nil || stored.NativeRev != 41 || stored.ContentVersion != 2 || result.Depth != 1 || result.Head != decision {
+		t.Fatalf("repeat changed accepted inputs or advanced the chain: %+v %+v %v", stored, result, err)
+	}
+	changed := strings.Replace(issueAcceptanceBody(decision, ""), `"content_version":2`, `"content_version":3`, 1)
+	conflict := lifecycleAction(t, s, "POST", "/api/repositories/7/factory/issues/3/acceptances", changed, "alice")
+	if conflict.Code != 409 {
+		t.Fatal("changed inputs reused a recorded decision", conflict.Code, conflict.Body.String())
+	}
+	source.evidence.Issue.Visible = false
+	hidden := lifecycleAction(t, s, "POST", "/api/repositories/7/factory/issues/3/acceptances", issueAcceptanceBody(decision, ""), "alice")
+	if hidden.Code != 409 || !strings.Contains(hidden.Body.String(), "issue_hidden") {
+		t.Fatal("repeat bypassed current visibility", hidden.Code, hidden.Body.String())
+	}
+	source.evidence = issueWebEvidence()
 	view := lifecycleAction(t, s, "GET", "/api/repositories/7/factory/issues/3", "", "alice")
 	if view.Code != 200 {
 		t.Fatal(view.Code, view.Body.String())
@@ -253,7 +280,7 @@ func TestIssueAcceptanceRefusals(t *testing.T) {
 		s, source := issueWebFixture(t)
 		source.evidence.Revision = 42
 		w := lifecycleAction(t, s, "POST", "/api/repositories/7/factory/issues/3/acceptances",
-			issueAcceptanceBody(factory.NewID(), "d0123456789abcdef01234567", ""), "alice")
+			issueAcceptanceBody("d0123456789abcdef01234567", ""), "alice")
 		if w.Code != 409 {
 			t.Fatal(w.Code, w.Body.String())
 		}
@@ -267,7 +294,7 @@ func TestIssueAcceptanceRefusals(t *testing.T) {
 	})
 	t.Run("fabricated-source", func(t *testing.T) {
 		s, _ := issueWebFixture(t)
-		body := `{"command_id":"` + factory.NewID() + `","decision_id":"d0123456789abcdef01234567",` +
+		body := `{"decision_id":"d0123456789abcdef01234567",` +
 			`"native_revision":41,"title_digest":"` + strings.Repeat("a", 64) + `","title_occurrence":"original","content_digest":"` + strings.Repeat("b", 64) + `","content_version":2,` +
 			`"sources":[{"id":"99","digest":"` + strings.Repeat("c", 64) + `","content_version":0}]}`
 		w := lifecycleAction(t, s, "POST", "/api/repositories/7/factory/issues/3/acceptances", body, "alice")
@@ -277,7 +304,7 @@ func TestIssueAcceptanceRefusals(t *testing.T) {
 	})
 	t.Run("approver-field", func(t *testing.T) {
 		s, _ := issueWebFixture(t)
-		body := `{"command_id":"` + factory.NewID() + `","decision_id":"d0123456789abcdef01234567","approver":"9",` +
+		body := `{"decision_id":"d0123456789abcdef01234567","approver":"9",` +
 			`"native_revision":41,"title_digest":"` + strings.Repeat("a", 64) + `","title_occurrence":"original","content_digest":"` + strings.Repeat("b", 64) + `","content_version":2}`
 		w := lifecycleAction(t, s, "POST", "/api/repositories/7/factory/issues/3/acceptances", body, "alice")
 		if w.Code != 400 {
@@ -288,7 +315,7 @@ func TestIssueAcceptanceRefusals(t *testing.T) {
 		s, _ := issueWebFixture(t)
 		s.Coordinator.AcceptanceReads = nil
 		w := lifecycleAction(t, s, "POST", "/api/repositories/7/factory/issues/3/acceptances",
-			issueAcceptanceBody(factory.NewID(), "d0123456789abcdef01234567", ""), "alice")
+			issueAcceptanceBody("d0123456789abcdef01234567", ""), "alice")
 		if w.Code != 503 {
 			t.Fatal(w.Code, w.Body.String())
 		}
@@ -300,7 +327,7 @@ func TestIssueAcceptanceRefusals(t *testing.T) {
 		}
 		w := httptest.NewRecorder()
 		nativeAPIServeWithCallback(t, s, w, apiTestRequest("POST", "/api/repositories/7/factory/issues/3/acceptances",
-			issueAcceptanceBody(factory.NewID(), "d0123456789abcdef01234567", ""), "bob"), readOnly)
+			issueAcceptanceBody("d0123456789abcdef01234567", ""), "bob"), readOnly)
 		if w.Code != 403 {
 			t.Fatal(w.Code, w.Body.String())
 		}

@@ -1,6 +1,7 @@
 package control
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
@@ -98,159 +99,79 @@ type AcceptanceSource interface {
 	ReadAcceptanceEvidence(ctx context.Context, repository, issue string, commentIDs []string) (AcceptanceEvidence, error)
 }
 
-// AcceptanceReceipt is the durable outcome of one acceptance decision:
-// the admitted decision, the advanced head and its chain depth.
-type AcceptanceReceipt struct {
+// AcceptanceResult reports the saved decision and the current head of its chain.
+type AcceptanceResult struct {
 	Publications factory.PublicationWithdrawal `json:"publications"`
 	Merges       factory.MergeWithdrawal       `json:"merges"`
-	CommandID    string                        `json:"command_id"`
 	DecisionID   string                        `json:"decision_id"`
 	Head         string                        `json:"head"`
 	Depth        int64                         `json:"depth"`
 }
 
-// AdmitAcceptance records a maintainer's exact-inputs acceptance after
-// verifying every selected revision against a fresh bracketed snapshot:
-// the observed revision must equal the bracket, the objective digests and
-// version must match, every selected source must exist visibly at its
-// recorded revision, and the recorded prerequisite set must equal the
-// complete current native edge set. Code prerequisite routes must name an
-// existing acceptance that is still the endpoint's head. A repeated
-// decision ID returns the same receipt; new content under it conflicts.
-func acceptanceCommand(commandID, principal string, decision factory.Acceptance) (factory.Command, error) {
-	payload, err := json.Marshal(decision)
-	if err != nil {
-		return factory.Command{}, err
-	}
-	target := "repository/" + strconv.FormatInt(decision.Repository, 10) + "/issue/" + decision.IssueIndex + "/acceptance"
-	cmd := factory.Command{
-		ID: commandID, Type: factory.CommandAcceptance, Target: target, Principal: principal,
-		Payload: string(payload), Digest: factory.SettingsDigest(factory.CommandAcceptance, target, string(payload)),
-	}
-	if err = cmd.Validate(); err != nil {
-		return factory.Command{}, err
-	}
-	return cmd, nil
-}
-
-func (c *Coordinator) AdmitAcceptance(ctx context.Context, commandID, principal string, decision factory.Acceptance) (AcceptanceReceipt, error) {
+// AdmitAcceptance records the maintainer's exact reviewed inputs after checking
+// current native evidence. Recorded decisions remain immutable; repeating one
+// checks current visibility without approving any newer inputs.
+func (c *Coordinator) AdmitAcceptance(ctx context.Context, decision factory.Acceptance) (AcceptanceResult, error) {
 	bounded, stop := context.WithTimeout(ctx, 30*time.Second)
 	defer stop()
 	bounded, ownsPass, cancelPass := c.readinessPass(bounded)
 	defer cancelPass()
 	if err := decision.Validate(); err != nil {
-		return AcceptanceReceipt{}, err
+		return AcceptanceResult{}, err
 	}
 	if decision.Initial {
-		return AcceptanceReceipt{}, refuseAcceptance(RefusalCreationUnverified)
+		return AcceptanceResult{}, refuseAcceptance(RefusalCreationUnverified)
 	}
-	cmd, err := acceptanceCommand(commandID, principal, decision)
-	if err != nil {
-		return AcceptanceReceipt{}, err
-	}
-	// F05-F1: a stored matching admitted command replays its retained
-	// decision under current visibility without requiring unchanged
-	// native evidence. Only unrecorded commands take the fresh
-	// stale-screen admission path below.
-	if stored, err := c.Store.FactoryCommand(bounded, cmd.ID); err == nil {
-		if stored.Digest != cmd.Digest {
-			return AcceptanceReceipt{}, store.ErrCommandConflict
+	stored, lookupErr := c.Store.AcceptanceDecision(bounded, decision.ID)
+	if lookupErr == nil {
+		saved, err := json.Marshal(stored)
+		if err != nil {
+			return AcceptanceResult{}, err
 		}
-		return c.replayAdmittedAcceptance(bounded, decision, stored)
-	} else if !errors.Is(err, store.ErrNotFound) {
-		return AcceptanceReceipt{}, err
+		requested, err := json.Marshal(decision)
+		if err != nil {
+			return AcceptanceResult{}, err
+		}
+		if !bytes.Equal(saved, requested) {
+			return AcceptanceResult{}, store.ErrCommandConflict
+		}
+	} else if !errors.Is(lookupErr, store.ErrNotFound) {
+		return AcceptanceResult{}, lookupErr
 	}
-	// Verify before recording: refusals are common and must not poison
-	// the command ledger with unfinished entries.
 	evidence, err := c.readAcceptanceEvidence(bounded, decision)
 	if err != nil {
-		return AcceptanceReceipt{}, err
+		return AcceptanceResult{}, err
 	}
-	if err := c.verifyAcceptance(bounded, decision, evidence); err != nil {
-		return AcceptanceReceipt{}, err
-	}
-	return c.recordAcceptedDecision(bounded, ownsPass, cmd, decision)
-}
-
-func (c *Coordinator) recordAcceptedDecision(bounded context.Context, ownsPass bool, cmd factory.Command, decision factory.Acceptance) (AcceptanceReceipt, error) {
-	stored, created, err := c.Store.RecordFactoryCommand(bounded, cmd, time.Now())
-	if err != nil {
-		return AcceptanceReceipt{}, err
-	}
-	if !created {
-		return c.replayAdmittedAcceptance(bounded, decision, stored)
-	}
-	if err = c.Store.AdmitAcceptanceDecision(bounded, decision); err != nil {
-		if errors.Is(err, store.ErrStaleRevision) {
-			_ = c.Store.FinishFactoryCommand(bounded, cmd.ID, `{"error":"stale_revision"}`, time.Now())
-		} else if errors.Is(err, store.ErrReadinessCapacity) {
-			_ = c.Store.FinishFactoryCommand(bounded, cmd.ID, `{"error":"readiness_capacity"}`, time.Now())
+	if lookupErr == nil {
+		if err = verifyAcceptanceVisibility(decision, evidence); err != nil {
+			return AcceptanceResult{}, err
 		}
-		return AcceptanceReceipt{}, err
+	} else {
+		if err = c.verifyAcceptance(bounded, decision, evidence); err != nil {
+			return AcceptanceResult{}, err
+		}
+		if err = c.Store.AdmitAcceptanceDecision(bounded, decision); err != nil {
+			return AcceptanceResult{}, err
+		}
 	}
-	head, err := c.Store.AcceptanceHead(bounded, decision.Repository, mustIssueIndex(decision.IssueIndex))
+	issue := mustIssueIndex(decision.IssueIndex)
+	head, err := c.Store.AcceptanceHead(bounded, decision.Repository, issue)
 	if err != nil {
-		return AcceptanceReceipt{}, err
+		return AcceptanceResult{}, err
 	}
-	depth, err := c.Store.AcceptanceDepth(bounded, decision.Repository, mustIssueIndex(decision.IssueIndex))
+	depth, err := c.Store.AcceptanceDepth(bounded, decision.Repository, issue)
 	if err != nil {
-		return AcceptanceReceipt{}, err
+		return AcceptanceResult{}, err
 	}
-	receipt := AcceptanceReceipt{CommandID: cmd.ID, DecisionID: decision.ID, Head: head, Depth: depth}
+	result := AcceptanceResult{DecisionID: decision.ID, Head: head, Depth: depth}
 	if decision.Predecessor != "" {
-		receipt.Publications = c.cancelAcceptancePublications(bounded, decision.Repository, mustIssueIndex(decision.IssueIndex), decision.Predecessor)
-		receipt.Merges = c.cancelAcceptanceMerges(bounded, decision.Repository, mustIssueIndex(decision.IssueIndex), decision.Predecessor)
-	}
-	outcome, err := json.Marshal(receipt)
-	if err != nil {
-		return AcceptanceReceipt{}, err
-	}
-	if err = c.Store.FinishFactoryCommand(bounded, cmd.ID, string(outcome), time.Now()); err != nil {
-		return AcceptanceReceipt{}, err
+		result.Publications = c.cancelAcceptancePublications(bounded, decision.Repository, issue, decision.Predecessor)
+		result.Merges = c.cancelAcceptanceMerges(bounded, decision.Repository, issue, decision.Predecessor)
 	}
 	if ownsPass {
 		_, _ = c.drainReadinessWork(bounded, "")
 	}
-	return receipt, nil
-}
-
-func replayAcceptance(stored factory.Command) (AcceptanceReceipt, error) {
-	if stored.Finished == "" {
-		return AcceptanceReceipt{}, ErrCommandRunning
-	}
-	var failure struct {
-		Error string `json:"error"`
-	}
-	if err := json.Unmarshal([]byte(stored.Outcome), &failure); err != nil {
-		return AcceptanceReceipt{}, err
-	}
-	if failure.Error == "stale_revision" {
-		return AcceptanceReceipt{}, store.ErrStaleRevision
-	}
-	if failure.Error == "readiness_capacity" {
-		return AcceptanceReceipt{}, store.ErrReadinessCapacity
-	}
-	var receipt AcceptanceReceipt
-	if err := json.Unmarshal([]byte(stored.Outcome), &receipt); err != nil {
-		return AcceptanceReceipt{}, err
-	}
-	return receipt, nil
-}
-
-// replayAdmittedAcceptance returns the retained receipt for an
-// already-recorded acceptance command after enforcing current
-// visibility. Revision and content equality are not re-required: the
-// decision was admitted under exact evidence, and replay neither
-// re-authorizes native material nor admits anything new.
-func (c *Coordinator) replayAdmittedAcceptance(ctx context.Context, decision factory.Acceptance, stored factory.Command) (AcceptanceReceipt, error) {
-	evidence, err := c.readAcceptanceEvidence(ctx, decision)
-	if err != nil {
-		return AcceptanceReceipt{}, err
-	}
-	if err := verifyAcceptanceVisibility(decision, evidence); err != nil {
-		return AcceptanceReceipt{}, err
-	}
-	return replayAcceptance(stored)
+	return result, nil
 }
 
 // verifyAcceptanceVisibility enforces the visibility subset of

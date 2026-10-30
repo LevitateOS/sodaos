@@ -30,8 +30,8 @@ export function acceptanceCommentIDs(input: string): string[] {
   return ids;
 }
 
-// acceptancePreview reads the digests and versions the acceptance command
-// echoes back; the server checks them when the acceptance is posted.
+// acceptancePreview reads the digests and versions the acceptance decision
+// records; the server checks them when the acceptance is posted.
 export function acceptancePreview(
   value: unknown,
   repository: string,
@@ -56,12 +56,6 @@ export function acceptancePreview(
       return {occurrence: text(dependency.occurrence), depends_on: text(dependency.depends_on)};
     }),
   };
-}
-
-// acceptanceReceipt admits a 2xx acceptance reply: it only needs to be a
-// JSON object; HTTP status is the success signal.
-export function acceptanceReceipt(value: unknown, _command: string, _decision: string): void {
-  object(value);
 }
 
 export function acceptanceErrorMessage(value: unknown): string | undefined {

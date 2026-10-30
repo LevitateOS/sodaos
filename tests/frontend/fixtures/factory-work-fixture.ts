@@ -92,7 +92,6 @@ function stubTransport(): PreparedExtensionMount {
         hit.echoAcceptance && typeof body === 'object' && body !== null
           ? {
               ...(json as Record<string, unknown>),
-              command_id: (body as Record<string, unknown>).command_id,
               decision_id: (body as Record<string, unknown>).decision_id,
               head: (body as Record<string, unknown>).decision_id,
             }
