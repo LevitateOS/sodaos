@@ -167,7 +167,7 @@ func (s *API) apiFactoryRunActions(w http.ResponseWriter, r *http.Request, v sto
 		auth.JSONError(w, 400, "invalid_action", "Choose stop, retry, delivery repair or takeover.")
 		return
 	}
-	if (in.Action == factory.ActionRetry || in.Action == factory.ActionDeliveryRepair) && !settingsCommandID(w, in.CommandID) {
+	if in.Action == factory.ActionRetry && !settingsCommandID(w, in.CommandID) {
 		return
 	}
 	if (in.Action == factory.ActionContextCurrent) != (in.Context != nil) {
@@ -201,7 +201,7 @@ func (s *API) apiFactoryRunActions(w http.ResponseWriter, r *http.Request, v sto
 		}
 		auth.JSONResponse(w, 200, decision)
 	case factory.ActionDeliveryRepair:
-		receipt, err := s.Coordinator.RequestDeliveryRepair(r.Context(), in.CommandID, factoryPrincipal(v), run.ID)
+		receipt, err := s.Coordinator.RequestDeliveryRepair(r.Context(), factoryPrincipal(v), run.ID)
 		if err != nil {
 			lifecycleControlError(w, err)
 			return

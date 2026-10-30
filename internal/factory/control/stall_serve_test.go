@@ -395,7 +395,7 @@ func stallRepairGraphMode(t *testing.T, mode string) {
 	}
 	var deliveryRecord store.DeliveryRepairRecord
 	var failedDeliveryRun string
-	var ownerRequest factory.Command
+	var ownerRequest factory.DeliveryRepairResult
 	var failedVerifierJSON []byte
 	var failedLedger string
 	var deliverySQL *sql.DB
@@ -506,7 +506,7 @@ func stallRepairGraphMode(t *testing.T, mode string) {
 		if done, e := SettleMCPTerminalProposal(ctx, db, a.ID, time.Now()); e != nil || !done {
 			t.Fatal("authenticated failed verification", done, e)
 		}
-		if _, e = coord.RequestDeliveryRepair(ctx, factory.NewID(), "native:7", a.Run); e == nil {
+		if _, e = coord.RequestDeliveryRepair(ctx, "native:7", a.Run); e == nil {
 			t.Fatal("repair requested before actual retirement")
 		}
 		fx.host.inspect = func(in project.FactoryInspect) (project.FactoryState, error) {
@@ -544,7 +544,7 @@ func stallRepairGraphMode(t *testing.T, mode string) {
 			}
 		}
 		if mode == "delivery_repair_incomplete" || mode == "delivery_repair_wrong_failure" || mode == "delivery_repair_bad_input" {
-			if _, e = coord.RequestDeliveryRepair(ctx, factory.NewID(), "native:7", a.Run); e == nil {
+			if _, e = coord.RequestDeliveryRepair(ctx, "native:7", a.Run); e == nil {
 				t.Fatal("unqualified report manufactured delivery repair cause")
 			}
 			if available, e := coord.DeliveryRepairAvailable(ctx, a.Run); e != nil || available {
@@ -567,18 +567,14 @@ func stallRepairGraphMode(t *testing.T, mode string) {
 		if _, e = db.IntentExecutionLimit(ctx, revision.Intent); !errors.Is(e, store.ErrNotFound) {
 			t.Fatal("fixture unexpectedly preconfigured origin limit", e)
 		}
-		requestID := factory.NewID()
-		receipt, e := coord.RequestDeliveryRepair(ctx, requestID, "native:7", a.Run)
+		receipt, e := coord.RequestDeliveryRepair(ctx, "native:7", a.Run)
 		if e != nil {
 			t.Fatal("explicit delivery repair request", e)
 		}
-		if replay, e := coord.RequestDeliveryRepair(ctx, requestID, "native:7", a.Run); e != nil || replay != receipt {
+		if replay, e := coord.RequestDeliveryRepair(ctx, "native:7", a.Run); e != nil || replay != receipt {
 			t.Fatal("delivery repair request replay", e)
 		}
-		ownerRequest, e = db.FactoryCommand(ctx, requestID)
-		if e != nil || ownerRequest.Finished == "" {
-			t.Fatal("owner request lacks immutable acknowledgment", e)
-		}
+		ownerRequest = receipt
 		failedAssignment, e := db.Assignment(ctx, a.ID)
 		if e != nil {
 			t.Fatal(e)
@@ -1158,17 +1154,16 @@ func stallRepairGraphMode(t *testing.T, mode string) {
 		coord.driveDeliveryRepairs(ctx)
 		deliveryRecord, err = db.DeliveryRepairRecord(ctx, fx.repo, failedDeliveryRun)
 		record.Repair.Cycles = []factory.StallRepairCycle{deliveryRecord.Cycle}
-		ack, e := db.FactoryCommand(ctx, ownerRequest.ID)
-		if e != nil || ack != ownerRequest {
-			t.Fatal("repair cycle rewrote finished owner acknowledgment", e)
+		if deliveryRecord.Subject.CycleID != ownerRequest.CycleID || deliveryRecord.Cause.FailedVerificationRunID != ownerRequest.RunID {
+			t.Fatal("repair changed its sole requested cycle")
 		}
 		failed, e := db.AssignmentByRun(ctx, failedDeliveryRun)
 		body, _ := json.Marshal(failed)
 		if e != nil || string(body) != string(failedVerifierJSON) {
 			t.Fatal("repair changed original failed verification", e)
 		}
-		if replay, e := coord.RequestDeliveryRepair(ctx, ownerRequest.ID, "native:7", failedDeliveryRun); e != nil || replay.CycleID != cycle.ID {
-			t.Fatal("terminal repair lost immutable request replay", e)
+		if again, e := coord.RequestDeliveryRepair(ctx, "native:7", failedDeliveryRun); e == nil && again.CycleID != cycle.ID {
+			t.Fatal("repeated repair created another cycle")
 		}
 		var afterLedger string
 		if e := deliverySQL.QueryRow(`SELECT md5(to_jsonb(l)::text||to_jsonb(r)::text||to_jsonb(u)::text) FROM factory_attempt_allowances l JOIN factory_reservations r ON r.assignment=l.root_assignment JOIN factory_usage u ON u.run=$2 WHERE l.root_assignment=$1`, failedVerifierAssignment, failedDeliveryRun).Scan(&afterLedger); e != nil || afterLedger != failedLedger {

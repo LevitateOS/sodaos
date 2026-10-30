@@ -599,7 +599,7 @@ class SodaFactoryVerificationRetry extends LitElement {
   private async requestAction(run: string, action: 'retry' | 'repair_delivery') {
     const context = this.current;
     if (!context || this.busy || (!this.pending && !this.entries.some((entry) => entry.id === run))) return;
-    const pending = this.pending ?? {run, command: factoryCommandId(), action};
+    const pending = this.pending ?? {run, command: action === 'retry' ? factoryCommandId() : '', action};
     if (pending.run !== run || pending.action !== action) return;
     this.pending = pending;
     const serial = this.serial;
@@ -608,37 +608,33 @@ class SodaFactoryVerificationRetry extends LitElement {
       const response = await context.transport.request(`factory/runs/${run}/actions`, {
         method: 'POST',
         headers: {'Content-Type': 'application/json'},
-        body: JSON.stringify({command_id: pending.command, action: pending.action}),
+        body: JSON.stringify({action: pending.action, ...(pending.command ? {command_id: pending.command} : {})}),
         signal: AbortSignal.timeout(90000),
       });
       check(response.ok);
       const value = await readSodaJSON(response);
       let repair: ReturnType<typeof deliveryRepairDecision> | undefined;
       if (action === 'retry') retryDecision(value, pending.command, run);
-      else repair = deliveryRepairDecision(value, pending.command, run);
+      else repair = deliveryRepairDecision(value, run);
       if (serial === this.serial) this.confirmed(run, action, repair);
     } catch {
+      if (action === 'repair_delivery') {
+        if (serial === this.serial)
+          this.message = 'No repair request was confirmed. Retry this same request or refresh; the original verification is retained.';
+        return;
+      }
       try {
         const response = await context.transport.request(`factory/commands/${pending.command}`, {
           signal: AbortSignal.timeout(15000),
         });
         check(response.ok);
         const record = factoryCommandRecord(await readSodaJSON(response), pending.command);
-        check(
-          record.type === (action === 'retry' ? 'retry' : 'request-delivery-repair') &&
-            record.target === `run/${run}` &&
-            typeof record.outcome === 'string'
-        );
-        let repair: ReturnType<typeof deliveryRepairDecision> | undefined;
-        if (action === 'retry') retryDecision(JSON.parse(record.outcome), pending.command, run);
-        else repair = deliveryRepairDecision(JSON.parse(record.outcome), pending.command, run);
-        if (serial === this.serial) this.confirmed(run, action, repair);
+        check(record.type === 'retry' && record.target === `run/${run}` && typeof record.outcome === 'string');
+        retryDecision(JSON.parse(record.outcome), pending.command, run);
+        if (serial === this.serial) this.confirmed(run, action);
       } catch {
         if (serial === this.serial)
-          this.message =
-            action === 'retry'
-              ? 'No Retry was confirmed. Retry this same request or refresh; the original verification is retained.'
-              : 'No repair request was confirmed. Retry this same request or refresh; the original verification is retained.';
+          this.message = 'No Retry was confirmed. Retry this same request or refresh; the original verification is retained.';
       }
     } finally {
       if (serial === this.serial) this.busy = false;

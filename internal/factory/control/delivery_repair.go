@@ -18,29 +18,10 @@ import (
 // RequestDeliveryRepair queues exactly one explicitly requested diagnosis of an
 // authenticated failed verification. Incomplete reports and invented failed
 // executor receipts cannot become a repair cause.
-func (c *Coordinator) RequestDeliveryRepair(ctx context.Context, commandID, principal, runID string) (factory.DeliveryRepairReceipt, error) {
-	var empty factory.DeliveryRepairReceipt
+func (c *Coordinator) RequestDeliveryRepair(ctx context.Context, principal, runID string) (factory.DeliveryRepairResult, error) {
+	var empty factory.DeliveryRepairResult
 	if c == nil || c.Store == nil || !factory.ValidID(runID) {
 		return empty, errors.New("delivery repair is unavailable")
-	}
-	payload, _ := json.Marshal(map[string]string{"failed_verification_run_id": runID})
-	cmd := factory.Command{ID: commandID, Type: factory.CommandDeliveryRepairRequest, Target: "run/" + runID, Principal: principal, Payload: string(payload)}
-	cmd.Digest = factory.SettingsDigest(cmd.Type, cmd.Target, cmd.Payload)
-	if err := cmd.Validate(); err != nil {
-		return empty, err
-	}
-	if old, err := c.Store.FactoryCommand(ctx, commandID); err == nil {
-		if old.Digest != cmd.Digest || old.Type != cmd.Type || old.Principal != principal {
-			return empty, store.ErrCommandConflict
-		}
-		if old.Finished != "" {
-			if json.Unmarshal([]byte(old.Outcome), &empty) != nil || empty.CommandID != commandID || empty.RunID != runID {
-				return empty, store.ErrCommandConflict
-			}
-			return empty, nil
-		}
-	} else if !errors.Is(err, store.ErrNotFound) {
-		return empty, err
 	}
 	cause, err := c.deliveryRepairCause(ctx, runID)
 	if err != nil {
@@ -60,19 +41,11 @@ func (c *Coordinator) RequestDeliveryRepair(ctx context.Context, commandID, prin
 	if err = c.ensureDeliveryRepairOrigin(ctx, cause, principal); err != nil {
 		return empty, err
 	}
-	if _, _, err = c.Store.RecordFactoryCommand(ctx, cmd, time.Now()); err != nil {
-		return empty, err
-	}
 	record, _, err := c.Store.RecordDeliveryRepairCause(ctx, cause, time.Now())
 	if err != nil {
 		return empty, err
 	}
-	receipt := factory.DeliveryRepairReceipt{CommandID: commandID, RunID: runID, CauseID: factory.DeliveryRepairCauseID(runID), CycleID: record.Subject.CycleID, State: "queued"}
-	raw, _ := json.Marshal(receipt)
-	if err = c.Store.FinishFactoryCommand(ctx, commandID, string(raw), time.Now()); err != nil {
-		return empty, err
-	}
-	return receipt, nil
+	return factory.DeliveryRepairResult{RunID: runID, CauseID: factory.DeliveryRepairCauseID(runID), CycleID: record.Subject.CycleID, State: "queued"}, nil
 }
 
 func (c *Coordinator) saveDeliveryRepair(ctx context.Context, record store.DeliveryRepairRecord, state, reason string) {

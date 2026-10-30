@@ -200,9 +200,8 @@ func (s *Store) RecordDeliveryRepairCause(ctx context.Context, cause factory.Del
 	if _, _, err = recordFactoryCommandTx(ctx, tx, cmd, now); err != nil {
 		return record, false, err
 	}
-	// This internal command owns a running lifecycle journal. Only the
-	// separate owner request is acknowledged/finished here; finished commands
-	// remain immutable under the existing schema trigger.
+	// This record owns the running repair cycle. Completion marks it finished;
+	// there is no separate owner-request receipt.
 	if _, err = tx.ExecContext(ctx, `UPDATE factory_commands SET outcome=$1 WHERE id=$2 AND type=$3 AND finished=''`, string(raw), cmd.ID, factory.CommandDeliveryRepair); err != nil {
 		return record, false, err
 	}

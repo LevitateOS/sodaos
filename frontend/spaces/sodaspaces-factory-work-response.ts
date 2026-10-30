@@ -519,12 +519,11 @@ export function retryDecision(value: unknown, commandID: string, priorRun: strin
   return {prior_run: priorRun, command_id: commandID, reason: text(data.reason), queued: data.queued !== false};
 }
 // Acknowledgement queues a diagnosis; it does not claim a repaired application.
-export function deliveryRepairDecision(value: unknown, commandID: string, runID: string) {
+export function deliveryRepairDecision(value: unknown, runID: string) {
   const data = object(value);
-  // A receipt for another run means this repair request was not recorded.
+  // A result for another run cannot confirm this request.
   check(data.run_id === runID);
   return {
-    command_id: commandID,
     run_id: runID,
     cause_id: text(data.cause_id),
     cycle_id: text(data.cycle_id),

@@ -697,23 +697,9 @@ func TestFactoryIssueJourneyRefusals(t *testing.T) {
 	if code, reply := call(http.MethodGet, readPath, ""); code != 200 || strings.Contains(string(reply), "verification_retry") || strings.Contains(string(reply), "delivery_repair") {
 		t.Fatalf("Product Lead acquired verification Retry: %d %s", code, reply)
 	}
-	// Recovery of an already acknowledged delivery-repair request is a read
-	// of its original command, even while the native helper is unavailable.
-	// Fresh cause admission and graph effects are proved by the controller PG
-	// journey; this explicit receipt fixture only proves the registered route.
-	repairCommand := factory.Command{ID: factory.NewID(), Type: factory.CommandDeliveryRepairRequest, Target: "run/" + run.ID, Principal: "native:1"}
-	repairPayload, _ := json.Marshal(map[string]string{"failed_verification_run_id": run.ID})
-	repairCommand.Payload = string(repairPayload)
-	repairCommand.Digest = factory.SettingsDigest(repairCommand.Type, repairCommand.Target, repairCommand.Payload)
-	if _, _, err := fx.db.RecordFactoryCommand(ctx, repairCommand, time.Now()); err != nil {
-		t.Fatal(err)
-	}
-	repairReceipt := factory.DeliveryRepairReceipt{CommandID: repairCommand.ID, RunID: run.ID, CauseID: factory.DeliveryRepairCauseID(run.ID), CycleID: factory.DeliveryRepairCycleID(run.ID), State: "queued"}
-	repairOutcome, _ := json.Marshal(repairReceipt)
-	if err := fx.db.FinishFactoryCommand(ctx, repairCommand.ID, string(repairOutcome), time.Now()); err != nil {
-		t.Fatal(err)
-	}
-	repairBody, _ := json.Marshal(factoryRunActionsRequest{CommandID: repairCommand.ID, Action: factory.ActionDeliveryRepair})
+	// Delivery repair requires actual failed-verification evidence. A command
+	// receipt cannot substitute for the unavailable native owner below.
+	repairBody, _ := json.Marshal(factoryRunActionsRequest{Action: factory.ActionDeliveryRepair})
 	if code, _ := journeyCall(t, mux, http.MethodPost, actionPath, string(repairBody), "", "", false); code != 403 {
 		t.Fatal("delivery repair accepted missing native authority", code)
 	}
@@ -728,25 +714,20 @@ func TestFactoryIssueJourneyRefusals(t *testing.T) {
 		t.Fatalf("delivery repair accepted read-only authority: %d %s", code, reply)
 	}
 	fx.permission.Store("admin")
-	repairWithContext, _ := json.Marshal(factoryRunActionsRequest{CommandID: repairCommand.ID, Action: factory.ActionDeliveryRepair, Context: &request})
+	repairWithContext, _ := json.Marshal(factoryRunActionsRequest{Action: factory.ActionDeliveryRepair, Context: &request})
 	if code, _ := call(http.MethodPost, actionPath, string(repairWithContext)); code != 400 {
 		t.Fatal("delivery repair accepted context override", code)
 	}
 	if code, _ := call(http.MethodPost, actionPath, strings.TrimSuffix(string(repairBody), "}")+`,"unknown":true}`); code != 400 {
 		t.Fatal("delivery repair accepted unknown field", code)
 	}
-	for i := 0; i < 2; i++ {
-		code, reply := call(http.MethodPost, actionPath, string(repairBody))
-		var observed factory.DeliveryRepairReceipt
-		if code != 200 || json.Unmarshal(reply, &observed) != nil || observed != repairReceipt {
-			t.Fatalf("delivery repair exact receipt recovery: %d %s", code, reply)
+	for range 2 {
+		if code, reply := call(http.MethodPost, actionPath, string(repairBody)); code < 400 {
+			t.Fatalf("repair admitted without native failed-verification evidence: %d %s", code, reply)
 		}
 	}
-	if code, reply := call(http.MethodPost, "/api/factory/runs/"+verifierRun.ID+"/actions", string(repairBody)); code != 409 || journeyErrorCode(t, reply) != "command_conflict" {
-		t.Fatalf("delivery repair changed run replay: %d %s", code, reply)
-	}
-	if err := fx.raw.QueryRow(`SELECT count(*) FROM factory_commands`).Scan(&commands); err != nil || commands != 2 {
-		t.Fatal("delivery repair recovery created another command", commands, err)
+	if err := fx.raw.QueryRow(`SELECT count(*) FROM factory_commands`).Scan(&commands); err != nil || commands != 1 {
+		t.Fatal("refused repair created another command", commands, err)
 	}
 	var repairs, allowances, usage int
 	if err := fx.raw.QueryRow(`SELECT (SELECT count(*) FROM factory_commands WHERE type=$1),(SELECT count(*) FROM factory_attempt_allowances),(SELECT count(*) FROM factory_usage)`, factory.CommandDeliveryRepair).Scan(&repairs, &allowances, &usage); err != nil || repairs != 0 || allowances != 0 || usage != 0 {
@@ -836,7 +817,7 @@ func TestFactoryIssueJourneyRefusals(t *testing.T) {
 	if code, _ := journeyCall(t, mux, http.MethodGet, readPath, "", "generation-1", "generation-2", true); code != 409 {
 		t.Fatal("stale session saw repair progress", code)
 	}
-	if err = fx.raw.QueryRow(`SELECT (SELECT count(*) FROM factory_commands),(SELECT count(*) FROM factory_attempt_allowances),(SELECT count(*) FROM factory_usage)`).Scan(&commands, &allowances, &usage); err != nil || commands != 3 || allowances != 0 || usage != 0 {
+	if err = fx.raw.QueryRow(`SELECT (SELECT count(*) FROM factory_commands),(SELECT count(*) FROM factory_attempt_allowances),(SELECT count(*) FROM factory_usage)`).Scan(&commands, &allowances, &usage); err != nil || commands != 2 || allowances != 0 || usage != 0 {
 		t.Fatal("repair progress reads admitted or spent work", commands, allowances, usage, err)
 	}
 	// A settled run needs no command identity or separate outcome record to stop.
@@ -857,7 +838,7 @@ func TestFactoryIssueJourneyRefusals(t *testing.T) {
 			t.Fatalf("direct stop result: %d %s", code, reply)
 		}
 	}
-	if err := fx.raw.QueryRow(`SELECT count(*) FROM factory_commands`).Scan(&commands); err != nil || commands != 3 {
+	if err := fx.raw.QueryRow(`SELECT count(*) FROM factory_commands`).Scan(&commands); err != nil || commands != 2 {
 		t.Fatal("stop recorded a separate command receipt", commands, err)
 	}
 }

@@ -354,6 +354,9 @@ there is no duplicate command receipt or browser command-recovery request.
 The completed human-takeover copy is stored on its Feed post, keyed by run and
 member. Reading that post prevents another copy; no takeover table or command
 receipt duplicates it. Native retirement, membership and destination checks remain.
+Explicit delivery repair queues the existing cause/cycle directly. It does not
+write a second owner-request receipt or recover one in the browser; native
+failure evidence, current owner authority, funding and finite-cycle limits remain.
 
 Worker context does not carry a submission-receipt history; communications and
 results are available through the work posts and discussion. Ordinary worker

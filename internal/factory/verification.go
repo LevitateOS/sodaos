@@ -143,12 +143,11 @@ func (c DeliveryRepairCause) Validate() error {
 	return nil
 }
 
-type DeliveryRepairReceipt struct {
-	CommandID string `json:"command_id"`
-	RunID     string `json:"run_id"`
-	CauseID   string `json:"cause_id"`
-	CycleID   string `json:"cycle_id"`
-	State     string `json:"state"`
+type DeliveryRepairResult struct {
+	RunID   string `json:"run_id"`
+	CauseID string `json:"cause_id"`
+	CycleID string `json:"cycle_id"`
+	State   string `json:"state"`
 }
 
 type CurrentDeliveryRepairContext struct {

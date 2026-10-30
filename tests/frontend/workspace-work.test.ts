@@ -122,7 +122,7 @@ test('Project Work opens explicit requirements review for an imported native iss
   assert.doesNotMatch(
     await verification.innerText(),
     /Application repair requested/,
-    'a foreign run receipt cannot acknowledge repair'
+    'a result for another run cannot acknowledge repair'
   );
   await page.evaluate(async () => {
     window.workspaceFixture.allowRepairReceipt();
@@ -139,9 +139,11 @@ test('Project Work opens explicit requirements review for an imported native iss
   assert.deepEqual(
     repairCalls[0]?.body,
     repairCalls[1]?.body,
-    'uncertain repair retains the exact command and action across refresh'
+    'uncertain repair retains the same run and action across refresh'
   );
   assert.equal(repairCalls[0]?.body?.action, 'repair_delivery');
+  assert.deepEqual(repairCalls[0]?.body, {action: 'repair_delivery'});
+  assert.equal(await page.evaluate(() => window.workspaceFixture.calls.filter((call) => call.path.includes('/factory/commands/')).length), 0);
   assert(repairCalls.every((call) => call.path.endsWith(`/api/factory/runs/${'d'.repeat(32)}/actions`)));
   assert.equal(await verification.getByRole('button', {name: 'Request application repair', exact: true}).count(), 0);
   // Authoritative progress survives the queued acknowledgment and advances
