@@ -351,24 +351,16 @@ func TestExplicitRetryCreatesFreshAttempt(t *testing.T) {
 			finished, _ := db.Assignment(ctx, assigned.ID)
 			retainedResult, _ = json.Marshal(finished.Result)
 			settledRun.Outcome, settledRun.Summary = factory.Succeeded, "native exit zero without a valid report"
-			if i == 1 {
-				// Give the recorded seconds-resolution root clock a real
-				// interval before exercising retained data without settled_at.
-				time.Sleep(1100 * time.Millisecond)
-			}
 		}
 		if err := db.SaveFactoryRun(ctx, settledRun); err != nil {
 			t.Fatalf("settle history run %d: %v", i, err)
 		}
 		if i == 1 {
+			var settledAt []byte
+			if err := fixtureDB.QueryRowContext(ctx, `SELECT data->'settled_at' FROM factory_runs WHERE id=$1`, settledRun.ID).Scan(&settledAt); err != nil {
+				t.Fatal(err)
+			}
 			if _, err := fixtureDB.ExecContext(ctx, `UPDATE factory_runs SET data=data-'settled_at' WHERE id=$1`, settledRun.ID); err != nil {
-				t.Fatal(err)
-			}
-			var clock []byte
-			if err := fixtureDB.QueryRowContext(ctx, `SELECT data FROM factory_attempt_allowances WHERE root_assignment=$1`, currentCommand).Scan(&clock); err != nil {
-				t.Fatal(err)
-			}
-			if _, err := fixtureDB.ExecContext(ctx, `UPDATE factory_attempt_allowances SET data=jsonb_set(data,'{checkpoint_unix}','0') WHERE root_assignment=$1`, currentCommand); err != nil {
 				t.Fatal(err)
 			}
 			unknown := RecoverDispatch(ctx, fx.deps())
@@ -378,7 +370,7 @@ func TestExplicitRetryCreatesFreshAttempt(t *testing.T) {
 			if _, err := db.RunUsage(ctx, settledRun.ID); !errors.Is(err, store.ErrNotFound) {
 				t.Fatal("unknown retirement time invented usage", err)
 			}
-			if _, err := fixtureDB.ExecContext(ctx, `UPDATE factory_attempt_allowances SET data=$1 WHERE root_assignment=$2`, string(clock), currentCommand); err != nil {
+			if _, err := fixtureDB.ExecContext(ctx, `UPDATE factory_runs SET data=jsonb_set(data,'{settled_at}',$1::jsonb) WHERE id=$2`, string(settledAt), settledRun.ID); err != nil {
 				t.Fatal(err)
 			}
 		}

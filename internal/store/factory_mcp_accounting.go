@@ -84,12 +84,7 @@ func (s *Store) AccountFinishedMCPRun(ctx context.Context, id string) error {
 			return errors.New("retained usage differs from its run")
 		}
 	} else if errors.Is(err, sql.ErrNoRows) {
-		var end time.Time
-		if ended.Valid {
-			end, err = time.Parse(time.RFC3339Nano, ended.String)
-		} else {
-			end, err = legacyFinishedRunEnd(ctx, tx, a, run)
-		}
+		end, err := time.Parse(time.RFC3339Nano, ended.String)
 		if err != nil || end.Before(run.Started) {
 			return ErrMCPAccountingTimeUnavailable
 		}
@@ -111,23 +106,4 @@ func (s *Store) AccountFinishedMCPRun(ctx context.Context, id string) error {
 		}
 	}
 	return tx.Commit()
-}
-
-// Retained runs predating settled_at may reuse only an already closed,
-// inactive singleton root's recorded retirement clock. A broader history
-// cannot identify this run's end and remains held for known evidence.
-func legacyFinishedRunEnd(ctx context.Context, tx *sql.Tx, a factory.Assignment, run factory.Run) (time.Time, error) {
-	if a.AttemptRoot != a.ID || len(a.RunHistory) != 1 || a.RunHistory[0] != run.ID {
-		return time.Time{}, errors.New("run retirement clock is not uniquely bound")
-	}
-	var raw []byte
-	var count int
-	if err := tx.QueryRowContext(ctx, `SELECT data,(SELECT count(*) FROM factory_run_views v JOIN factory_assignments x ON x.id=v.attempt WHERE x.data->>'attempt_root'=$1) FROM factory_attempt_allowances WHERE root_assignment=$1 AND repository=$2 AND issue=$3`, a.ID, a.Repository, a.Issue).Scan(&raw, &count); err != nil {
-		return time.Time{}, err
-	}
-	var allowance factory.AttemptAllowance
-	if json.Unmarshal(raw, &allowance) != nil || allowance.Validate() != nil || allowance.RootAssignment != a.ID || allowance.Active || !allowance.Closed || count != 1 || allowance.CheckpointUnix <= 0 {
-		return time.Time{}, errors.New("run retirement clock unavailable")
-	}
-	return time.Unix(allowance.CheckpointUnix, 0).UTC(), nil
 }
