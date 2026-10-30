@@ -378,6 +378,15 @@ func TestFactoryCatalogTransportPerHarness(t *testing.T) {
 			if err = resolved.Validate(valid); err != nil {
 				t.Fatalf("discovered Architect schema refused a complete typed plan: %v", err)
 			}
+			// A worker can submit the same authored plan without echoing assignment bindings.
+			var authored map[string]any
+			_ = json.Unmarshal(raw, &authored)
+			for _, field := range []string{"attempt_root", "source_commit", "integration_commit", "scope_digest", "input_digest", "preparation", "digest"} {
+				delete(authored["payload"].(map[string]any)["tasks"].(map[string]any), field)
+			}
+			if err = resolved.Validate(authored); err != nil {
+				t.Fatalf("discovered Architect schema required server-owned bindings: %v", err)
+			}
 			for _, field := range []string{"id", "integration_commit", "check_id", "check_scope", "verification_manifest_proposal", "catalog_id"} {
 				var invalid map[string]any
 				_ = json.Unmarshal(raw, &invalid)

@@ -546,10 +546,6 @@ func newFactoryCatalogServer(deps FactoryMCPDeps) *mcp.Server {
 		if deps.BoundCapability != nil {
 			bindMCPToolSchema(schema, tool, *deps.BoundCapability)
 		}
-		if tool == factory.MCPToolFinishIssuePlan {
-			catalog.addIssuePlanTool(server, schema)
-			continue
-		}
 		mcp.AddTool(server, schema, func(ctx context.Context, _ *mcp.CallToolRequest, args mcpCallArgs) (*mcp.CallToolResult, any, error) {
 			return catalog.serve(ctx, tool, args)
 		})

@@ -10,6 +10,19 @@ import (
 func investigationPlanSchema() *jsonschema.Schema {
 	schema := mcpCarrier[factory.InvestigationPlan]()
 	schema.Description = factory.InvestigationPlanGuidance
+	// These bindings are supplied by bindIssuePlan after SDK input validation.
+	// The worker supplies the plan, not copies of server-owned assignment data.
+	serverFields := map[string]bool{
+		"attempt_root": true, "source_commit": true, "integration_commit": true,
+		"scope_digest": true, "input_digest": true, "preparation": true, "digest": true,
+	}
+	required := schema.Required[:0]
+	for _, field := range schema.Required {
+		if !serverFields[field] {
+			required = append(required, field)
+		}
+	}
+	schema.Required = required
 	hex := func(pattern, description string) *jsonschema.Schema {
 		return &jsonschema.Schema{Type: "string", Pattern: pattern, Description: description}
 	}
