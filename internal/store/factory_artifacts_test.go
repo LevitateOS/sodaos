@@ -18,7 +18,7 @@ func TestFactoryArtifactChunksPublishOnlyWhenComplete(t *testing.T) {
 	send := func(offset int, content string, final bool) (factory.MCPSubmission, factory.MCPReceipt, error) {
 		raw, _ := json.Marshal(factory.ArtifactUpload{UploadID: upload, Name: "sample.txt", MediaType: "text/plain", Offset: offset, ContentBase64: base64.StdEncoding.EncodeToString([]byte(content)), Final: final})
 		sub := testMCPSubmissionRow(cap, factory.MCPToolPublishArtifact, raw)
-		r, err := s.RecordMCPSubmission(ctx, sub, testMCPRecordedReceipt(sub))
+		r, err := s.RecordMCPSubmission(ctx, sub)
 		return sub, r, err
 	}
 	first, r, err := send(0, "hello ", false)
@@ -28,7 +28,7 @@ func TestFactoryArtifactChunksPublishOnlyWhenComplete(t *testing.T) {
 	if _, _, err = s.FeedArtifact(ctx, cap.Repository, r.ArtifactID); err == nil {
 		t.Fatal("incomplete upload visible")
 	}
-	replay, err := s.RecordMCPSubmission(ctx, first, testMCPRecordedReceipt(first))
+	replay, err := s.RecordMCPSubmission(ctx, first)
 	if err != nil || replay != r {
 		t.Fatal("chunk replay changed result")
 	}
@@ -52,7 +52,7 @@ func TestFactoryArtifactChunksPublishOnlyWhenComplete(t *testing.T) {
 	}
 	raw, _ := json.Marshal(map[string]any{"title": "Screenshot", "summary": "Attached output", "completed": []string{"preview"}, "artifacts": []map[string]any{{"id": a.ID, "href": "https://untrusted.invalid/a", "name": "forged"}}})
 	sub := testMCPSubmissionRow(cap, factory.MCPToolPartial, raw)
-	linked, err := s.RecordMCPSubmission(ctx, sub, testMCPRecordedReceipt(sub))
+	linked, err := s.RecordMCPSubmission(ctx, sub)
 	if err != nil {
 		t.Fatal(err)
 	}

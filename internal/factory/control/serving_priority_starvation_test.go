@@ -197,7 +197,7 @@ func TestPriorityRetriesRecoveredNativeContextPG(t *testing.T) {
 	plan := phaseTestPlan(t, owner.AttemptRoot, owner.SourceCommit, owner.Preparation)
 	payload, _ := json.Marshal(map[string]any{"approach": plan.Approach, "tasks": plan, "evidence_refs": []string{"README.md"}})
 	proposal := testMCPSubmission(capability, factory.MCPToolFinishIssuePlan, factory.NewID(), payload)
-	if _, err := db.RecordMCPSubmission(ctx, proposal, factory.MCPReceipt{SubmissionID: proposal.SubmissionID, Tool: proposal.Tool, State: factory.MCPReceiptRecorded, InputDigest: proposal.PayloadHash}); err != nil {
+	if _, err := db.RecordMCPSubmission(ctx, proposal); err != nil {
 		t.Fatal(err)
 	}
 	if settled, err := SettleMCPTerminalProposal(ctx, db, owner.ID, time.Now()); err != nil || !settled {

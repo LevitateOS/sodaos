@@ -37,7 +37,7 @@ type FactoryMCPCapabilitySource interface {
 // receipts. *store.Store implements it; tests stub it.
 type FactoryMCPSubmissionSink interface {
 	control.MCPSubmissionJournal
-	RecordMCPSubmission(ctx context.Context, submission factory.MCPSubmission, receipt factory.MCPReceipt) (factory.MCPReceipt, error)
+	RecordMCPSubmission(ctx context.Context, submission factory.MCPSubmission) (factory.MCPReceipt, error)
 	MCPSubmissionCount(ctx context.Context, assignmentID string) (int, error)
 }
 
@@ -862,11 +862,7 @@ func (s *factoryCatalogServer) serveMutation(ctx context.Context, tool factory.M
 		return nil, nil, err
 	}
 	defer release()
-	receipt := factory.MCPReceipt{
-		SubmissionID: submission.SubmissionID, Tool: tool,
-		State: factory.MCPReceiptRecorded, InputDigest: submission.PayloadHash,
-	}
-	recorded, err := s.deps.Submissions.RecordMCPSubmission(ctx, submission, receipt)
+	recorded, err := s.deps.Submissions.RecordMCPSubmission(ctx, submission)
 	if err != nil {
 		return nil, nil, err
 	}

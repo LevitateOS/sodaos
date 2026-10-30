@@ -97,7 +97,7 @@ func newFakeCatalogSink() *fakeCatalogSink {
 // HTTP catalog fixtures model an already-qualified upstream input owner.
 // Real source/grant/producer cases use *store.Store in the bound PG fixture.
 func (f *fakeCatalogSink) FactoryCurrentContext(_ context.Context, cap factory.MCPCapability, _ time.Time) (factory.CurrentContext, error) {
-	return factory.CurrentContext{Version: "context-current-v1", Evidence: factory.CurrentContextEvidence{RequiredStreams: []string{"required_current"}, Availability: "complete", MissingReasons: []string{}}, Role: factory.CurrentRoleContext{Kind: cap.Profile, Submissions: []factory.CurrentSubmissionReceipt{}}}, nil
+	return factory.CurrentContext{Version: "context-current-v1", Evidence: factory.CurrentContextEvidence{RequiredStreams: []string{"required_current"}, Availability: "complete", MissingReasons: []string{}}, Role: factory.CurrentRoleContext{Kind: cap.Profile}}, nil
 }
 
 func (f *fakeCatalogSink) FactoryRun(_ context.Context, id string) (factory.Run, error) {
@@ -164,10 +164,10 @@ func (f *fakeCatalogSink) record(submission factory.MCPSubmission, receipt facto
 	return receipt, nil
 }
 
-func (f *fakeCatalogSink) RecordMCPSubmission(_ context.Context, submission factory.MCPSubmission, receipt factory.MCPReceipt) (factory.MCPReceipt, error) {
+func (f *fakeCatalogSink) RecordMCPSubmission(_ context.Context, submission factory.MCPSubmission) (factory.MCPReceipt, error) {
 	f.mu.Lock()
 	defer f.mu.Unlock()
-	return f.record(submission, receipt)
+	return f.record(submission, factory.MCPReceipt{SubmissionID: submission.SubmissionID, Tool: submission.Tool, State: factory.MCPReceiptRecorded, InputDigest: submission.PayloadHash})
 }
 
 func (f *fakeCatalogSink) MCPReceipt(_ context.Context, assignmentID, submissionID string) (factory.MCPReceipt, error) {

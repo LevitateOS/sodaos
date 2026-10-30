@@ -182,7 +182,7 @@ func progressCheckpointsAuthenticatedOutputPG(t *testing.T, retired bool) {
 	if _, err := AdmitMCPSubmission(ctx, c.Store, capability, submission); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := c.Store.RecordMCPSubmission(ctx, submission, factory.MCPReceipt{SubmissionID: submission.SubmissionID, Tool: submission.Tool, State: factory.MCPReceiptRecorded, InputDigest: submission.PayloadHash}); err != nil {
+	if _, err := c.Store.RecordMCPSubmission(ctx, submission); err != nil {
 		t.Fatal(err)
 	}
 	c.advanceProgress(ctx) // Reserve request before lost native reply.
@@ -202,7 +202,7 @@ func progressCheckpointsAuthenticatedOutputPG(t *testing.T, retired bool) {
 		t.Fatalf("tasks bypassed final checks: %+v", publication)
 	}
 	terminal := testMCPSubmission(capability, factory.MCPToolFinishImplement, factory.NewID(), []byte(`{"candidate":"`+candidate+`"}`))
-	if _, err := c.Store.RecordMCPSubmission(ctx, terminal, factory.MCPReceipt{SubmissionID: terminal.SubmissionID, Tool: terminal.Tool, State: factory.MCPReceiptRecorded, InputDigest: terminal.PayloadHash}); err != nil {
+	if _, err := c.Store.RecordMCPSubmission(ctx, terminal); err != nil {
 		t.Fatal(err)
 	}
 	if settled, err := SettleMCPTerminalProposal(ctx, c.Store, assignment.ID, time.Now()); err != nil || settled {

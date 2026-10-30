@@ -342,7 +342,7 @@ func TestExplicitRetryCreatesFreshAttempt(t *testing.T) {
 			invalidPlan.ID = "invalid-worker-plan"
 			payload, _ := json.Marshal(map[string]any{"approach": invalidPlan.Approach, "tasks": invalidPlan, "evidence_refs": []string{"README.md"}})
 			proposal := testMCPSubmission(capability, factory.MCPToolFinishIssuePlan, factory.NewID(), payload)
-			if _, err := db.RecordMCPSubmission(ctx, proposal, factory.MCPReceipt{SubmissionID: proposal.SubmissionID, Tool: proposal.Tool, State: factory.MCPReceiptRecorded, InputDigest: proposal.PayloadHash}); err != nil {
+			if _, err := db.RecordMCPSubmission(ctx, proposal); err != nil {
 				t.Fatal(err)
 			}
 			if settled, err := SettleMCPTerminalProposal(ctx, db, assigned.ID, time.Now()); err != nil || !settled {

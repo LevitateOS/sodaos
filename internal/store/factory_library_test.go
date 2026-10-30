@@ -16,7 +16,7 @@ func TestLibraryDecisionAuthorityAndCreationAtomicity(t *testing.T) {
 	decision := func(choice string) factory.LibraryItem {
 		raw, _ := json.Marshal(map[string]any{"title": "Task visibility", "summary": "The task policy was recorded.", "scope": "task access", "decision": choice, "rationale": "Product request"})
 		submission := testMCPSubmissionRow(cap, factory.MCPToolRecordDecision, raw)
-		receipt, err := s.RecordMCPSubmission(ctx, submission, testMCPRecordedReceipt(submission))
+		receipt, err := s.RecordMCPSubmission(ctx, submission)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -31,7 +31,7 @@ func TestLibraryDecisionAuthorityAndCreationAtomicity(t *testing.T) {
 	before, _ := s.LibrarySearch(ctx, cap.Repository, "", "", "", false, false)
 	raw := []byte(`{"title":"Unscoped learning","summary":"Missing source evidence","scope":"all tasks"}`)
 	submission := testMCPSubmissionRow(cap, factory.MCPToolLearned, raw)
-	if _, err := s.RecordMCPSubmission(ctx, submission, testMCPRecordedReceipt(submission)); err == nil {
+	if _, err := s.RecordMCPSubmission(ctx, submission); err == nil {
 		t.Fatal("invalid learning accepted")
 	}
 	after, _ := s.LibrarySearch(ctx, cap.Repository, "", "", "", false, false)
@@ -55,7 +55,7 @@ func TestRecordDecisionSeparatesOwnerFromLogger(t *testing.T) {
 			t.Fatal(err)
 		}
 		submission := testMCPSubmissionRow(worker, factory.MCPToolRecordDecision, raw)
-		receipt, err := s.RecordMCPSubmission(ctx, submission, testMCPRecordedReceipt(submission))
+		receipt, err := s.RecordMCPSubmission(ctx, submission)
 		if err != nil {
 			return factory.LibraryItem{}, factory.LibraryRevision{}, err
 		}
@@ -107,7 +107,7 @@ func TestRecordDecisionSeparatesOwnerFromLogger(t *testing.T) {
 	learned := map[string]any{"title": "T", "summary": "S", "scope": "task access", "evidence_refs": []string{"src/x.go:1"}, "decision_owner": "controller"}
 	raw, _ := json.Marshal(learned)
 	learnedSubmission := testMCPSubmissionRow(worker, factory.MCPToolLearned, raw)
-	if _, err := s.RecordMCPSubmission(ctx, learnedSubmission, testMCPRecordedReceipt(learnedSubmission)); err == nil {
+	if _, err := s.RecordMCPSubmission(ctx, learnedSubmission); err == nil {
 		t.Fatal("learned post named a decision owner")
 	}
 }
@@ -128,7 +128,7 @@ func TestLearnedAmendAndChallengeCAS(t *testing.T) {
 			t.Fatal(err)
 		}
 		submission := testMCPSubmissionRow(worker, tool, raw)
-		return s.RecordMCPSubmission(ctx, submission, testMCPRecordedReceipt(submission))
+		return s.RecordMCPSubmission(ctx, submission)
 	}
 	learned := map[string]any{"title": "Task ownership", "summary": "Keep ownership checks at the boundary.", "scope": "task access", "evidence_refs": []string{"src/access.go:12"}}
 	receipt, err := submit(factory.MCPToolLearned, learned)

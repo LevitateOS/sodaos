@@ -1343,7 +1343,7 @@ func settlePlanRun(t *testing.T, ctx context.Context, s *store.Store, runID, ans
 		t.Fatal(err)
 	}
 	submission := factory.MCPSubmission{AssignmentID: launched.ID, CapabilityID: cap.ID, SubmissionID: factory.NewID(), Tool: tool, Payload: raw, PayloadHash: factory.MCPInputDigest(raw)}
-	if _, err := s.RecordMCPSubmission(ctx, submission, factory.MCPReceipt{SubmissionID: submission.SubmissionID, Tool: tool, State: factory.MCPReceiptRecorded, InputDigest: submission.PayloadHash}); err != nil {
+	if _, err := s.RecordMCPSubmission(ctx, submission); err != nil {
 		t.Fatal(err)
 	}
 	run.Outcome, run.Summary, run.Reconciled = factory.Succeeded, "planning done", true

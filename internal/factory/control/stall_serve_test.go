@@ -215,8 +215,7 @@ func TestServeStallRoundAdmitsBoundedEpisode(t *testing.T) {
 		}
 		invalidReport, _ := json.Marshal(map[string]any{"subject": secondCapability.Subject, "report": map[string]any{}})
 		submission := testMCPSubmission(secondCapability, factory.MCPToolFinishReassessment, factory.NewID(), invalidReport)
-		receipt := factory.MCPReceipt{SubmissionID: submission.SubmissionID, Tool: submission.Tool, State: factory.MCPReceiptRecorded, InputDigest: submission.PayloadHash}
-		if _, err = serving.RecordMCPSubmission(ctx, submission, receipt); err != nil {
+		if _, err = serving.RecordMCPSubmission(ctx, submission); err != nil {
 			t.Fatal(err)
 		}
 		if finished, err := SettleMCPTerminalProposal(ctx, serving, second.AssignmentID, time.Now()); err != nil || !finished {
@@ -501,7 +500,7 @@ func stallRepairGraphMode(t *testing.T, mode string) {
 		}
 		body, _ := json.Marshal(verification)
 		submission := testMCPSubmission(capability, factory.MCPToolFinishAppVerify, factory.NewID(), body)
-		if _, e = db.RecordMCPSubmission(ctx, submission, factory.MCPReceipt{SubmissionID: submission.SubmissionID, Tool: submission.Tool, State: factory.MCPReceiptRecorded, InputDigest: submission.PayloadHash}); e != nil {
+		if _, e = db.RecordMCPSubmission(ctx, submission); e != nil {
 			t.Fatal(e)
 		}
 		if done, e := SettleMCPTerminalProposal(ctx, db, a.ID, time.Now()); e != nil || !done {
@@ -771,8 +770,7 @@ func stallRepairGraphMode(t *testing.T, mode string) {
 		diagnosis := factory.RepairDiagnosis{Subject: repairCapability.Subject, InputDigest: repairCapability.ScopeDigest(), SourceCommit: cycle.Local.SourceCommit, InventoryDigest: cycle.InventoryDigest, Title: "Missing fixture producer", Summary: "The sealed inventory records no authorized producer for the required fixture.", State: "supported", Causes: proposal.Causes, EvidenceRefs: []string{"sealed-inventory:" + cycle.InventoryDigest}, Alternatives: []string{"A renamed graph alone would leave the prerequisite unsatisfied."}, Uncertainty: []string{"The maintainer must independently accept the fixture result."}}
 		body, _ := json.Marshal(diagnosis)
 		submission := testMCPSubmission(repairCapability, factory.MCPToolRecordDiagnosis, factory.NewID(), body)
-		proposedReceipt := factory.MCPReceipt{SubmissionID: submission.SubmissionID, Tool: submission.Tool, State: factory.MCPReceiptRecorded, InputDigest: submission.PayloadHash}
-		receipt, e := db.RecordMCPSubmission(ctx, submission, proposedReceipt)
+		receipt, e := db.RecordMCPSubmission(ctx, submission)
 		if e != nil || receipt.FeedPostID == "" {
 			t.Fatal("cause-bound diagnosis was not recorded with feed receipt", e)
 		}
@@ -780,7 +778,7 @@ func stallRepairGraphMode(t *testing.T, mode string) {
 		if e != nil || post.Actor != "strategist" || post.Assignment != cycle.AssignmentID || post.Payload == nil || post.Payload.Communication == nil || post.Payload.Communication.Kind != "diagnosis" || len(post.Payload.Communication.Items) != len(diagnosis.Causes) || len(post.Payload.Communication.Alternatives) != 1 || len(post.Payload.Communication.Remaining) != 1 || !strings.Contains(post.Payload.Communication.Summary, "unchanged") {
 			t.Fatal("diagnosis lost typed evidence, attribution or uncertainty", e)
 		}
-		if replay, e := db.RecordMCPSubmission(ctx, submission, proposedReceipt); e != nil || replay.FeedPostID != receipt.FeedPostID {
+		if replay, e := db.RecordMCPSubmission(ctx, submission); e != nil || replay.FeedPostID != receipt.FeedPostID {
 			t.Fatal("diagnosis lost-reply replay duplicated its observation", e)
 		}
 		conflict := submission
@@ -788,9 +786,7 @@ func stallRepairGraphMode(t *testing.T, mode string) {
 		changedDiagnosis.Summary = "Changed bytes cannot reuse the diagnosis identity."
 		conflict.Payload, _ = json.Marshal(changedDiagnosis)
 		conflict.PayloadHash = factory.MCPInputDigest(conflict.Payload)
-		changedReceipt := proposedReceipt
-		changedReceipt.InputDigest = conflict.PayloadHash
-		if _, e := db.RecordMCPSubmission(ctx, conflict, changedReceipt); !errors.Is(e, store.ErrMCPSubmissionConflict) {
+		if _, e := db.RecordMCPSubmission(ctx, conflict); !errors.Is(e, store.ErrMCPSubmissionConflict) {
 			t.Fatal("changed diagnosis bytes did not conflict", e)
 		}
 		for _, field := range []string{"subject", "input", "source", "inventory", "artifact", "state"} {
@@ -811,18 +807,18 @@ func stallRepairGraphMode(t *testing.T, mode string) {
 			}
 			payload, _ := json.Marshal(bad)
 			sub := testMCPSubmission(repairCapability, factory.MCPToolRecordDiagnosis, factory.NewID(), payload)
-			if _, e := db.RecordMCPSubmission(ctx, sub, factory.MCPReceipt{SubmissionID: sub.SubmissionID, Tool: sub.Tool, State: factory.MCPReceiptRecorded, InputDigest: sub.PayloadHash}); e == nil {
+			if _, e := db.RecordMCPSubmission(ctx, sub); e == nil {
 				t.Fatal("diagnosis admitted invalid " + field)
 			}
 		}
 		for count := 1; count < factory.MaxRepairDiagnoses; count++ {
 			sub := testMCPSubmission(repairCapability, factory.MCPToolRecordDiagnosis, factory.NewID(), body)
-			if _, e := db.RecordMCPSubmission(ctx, sub, factory.MCPReceipt{SubmissionID: sub.SubmissionID, Tool: sub.Tool, State: factory.MCPReceiptRecorded, InputDigest: sub.PayloadHash}); e != nil {
+			if _, e := db.RecordMCPSubmission(ctx, sub); e != nil {
 				t.Fatal("bounded diagnosis record", count, e)
 			}
 		}
 		overflow := testMCPSubmission(repairCapability, factory.MCPToolRecordDiagnosis, factory.NewID(), body)
-		if _, e := db.RecordMCPSubmission(ctx, overflow, factory.MCPReceipt{SubmissionID: overflow.SubmissionID, Tool: overflow.Tool, State: factory.MCPReceiptRecorded, InputDigest: overflow.PayloadHash}); e == nil {
+		if _, e := db.RecordMCPSubmission(ctx, overflow); e == nil {
 			t.Fatal("diagnosis limit did not preserve the terminal slot")
 		}
 		seen := map[string]bool{}
@@ -866,8 +862,7 @@ func stallRepairGraphMode(t *testing.T, mode string) {
 		draft := factory.RepairDraft{Report: unicodeReport, DiagnosisRefs: []string{"diagnosis:" + submission.SubmissionID}}
 		draftBody, _ := json.Marshal(draft)
 		draftSubmission := testMCPSubmission(repairCapability, factory.MCPToolDraftRepair, factory.NewID(), draftBody)
-		draftProposedReceipt := factory.MCPReceipt{SubmissionID: draftSubmission.SubmissionID, Tool: draftSubmission.Tool, State: factory.MCPReceiptRecorded, InputDigest: draftSubmission.PayloadHash}
-		draftReceipt, e := db.RecordMCPSubmission(ctx, draftSubmission, draftProposedReceipt)
+		draftReceipt, e := db.RecordMCPSubmission(ctx, draftSubmission)
 		if e != nil || draftReceipt.FeedPostID == "" {
 			t.Fatal("cause-bound draft was not recorded", e)
 		}
@@ -918,7 +913,7 @@ func stallRepairGraphMode(t *testing.T, mode string) {
 		if _, e := db.ReadRepairObservation(ctx, foreignCap, draftSubmission.SubmissionID, 0); e == nil {
 			t.Fatal("draft read admitted a foreign capability tuple")
 		}
-		if replay, e := db.RecordMCPSubmission(ctx, draftSubmission, draftProposedReceipt); e != nil || replay.FeedPostID != draftReceipt.FeedPostID {
+		if replay, e := db.RecordMCPSubmission(ctx, draftSubmission); e != nil || replay.FeedPostID != draftReceipt.FeedPostID {
 			t.Fatal("draft replay lost its original receipt", e)
 		}
 		for _, kind := range []string{"missing_diagnosis", "duplicate_diagnosis", "foreign_input", "unknown_report_field"} {
@@ -942,7 +937,7 @@ func stallRepairGraphMode(t *testing.T, mode string) {
 			}
 			payload, _ := json.Marshal(bad)
 			sub := testMCPSubmission(repairCapability, factory.MCPToolDraftRepair, factory.NewID(), payload)
-			if _, e := db.RecordMCPSubmission(ctx, sub, factory.MCPReceipt{SubmissionID: sub.SubmissionID, Tool: sub.Tool, State: factory.MCPReceiptRecorded, InputDigest: sub.PayloadHash}); e == nil {
+			if _, e := db.RecordMCPSubmission(ctx, sub); e == nil {
 				t.Fatal("draft admitted " + kind)
 			}
 		}
@@ -951,19 +946,17 @@ func stallRepairGraphMode(t *testing.T, mode string) {
 		draftWithoutRef.DiagnosisRefs = nil
 		conflictingDraft.Payload, _ = json.Marshal(draftWithoutRef)
 		conflictingDraft.PayloadHash = factory.MCPInputDigest(conflictingDraft.Payload)
-		conflictingReceipt := draftProposedReceipt
-		conflictingReceipt.InputDigest = conflictingDraft.PayloadHash
-		if _, e := db.RecordMCPSubmission(ctx, conflictingDraft, conflictingReceipt); !errors.Is(e, store.ErrMCPSubmissionConflict) {
+		if _, e := db.RecordMCPSubmission(ctx, conflictingDraft); !errors.Is(e, store.ErrMCPSubmissionConflict) {
 			t.Fatal("draft identity accepted different content", e)
 		}
 		for count := 1; count < factory.MaxRepairObservations; count++ {
 			sub := testMCPSubmission(repairCapability, factory.MCPToolDraftRepair, factory.NewID(), draftBody)
-			if _, e := db.RecordMCPSubmission(ctx, sub, factory.MCPReceipt{SubmissionID: sub.SubmissionID, Tool: sub.Tool, State: factory.MCPReceiptRecorded, InputDigest: sub.PayloadHash}); e != nil {
+			if _, e := db.RecordMCPSubmission(ctx, sub); e != nil {
 				t.Fatal("bounded draft recording", count, e)
 			}
 		}
 		overflow = testMCPSubmission(repairCapability, factory.MCPToolDraftRepair, factory.NewID(), draftBody)
-		if _, e := db.RecordMCPSubmission(ctx, overflow, factory.MCPReceipt{SubmissionID: overflow.SubmissionID, Tool: overflow.Tool, State: factory.MCPReceiptRecorded, InputDigest: overflow.PayloadHash}); e == nil {
+		if _, e := db.RecordMCPSubmission(ctx, overflow); e == nil {
 			t.Fatal("draft limit did not preserve its terminal slot")
 		}
 		view, e := db.ReassessmentScope(ctx, repairCapability, 0)
@@ -995,7 +988,7 @@ func stallRepairGraphMode(t *testing.T, mode string) {
 	if deliveryMode {
 		payload, _ := json.Marshal(map[string]any{"report": phaseOutput.DeliveryRepair})
 		submission := testMCPSubmission(repairCapability, factory.MCPToolFinishReassessment, factory.NewID(), payload)
-		if _, e := db.RecordMCPSubmission(ctx, submission, factory.MCPReceipt{SubmissionID: submission.SubmissionID, Tool: submission.Tool, State: factory.MCPReceiptRecorded, InputDigest: submission.PayloadHash}); e != nil {
+		if _, e := db.RecordMCPSubmission(ctx, submission); e != nil {
 			t.Fatal(e)
 		}
 		if settled, e := SettleMCPTerminalProposal(ctx, db, cycle.AssignmentID, time.Now()); e != nil || !settled {
@@ -1014,7 +1007,7 @@ func stallRepairGraphMode(t *testing.T, mode string) {
 		late := factory.RepairDiagnosis{Subject: repairCapability.Subject, InputDigest: repairCapability.ScopeDigest(), SourceCommit: cycle.Local.SourceCommit, InventoryDigest: cycle.InventoryDigest, Title: "Late diagnosis", Summary: "A finished worker has no authority to append another report.", State: "incomplete", Causes: proposal.Causes}
 		payload, _ := json.Marshal(late)
 		sub := testMCPSubmission(repairCapability, factory.MCPToolRecordDiagnosis, factory.NewID(), payload)
-		if _, e := db.RecordMCPSubmission(ctx, sub, factory.MCPReceipt{SubmissionID: sub.SubmissionID, Tool: sub.Tool, State: factory.MCPReceiptRecorded, InputDigest: sub.PayloadHash}); e == nil {
+		if _, e := db.RecordMCPSubmission(ctx, sub); e == nil {
 			t.Fatal("finished investigator appended a late diagnosis", e)
 		}
 	}

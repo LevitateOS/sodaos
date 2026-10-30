@@ -812,7 +812,7 @@ func recordPhaseFinishMCP(t *testing.T, ctx context.Context, db *store.Store, a 
 		t.Fatal(err)
 	}
 	submission := testMCPSubmission(capability, tool, factory.NewID(), raw)
-	if _, err := db.RecordMCPSubmission(ctx, submission, factory.MCPReceipt{SubmissionID: submission.SubmissionID, Tool: tool, State: factory.MCPReceiptRecorded, InputDigest: submission.PayloadHash}); err != nil {
+	if _, err := db.RecordMCPSubmission(ctx, submission); err != nil {
 		t.Fatal(err)
 	}
 }

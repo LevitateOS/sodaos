@@ -34,7 +34,7 @@ func (s *factoryCatalogServer) serveArtifact(ctx context.Context, args mcpCallAr
 		return nil, nil, err
 	}
 	defer release()
-	receipt, err := s.deps.Submissions.RecordMCPSubmission(ctx, sub, factory.MCPReceipt{SubmissionID: sub.SubmissionID, Tool: sub.Tool, State: factory.MCPReceiptRecorded, InputDigest: sub.PayloadHash})
+	receipt, err := s.deps.Submissions.RecordMCPSubmission(ctx, sub)
 	if err != nil {
 		return nil, nil, err
 	}

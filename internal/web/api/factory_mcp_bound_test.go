@@ -605,7 +605,7 @@ func TestFactoryBoundCurrentContextUsesRecordedScopeAndState(t *testing.T) {
 		observation.Name = "Retained observation " + strings.Repeat("x", i)
 		raw, _ := json.Marshal(observation)
 		sub := factory.MCPSubmission{AssignmentID: pilot.ID, CapabilityID: pilotCap.ID, SubmissionID: factory.NewID(), Tool: factory.MCPToolRecordJourneyResult, PayloadHash: factory.MCPInputDigest(raw), Payload: raw}
-		if _, err := st.RecordMCPSubmission(ctx, sub, factory.MCPReceipt{SubmissionID: sub.SubmissionID, Tool: sub.Tool, State: factory.MCPReceiptRecorded, InputDigest: sub.PayloadHash}); err != nil {
+		if _, err := st.RecordMCPSubmission(ctx, sub); err != nil {
 			t.Fatal("append retained journey observation", err)
 		}
 	}
@@ -687,7 +687,7 @@ func TestFactoryBoundCurrentContextUsesRecordedScopeAndState(t *testing.T) {
 	// Store exercises new terminal reference admission; authenticated HTTP
 	// then recovers that exact receipt.
 	finishSub := factory.MCPSubmission{AssignmentID: pilot.ID, CapabilityID: pilotCap.ID, SubmissionID: finishID, Tool: factory.MCPToolFinishAppVerify, PayloadHash: factory.MCPInputDigest(finishJSON), Payload: finishJSON}
-	if _, err := st.RecordMCPSubmission(ctx, finishSub, factory.MCPReceipt{SubmissionID: finishID, Tool: finishSub.Tool, State: factory.MCPReceiptRecorded, InputDigest: finishSub.PayloadHash}); err != nil {
+	if _, err := st.RecordMCPSubmission(ctx, finishSub); err != nil {
 		t.Fatal("journey observations consumed terminal capacity", err)
 	}
 	result, err = pilotSession.CallTool(ctx, &mcp.CallToolParams{Name: string(factory.MCPToolFinishAppVerify), Arguments: finishArgs})
@@ -861,7 +861,7 @@ func TestFactoryBoundCurrentContextUsesRecordedScopeAndState(t *testing.T) {
 	legacyFinishID := factory.NewID()
 	legacyFinishArgs := map[string]any{"submission_id": legacyFinishID, "payload": legacyFinishPayload}
 	legacyFinishSub := factory.MCPSubmission{AssignmentID: legacyPilot.ID, CapabilityID: legacyPilotCap.ID, SubmissionID: legacyFinishID, Tool: factory.MCPToolFinishAppVerify, PayloadHash: factory.MCPInputDigest(legacyFinishJSON), Payload: legacyFinishJSON}
-	if _, err := st.RecordMCPSubmission(ctx, legacyFinishSub, factory.MCPReceipt{SubmissionID: legacyFinishID, Tool: legacyFinishSub.Tool, State: factory.MCPReceiptRecorded, InputDigest: legacyFinishSub.PayloadHash}); err != nil {
+	if _, err := st.RecordMCPSubmission(ctx, legacyFinishSub); err != nil {
 		t.Fatal("legacy journey observation consumed terminal capacity", err)
 	}
 	result, err = decidedSession.CallTool(ctx, &mcp.CallToolParams{Name: string(factory.MCPToolFinishAppVerify), Arguments: legacyFinishArgs})
@@ -951,7 +951,7 @@ func TestFactoryBoundCurrentContextUsesRecordedScopeAndState(t *testing.T) {
 	if err := validateFinish(); err != nil {
 		t.Fatal("corrected same submission identity was not recoverable", err)
 	}
-	if _, err := st.RecordMCPSubmission(ctx, proposal, factory.MCPReceipt{SubmissionID: proposal.SubmissionID, Tool: proposal.Tool, State: factory.MCPReceiptRecorded, InputDigest: proposal.PayloadHash}); err != nil {
+	if _, err := st.RecordMCPSubmission(ctx, proposal); err != nil {
 		t.Fatal(err)
 	}
 	withdrawal, _ := json.Marshal(factory.Withdrawal{Repository: 7, Revision: 1, Cause: "fixture", ClosedBy: "fixture"})
@@ -964,8 +964,7 @@ func TestFactoryBoundCurrentContextUsesRecordedScopeAndState(t *testing.T) {
 	if err := validateFinish(); err != nil {
 		t.Fatal("new validation prevented immutable replay/conflict recovery", err)
 	}
-	conflictReceipt := factory.MCPReceipt{SubmissionID: proposal.SubmissionID, Tool: proposal.Tool, State: factory.MCPReceiptRecorded, InputDigest: proposal.PayloadHash}
-	if _, err := st.RecordMCPSubmission(ctx, proposal, conflictReceipt); err != store.ErrMCPSubmissionConflict {
+	if _, err := st.RecordMCPSubmission(ctx, proposal); err != store.ErrMCPSubmissionConflict {
 		t.Fatal("retained proposal bytes changed", err)
 	}
 	plan.ID = originalPlanID

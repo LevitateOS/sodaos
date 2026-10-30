@@ -89,13 +89,6 @@ func activateMCPCapability(t *testing.T, ctx context.Context, db *Store, capabil
 	return active
 }
 
-func testMCPRecordedReceipt(submission factory.MCPSubmission) factory.MCPReceipt {
-	return factory.MCPReceipt{
-		SubmissionID: submission.SubmissionID, Tool: submission.Tool,
-		State: factory.MCPReceiptRecorded, InputDigest: submission.PayloadHash,
-	}
-}
-
 // TestFactoryMCPSubmissionRecordsAuthorizingCapability proves the
 // R32.1 author binding against real PostgreSQL: the recorded row
 // durably names the authorizing capability, and the terminal readback
@@ -107,7 +100,7 @@ func TestFactoryMCPSubmissionRecordsAuthorizingCapability(t *testing.T) {
 	defer cancel()
 	capability := activateMCPCapability(t, ctx, db, testMCPCapabilityRow())
 	terminal := testMCPSubmissionRow(capability, factory.MCPToolFinishIncomplete, []byte(`{"outcome":"blocked","cause":"question","evidence_refs":[],"affected_task_ids":[],"requested_resolution":"Bound author."}`))
-	if _, err := db.RecordMCPSubmission(ctx, terminal, testMCPRecordedReceipt(terminal)); err != nil {
+	if _, err := db.RecordMCPSubmission(ctx, terminal); err != nil {
 		t.Fatalf("record terminal: %v", err)
 	}
 	readback, found, err := db.TerminalMCPSubmission(ctx, capability.AssignmentID)
@@ -149,21 +142,21 @@ func TestFactoryMCPSubmissionRefusesFinishedAssignment(t *testing.T) {
 	capability := activateMCPCapability(t, ctx, db, testMCPCapabilityRow())
 	seedAssignment(capability.AssignmentID, string(factory.AssignmentFinished))
 	late := testMCPSubmissionRow(capability, factory.MCPToolFlag, []byte(`{"title":"Late flag","summary":"Arrived after the finish.","severity":"critical"}`))
-	if _, err := db.RecordMCPSubmission(ctx, late, testMCPRecordedReceipt(late)); !errors.Is(err, ErrMCPSubmissionAssignmentFinished) {
+	if _, err := db.RecordMCPSubmission(ctx, late); !errors.Is(err, ErrMCPSubmissionAssignmentFinished) {
 		t.Fatalf("late submission recorded: %v", err)
 	}
 
 	live := activateMCPCapability(t, ctx, db, testMCPCapabilityRow())
 	seedAssignment(live.AssignmentID, string(factory.AssignmentAssigned))
 	early := testMCPSubmissionRow(live, factory.MCPToolFlag, []byte(`{"title":"Early flag","summary":"Recorded while assigned.","severity":"info"}`))
-	recorded, err := db.RecordMCPSubmission(ctx, early, testMCPRecordedReceipt(early))
+	recorded, err := db.RecordMCPSubmission(ctx, early)
 	if err != nil {
 		t.Fatalf("record before finish: %v", err)
 	}
 	if _, err := db.db.ExecContext(ctx, `UPDATE factory_assignments SET stage=$1 WHERE id=$2`, string(factory.AssignmentFinished), live.AssignmentID); err != nil {
 		t.Fatalf("finish assignment: %v", err)
 	}
-	again, err := db.RecordMCPSubmission(ctx, early, testMCPRecordedReceipt(early))
+	again, err := db.RecordMCPSubmission(ctx, early)
 	if err != nil {
 		t.Fatalf("replay refused after finish: %v", err)
 	}
@@ -231,11 +224,11 @@ func TestFactoryMCPTransactions(t *testing.T) {
 	// unchanged since activation.
 	payload := []byte(`{"outcome":"done"}`)
 	submission := testMCPSubmissionRow(got, factory.MCPToolFinishImplement, payload)
-	first, err := db.RecordMCPSubmission(ctx, submission, testMCPRecordedReceipt(submission))
+	first, err := db.RecordMCPSubmission(ctx, submission)
 	if err != nil {
 		t.Fatalf("record: %v", err)
 	}
-	replay, err := db.RecordMCPSubmission(ctx, submission, testMCPRecordedReceipt(submission))
+	replay, err := db.RecordMCPSubmission(ctx, submission)
 	if err != nil {
 		t.Fatalf("exact replay refused: %v", err)
 	}
@@ -245,7 +238,7 @@ func TestFactoryMCPTransactions(t *testing.T) {
 	changed := submission
 	changed.Payload = []byte(`{"outcome":"blocked"}`)
 	changed.PayloadHash = factory.MCPInputDigest(changed.Payload)
-	if _, err := db.RecordMCPSubmission(ctx, changed, testMCPRecordedReceipt(changed)); !errors.Is(err, ErrMCPSubmissionConflict) {
+	if _, err := db.RecordMCPSubmission(ctx, changed); !errors.Is(err, ErrMCPSubmissionConflict) {
 		t.Fatalf("changed bytes under recorded ID = %v, want conflict", err)
 	}
 	recovered, err := db.MCPReceipt(ctx, capability.AssignmentID, submission.SubmissionID)
@@ -265,13 +258,13 @@ func TestFactoryMCPTransactions(t *testing.T) {
 		t.Fatalf("terminal proposal = %v, frozen = %v, err = %v", terminal, frozen, err)
 	}
 	second := testMCPSubmissionRow(got, factory.MCPToolFinishCorrection, payload)
-	if _, err := db.RecordMCPSubmission(ctx, second, testMCPRecordedReceipt(second)); err == nil {
+	if _, err := db.RecordMCPSubmission(ctx, second); err == nil {
 		t.Fatal("second terminal identity recorded")
 	}
 	// Post-terminal nonterminal identities refuse atomically: the
 	// assignment is settled.
 	late := testMCPSubmissionRow(got, factory.MCPToolSubmitTaskOutput, []byte(`{"task_id":"t1"}`))
-	if _, err := db.RecordMCPSubmission(ctx, late, testMCPRecordedReceipt(late)); err == nil {
+	if _, err := db.RecordMCPSubmission(ctx, late); err == nil {
 		t.Fatal("post-terminal output recorded")
 	}
 	// Revoke then retire transitions.
@@ -329,7 +322,7 @@ func TestFactoryMCPSubmissionConcurrentFreeze(t *testing.T) {
 		active := activateMCPCapability(t, ctx, db, testMCPCapabilityRow())
 		return active, func(tool factory.MCPTool, payload []byte) (factory.MCPReceipt, error) {
 			submission := testMCPSubmissionRow(active, tool, payload)
-			return db.RecordMCPSubmission(ctx, submission, testMCPRecordedReceipt(submission))
+			return db.RecordMCPSubmission(ctx, submission)
 		}
 	}
 
@@ -441,7 +434,7 @@ func TestFactoryMCPSubmissionConcurrentFreeze(t *testing.T) {
 				<-start
 				submission := testMCPSubmissionRow(active, factory.MCPToolSubmitTaskOutput,
 					[]byte(fmt.Sprintf(`{"task_id":"t-%d"}`, i)))
-				_, errs[i] = db.RecordMCPSubmission(ctx, submission, testMCPRecordedReceipt(submission))
+				_, errs[i] = db.RecordMCPSubmission(ctx, submission)
 			}(i)
 		}
 		var revokeErr error
@@ -522,7 +515,7 @@ func TestFactoryMCPSubmissionExpiryAtInsert(t *testing.T) {
 		active := shortLived(t, ctx, 2*time.Second)
 		submission := testMCPSubmissionRow(active, factory.MCPToolSubmitTaskOutput, []byte(`{"task_id":"t-1"}`))
 		sleepPastExpiry(active.DeadlineUnix)
-		if _, err := db.RecordMCPSubmission(ctx, submission, testMCPRecordedReceipt(submission)); !errors.Is(err, ErrMCPSubmissionCapabilityExpired) {
+		if _, err := db.RecordMCPSubmission(ctx, submission); !errors.Is(err, ErrMCPSubmissionCapabilityExpired) {
 			t.Fatalf("post-expiry insert = %v, want capability-expired refusal", err)
 		}
 		if count, err := db.MCPSubmissionCount(ctx, active.AssignmentID); err != nil || count != 0 {
@@ -559,7 +552,7 @@ func TestFactoryMCPSubmissionExpiryAtInsert(t *testing.T) {
 		}
 		done := make(chan outcome, 1)
 		go func() {
-			receipt, err := db.RecordMCPSubmission(ctx, submission, testMCPRecordedReceipt(submission))
+			receipt, err := db.RecordMCPSubmission(ctx, submission)
 			done <- outcome{receipt, err}
 		}()
 		blocked := false
@@ -603,13 +596,13 @@ func TestFactoryMCPSubmissionExpiryAtInsert(t *testing.T) {
 		defer cancel()
 		active := shortLived(t, ctx, 2*time.Second)
 		early := testMCPSubmissionRow(active, factory.MCPToolSubmitTaskOutput, []byte(`{"task_id":"t-early"}`))
-		first, err := db.RecordMCPSubmission(ctx, early, testMCPRecordedReceipt(early))
+		first, err := db.RecordMCPSubmission(ctx, early)
 		if err != nil {
 			t.Fatalf("pre-expiry record: %v", err)
 		}
 		sleepPastExpiry(active.DeadlineUnix)
 		late := testMCPSubmissionRow(active, factory.MCPToolSubmitTaskOutput, []byte(`{"task_id":"t-late"}`))
-		if _, err := db.RecordMCPSubmission(ctx, late, testMCPRecordedReceipt(late)); !errors.Is(err, ErrMCPSubmissionCapabilityExpired) {
+		if _, err := db.RecordMCPSubmission(ctx, late); !errors.Is(err, ErrMCPSubmissionCapabilityExpired) {
 			t.Fatalf("post-expiry insert = %v, want capability-expired refusal", err)
 		}
 		if count, err := db.MCPSubmissionCount(ctx, active.AssignmentID); err != nil || count != 1 {
@@ -632,7 +625,7 @@ func TestFactoryMCPSubmissionExpiryAtInsert(t *testing.T) {
 		defer cancel()
 		old := activateMCPCapability(t, ctx, db, testMCPCapabilityRow())
 		recorded := testMCPSubmissionRow(old, factory.MCPToolSubmitTaskOutput, []byte(`{"task_id":"t-1"}`))
-		first, err := db.RecordMCPSubmission(ctx, recorded, testMCPRecordedReceipt(recorded))
+		first, err := db.RecordMCPSubmission(ctx, recorded)
 		if err != nil {
 			t.Fatalf("pre-rotation record: %v", err)
 		}
@@ -644,14 +637,14 @@ func TestFactoryMCPSubmissionExpiryAtInsert(t *testing.T) {
 		rotated.Authority = strings.Repeat("b", 64)
 		live := activateMCPCapability(t, ctx, db, rotated)
 		stale := testMCPSubmissionRow(old, factory.MCPToolSubmitTaskOutput, []byte(`{"task_id":"t-2"}`))
-		if _, err := db.RecordMCPSubmission(ctx, stale, testMCPRecordedReceipt(stale)); !errors.Is(err, ErrMCPSubmissionCapabilityInactive) {
+		if _, err := db.RecordMCPSubmission(ctx, stale); !errors.Is(err, ErrMCPSubmissionCapabilityInactive) {
 			t.Fatalf("rotated-away insert = %v, want capability-inactive refusal", err)
 		}
 		if count, err := db.MCPSubmissionCount(ctx, old.AssignmentID); err != nil || count != 1 {
 			t.Fatalf("submission count = %d, err = %v, want the one pre-rotation row", count, err)
 		}
 		fresh := testMCPSubmissionRow(live, factory.MCPToolSubmitTaskOutput, []byte(`{"task_id":"t-3"}`))
-		if _, err := db.RecordMCPSubmission(ctx, fresh, testMCPRecordedReceipt(fresh)); err != nil {
+		if _, err := db.RecordMCPSubmission(ctx, fresh); err != nil {
 			t.Fatalf("new-authority record refused: %v", err)
 		}
 		recovered, err := db.MCPReceipt(ctx, old.AssignmentID, recorded.SubmissionID)
@@ -673,7 +666,7 @@ func TestFactoryMCPSubmissionExpiryAtInsert(t *testing.T) {
 		if err := db.RevokeMCPCapability(ctx, active.ID); err != nil {
 			t.Fatalf("stop revocation: %v", err)
 		}
-		if _, err := db.RecordMCPSubmission(ctx, submission, testMCPRecordedReceipt(submission)); !errors.Is(err, ErrMCPSubmissionCapabilityInactive) {
+		if _, err := db.RecordMCPSubmission(ctx, submission); !errors.Is(err, ErrMCPSubmissionCapabilityInactive) {
 			t.Fatalf("post-stop insert = %v, want capability-inactive refusal", err)
 		}
 		if count, err := db.MCPSubmissionCount(ctx, active.AssignmentID); err != nil || count != 0 {
@@ -706,7 +699,7 @@ func TestTerminalMCPSubmissionRead(t *testing.T) {
 	}
 	active := activateMCPCapability(t, ctx, db, testMCPCapabilityRow())
 	traffic := testMCPSubmissionRow(active, factory.MCPToolSubmitTaskOutput, []byte(`{"task_id":"t-1"}`))
-	if _, err := db.RecordMCPSubmission(ctx, traffic, testMCPRecordedReceipt(traffic)); err != nil {
+	if _, err := db.RecordMCPSubmission(ctx, traffic); err != nil {
 		t.Fatalf("record task output: %v", err)
 	}
 	if _, ok, err := db.TerminalMCPSubmission(ctx, active.AssignmentID); err != nil || ok {
@@ -714,7 +707,7 @@ func TestTerminalMCPSubmissionRead(t *testing.T) {
 	}
 	payload := []byte(`{"task_id":"t-1","manifest_digest":"` + strings.Repeat("b", 64) + `","output_digest":"` + strings.Repeat("c", 64) + `","evidence_refs":"r"}`)
 	terminal := testMCPSubmissionRow(active, factory.MCPToolFinishImplement, payload)
-	if _, err := db.RecordMCPSubmission(ctx, terminal, testMCPRecordedReceipt(terminal)); err != nil {
+	if _, err := db.RecordMCPSubmission(ctx, terminal); err != nil {
 		t.Fatalf("record terminal: %v", err)
 	}
 	got, ok, err := db.TerminalMCPSubmission(ctx, active.AssignmentID)
@@ -744,7 +737,7 @@ func TestEvidenceStatusReceiptReadsExplicitWithoutSideEffects(t *testing.T) {
 	post := func(tool factory.MCPTool, payload string) factory.MCPReceipt {
 		t.Helper()
 		submission := testMCPSubmissionRow(capability, tool, []byte(payload))
-		receipt, err := db.RecordMCPSubmission(ctx, submission, testMCPRecordedReceipt(submission))
+		receipt, err := db.RecordMCPSubmission(ctx, submission)
 		if err != nil {
 			t.Fatalf("%s: %v", tool, err)
 		}

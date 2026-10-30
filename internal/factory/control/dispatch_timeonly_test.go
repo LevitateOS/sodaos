@@ -736,7 +736,7 @@ func TestCompletionDriveLaunchesSingleReassessmentPG(t *testing.T) {
 	diagnosis := factory.RepairDiagnosis{Subject: cap.Subject, InputDigest: cap.ScopeDigest(), SourceCommit: current.Local.SourceCommit, InventoryDigest: current.InventoryDigest, Title: "Completed inventory remains coherent", Summary: "No graph change is justified by the current completion evidence.", State: "supported", Causes: []factory.CheckFailure{{CheckRef: "completion_inventory", Detail: "The complete sealed inventory remains accounted for."}}, EvidenceRefs: []string{current.InventoryDigest}, Alternatives: []string{}, Uncertainty: []string{}}
 	encoded, _ = json.Marshal(diagnosis)
 	submission := testMCPSubmission(cap, factory.MCPToolRecordDiagnosis, factory.NewID(), encoded)
-	receipt, err := db.RecordMCPSubmission(ctx, submission, factory.MCPReceipt{SubmissionID: submission.SubmissionID, Tool: submission.Tool, State: factory.MCPReceiptRecorded, InputDigest: submission.PayloadHash})
+	receipt, err := db.RecordMCPSubmission(ctx, submission)
 	if err != nil || receipt.FeedPostID == "" {
 		t.Fatal("completion diagnosis lacked atomic receipt/feed", err)
 	}
@@ -752,7 +752,7 @@ func TestCompletionDriveLaunchesSingleReassessmentPG(t *testing.T) {
 	reportJSON, _ := json.Marshal(proposal)
 	draftJSON, _ := json.Marshal(factory.RepairDraft{Report: reportJSON, DiagnosisRefs: []string{"diagnosis:" + submission.SubmissionID}})
 	draft := testMCPSubmission(cap, factory.MCPToolDraftRepair, factory.NewID(), draftJSON)
-	if receipt, err := db.RecordMCPSubmission(ctx, draft, factory.MCPReceipt{SubmissionID: draft.SubmissionID, Tool: draft.Tool, State: factory.MCPReceiptRecorded, InputDigest: draft.PayloadHash}); err != nil || receipt.FeedPostID == "" {
+	if receipt, err := db.RecordMCPSubmission(ctx, draft); err != nil || receipt.FeedPostID == "" {
 		t.Fatal("completion no-change draft was not durable", err)
 	}
 	scope, err = db.ReassessmentScope(ctx, cap, 0)
@@ -1184,7 +1184,7 @@ func TestDispatchIntentPlanConnectsHeadToBoundResult(t *testing.T) {
 			t.Fatal(err)
 		}
 		submission := testMCPSubmission(capability, factory.MCPToolFinishIncomplete, factory.NewID(), []byte(`{"outcome":"blocked","cause":"Planning evidence is incomplete."}`))
-		if _, err := serving.RecordMCPSubmission(ctx, submission, factory.MCPReceipt{SubmissionID: submission.SubmissionID, Tool: submission.Tool, State: factory.MCPReceiptRecorded, InputDigest: submission.PayloadHash}); err != nil {
+		if _, err := serving.RecordMCPSubmission(ctx, submission); err != nil {
 			t.Fatal(err)
 		}
 		if settled, err := SettleMCPTerminalProposal(ctx, serving, capability.AssignmentID, time.Now()); err != nil || !settled {

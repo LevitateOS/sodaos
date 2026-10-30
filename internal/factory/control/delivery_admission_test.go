@@ -541,7 +541,7 @@ func TestDeliveredIntentAdmitsScopedTestPilotOnce(t *testing.T) {
 					id := factory.NewID()
 					raw, _ := json.Marshal(o)
 					sub := testMCPSubmission(verificationCapability, factory.MCPToolRecordJourneyResult, id, raw)
-					if _, err := db.RecordMCPSubmission(ctx, sub, factory.MCPReceipt{SubmissionID: id, Tool: sub.Tool, State: factory.MCPReceiptRecorded, InputDigest: sub.PayloadHash}); err != nil {
+					if _, err := db.RecordMCPSubmission(ctx, sub); err != nil {
 						t.Fatal("record verification journey", err)
 					}
 					if observationResult == "passed" {
@@ -572,7 +572,7 @@ func TestDeliveredIntentAdmitsScopedTestPilotOnce(t *testing.T) {
 					}
 				} else {
 					submission := testMCPSubmission(capability, factory.MCPToolFinishIncomplete, factory.NewID(), []byte(`{"outcome":"blocked","cause":"Application evidence is incomplete."}`))
-					if _, err := db.RecordMCPSubmission(ctx, submission, factory.MCPReceipt{SubmissionID: submission.SubmissionID, Tool: submission.Tool, State: factory.MCPReceiptRecorded, InputDigest: submission.PayloadHash}); err != nil {
+					if _, err := db.RecordMCPSubmission(ctx, submission); err != nil {
 						t.Fatal(err)
 					}
 					if settled, err := SettleMCPTerminalProposal(ctx, db, a.ID, time.Now()); err != nil || !settled {
@@ -772,7 +772,7 @@ func TestDeliveredIntentAdmitsScopedTestPilotOnce(t *testing.T) {
 					t.Fatal(err)
 				}
 				submission := testMCPSubmission(capability, factory.MCPToolFinishIncomplete, factory.NewID(), []byte(`{"outcome":"blocked","cause":"Second verification remains incomplete."}`))
-				if _, err := db.RecordMCPSubmission(ctx, submission, factory.MCPReceipt{SubmissionID: submission.SubmissionID, Tool: submission.Tool, State: factory.MCPReceiptRecorded, InputDigest: submission.PayloadHash}); err != nil {
+				if _, err := db.RecordMCPSubmission(ctx, submission); err != nil {
 					t.Fatal(err)
 				}
 				if settled, err := SettleMCPTerminalProposal(ctx, db, successor.ID, time.Now()); err != nil || !settled {
@@ -951,13 +951,13 @@ func TestDeliveredIntentAdmitsScopedTestPilotOnce(t *testing.T) {
 					bad.EvidenceRefs = []string{ref}
 					raw, _ := json.Marshal(bad)
 					sub := testMCPSubmission(verificationCapability, factory.MCPToolFinishAppVerify, factory.NewID(), raw)
-					if _, err := db.RecordMCPSubmission(ctx, sub, factory.MCPReceipt{SubmissionID: sub.SubmissionID, Tool: sub.Tool, State: factory.MCPReceiptRecorded, InputDigest: sub.PayloadHash}); err == nil {
+					if _, err := db.RecordMCPSubmission(ctx, sub); err == nil {
 						t.Fatal("invalid journey evidence froze verification finish", ref)
 					}
 				}
 				raw, _ := json.Marshal(verification)
 				sub := testMCPSubmission(verificationCapability, factory.MCPToolFinishAppVerify, factory.NewID(), raw)
-				if _, err := db.RecordMCPSubmission(ctx, sub, factory.MCPReceipt{SubmissionID: sub.SubmissionID, Tool: sub.Tool, State: factory.MCPReceiptRecorded, InputDigest: sub.PayloadHash}); err != nil {
+				if _, err := db.RecordMCPSubmission(ctx, sub); err != nil {
 					t.Fatal("bound journey finish admission", err)
 				}
 				if settled, err := SettleMCPTerminalProposal(ctx, db, a.ID, time.Now()); err != nil || !settled {

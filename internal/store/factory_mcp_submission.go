@@ -92,8 +92,8 @@ var (
 	ErrMCPSubmissionAssignmentFinished = errors.New("assignment already finished")
 )
 
-// RecordMCPSubmission persists one admitted submission with its
-// recorded receipt. Exact replay returns the existing receipt;
+// RecordMCPSubmission persists one admitted submission and derives its initial
+// recorded state from that submission. Exact replay returns the existing result;
 // changed bytes under the same ID conflict; a new identity after a
 // recorded terminal refuses, except the same terminal content under
 // another ID, which returns the existing terminal receipt without
@@ -112,11 +112,11 @@ var (
 // exact-ID replay: replay of new authority is an insert, and
 // recorded history is recovered through the separate MCPReceipt
 // read, never through this path.
-func (s *Store) RecordMCPSubmission(ctx context.Context, submission factory.MCPSubmission, receipt factory.MCPReceipt) (factory.MCPReceipt, error) {
-	raw, err := admitMCPSubmission(submission, receipt)
-	if err != nil {
+func (s *Store) RecordMCPSubmission(ctx context.Context, submission factory.MCPSubmission) (factory.MCPReceipt, error) {
+	if err := submission.Validate(); err != nil {
 		return factory.MCPReceipt{}, err
 	}
+	receipt := factory.MCPReceipt{SubmissionID: submission.SubmissionID, Tool: submission.Tool, State: factory.MCPReceiptRecorded, InputDigest: submission.PayloadHash}
 	tx, err := s.db.BeginTx(ctx, nil)
 	if err != nil {
 		return factory.MCPReceipt{}, err
@@ -177,7 +177,7 @@ func (s *Store) RecordMCPSubmission(ctx context.Context, submission factory.MCPS
 	if err = recordMCPCommunicationTx(ctx, tx, capability, submission, &receipt); err != nil {
 		return factory.MCPReceipt{}, err
 	}
-	raw, err = json.Marshal(receipt)
+	raw, err := json.Marshal(receipt)
 	if err != nil {
 		return factory.MCPReceipt{}, err
 	}
@@ -188,22 +188,6 @@ func (s *Store) RecordMCPSubmission(ctx context.Context, submission factory.MCPS
 		return factory.MCPReceipt{}, err
 	}
 	return receipt, tx.Commit()
-}
-
-// admitMCPSubmission validates one submission against its receipt,
-// returning the encoded receipt.
-func admitMCPSubmission(submission factory.MCPSubmission, receipt factory.MCPReceipt) ([]byte, error) {
-	if err := submission.Validate(); err != nil {
-		return nil, err
-	}
-	if err := receipt.Validate(); err != nil {
-		return nil, err
-	}
-	if receipt.SubmissionID != submission.SubmissionID || receipt.Tool != submission.Tool ||
-		receipt.InputDigest != submission.PayloadHash {
-		return nil, errors.New("receipt does not match its submission")
-	}
-	return json.Marshal(receipt)
 }
 
 // lockMCPCapabilityTx locks the authentic capability behind one

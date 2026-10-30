@@ -437,7 +437,7 @@ func TestApplicationVerificationRequiresApprovedNativeCheck(t *testing.T) {
 	legacyJourneyID := factory.NewID()
 	rawJourney, _ := json.Marshal(legacyJourney)
 	legacyJourneySub := testMCPSubmission(legacyCap, factory.MCPToolRecordJourneyResult, legacyJourneyID, rawJourney)
-	if _, err := db.RecordMCPSubmission(ctx, legacyJourneySub, factory.MCPReceipt{SubmissionID: legacyJourneyID, Tool: legacyJourneySub.Tool, State: factory.MCPReceiptRecorded, InputDigest: legacyJourneySub.PayloadHash}); err != nil {
+	if _, err := db.RecordMCPSubmission(ctx, legacyJourneySub); err != nil {
 		t.Fatal("legacy journey observation refused", err)
 	}
 	// Terminal finish-reference validation refuses bad references while the
@@ -456,7 +456,7 @@ func TestApplicationVerificationRequiresApprovedNativeCheck(t *testing.T) {
 		bad.EvidenceRefs = []string{ref}
 		rawBad, _ := json.Marshal(bad)
 		badSub := testMCPSubmission(legacyCap, factory.MCPToolFinishAppVerify, factory.NewID(), rawBad)
-		if _, err := db.RecordMCPSubmission(ctx, badSub, factory.MCPReceipt{SubmissionID: badSub.SubmissionID, Tool: badSub.Tool, State: factory.MCPReceiptRecorded, InputDigest: badSub.PayloadHash}); err == nil {
+		if _, err := db.RecordMCPSubmission(ctx, badSub); err == nil {
 			t.Fatalf("terminal finish admitted %s", name)
 		}
 	}

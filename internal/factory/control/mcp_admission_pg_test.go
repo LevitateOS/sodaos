@@ -56,11 +56,7 @@ func TestAdmitMCPSubmissionReplayEndToEnd(t *testing.T) {
 	}
 	persist := func(submission factory.MCPSubmission) factory.MCPReceipt {
 		t.Helper()
-		receipt := factory.MCPReceipt{
-			SubmissionID: submission.SubmissionID, Tool: submission.Tool,
-			State: factory.MCPReceiptRecorded, InputDigest: submission.PayloadHash,
-		}
-		recorded, err := s.RecordMCPSubmission(ctx, submission, receipt)
+		recorded, err := s.RecordMCPSubmission(ctx, submission)
 		if err != nil {
 			t.Fatalf("record %s: %v", submission.SubmissionID, err)
 		}
@@ -112,11 +108,7 @@ func TestAdmitMCPSubmissionReplayEndToEnd(t *testing.T) {
 	if err := admit(rival); !errors.Is(err, ErrMCPSubmissionFrozen) {
 		t.Fatalf("rival admission = %v, want frozen refusal", err)
 	}
-	rivalReceipt := factory.MCPReceipt{
-		SubmissionID: rival.SubmissionID, Tool: rival.Tool,
-		State: factory.MCPReceiptRecorded, InputDigest: rival.PayloadHash,
-	}
-	if _, err := s.RecordMCPSubmission(ctx, rival, rivalReceipt); !errors.Is(err, store.ErrMCPSubmissionFrozen) {
+	if _, err := s.RecordMCPSubmission(ctx, rival); !errors.Is(err, store.ErrMCPSubmissionFrozen) {
 		t.Fatalf("rival persistence = %v, want frozen refusal", err)
 	}
 	// Post-freeze nonterminal new identities refuse at admission.
@@ -152,11 +144,7 @@ func TestAdmitMCPSubmissionReplayEndToEnd(t *testing.T) {
 	if err := s.RevokeMCPCapability(ctx, live.ID); err != nil {
 		t.Fatalf("revoke: %v", err)
 	}
-	pausedReceipt := factory.MCPReceipt{
-		SubmissionID: paused.SubmissionID, Tool: paused.Tool,
-		State: factory.MCPReceiptRecorded, InputDigest: paused.PayloadHash,
-	}
-	if _, err := s.RecordMCPSubmission(ctx, paused, pausedReceipt); !errors.Is(err, store.ErrMCPSubmissionCapabilityInactive) {
+	if _, err := s.RecordMCPSubmission(ctx, paused); !errors.Is(err, store.ErrMCPSubmissionCapabilityInactive) {
 		t.Fatalf("post-revoke persistence = %v, want capability-inactive refusal", err)
 	}
 	if count, err := s.MCPSubmissionCount(ctx, live.AssignmentID); err != nil || count != 0 {
@@ -215,11 +203,7 @@ func TestAdmitMCPSubmissionExpiryEndToEnd(t *testing.T) {
 	}
 	// One receipt records before expiry so the post-expiry read
 	// leg has history to recover.
-	earlyReceipt := factory.MCPReceipt{
-		SubmissionID: early.SubmissionID, Tool: early.Tool,
-		State: factory.MCPReceiptRecorded, InputDigest: early.PayloadHash,
-	}
-	first, err := s.RecordMCPSubmission(ctx, early, earlyReceipt)
+	first, err := s.RecordMCPSubmission(ctx, early)
 	if err != nil {
 		t.Fatalf("pre-expiry record: %v", err)
 	}
@@ -233,11 +217,7 @@ func TestAdmitMCPSubmissionExpiryEndToEnd(t *testing.T) {
 	if err := AdmitMCPCapability(capability, factory.MCPToolSubmitTaskOutput, time.Now(), observed); !errors.Is(err, ErrMCPCapabilityExpired) {
 		t.Fatalf("post-expiry capability admission = %v, want expired refusal", err)
 	}
-	queuedReceipt := factory.MCPReceipt{
-		SubmissionID: queued.SubmissionID, Tool: queued.Tool,
-		State: factory.MCPReceiptRecorded, InputDigest: queued.PayloadHash,
-	}
-	if _, err := s.RecordMCPSubmission(ctx, queued, queuedReceipt); !errors.Is(err, store.ErrMCPSubmissionCapabilityExpired) {
+	if _, err := s.RecordMCPSubmission(ctx, queued); !errors.Is(err, store.ErrMCPSubmissionCapabilityExpired) {
 		t.Fatalf("post-expiry persistence = %v, want capability-expired refusal", err)
 	}
 	if count, err := s.MCPSubmissionCount(ctx, capability.AssignmentID); err != nil || count != 1 {

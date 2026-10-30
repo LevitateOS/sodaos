@@ -82,7 +82,7 @@ func TestSettleCorrectionTerminalPGDrive(t *testing.T) {
 			payload, _ = json.Marshal(map[string]any{"candidate": candidate})
 		}
 		submission := testMCPSubmission(capability, factory.MCPToolFinishCorrection, factory.NewID(), payload)
-		if _, err := db.RecordMCPSubmission(ctx, submission, factory.MCPReceipt{SubmissionID: submission.SubmissionID, Tool: submission.Tool, State: factory.MCPReceiptRecorded, InputDigest: submission.PayloadHash}); err != nil {
+		if _, err := db.RecordMCPSubmission(ctx, submission); err != nil {
 			t.Fatal(err)
 		}
 		// Native completion may arrive before the periodic MCP drive. Its
@@ -180,11 +180,7 @@ func TestSettleMCPTerminalsPGDrive(t *testing.T) {
 		t.Fatal(err)
 	}
 	submission := testMCPSubmission(capability, factory.MCPToolFinishReview, factory.NewID(), payload)
-	receipt := factory.MCPReceipt{
-		SubmissionID: submission.SubmissionID, Tool: submission.Tool,
-		State: factory.MCPReceiptRecorded, InputDigest: submission.PayloadHash,
-	}
-	if _, err := db.RecordMCPSubmission(ctx, submission, receipt); err != nil {
+	if _, err := db.RecordMCPSubmission(ctx, submission); err != nil {
 		t.Fatalf("record terminal: %v", err)
 	}
 
@@ -259,11 +255,7 @@ func TestSettleVerifyRepairWrongSubjectFencedPGDrive(t *testing.T) {
 			t.Fatal(err)
 		}
 		submission := testMCPSubmission(capability, tool, factory.NewID(), encoded)
-		receipt := factory.MCPReceipt{
-			SubmissionID: submission.SubmissionID, Tool: submission.Tool,
-			State: factory.MCPReceiptRecorded, InputDigest: submission.PayloadHash,
-		}
-		if _, err := db.RecordMCPSubmission(ctx, submission, receipt); err != nil {
+		if _, err := db.RecordMCPSubmission(ctx, submission); err != nil {
 			t.Fatalf("record terminal: %v", err)
 		}
 		return a, submission
@@ -354,7 +346,7 @@ func TestSettleVerifyRepairWrongSubjectFencedPGDrive(t *testing.T) {
 		}
 		payload, _ := json.Marshal(map[string]any{"subject": "stall:" + report.StallID, "report": report})
 		submission := testMCPSubmission(capability, factory.MCPToolFinishReassessment, factory.NewID(), payload)
-		if _, err := db.RecordMCPSubmission(ctx, submission, factory.MCPReceipt{SubmissionID: submission.SubmissionID, Tool: submission.Tool, State: factory.MCPReceiptRecorded, InputDigest: submission.PayloadHash}); err != nil {
+		if _, err := db.RecordMCPSubmission(ctx, submission); err != nil {
 			t.Fatal(err)
 		}
 		run := phaseTestRun(a, factory.Succeeded)
@@ -465,10 +457,7 @@ func TestSettleVerifyArtifactRefsResolvedPGDrive(t *testing.T) {
 			t.Fatal(err)
 		}
 		submission := testMCPSubmission(capability, factory.MCPToolPublishArtifact, factory.NewID(), raw)
-		receipt, err := db.RecordMCPSubmission(ctx, submission, factory.MCPReceipt{
-			SubmissionID: submission.SubmissionID, Tool: submission.Tool,
-			State: factory.MCPReceiptRecorded, InputDigest: submission.PayloadHash,
-		})
+		receipt, err := db.RecordMCPSubmission(ctx, submission)
 		if err != nil {
 			t.Fatalf("upload: %v", err)
 		}
@@ -492,10 +481,7 @@ func TestSettleVerifyArtifactRefsResolvedPGDrive(t *testing.T) {
 			t.Fatal(err)
 		}
 		submission := testMCPSubmission(capability, factory.MCPToolFinishAppVerify, factory.NewID(), raw)
-		if _, err := db.RecordMCPSubmission(ctx, submission, factory.MCPReceipt{
-			SubmissionID: submission.SubmissionID, Tool: submission.Tool,
-			State: factory.MCPReceiptRecorded, InputDigest: submission.PayloadHash,
-		}); err != nil {
+		if _, err := db.RecordMCPSubmission(ctx, submission); err != nil {
 			t.Fatalf("record verify finish: %v", err)
 		}
 		return submission
@@ -857,10 +843,7 @@ func TestSettleProductPlanFinishArgsPGDrive(t *testing.T) {
 			t.Fatal(err)
 		}
 		submission := testMCPSubmission(capability, factory.MCPToolFinishProductPlan, factory.NewID(), payload)
-		if _, err := db.RecordMCPSubmission(ctx, submission, factory.MCPReceipt{
-			SubmissionID: submission.SubmissionID, Tool: submission.Tool,
-			State: factory.MCPReceiptRecorded, InputDigest: submission.PayloadHash,
-		}); err != nil {
+		if _, err := db.RecordMCPSubmission(ctx, submission); err != nil {
 			t.Fatalf("record terminal: %v", err)
 		}
 		return a, submission
@@ -980,11 +963,7 @@ func seedStallTerminalPGDrive(t *testing.T, ctx context.Context, db *store.Store
 		t.Fatal(err)
 	}
 	submission := testMCPSubmission(capability, factory.MCPToolFinishReassessment, factory.NewID(), payload)
-	receipt := factory.MCPReceipt{
-		SubmissionID: submission.SubmissionID, Tool: submission.Tool,
-		State: factory.MCPReceiptRecorded, InputDigest: submission.PayloadHash,
-	}
-	if _, err := db.RecordMCPSubmission(ctx, submission, receipt); err != nil {
+	if _, err := db.RecordMCPSubmission(ctx, submission); err != nil {
 		t.Fatalf("record terminal: %v", err)
 	}
 	return a, submission

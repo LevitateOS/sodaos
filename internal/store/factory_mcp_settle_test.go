@@ -28,7 +28,7 @@ func TestRecordedTerminalMCPAssignments(t *testing.T) {
 	}
 	active := activateMCPCapability(t, ctx, db, testMCPCapabilityRow())
 	traffic := testMCPSubmissionRow(active, factory.MCPToolSubmitTaskOutput, []byte(`{"task_id":"t-1"}`))
-	if _, err := db.RecordMCPSubmission(ctx, traffic, testMCPRecordedReceipt(traffic)); err != nil {
+	if _, err := db.RecordMCPSubmission(ctx, traffic); err != nil {
 		t.Fatalf("record task output: %v", err)
 	}
 	ids, err := db.RecordedTerminalMCPAssignments(ctx, 10)
@@ -40,7 +40,7 @@ func TestRecordedTerminalMCPAssignments(t *testing.T) {
 	}
 	payload := []byte(`{"candidate":"` + strings.Repeat("a", 40) + `"}`)
 	terminal := testMCPSubmissionRow(active, factory.MCPToolFinishImplement, payload)
-	if _, err := db.RecordMCPSubmission(ctx, terminal, testMCPRecordedReceipt(terminal)); err != nil {
+	if _, err := db.RecordMCPSubmission(ctx, terminal); err != nil {
 		t.Fatalf("record terminal: %v", err)
 	}
 	ids, err = db.RecordedTerminalMCPAssignments(ctx, 10)
