@@ -331,7 +331,7 @@ results are available through the work posts and discussion. Ordinary worker
 communications write directly to posts and return the post representation.
 Their post idempotency key handles repeated calls; they do not write a second
 `factory_mcp_submissions` row, store payload hashes or consult receipt-based
-terminal freezes. Reply authorization, communication limits and atomic library
+terminal freezes. Reply authorization, message-size bounds and atomic library
 updates use the posts themselves. Issue Maker creates
 and refines issues through the native writer and returns the issue and post
 identities directly, without a second MCP submission record. Checkpoint progress
@@ -901,9 +901,10 @@ consumer status and next permitted action
 
 The server derives role, run, assignment, source scope and authority. The worker
 supplies only the permitted typed content, evidence references, submission
-identity and expected input/object revision. Retain D14 idempotency, byte/count
-limits, revocation and reserved terminal capacity; define finite per-assignment
-bounds for drafts, discussion contributions, knowledge mutations and artifacts.
+identity and expected input/object revision. Retain D14 idempotency, request
+byte/count bounds and revocation. Ordinary communication posts have no
+per-assignment quota and do not consume finish capacity. Task, draft and artifact
+bounds belong to their owning operations.
 
 | Object | Useful lifecycle | Who controls the consequential transition |
 | --- | --- | --- |
@@ -1389,7 +1390,8 @@ the design misleading:
 - Product Lead initial issues and Strategist maintenance use existing graph
   adoption; Library Admin cannot edit the backlog or manufacture completion.
 - Read operations perform no spending, durable mutation or execution. Actual
-  mutations retain bounded counts/history and reserved terminal capacity.
+  mutations retain their operation-specific bounds and history. Communication
+  posts do not consume finish capacity.
 - Feed, native workflow and library refer to the same canonical facts. A missing
   projection can be repaired without replaying the original external effect.
 - People can understand the result, inspect its evidence, answer a question and

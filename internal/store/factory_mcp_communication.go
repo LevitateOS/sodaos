@@ -11,8 +11,6 @@ import (
 	"github.com/levitateos/sodaos/internal/factory"
 )
 
-var ErrMCPCommunicationCap = errors.New("assignment communication bound reached; finish remains available")
-
 // RecordWorkerPost records a worker message and its library effects directly
 // in the post transaction. The post's normal idempotency key owns repeat calls;
 // there is no second submission record or receipt to recover.
@@ -73,13 +71,6 @@ func (s *Store) RecordWorkerPost(ctx context.Context, submission factory.MCPSubm
 		content, err := factory.DecodeMCPCommunication(submission.Tool, submission.Payload)
 		if err != nil {
 			return out, err
-		}
-		var count int
-		if err = tx.QueryRowContext(ctx, `SELECT count(*) FROM factory_feed_posts WHERE data->>'assignment'=$1 AND ('factory.' || (data->'communication'->>'kind')) = ANY($2)`, submission.AssignmentID, communicationToolNames()).Scan(&count); err != nil {
-			return out, err
-		}
-		if count >= factory.MCPMaxCommunications {
-			return out, ErrMCPCommunicationCap
 		}
 		if content.ParentID != "" {
 			var parentKind string
@@ -163,14 +154,6 @@ func recordWorkerPostTx(ctx context.Context, tx *sql.Tx, capability factory.MCPC
 		return postID, contributionReplyTx(ctx, tx, capability, content.ParentID, postID)
 	}
 	return postID, nil
-}
-
-func communicationToolNames() []string {
-	names := make([]string, 0, len(factory.MCPCommunicationTools))
-	for _, tool := range factory.MCPCommunicationTools {
-		names = append(names, string(tool))
-	}
-	return names
 }
 
 func applyFeedCommunicationDetail(detail *FeedPostDetail, raw []byte) error {

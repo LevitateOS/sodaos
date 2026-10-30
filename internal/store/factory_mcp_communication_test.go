@@ -281,20 +281,16 @@ func TestMCPCommunicationPersistsFeedAndReplay(t *testing.T) {
 	}
 }
 
-func TestMCPCommunicationBoundPreservesFinish(t *testing.T) {
+func TestMCPCommunicationPostsDoNotConsumeFinishCapacity(t *testing.T) {
 	s, _ := postgresFixture(t)
 	ctx := context.Background()
 	cap := activateMCPCapability(t, ctx, s, testMCPCapabilityRow())
 	payload := []byte(`{"title":"Progress","summary":"Working on the assigned task.","remaining":["Finish the task"]}`)
-	for i := 0; i < factory.MCPMaxCommunications; i++ {
+	for i := 0; i < 130; i++ {
 		submission := testMCPSubmissionRow(cap, factory.MCPToolPartial, payload)
 		if _, err := s.RecordWorkerPost(ctx, submission); err != nil {
 			t.Fatal(err)
 		}
-	}
-	over := testMCPSubmissionRow(cap, factory.MCPToolPartial, payload)
-	if _, err := s.RecordWorkerPost(ctx, over); !errors.Is(err, ErrMCPCommunicationCap) {
-		t.Fatalf("communication bound=%v", err)
 	}
 	terminal := testMCPSubmissionRow(cap, factory.MCPToolFinishIncomplete, []byte(`{"outcome":"blocked","cause":"question","evidence_refs":[],"affected_task_ids":[],"requested_resolution":"Need owner input"}`))
 	if _, err := s.RecordMCPSubmission(ctx, terminal); err != nil {

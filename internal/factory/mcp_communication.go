@@ -9,12 +9,9 @@ import (
 	"unicode/utf8"
 )
 
-// Communications remain reports by their admitted worker. Persisting one does
-// not adopt a suggestion, verify evidence, finish work or mutate the library.
-const (
-	MCPMaxCommunications     = 128
-	MCPMaxCommunicationBytes = 8192
-)
+// Communications remain reports by their admitted worker. Library changes
+// commit through their owners in the same post transaction.
+const MCPMaxCommunicationBytes = 8192
 
 var MCPCommunicationTools = []MCPTool{MCPToolAsk, MCPToolAnswer, MCPToolReply, MCPToolFlag, MCPToolLearned, MCPToolSuggest, MCPToolPartial, MCPToolBlocked, MCPToolStuck, MCPToolRecordDecision}
 

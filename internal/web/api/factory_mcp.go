@@ -37,7 +37,6 @@ type FactoryMCPCapabilitySource interface {
 type FactoryMCPSubmissionSink interface {
 	TerminalMCPProposal(context.Context, string) (factory.MCPWorkStatus, bool, error)
 	RecordMCPSubmission(ctx context.Context, submission factory.MCPSubmission) (factory.MCPWorkStatus, error)
-	MCPSubmissionCount(ctx context.Context, assignmentID string) (int, error)
 }
 
 // FactoryMCPAssignmentSource loads the recorded assignment behind a
@@ -623,14 +622,13 @@ type readContext struct {
 	release      func()
 	terminal     factory.MCPWorkStatus
 	frozen       bool
-	count        int
 	assignment   factory.Assignment
 	parent       factory.Assignment
 	parentLoaded bool
 }
 
-// loadReadContext admits one read and loads its terminal, submission
-// count and assignment lineage. A missing assignment refuses instead
+// loadReadContext admits one read and loads its terminal and assignment
+// lineage. A missing assignment refuses instead
 // of serving context without its assignment.
 func (s *factoryCatalogServer) loadReadContext(ctx context.Context, tool factory.MCPTool, args mcpCallArgs) (*readContext, error) {
 	capability, release, err := s.admitCall(ctx, tool, args)
@@ -645,9 +643,6 @@ func (s *factoryCatalogServer) loadReadContext(ctx context.Context, tool factory
 	}()
 	read := &readContext{capability: capability, release: release}
 	if read.terminal, read.frozen, err = s.deps.Submissions.TerminalMCPProposal(ctx, capability.AssignmentID); err != nil {
-		return nil, err
-	}
-	if read.count, err = s.deps.Submissions.MCPSubmissionCount(ctx, capability.AssignmentID); err != nil {
 		return nil, err
 	}
 	// Current-context projection reads the recorded assignment behind
@@ -728,7 +723,6 @@ func buildReadBody(read *readContext, attemptEligible, lineageEligible bool, for
 		"generation":            capability.Generation,
 		"capability":            capability.State,
 		"deadline":              capability.DeadlineUnix,
-		"submissions":           read.count,
 		"terminal":              read.frozen,
 		"route":                 FactoryMCPRoute,
 		"limits":                map[string]any{"page_bytes": factory.MCPMaxPageBytes, "page_refs": factory.MCPMaxPageRefs, "result_bytes": factory.MCPMaxResultPayloadBytes},
