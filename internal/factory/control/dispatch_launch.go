@@ -51,10 +51,6 @@ func executeFreshAttempt(ctx context.Context, deps DispatchDeps, occupancy *pass
 		Run: runID, RunHistory: []string{runID}, Stage: factory.AssignmentAssigned,
 		Attempts: 1, CreatedUnix: now.Unix(), ActorID: plan.sponsorship.ActorID,
 	}
-	if err := assignment.Validate(); err != nil {
-		report.Errors = append(report.Errors, DispatchError{Repository: repository, Issue: issue, Reason: DispatchErrStore, Detail: "dispatch assignment invalid"})
-		return
-	}
 	reservation := factory.Reservation{
 		AssignmentID: assignmentID, Repository: repository,
 		Connection: plan.sponsorship.Connection, State: factory.ReservationHeld, PlannedMinutes: plan.planned,
@@ -214,10 +210,6 @@ func admitImplementChild(ctx context.Context, deps DispatchDeps, occupancy *pass
 		SourceCommit: parent.SourceCommit, Prompt: plan.prompt, PromptSHA: plan.promptSHA,
 		Run: runID, RunHistory: []string{runID}, Stage: factory.AssignmentAssigned,
 		Attempts: 1, CreatedUnix: now.Unix(), ActorID: plan.sponsorship.ActorID,
-	}
-	if err := assignment.Validate(); err != nil {
-		report.Errors = append(report.Errors, DispatchError{Repository: repository, Issue: issue, Reason: DispatchErrStore, Detail: "dispatch assignment invalid"})
-		return
 	}
 	if assignment.Subject.Kind != parent.Subject.Kind ||
 		assignment.Subject.SubjectKey(repository) != parent.Subject.SubjectKey(repository) ||

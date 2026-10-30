@@ -369,7 +369,7 @@ func (t *timeOnlyLaunch) submitPacket() {
 	launchTail(t.ctx, t.deps, assignment, run, launch, t.report)
 }
 
-// buildAssignment builds the validated assignment and run behind one
+// buildAssignment builds the assignment and run behind one
 // time-only root.
 func (t *timeOnlyLaunch) buildAssignment(nativeRev int64, deadline time.Time) (factory.Assignment, factory.Run, bool) {
 	var none factory.Assignment
@@ -413,10 +413,6 @@ func (t *timeOnlyLaunch) buildAssignment(nativeRev int64, deadline time.Time) (f
 		Attempts: 1, CreatedUnix: t.now.Unix(),
 	}
 	assignment.Authority.RequirementsID, assignment.Authority.ApprovalID = t.plan.requirement, t.plan.approval
-	if err := assignment.Validate(); err != nil {
-		t.report.Errors = append(t.report.Errors, DispatchError{Repository: t.repository, Reason: DispatchErrStore, Detail: "time-only root invalid: " + err.Error()})
-		return none, noRun, false
-	}
 	// The run records the current staged host identity exactly like the
 	// issue path: the pin's image and family-version, never the saved
 	// policy version or an image derived from the executable digest.

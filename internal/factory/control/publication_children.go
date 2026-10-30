@@ -1002,10 +1002,6 @@ func (c *Coordinator) executePublicationChild(ctx context.Context, deps Dispatch
 		Run: runID, RunHistory: []string{runID}, Stage: factory.AssignmentAssigned,
 		Attempts: 1, CreatedUnix: now.Unix(), ActorID: owner.ActorID,
 	}
-	if err := assignment.Validate(); err != nil {
-		publicationError(report, p.ID, "child_assignment_invalid")
-		return
-	}
 	reservation := factory.Reservation{
 		AssignmentID: assignmentID, Repository: p.Repository, Connection: plan.sponsorship.Connection,
 		State: factory.ReservationHeld, PlannedMinutes: plan.planned,
