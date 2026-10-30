@@ -93,18 +93,18 @@ func ContextBundleRequest(capability factory.MCPCapability, assignment factory.A
 // offered, and only a confident eligible selection serves; low
 // confidence, malformed or unavailable answers hold snapshot_hold with
 // attention, and an exhausted ceiling holds unfunded without charge.
-func (c *Coordinator) SelectContextBundle(ctx context.Context, capability factory.MCPCapability, assignment factory.Assignment, attemptEligible, lineageEligible bool, reserve func(context.Context, string) (bool, error)) (bundle, reason string, err error) {
-	return c.selectContextBundleState(ctx, contextBundleStateFor(capability, assignment), attemptEligible, lineageEligible, reserve)
+func (c *Coordinator) SelectContextBundle(ctx context.Context, capability factory.MCPCapability, assignment factory.Assignment, attemptEligible, lineageEligible bool, admit func(context.Context, string) (bool, error)) (bundle, reason string, err error) {
+	return c.selectContextBundleState(ctx, contextBundleStateFor(capability, assignment), attemptEligible, lineageEligible, admit)
 }
 
-func (c *Coordinator) selectContextBundleState(ctx context.Context, state contextBundleState, attemptEligible, lineageEligible bool, reserve func(context.Context, string) (bool, error)) (bundle, reason string, err error) {
+func (c *Coordinator) selectContextBundleState(ctx context.Context, state contextBundleState, attemptEligible, lineageEligible bool, admit func(context.Context, string) (bool, error)) (bundle, reason string, err error) {
 	answer, _, err := c.AdvisePurpose(ctx, PurposeAdvice{
 		Purpose:  factory.JudgmentContextBundle,
 		State:    state,
 		Question: contextBundleRubric,
 		Options:  contextBundleOptions(attemptEligible, lineageEligible),
 		Outcome:  "context-bundle",
-		Reserve:  reserve,
+		Admit:    admit,
 	})
 	if err != nil {
 		return factory.ContextBundleSnapshotHold, "unavailable", err

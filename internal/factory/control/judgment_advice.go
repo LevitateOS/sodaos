@@ -11,10 +11,9 @@ import (
 	"github.com/levitateos/sodaos/internal/store"
 )
 
-// PurposeAdvice is one typed judgment call. Reserve binds the fingerprint
-// before the external request; cached completed results reuse without a new
-// reservation. Answers validate against the option identities; Candidates
-// only enriches the receipt audit trail and defaults to those identities.
+// PurposeAdvice is one typed judgment call. Admit checks the actual work scope
+// and allowance before a new call. Completed choices are reused by input key;
+// no placeholder judgment is written before the provider answers.
 type PurposeAdvice struct {
 	Purpose    factory.JudgmentPurpose
 	State      any
@@ -22,7 +21,7 @@ type PurposeAdvice struct {
 	Options    map[string]any
 	Outcome    string
 	Candidates []factory.PriorityCandidate
-	Reserve    func(context.Context, string) (bool, error)
+	Admit      func(context.Context, string) (bool, error)
 }
 
 // ErrConsultationFailed reports a JEV call that failed or returned an invalid
@@ -76,7 +75,7 @@ func (c *Coordinator) consultPurposeChoice(ctx context.Context, advice PurposeAd
 }
 
 func (c *Coordinator) AdvisePurpose(ctx context.Context, advice PurposeAdvice) (factory.PriorityAnswer, bool, error) {
-	if c.Store == nil || advice.Reserve == nil || advice.Outcome == "" {
+	if c.Store == nil || advice.Admit == nil || advice.Outcome == "" {
 		return factory.PriorityAnswer{}, false, ErrPriorityUnavailable
 	}
 	request, fingerprint, err := buildPurposeRequest(advice)
@@ -97,11 +96,11 @@ func (c *Coordinator) AdvisePurpose(ctx context.Context, advice PurposeAdvice) (
 	if c.Planning == nil || c.Planning.Chooser == nil {
 		return factory.PriorityAnswer{}, false, ErrPriorityUnavailable
 	}
-	reserved, err := advice.Reserve(ctx, fingerprint)
+	admitted, err := advice.Admit(ctx, fingerprint)
 	if err != nil {
 		return factory.PriorityAnswer{}, false, err
 	}
-	if !reserved {
+	if !admitted {
 		return factory.PriorityAnswer{}, false, ErrPriorityUnavailable
 	}
 	answer, err := c.consultPurposeChoice(ctx, advice, fingerprint, request)

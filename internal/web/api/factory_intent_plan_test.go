@@ -278,7 +278,7 @@ func TestIssueMakerBoundMCPPublishesIssuesDuringItsOwnRun(t *testing.T) {
 	if err = s.StageMCPCapability(ctx, cap); err != nil {
 		t.Fatal(err)
 	}
-	if reserved, err := s.ReserveContextBundleSelection(ctx, cap, cap.ContextSelectionSnapshot); err != nil || !reserved {
+	if reserved, err := s.BindContextBundleSelection(ctx, cap, cap.ContextSelectionSnapshot); err != nil || !reserved {
 		t.Fatal("context selection", reserved, err)
 	}
 	if err = s.ActivateObservedMCPCapability(ctx, cap); err != nil {
@@ -788,7 +788,7 @@ func TestIntentPlanConsumerLaunchesBoundDecompose(t *testing.T) {
 		t.Fatal(err)
 	}
 	if staged.ContextSelectionSnapshot == "" {
-		if reserved, err := s.ReserveContextBundleSelection(ctx, staged, cap.ContextSelectionSnapshot); err != nil || !reserved {
+		if reserved, err := s.BindContextBundleSelection(ctx, staged, cap.ContextSelectionSnapshot); err != nil || !reserved {
 			t.Fatalf("fixture context selection was not admitted once: %v/%v", reserved, err)
 		}
 	}

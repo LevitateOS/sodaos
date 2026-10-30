@@ -574,9 +574,7 @@ func seedJourneyCycle(t *testing.T, fx *journeyHTTPFixture, acceptance, cycleID 
 		cycleID, journeyRepo, generation, record.Cycle.EventID, record.Cycle.State, string(data)); err != nil {
 		t.Fatal(err)
 	}
-	if ok, err := fx.db.ReservePriorityJudgment(ctx, fingerprint, 1); err != nil || !ok {
-		t.Fatalf("reserve judgment: %v %v", ok, err)
-	}
+
 	receipt := factory.PriorityReceipt{
 		Snapshot:    fingerprint,
 		Calls:       []factory.PriorityCall{{Answer: answer}},
@@ -1124,7 +1122,7 @@ func TestFactoryIssueJourneyRecorded(t *testing.T) {
 	if err != nil || fingerprint == next.EvidenceFingerprint {
 		t.Fatal("successor decision lost its distinct full-state identity", err)
 	}
-	if reserved, err := fx.db.ReserveReassessmentCall(ctx, successorID, factory.ReassessmentDeciding,
+	if reserved, err := fx.db.AdmitReassessmentCall(ctx, successorID, factory.ReassessmentDeciding,
 		factory.NewID(), factory.ReassessmentDecisionPurpose, "", fingerprint); err != nil || !reserved {
 		t.Fatalf("reserve successor decision: %v %v", reserved, err)
 	}
@@ -1247,9 +1245,7 @@ func TestFactoryIssueJourneyMalformedRows(t *testing.T) {
 		record.Cycle.CycleID, journeyRepo, 1, record.Cycle.EventID, record.Cycle.State, string(data)); err != nil {
 		t.Fatal(err)
 	}
-	if ok, err := fx.db.ReservePriorityJudgment(ctx, strings.Repeat("b", 64), 1); err != nil || !ok {
-		t.Fatalf("reserve: %v %v", ok, err)
-	}
+
 	if err := fx.db.RecordPriorityJudgment(ctx, factory.PriorityReceipt{
 		Snapshot:    strings.Repeat("b", 64),
 		Calls:       []factory.PriorityCall{{Answer: factory.PriorityAnswer{Selected: factory.ReassessmentOptionReassess, Confidence: 0.87, Model: "m"}}},

@@ -1210,13 +1210,10 @@ func insertAttemptAllowanceTx(ctx context.Context, tx *sql.Tx, repository, issue
 	return err
 }
 
-// ReserveDeliveryJudgment admits one delivery judgment for the open
-// attempt root. A recorded receipt for fingerprint is reused (false); an
-// earlier call that left no receipt retries (true). A closed attempt or one
-// out of active time admits nothing.
-func (s *Store) ReserveDeliveryJudgment(ctx context.Context, repository, issue int64, root, fingerprint string) (bool, error) {
-	if repository <= 0 || issue <= 0 || !factory.ValidID(root) || !factory.ValidDigest(fingerprint) {
-		return false, errors.New("invalid delivery reservation")
+// AdmitDeliveryJudgment checks the open attempt's actual remaining allowance.
+func (s *Store) AdmitDeliveryJudgment(ctx context.Context, repository, issue int64, root string) (bool, error) {
+	if repository <= 0 || issue <= 0 || !factory.ValidID(root) {
+		return false, errors.New("invalid delivery scope")
 	}
 	tx, err := s.db.BeginTx(ctx, nil)
 	if err != nil {
@@ -1230,37 +1227,17 @@ func (s *Store) ReserveDeliveryJudgment(ctx context.Context, repository, issue i
 	if allowance.Closed || allowance.Intent != nil || allowance.Completion != nil || allowance.RemainingSeconds(time.Now()) == 0 {
 		return false, nil
 	}
-	reserved, err := reserveJudgmentTx(ctx, tx, fingerprint, 1)
-	if err != nil || !reserved {
-		return false, err
-	}
 	return true, tx.Commit()
 }
 
-// RecordDeliveryJudgment persists the delivery decision over its
-// reserved fingerprint. Recording is append-only: a missing reservation
-// or an already recorded receipt conflicts instead of rewriting history.
+// RecordDeliveryJudgment stores a completed decision without a placeholder.
+// A completed decision for the same input key cannot be overwritten.
 func (s *Store) RecordDeliveryJudgment(ctx context.Context, r factory.DeliveryReceipt) error {
-	raw, err := json.Marshal(r)
-	if err != nil {
-		return err
-	}
-	result, err := s.db.ExecContext(ctx, `UPDATE factory_priority_judgments SET data=$2 WHERE snapshot=$1 AND data IS NULL`, r.Fingerprint, string(raw))
-	if err != nil {
-		return err
-	}
-	n, err := result.RowsAffected()
-	if err != nil {
-		return err
-	}
-	if n == 1 {
-		return nil
-	}
-	return ErrCommandConflict
+	return s.recordJudgment(ctx, r.Fingerprint, r)
 }
 
 // DeliveryJudgment reads one recorded delivery receipt by its evidence
-// fingerprint. Unreserved fingerprints and non-delivery journal rows
+// fingerprint. Missing fingerprints and non-delivery journal rows
 // report ErrNotFound.
 func (s *Store) DeliveryJudgment(ctx context.Context, fingerprint string) (factory.DeliveryReceipt, error) {
 	var r factory.DeliveryReceipt

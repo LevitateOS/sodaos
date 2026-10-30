@@ -87,18 +87,18 @@ func TestContextBundleMissingParentWithholdsLineage(t *testing.T) {
 	capability := bundleGapCapability(t, assignment, run)
 	chooser := &bundleGapChooser{pick: factory.ContextBundleAttempt}
 	coord := &Coordinator{Store: db, Planning: &PlanningJudgments{Chooser: chooser}}
-	reserve := func(ctx context.Context, snapshot string) (bool, error) {
-		return db.ReservePriorityJudgment(ctx, snapshot, 1)
+	admit := func(ctx context.Context, snapshot string) (bool, error) {
+		return true, nil
 	}
 	attemptEligible, lineageEligible := factory.BundleEligibility(assignment, false)
-	bundle, reason, err := coord.SelectContextBundle(ctx, capability, assignment, attemptEligible, lineageEligible, reserve)
+	bundle, reason, err := coord.SelectContextBundle(ctx, capability, assignment, attemptEligible, lineageEligible, admit)
 	if err != nil || bundle != factory.ContextBundleAttempt || reason != "" {
 		t.Fatalf("bundle=%q reason=%q err=%v", bundle, reason, err)
 	}
 	if chooser.sawLineage {
 		t.Fatal("missing parent still offered the lineage bundle")
 	}
-	again, _, err := coord.SelectContextBundle(ctx, capability, assignment, attemptEligible, lineageEligible, reserve)
+	again, _, err := coord.SelectContextBundle(ctx, capability, assignment, attemptEligible, lineageEligible, admit)
 	if err != nil || again != bundle || chooser.calls != 1 {
 		t.Fatalf("reselection=%q calls=%d err=%v", again, chooser.calls, err)
 	}
@@ -117,11 +117,11 @@ func TestContextBundleBareAssignmentServesCurrent(t *testing.T) {
 	capability := bundleGapCapability(t, assignment, run)
 	chooser := &bundleGapChooser{pick: factory.ContextBundleCurrent}
 	coord := &Coordinator{Store: db, Planning: &PlanningJudgments{Chooser: chooser}}
-	reserve := func(ctx context.Context, snapshot string) (bool, error) {
-		return db.ReservePriorityJudgment(ctx, snapshot, 1)
+	admit := func(ctx context.Context, snapshot string) (bool, error) {
+		return true, nil
 	}
 	attemptEligible, lineageEligible := factory.BundleEligibility(assignment, false)
-	bundle, reason, err := coord.SelectContextBundle(ctx, capability, assignment, attemptEligible, lineageEligible, reserve)
+	bundle, reason, err := coord.SelectContextBundle(ctx, capability, assignment, attemptEligible, lineageEligible, admit)
 	if err != nil || bundle != factory.ContextBundleCurrent || reason != "" {
 		t.Fatalf("bundle=%q reason=%q err=%v", bundle, reason, err)
 	}

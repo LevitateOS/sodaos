@@ -384,6 +384,14 @@ that result. Current-evidence fingerprint matching and the native merge
 authorization's answer/policy check remain in force, including confidence and
 probability cutoffs and review allowance.
 
+Controller judgments are inserted only after an answer completes. There is no
+empty judgment reservation, separate intent reservation transaction or stored
+tournament-call reservation. The existing `max_calls` schema column is written
+as zero; retained schema and history are unchanged. Actual bounds remain with
+the tournament size check, current intent/run scope, work allowances and repair
+cycle ledgers. Completion calls derive their existing ledger identity from the
+judgment key, so an unanswered call does not consume another cycle entry.
+
 `factory.context` supplies typed required role inputs independently of optional
 history selection. Large role fields travel as ordered UTF-8 JSON fragments in
 `current_role_page`: concatenate a field's parts and decode its JSON. The complete

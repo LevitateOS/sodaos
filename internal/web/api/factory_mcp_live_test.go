@@ -159,7 +159,7 @@ func TestFactoryLiveMCPNativeTasksBoundToObservedRun(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			if reserved, err := st.ReserveContextBundleSelection(ctx, cap, request.Snapshot); err != nil || !reserved {
+			if reserved, err := st.BindContextBundleSelection(ctx, cap, request.Snapshot); err != nil || !reserved {
 				t.Fatal("context selection fixture not admitted", err)
 			}
 			answer := factory.PriorityAnswer{Selected: factory.ContextBundleCurrent, Model: "declared-fixture", Confidence: 1, Probabilities: map[string]float64{factory.ContextBundleCurrent: 1, factory.ContextBundleSnapshotHold: 0, factory.ContextBundleAttempt: 0}}
@@ -463,7 +463,7 @@ func exerciseFactoryLiveMCP(t *testing.T, wire *liveMCPTypeSafeTransport) {
 		reservations.Add(1)
 		go func() {
 			defer reservations.Done()
-			ok, err := st.ReserveContextBundleSelection(ctx, cap, fingerprint)
+			ok, err := st.BindContextBundleSelection(ctx, cap, fingerprint)
 			if err != nil {
 				t.Error(err)
 			}

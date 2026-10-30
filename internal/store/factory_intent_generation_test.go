@@ -143,10 +143,10 @@ func TestIntentPlanningAllowsIndependentIntents(t *testing.T) {
 	}
 	first := factory.IntentRevision{ID: "d111111111111111111111111", Intent: "d222222222222222222222222", Owner: 1}
 	second := factory.IntentRevision{ID: "d333333333333333333333333", Intent: "d444444444444444444444444", Owner: 1}
-	if ok, err := s.ReserveIntentJudgment(ctx, first, "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"); err != nil || !ok {
-		t.Fatal(ok, err)
+	if err := s.CheckIntentJudgment(ctx, first); err != nil {
+		t.Fatal(err)
 	}
-	if ok, err := s.ReserveIntentJudgment(ctx, second, "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"); err != nil || !ok {
-		t.Fatalf("independent intent reservation: %v %v", ok, err)
+	if err := s.CheckIntentJudgment(ctx, second); err != nil {
+		t.Fatal("independent intent admission", err)
 	}
 }

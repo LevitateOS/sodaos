@@ -462,11 +462,11 @@ func TestCompletionPersistFenceAndFund(t *testing.T) {
 	// call reuses its ledger entry; a recorded receipt is reused instead.
 	call := factory.NewID()
 	fingerprint := strings.Repeat("0", 64)
-	reserved, err := db.ReserveReassessmentCall(ctx, sealed.Cycle.CycleID, factory.ReassessmentDeciding, call, factory.ReassessmentDecisionPurpose, "", fingerprint)
+	reserved, err := db.AdmitReassessmentCall(ctx, sealed.Cycle.CycleID, factory.ReassessmentDeciding, call, factory.ReassessmentDecisionPurpose, "", fingerprint)
 	if err != nil || !reserved {
 		t.Fatalf("reserved=%v err=%v, want a reservation", reserved, err)
 	}
-	if reserved, err := db.ReserveReassessmentCall(ctx, sealed.Cycle.CycleID, factory.ReassessmentDeciding, factory.NewID(), factory.ReassessmentDecisionPurpose, "", fingerprint); err != nil || !reserved {
+	if reserved, err := db.AdmitReassessmentCall(ctx, sealed.Cycle.CycleID, factory.ReassessmentDeciding, call, factory.ReassessmentDecisionPurpose, "", fingerprint); err != nil || !reserved {
 		t.Fatalf("reserved=%v err=%v, want a retry of the unanswered call", reserved, err)
 	}
 	if retried, err := db.ReassessmentRecord(ctx, sealed.Cycle.CycleID); err != nil || len(retried.Cycle.Ledger.DecisionCalls) != 1 {
@@ -475,10 +475,11 @@ func TestCompletionPersistFenceAndFund(t *testing.T) {
 	if err := db.RecordPriorityJudgment(ctx, factory.PriorityReceipt{Snapshot: fingerprint, CreatedUnix: 1}); err != nil {
 		t.Fatal(err)
 	}
-	if reserved, err := db.ReserveReassessmentCall(ctx, sealed.Cycle.CycleID, factory.ReassessmentDeciding, factory.NewID(), factory.ReassessmentDecisionPurpose, "", fingerprint); err != nil || reserved {
-		t.Fatalf("reserved=%v err=%v, want the recorded receipt reused", reserved, err)
+	if got, err := db.PriorityJudgment(ctx, fingerprint); err != nil || got.Snapshot != fingerprint {
+		t.Fatal("completed decision unavailable", got, err)
 	}
-	if reserved, err := db.ReserveReassessmentCall(ctx, sealed.Cycle.CycleID, factory.ReassessmentDeciding, factory.NewID(), factory.ReassessmentDecisionPurpose, "", strings.Repeat("1", 64)); err != nil || !reserved {
+
+	if reserved, err := db.AdmitReassessmentCall(ctx, sealed.Cycle.CycleID, factory.ReassessmentDeciding, factory.NewID(), factory.ReassessmentDecisionPurpose, "", strings.Repeat("1", 64)); err != nil || !reserved {
 		t.Fatalf("second call: %v %v", reserved, err)
 	}
 
@@ -654,7 +655,7 @@ func TestCasStalePrefixKeepsPaidCall(t *testing.T) {
 		t.Fatal(err)
 	}
 	call := factory.NewID()
-	reserved, err := db.ReserveReassessmentCall(ctx, cycleID, factory.ReassessmentDeciding,
+	reserved, err := db.AdmitReassessmentCall(ctx, cycleID, factory.ReassessmentDeciding,
 		call, factory.ReassessmentDecisionPurpose, "", strings.Repeat("2", 64))
 	if err != nil || !reserved {
 		t.Fatalf("reserved=%v err=%v, want a charged reservation", reserved, err)
@@ -689,7 +690,7 @@ func TestCasStalePrefixKeepsBothCalls(t *testing.T) {
 	decided := decidingTestCycle(t, db, "912")
 	cycleID := decided.Cycle.CycleID
 	call1 := factory.NewID()
-	if reserved, err := db.ReserveReassessmentCall(ctx, cycleID, factory.ReassessmentDeciding,
+	if reserved, err := db.AdmitReassessmentCall(ctx, cycleID, factory.ReassessmentDeciding,
 		call1, factory.ReassessmentDecisionPurpose, "", strings.Repeat("3", 64)); err != nil || !reserved {
 		t.Fatalf("reserved=%v err=%v, want the first paid call", reserved, err)
 	}
@@ -706,7 +707,7 @@ func TestCasStalePrefixKeepsBothCalls(t *testing.T) {
 		t.Fatal(err)
 	}
 	call2 := factory.NewID()
-	if reserved, err := db.ReserveReassessmentCall(ctx, cycleID, factory.ReassessmentDeciding,
+	if reserved, err := db.AdmitReassessmentCall(ctx, cycleID, factory.ReassessmentDeciding,
 		call2, factory.ReassessmentProposalPurpose, factory.ReassessmentOptionReassess, strings.Repeat("4", 64)); err != nil || !reserved {
 		t.Fatalf("reserved=%v err=%v, want the admitted proposal call", reserved, err)
 	}
@@ -747,7 +748,7 @@ func TestCasRefusesUnreservedLedgerWrites(t *testing.T) {
 		{call1, strings.Repeat("5", 64)},
 		{call2, strings.Repeat("6", 64)},
 	} {
-		if reserved, err := db.ReserveReassessmentCall(ctx, cycleID, factory.ReassessmentDeciding,
+		if reserved, err := db.AdmitReassessmentCall(ctx, cycleID, factory.ReassessmentDeciding,
 			reservation.call, factory.ReassessmentDecisionPurpose, "", reservation.fingerprint); err != nil || !reserved {
 			t.Fatalf("reservation %d: reserved=%v err=%v", i, reserved, err)
 		}
@@ -798,7 +799,7 @@ func TestCasRefusesWithinLimitExtraCall(t *testing.T) {
 	decided := decidingTestCycle(t, db, "915")
 	cycleID := decided.Cycle.CycleID
 	call1 := factory.NewID()
-	if reserved, err := db.ReserveReassessmentCall(ctx, cycleID, factory.ReassessmentDeciding,
+	if reserved, err := db.AdmitReassessmentCall(ctx, cycleID, factory.ReassessmentDeciding,
 		call1, factory.ReassessmentDecisionPurpose, "", strings.Repeat("8", 64)); err != nil || !reserved {
 		t.Fatalf("reserved=%v err=%v, want a charged reservation", reserved, err)
 	}
@@ -836,7 +837,7 @@ func TestCasPrefixKeepsSealAndStaleRefusals(t *testing.T) {
 	decided := decidingTestCycle(t, db, "914")
 	cycleID := decided.Cycle.CycleID
 	call := factory.NewID()
-	if reserved, err := db.ReserveReassessmentCall(ctx, cycleID, factory.ReassessmentDeciding,
+	if reserved, err := db.AdmitReassessmentCall(ctx, cycleID, factory.ReassessmentDeciding,
 		call, factory.ReassessmentDecisionPurpose, "", strings.Repeat("7", 64)); err != nil || !reserved {
 		t.Fatalf("reserved=%v err=%v, want a charged reservation", reserved, err)
 	}

@@ -63,8 +63,8 @@ func PrepareContextBundleSelection(ctx context.Context, st *store.Store, chooser
 		return factory.ContextBundleSnapshotHold, "context_selection_unavailable", ErrPriorityUnavailable
 	}
 	coord := &Coordinator{Store: st, Planning: &PlanningJudgments{Chooser: chooser}}
-	reserve := func(ctx context.Context, snapshot string) (bool, error) {
-		return st.ReserveContextBundleSelection(ctx, capability, snapshot)
+	admit := func(ctx context.Context, snapshot string) (bool, error) {
+		return st.BindContextBundleSelection(ctx, capability, snapshot)
 	}
-	return coord.selectContextBundleState(ctx, state, attemptEligible, lineageEligible, reserve)
+	return coord.selectContextBundleState(ctx, state, attemptEligible, lineageEligible, admit)
 }

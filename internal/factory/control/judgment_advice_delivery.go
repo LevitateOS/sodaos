@@ -25,7 +25,7 @@ type DeliveryChooser interface {
 // satisfied by *store.Store.
 type DeliveryFunding interface {
 	DeliveryJudgment(context.Context, string) (factory.DeliveryReceipt, error)
-	ReserveDeliveryJudgment(context.Context, int64, int64, string, string) (bool, error)
+	AdmitDeliveryJudgment(context.Context, int64, int64, string) (bool, error)
 	RecordDeliveryJudgment(context.Context, factory.DeliveryReceipt) error
 }
 
@@ -79,11 +79,11 @@ func (c *Coordinator) AdviseDelivery(ctx context.Context, advice DeliveryAdvice)
 	if !errors.Is(err, store.ErrNotFound) {
 		return factory.DeliveryDecision{}, false, err
 	}
-	reserved, err := advice.Funding.ReserveDeliveryJudgment(ctx, advice.Repository, advice.Issue, advice.AttemptRoot, fingerprint)
+	admitted, err := advice.Funding.AdmitDeliveryJudgment(ctx, advice.Repository, advice.Issue, advice.AttemptRoot)
 	if err != nil {
 		return factory.DeliveryDecision{}, false, err
 	}
-	if !reserved {
+	if !admitted {
 		return factory.DeliveryDecision{}, false, ErrDeliveryUnavailable
 	}
 	options := factory.DeliveryOptions()

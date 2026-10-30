@@ -53,7 +53,7 @@ func deliveryStoreFixture(t *testing.T) (*Store, factory.Assignment) {
 	return db, a
 }
 
-func TestDeliveryJudgmentReserveRecordRead(t *testing.T) {
+func TestDeliveryJudgmentAdmitRecordRead(t *testing.T) {
 	db, a := deliveryStoreFixture(t)
 	ctx := context.Background()
 	in := deliveryStoreInput(1)
@@ -64,22 +64,26 @@ func TestDeliveryJudgmentReserveRecordRead(t *testing.T) {
 	if _, err := db.DeliveryJudgment(ctx, fingerprint); !errors.Is(err, ErrNotFound) {
 		t.Fatalf("unreserved read error=%v", err)
 	}
-	ok, err := db.ReserveDeliveryJudgment(ctx, a.Repository, a.Issue, a.AttemptRoot, fingerprint)
+	ok, err := db.AdmitDeliveryJudgment(ctx, a.Repository, a.Issue, a.AttemptRoot)
 	if err != nil || !ok {
 		t.Fatalf("reserve=%v err=%v", ok, err)
 	}
-	// A call that left no receipt retries under the same fingerprint.
-	ok, err = db.ReserveDeliveryJudgment(ctx, a.Repository, a.Issue, a.AttemptRoot, fingerprint)
+	// Admission checks the actual allowance and creates no placeholder.
+	ok, err = db.AdmitDeliveryJudgment(ctx, a.Repository, a.Issue, a.AttemptRoot)
 	if err != nil || !ok {
 		t.Fatalf("retry reserve=%v err=%v", ok, err)
+	}
+	var rows int
+	if err := db.db.QueryRowContext(ctx, `SELECT count(*) FROM factory_priority_judgments`).Scan(&rows); err != nil || rows != 0 {
+		t.Fatal("work admission created a judgment before its answer", rows, err)
 	}
 	receipt := factory.NewDeliveryReceipt(in, fingerprint, deliveryStoreAnswer(fingerprint), true, 41)
 	if err := db.RecordDeliveryJudgment(ctx, receipt); err != nil {
 		t.Fatalf("record: %v", err)
 	}
-	// A recorded receipt is reused instead of asking again.
-	if ok, err = db.ReserveDeliveryJudgment(ctx, a.Repository, a.Issue, a.AttemptRoot, fingerprint); err != nil || ok {
-		t.Fatalf("decided reserve=%v err=%v", ok, err)
+	// A completed decision does not change the underlying work allowance.
+	if ok, err = db.AdmitDeliveryJudgment(ctx, a.Repository, a.Issue, a.AttemptRoot); err != nil || !ok {
+		t.Fatalf("decided admission=%v err=%v", ok, err)
 	}
 	if err := db.RecordDeliveryJudgment(ctx, receipt); !errors.Is(err, ErrCommandConflict) {
 		t.Fatalf("double record error=%v", err)
@@ -88,14 +92,14 @@ func TestDeliveryJudgmentReserveRecordRead(t *testing.T) {
 	if err != nil || !got.CurrentFor(fingerprint) || got.Decision.Effective != factory.DeliveryEffectiveReady {
 		t.Fatalf("read=%+v err=%v", got, err)
 	}
-	// Recording without a reservation conflicts instead of inventing funding.
+	// Completed decisions need no placeholder reservation.
 	other := deliveryStoreInput(2)
 	otherPrint, err := factory.DeliveryFingerprint(other)
 	if err != nil {
 		t.Fatal(err)
 	}
 	unreserved := factory.NewDeliveryReceipt(other, otherPrint, deliveryStoreAnswer(otherPrint), true, 41)
-	if err := db.RecordDeliveryJudgment(ctx, unreserved); !errors.Is(err, ErrCommandConflict) {
+	if err := db.RecordDeliveryJudgment(ctx, unreserved); err != nil {
 		t.Fatalf("unreserved record error=%v", err)
 	}
 }
@@ -103,19 +107,20 @@ func TestDeliveryJudgmentReserveRecordRead(t *testing.T) {
 func TestDeliveryJudgmentAllowsIndependentInputs(t *testing.T) {
 	db, a := deliveryStoreFixture(t)
 	ctx := context.Background()
-	first, err := factory.DeliveryFingerprint(deliveryStoreInput(1))
-	if err != nil {
-		t.Fatal(err)
-	}
-	ok, err := db.ReserveDeliveryJudgment(ctx, a.Repository, a.Issue, a.AttemptRoot, first)
-	if err != nil || !ok {
-		t.Fatalf("first reserve=%v err=%v", ok, err)
-	}
-	second, err := factory.DeliveryFingerprint(deliveryStoreInput(2))
-	if err != nil {
-		t.Fatal(err)
-	}
-	if ok, err := db.ReserveDeliveryJudgment(ctx, a.Repository, a.Issue, a.AttemptRoot, second); err != nil || !ok {
-		t.Fatalf("independent reserve=%v err=%v", ok, err)
+	for _, round := range []int{1, 2} {
+		in := deliveryStoreInput(round)
+		fingerprint, err := factory.DeliveryFingerprint(in)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if allowed, err := db.AdmitDeliveryJudgment(ctx, a.Repository, a.Issue, a.AttemptRoot); err != nil || !allowed {
+			t.Fatal("work allowance refused", allowed, err)
+		}
+		if err := db.RecordDeliveryJudgment(ctx, factory.NewDeliveryReceipt(in, fingerprint, deliveryStoreAnswer(fingerprint), true, 41)); err != nil {
+			t.Fatal(err)
+		}
+		if got, err := db.DeliveryJudgment(ctx, fingerprint); err != nil || got.Input.Round != round {
+			t.Fatal("independent input lost", got, err)
+		}
 	}
 }

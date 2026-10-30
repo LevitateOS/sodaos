@@ -736,12 +736,12 @@ func TestCompletionDriveLaunchesSingleReassessmentPG(t *testing.T) {
 	diagnosis := factory.RepairDiagnosis{Subject: cap.Subject, InputDigest: cap.ScopeDigest(), SourceCommit: current.Local.SourceCommit, InventoryDigest: current.InventoryDigest, Title: "Completed inventory remains coherent", Summary: "No graph change is justified by the current completion evidence.", State: "supported", Causes: []factory.CheckFailure{{CheckRef: "completion_inventory", Detail: "The complete sealed inventory remains accounted for."}}, EvidenceRefs: []string{current.InventoryDigest}, Alternatives: []string{}, Uncertainty: []string{}}
 	encoded, _ = json.Marshal(diagnosis)
 	submission := testMCPSubmission(cap, factory.MCPToolRecordDiagnosis, factory.NewID(), encoded)
-	receipt, err := db.RecordMCPSubmission(ctx, submission)
-	if err != nil || receipt.FeedPostID == "" {
-		t.Fatal("completion diagnosis lacked atomic receipt/feed", err)
+	diagnosisPost, err := db.RecordWorkerPost(ctx, submission)
+	if err != nil || diagnosisPost.Record.ID == "" {
+		t.Fatal("completion diagnosis lacked its post", err)
 	}
 	scope, err := db.ReassessmentScope(ctx, cap, 0)
-	if err != nil || !scope.Complete || scope.Total != 1 || len(scope.Records) != 1 || scope.Records[0].ID != submission.SubmissionID || scope.InventoryDigest != current.InventoryDigest {
+	if err != nil || !scope.Complete || scope.Total != 1 || len(scope.Records) != 1 || scope.Records[0].ID != diagnosisPost.Record.ID || scope.InventoryDigest != current.InventoryDigest {
 		t.Fatal("completion named scope lost its own diagnosis", err)
 	}
 	after, _ = db.ReassessmentRecord(ctx, cycleID)
@@ -750,9 +750,9 @@ func TestCompletionDriveLaunchesSingleReassessmentPG(t *testing.T) {
 		t.Fatal("recording completion diagnosis granted effects or judgment")
 	}
 	reportJSON, _ := json.Marshal(proposal)
-	draftJSON, _ := json.Marshal(factory.RepairDraft{Report: reportJSON, DiagnosisRefs: []string{"diagnosis:" + submission.SubmissionID}})
+	draftJSON, _ := json.Marshal(factory.RepairDraft{Report: reportJSON, DiagnosisRefs: []string{"diagnosis:" + diagnosisPost.Record.ID}})
 	draft := testMCPSubmission(cap, factory.MCPToolDraftRepair, factory.NewID(), draftJSON)
-	if receipt, err := db.RecordMCPSubmission(ctx, draft); err != nil || receipt.FeedPostID == "" {
+	if posted, err := db.RecordWorkerPost(ctx, draft); err != nil || posted.Record.ID == "" {
 		t.Fatal("completion no-change draft was not durable", err)
 	}
 	scope, err = db.ReassessmentScope(ctx, cap, 0)

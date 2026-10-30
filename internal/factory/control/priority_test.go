@@ -14,13 +14,7 @@ import (
 type priorityFixture struct {
 	calls    []factory.PriorityRequest
 	receipts []factory.PriorityReceipt
-	reserved int
 	choose   func(factory.PriorityRequest) factory.PriorityAnswer
-}
-
-func (f *priorityFixture) ReservePriorityJudgment(_ context.Context, _ string, calls int) (bool, error) {
-	f.reserved = calls
-	return true, nil
 }
 
 func (f *priorityFixture) RecordPriorityJudgment(_ context.Context, r factory.PriorityReceipt) error {
@@ -64,8 +58,8 @@ func TestPriorityCompleteTournamentAndFiniteCalls(t *testing.T) {
 	f := &priorityFixture{choose: priorityLast}
 	deps := &PriorityJudgments{Journal: f, Chooser: f, MaxCalls: 2}
 	selected, err := selectPriority(context.Background(), deps, priorityCandidates(256, now), now)
-	if err != nil || selected != "255" || f.reserved != 2 || len(f.calls) != 2 || len(f.receipts) != 1 {
-		t.Fatalf("selection=%s error=%v calls=%d reservation=%d", selected, err, len(f.calls), f.reserved)
+	if err != nil || selected != "255" || len(f.calls) != 2 || len(f.receipts) != 1 {
+		t.Fatalf("selection=%s error=%v calls=%d", selected, err, len(f.calls))
 	}
 	seen := map[string]bool{}
 	for _, call := range f.calls {
@@ -81,7 +75,7 @@ func TestPriorityCompleteTournamentAndFiniteCalls(t *testing.T) {
 	}
 	f = &priorityFixture{choose: priorityLast}
 	deps.Journal, deps.Chooser, deps.MaxCalls = f, f, 1
-	if _, err := selectPriority(context.Background(), deps, priorityCandidates(256, now), now); err == nil || len(f.calls) != 0 || f.reserved != 0 {
+	if _, err := selectPriority(context.Background(), deps, priorityCandidates(256, now), now); err == nil || len(f.calls) != 0 {
 		t.Fatal("overbudget selection spent calls")
 	}
 }
@@ -174,8 +168,8 @@ func TestPriorityDueOldestSkipsComparisons(t *testing.T) {
 	old := priorityCandidates(3, now.Add(-25*time.Hour))
 	f := &priorityFixture{choose: priorityLast}
 	selected, err := selectPriority(context.Background(), &PriorityJudgments{Journal: f, Chooser: f}, old, now)
-	if err != nil || selected != "0" || f.reserved != 0 || len(f.calls) != 0 {
-		t.Fatalf("selection=%s error=%v calls=%d reservation=%d", selected, err, len(f.calls), f.reserved)
+	if err != nil || selected != "0" || len(f.calls) != 0 {
+		t.Fatalf("selection=%s error=%v calls=%d", selected, err, len(f.calls))
 	}
 	if len(f.receipts) != 1 || f.receipts[0].Outcome != "fairness" || f.receipts[0].Selected != "0" || len(f.receipts[0].Calls) != 0 {
 		t.Fatalf("fairness receipt: %+v", f.receipts)
@@ -198,8 +192,8 @@ func TestPriorityFullInventoryTournament(t *testing.T) {
 	now := time.Now()
 	f := &priorityFixture{choose: priorityLast}
 	selected, err := selectPriority(context.Background(), &PriorityJudgments{Journal: f, Chooser: f}, priorityCandidates(4096, now), now)
-	if err != nil || selected != "4095" || f.reserved != PriorityDefaultMaxCalls || len(f.calls) != PriorityDefaultMaxCalls {
-		t.Fatalf("selection=%s error=%v calls=%d reservation=%d", selected, err, len(f.calls), f.reserved)
+	if err != nil || selected != "4095" || len(f.calls) != PriorityDefaultMaxCalls {
+		t.Fatalf("selection=%s error=%v calls=%d", selected, err, len(f.calls))
 	}
 	capped := &priorityFixture{choose: priorityLast}
 	if _, err := selectPriority(context.Background(), &PriorityJudgments{Journal: capped, Chooser: capped, MaxCalls: 16}, priorityCandidates(4096, now), now); err != ErrPriorityUnavailable {

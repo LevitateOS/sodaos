@@ -412,7 +412,7 @@ func (s *Store) ReassessmentRecord(ctx context.Context, cycleID string) (Reasses
 // are never deleted.
 //
 // Paid ledger prefix rule: the locked row is the only admission
-// authority for paid decision calls (ReserveReassessmentCall). Incoming
+// authority for paid decision calls (AdmitReassessmentCall). Incoming
 // DecisionCalls must be an ordered prefix of the locked current list: a
 // shorter or empty prefix is legitimate stale input and is replaced
 // here with a copy of the exact locked list, while an extra,
@@ -592,12 +592,10 @@ func lockedReassessmentRowTx(ctx context.Context, tx *sql.Tx, cycleID, expectedS
 	return record, nil
 }
 
-// ReserveReassessmentCall admits one Jev request for the cycle. A recorded
-// receipt for fingerprint is reused (false). An earlier call for the same
-// fingerprint that left no receipt retries under its existing ledger entry
-// (true). A new fingerprint takes a ledger entry; a full ledger refuses
-// (false) so the caller reconciles.
-func (s *Store) ReserveReassessmentCall(ctx context.Context, cycleID, expectedState, callID, purpose, decision, fingerprint string) (bool, error) {
+// AdmitReassessmentCall charges a cycle call once through its existing ledger.
+// Callers derive the call ID from the judgment key, so another attempt at the
+// same question uses that charge. A full cycle refuses new calls.
+func (s *Store) AdmitReassessmentCall(ctx context.Context, cycleID, expectedState, callID, purpose, decision, fingerprint string) (bool, error) {
 	if !factory.ValidID(cycleID) || !factory.ValidID(callID) || !factory.ValidDigest(fingerprint) {
 		return false, errors.New("invalid reassessment reservation")
 	}
@@ -613,24 +611,13 @@ func (s *Store) ReserveReassessmentCall(ctx context.Context, cycleID, expectedSt
 	if purpose != factory.ReassessmentDecisionPurpose && purpose != factory.ReassessmentProposalPurpose {
 		return false, errors.New("invalid reassessment call purpose")
 	}
-	var decided bool
-	err = tx.QueryRowContext(ctx, `SELECT data IS NOT NULL FROM factory_priority_judgments WHERE snapshot=$1 FOR UPDATE`, fingerprint).Scan(&decided)
-	if err == nil {
-		if decided {
-			return false, nil
+	for _, id := range record.Cycle.Ledger.DecisionCalls {
+		if id == callID {
+			return true, tx.Commit()
 		}
-		return true, tx.Commit()
-	}
-	if !errors.Is(err, sql.ErrNoRows) {
-		return false, err
 	}
 	if len(record.Cycle.Ledger.DecisionCalls) >= factory.MaxReassessmentDecisionCalls {
 		return false, nil
-	}
-	for _, id := range record.Cycle.Ledger.DecisionCalls {
-		if id == callID {
-			return false, nil
-		}
 	}
 	ledger, err := record.Cycle.Ledger.ReserveDecisionCall(callID, purpose, decision)
 	if err != nil {
@@ -648,9 +635,6 @@ func (s *Store) ReserveReassessmentCall(ctx context.Context, cycleID, expectedSt
 		return false, err
 	}
 	if _, err = tx.ExecContext(ctx, `UPDATE factory_reassessments SET data=$1 WHERE cycle=$2 AND state=$3`, string(recordData), cycleID, expectedState); err != nil {
-		return false, err
-	}
-	if _, err = tx.ExecContext(ctx, `INSERT INTO factory_priority_judgments(snapshot,max_calls) VALUES($1,1)`, fingerprint); err != nil {
 		return false, err
 	}
 	return true, tx.Commit()

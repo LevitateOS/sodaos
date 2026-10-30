@@ -264,101 +264,39 @@ func (s *Store) IntentHistory(ctx context.Context, intent string, owner int64, l
 	return result, nil
 }
 
-// reserveJudgmentTx admits one JEV call for snapshot. JEV is free, so this
-// is not funding: a recorded receipt means the question is already answered
-// and the caller reuses it (false); a row without a receipt is an earlier
-// failed or interrupted call and the caller retries it (true).
-func reserveJudgmentTx(ctx context.Context, tx *sql.Tx, snapshot string, maxCalls int) (bool, error) {
-	if _, err := tx.ExecContext(ctx, `INSERT INTO factory_priority_judgments(snapshot,max_calls) VALUES($1,$2) ON CONFLICT(snapshot) DO NOTHING`, snapshot, maxCalls); err != nil {
-		return false, err
-	}
-	var decided bool
-	if err := tx.QueryRowContext(ctx, `SELECT data IS NOT NULL FROM factory_priority_judgments WHERE snapshot=$1 FOR UPDATE`, snapshot).Scan(&decided); err != nil {
-		return false, err
-	}
-	return !decided, nil
+// RecordPriorityJudgment stores a completed decision directly.
+func (s *Store) RecordPriorityJudgment(ctx context.Context, judgment factory.PriorityReceipt) error {
+	return s.recordJudgment(ctx, judgment.Snapshot, judgment)
 }
 
-// ReservePriorityJudgment admits the calls for one snapshot: false once a
-// receipt is recorded, true otherwise, including a retry of a failed call.
-func (s *Store) ReservePriorityJudgment(ctx context.Context, snapshot string, maxCalls int) (bool, error) {
-	// The cap is the largest single-tournament call count:
-	// priorityCallCount(4096) is 18 for the 4,096-issue control
-	// reads, matching control.PriorityDefaultMaxCalls. A future
-	// inventory change must move both bounds together.
-	if !factory.ValidDigest(snapshot) || maxCalls < 1 || maxCalls > 18 {
-		return false, errors.New("invalid priority reservation")
-	}
-	tx, err := s.db.BeginTx(ctx, nil)
-	if err != nil {
-		return false, err
-	}
-	defer func() { _ = tx.Rollback() }()
-	reserved, err := reserveJudgmentTx(ctx, tx, snapshot, maxCalls)
-	if err != nil || !reserved {
-		return false, err
-	}
-	return true, tx.Commit()
-}
-
-func (s *Store) RecordPriorityJudgment(ctx context.Context, r factory.PriorityReceipt) error {
-	if !factory.ValidDigest(r.Snapshot) || r.CreatedUnix <= 0 {
-		return errors.New("invalid priority receipt")
-	}
-	raw, err := json.Marshal(r)
+// recordJudgment preserves the first completed decision for its input key.
+func (s *Store) recordJudgment(ctx context.Context, snapshot string, judgment any) error {
+	raw, err := json.Marshal(judgment)
 	if err != nil {
 		return err
 	}
-	result, err := s.db.ExecContext(ctx, `UPDATE factory_priority_judgments SET data=$2 WHERE snapshot=$1 AND data IS NULL`, r.Snapshot, string(raw))
+	result, err := s.db.ExecContext(ctx, `INSERT INTO factory_priority_judgments(snapshot,max_calls,data) VALUES($1,0,$2) ON CONFLICT(snapshot) DO NOTHING`, snapshot, string(raw))
 	if err != nil {
 		return err
 	}
 	n, err := result.RowsAffected()
-	if err != nil {
-		return err
-	}
-	if n == 1 {
-		return nil
-	}
-	if len(r.Calls) > 0 {
+	if err == nil && n != 1 {
 		return ErrCommandConflict
 	}
-	_, err = s.db.ExecContext(ctx, `INSERT INTO factory_priority_judgments(snapshot,max_calls,data) VALUES($1,0,$2) ON CONFLICT(snapshot) DO NOTHING`, r.Snapshot, string(raw))
 	return err
 }
 
-// ReserveIntentJudgment admits one planning consultation for the current
-// revision of an owner-private intent.
-func (s *Store) ReserveIntentJudgment(ctx context.Context, r factory.IntentRevision, snapshot string) (bool, error) {
-	if !factory.ValidDigest(snapshot) {
-		return false, errors.New("invalid planning snapshot")
-	}
-	tx, err := s.db.BeginTx(ctx, nil)
-	if err != nil {
-		return false, err
-	}
-	defer func() { _ = tx.Rollback() }()
-	reserved, err := s.reserveIntentJudgmentTx(ctx, tx, r, snapshot)
-	if err != nil || !reserved {
-		return false, err
-	}
-	return true, tx.Commit()
-}
-
-// reserveIntentJudgmentTx admits planning usage in the caller's transaction.
-// The caller owns commit/rollback and must make provider calls outside the transaction.
-func (s *Store) reserveIntentJudgmentTx(ctx context.Context, tx *sql.Tx, r factory.IntentRevision, snapshot string) (bool, error) {
-	if !factory.ValidDigest(snapshot) {
-		return false, errors.New("invalid planning snapshot")
-	}
+// CheckIntentJudgment checks that a new consultation uses the current owned
+// intent revision. Completed decisions are read by their input key separately.
+func (s *Store) CheckIntentJudgment(ctx context.Context, revision factory.IntentRevision) error {
 	var head string
-	if err := tx.QueryRowContext(ctx, `SELECT revision FROM factory_intent_heads WHERE id=$1 AND owner_id=$2 FOR UPDATE`, r.Intent, r.Owner).Scan(&head); err != nil {
-		return false, err
+	if err := s.db.QueryRowContext(ctx, `SELECT revision FROM factory_intent_heads WHERE id=$1 AND owner_id=$2`, revision.Intent, revision.Owner).Scan(&head); err != nil {
+		return err
 	}
-	if head != r.ID {
-		return false, ErrStaleRevision
+	if head != revision.ID {
+		return ErrStaleRevision
 	}
-	return reserveJudgmentTx(ctx, tx, snapshot, 1)
+	return nil
 }
 
 func (s *Store) PriorityJudgment(ctx context.Context, snapshot string) (factory.PriorityReceipt, error) {

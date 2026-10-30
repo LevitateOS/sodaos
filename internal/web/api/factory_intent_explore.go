@@ -163,8 +163,8 @@ func (s *API) apiIntentExplore(w http.ResponseWriter, r *http.Request, v store.S
 		Options:    intentDesignCriteria(),
 		Outcome:    "product_design",
 		Candidates: candidates,
-		Reserve: func(ctx context.Context, snapshot string) (bool, error) {
-			return s.Store.ReserveIntentJudgment(ctx, current, snapshot)
+		Admit: func(ctx context.Context, snapshot string) (bool, error) {
+			return true, s.Store.CheckIntentJudgment(ctx, current)
 		},
 	})
 	if callErr != nil {

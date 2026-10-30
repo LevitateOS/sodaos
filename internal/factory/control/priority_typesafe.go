@@ -14,8 +14,7 @@ import (
 	"github.com/levitateos/sodaos/internal/factory"
 )
 
-// TypeSafePriority uses a server-only secret file. It never retries requests:
-// the finite journal reservation owns consultation count and attribution.
+// TypeSafePriority uses a server-only secret file and does not retry requests.
 type TypeSafePriority struct {
 	APIKeyFile string
 	Model      string
@@ -32,7 +31,7 @@ func (p *TypeSafePriority) Choose(ctx context.Context, request factory.PriorityR
 
 // Select is shared by narrow product and planning judgments. Code supplies
 // complete state, a single rubric and explicit alternatives; this method grants
-// no authority and its caller must reserve consultation funding first.
+// no authority; its caller checks work scope and any actual work allowance.
 func admitPriorityCandidates(choices map[string]any) (factory.PriorityRequest, error) {
 	request := factory.PriorityRequest{}
 	for id := range choices {

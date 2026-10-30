@@ -189,45 +189,23 @@ func TestIntentHistoryAndRepositoryIdentity(t *testing.T) {
 	}
 }
 
-func TestPriorityReservationDeduplicatesWithoutLifetimeLimit(t *testing.T) {
+func TestPriorityJudgmentsStoreCompletedChoices(t *testing.T) {
 	s, _ := postgresFixture(t)
 	ctx := context.Background()
-	a := "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
-	b := "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
-	ok, err := s.ReservePriorityJudgment(ctx, a, 2)
-	if err != nil || !ok {
-		t.Fatalf("reserve %v %v", ok, err)
-	}
-	// A call that left no receipt retries; a recorded receipt is reused.
-	ok, err = s.ReservePriorityJudgment(ctx, a, 2)
-	if err != nil || !ok {
-		t.Fatalf("retry reservation: %v %v", ok, err)
-	}
-	if err := s.RecordPriorityJudgment(ctx, factory.PriorityReceipt{Snapshot: a, CreatedUnix: 1}); err != nil {
-		t.Fatal(err)
-	}
-	ok, err = s.ReservePriorityJudgment(ctx, a, 2)
-	if err != nil || ok {
-		t.Fatal("repeated reservation after a recorded receipt")
-	}
-	ok, err = s.ReservePriorityJudgment(ctx, b, 2)
-	if err != nil || !ok {
-		t.Fatalf("independent reservation: %v %v", ok, err)
-	}
-}
-
-// TestPriorityReservationFullTournamentBound pins the FA04 store cap:
-// a full-inventory 18-call tournament reservation succeeds while 19
-// still refuses.
-func TestPriorityReservationFullTournamentBound(t *testing.T) {
-	s, _ := postgresFixture(t)
-	ctx := context.Background()
-	full := "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
-	if ok, err := s.ReservePriorityJudgment(ctx, full, 18); err != nil || !ok {
-		t.Fatalf("full-tournament reservation: %v %v", ok, err)
-	}
-	over := "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd"
-	if ok, err := s.ReservePriorityJudgment(ctx, over, 19); err == nil || ok {
-		t.Fatalf("over-cap reservation admitted: %v %v", ok, err)
+	for _, snapshot := range []string{strings.Repeat("a", 64), strings.Repeat("b", 64)} {
+		if _, err := s.PriorityJudgment(ctx, snapshot); err != ErrNotFound {
+			t.Fatal("unexpected completed judgment", err)
+		}
+		judgment := factory.PriorityReceipt{Snapshot: snapshot, CreatedUnix: 1, Selected: "oldest", Outcome: "fairness"}
+		if err := s.RecordPriorityJudgment(ctx, judgment); err != nil {
+			t.Fatal(err)
+		}
+		got, err := s.PriorityJudgment(ctx, snapshot)
+		if err != nil || got.Selected != judgment.Selected || got.Outcome != judgment.Outcome {
+			t.Fatal("completed choice lost", got, err)
+		}
+		if err := s.RecordPriorityJudgment(ctx, judgment); err != ErrCommandConflict {
+			t.Fatal("completed choice overwritten", err)
+		}
 	}
 }

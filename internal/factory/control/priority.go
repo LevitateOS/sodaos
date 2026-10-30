@@ -9,10 +9,8 @@ import (
 	"github.com/levitateos/sodaos/internal/store"
 )
 
-// PriorityJournal reserves finite independently authorized consultation credit
-// before an external request and prevents repeating unchanged selections.
+// PriorityJournal retains completed choices for unchanged candidate sets.
 type PriorityJournal interface {
-	ReservePriorityJudgment(context.Context, string, int) (bool, error)
 	RecordPriorityJudgment(context.Context, factory.PriorityReceipt) error
 	PriorityJudgment(context.Context, string) (factory.PriorityReceipt, error)
 }
@@ -30,7 +28,7 @@ type PriorityJudgments struct {
 
 var ErrPriorityUnavailable = errors.New("priority consultation unavailable or exhausted")
 
-// PriorityDefaultMaxCalls funds one tournament over the largest
+// PriorityDefaultMaxCalls bounds one tournament over the largest
 // supported inventory. priorityCallCount(4096) is 18: seventeen
 // 255-candidate groups plus the final for the 4,096-issue control
 // reads. A future inventory or group-size change must re-derive
@@ -39,7 +37,7 @@ const PriorityDefaultMaxCalls = 18
 
 // selectPriority covers every candidate through a deterministic tournament.
 // Groups contain at most 255 alternatives; each winner advances until a final
-// choice. Required calls are reserved up front; an oversized set is refused,
+// choice. The required call count is checked up front; an oversized set refuses,
 // never truncated. Uncertain preference falls back to oldest within its group.
 func selectPriority(ctx context.Context, deps *PriorityJudgments, candidates []factory.PriorityCandidate, now time.Time) (string, error) {
 	if len(candidates) == 0 {
@@ -68,7 +66,7 @@ func selectPriority(ctx context.Context, deps *PriorityJudgments, candidates []f
 		}
 		return t.oldest.ID, nil
 	}
-	if err := t.reserveTournamentCalls(); err != nil {
+	if err := t.checkTournamentSize(); err != nil {
 		return "", err
 	}
 	return t.runTournament()
@@ -125,22 +123,14 @@ func (t *priorityTournament) admitTournament() (string, bool, error) {
 	return "", false, nil
 }
 
-// reserveTournamentCalls reserves the required consultation calls up
-// front; an oversized set is refused, never truncated.
-func (t *priorityTournament) reserveTournamentCalls() error {
+// checkTournamentSize bounds the actual calls required by the candidate set.
+func (t *priorityTournament) checkTournamentSize() error {
 	maxCalls := t.deps.MaxCalls
 	if maxCalls <= 0 {
 		maxCalls = PriorityDefaultMaxCalls
 	}
 	required := priorityCallCount(len(t.candidates))
 	if required > maxCalls || t.deps.Chooser == nil {
-		return ErrPriorityUnavailable
-	}
-	reserved, err := t.deps.Journal.ReservePriorityJudgment(t.ctx, t.snapshot, required)
-	if err != nil {
-		return err
-	}
-	if !reserved {
 		return ErrPriorityUnavailable
 	}
 	return nil

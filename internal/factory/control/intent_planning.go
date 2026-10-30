@@ -196,8 +196,8 @@ func (c *Coordinator) ChoosePlannedCandidate(ctx context.Context, r factory.Inte
 		Question: plannedChoiceRubric,
 		Options:  options,
 		Outcome:  "planned-choice",
-		Reserve: func(ctx context.Context, snapshot string) (bool, error) {
-			return c.Store.ReserveIntentJudgment(ctx, r, snapshot)
+		Admit: func(ctx context.Context, snapshot string) (bool, error) {
+			return true, c.Store.CheckIntentJudgment(ctx, r)
 		},
 	})
 	if err != nil {

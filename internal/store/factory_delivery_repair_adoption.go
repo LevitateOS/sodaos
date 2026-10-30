@@ -25,11 +25,11 @@ func deliveryRepairInvestigatorRetiredTx(ctx context.Context, tx *sql.Tx, record
 	return deliveryRepairReportScopeTx(ctx, tx, a, a.Result.PhaseResult.Output.DeliveryRepair.InputDigest)
 }
 
-// ReserveDeliveryRepairJudgment charges the repair grant and binds the
+// AdmitDeliveryRepairJudgment charges the repair grant and binds the
 // cycle's judgment fingerprint before the first call. A call that failed
 // without a receipt retries under the same fingerprint; a recorded receipt
 // is reused (false).
-func (s *Store) ReserveDeliveryRepairJudgment(ctx context.Context, repository int64, failedRun, cycleID, fingerprint string, now time.Time) (bool, error) {
+func (s *Store) AdmitDeliveryRepairJudgment(ctx context.Context, repository int64, failedRun, cycleID, fingerprint string, now time.Time) (bool, error) {
 	if !factory.ValidDigest(fingerprint) {
 		return false, errors.New("invalid delivery repair judgment fingerprint")
 	}
@@ -52,11 +52,7 @@ func (s *Store) ReserveDeliveryRepairJudgment(ctx context.Context, repository in
 		if record.Cycle.JudgmentFingerprint != fingerprint {
 			return false, ErrStaleRevision
 		}
-		reserved, err := reserveJudgmentTx(ctx, tx, fingerprint, 1)
-		if err != nil {
-			return false, err
-		}
-		return reserved, tx.Commit()
+		return true, tx.Commit()
 	}
 	if err = deliveryRepairInvestigatorRetiredTx(ctx, tx, record); err != nil {
 		return false, err
@@ -72,13 +68,6 @@ func (s *Store) ReserveDeliveryRepairJudgment(ctx context.Context, repository in
 			err = ErrCommandConflict
 		}
 		return false, err
-	}
-	reserved, err := reserveJudgmentTx(ctx, tx, fingerprint, 1)
-	if err != nil {
-		return false, err
-	}
-	if !reserved {
-		return false, ErrCommandConflict
 	}
 	record.Cycle.JudgmentFingerprint = fingerprint
 	record.Revision++
