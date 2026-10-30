@@ -690,12 +690,13 @@ The first two tools now have a bounded local implementation. Scope reads return
 the exact admitted delivery/outcome IDs and pages of four recorded observations.
 One observation binds delivery/input/source/preparation/manifest, outcome IDs,
 steps, expected/observed behavior, limitations and assignment-owned artifacts.
-Its submission ID is the journey ID, with an atomic durable receipt and TP03
-feed post. The maximum is 32 observations at 8 KiB each. These are attributed
+The complete typed observation lives on its TP03 post, whose ID is the journey
+identity. No parallel submission or receipt is recorded. The maximum is 32
+observations at 8 KiB each. These are attributed
 reports, not trusted check receipts or automatic terminal coverage; the existing
 finish and independent F10 adoption retain their authority checks.
 
-The finish's `evidence_refs` can nominate `journey:<submission ID>` citations.
+The finish's `evidence_refs` can nominate `journey:<post ID>` citations.
 They retain the same canonical identity through a typed report and any later
 failed-verification repair cause. Admission and final consumers reject foreign
 or missing records; a verified claim cannot cite a failed or incomplete journey.

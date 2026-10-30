@@ -19,12 +19,8 @@ var ErrMCPCommunicationCap = errors.New("assignment communication bound reached;
 // there is no second submission record or receipt to recover.
 func (s *Store) RecordWorkerPost(ctx context.Context, submission factory.MCPSubmission) (FeedPostDetail, error) {
 	var out FeedPostDetail
-	if !slices.Contains(factory.MCPCommunicationTools, submission.Tool) || !factory.ValidID(submission.SubmissionID) {
+	if !(submission.Tool == factory.MCPToolRecordJourneyResult || slices.Contains(factory.MCPCommunicationTools, submission.Tool)) || !factory.ValidID(submission.SubmissionID) {
 		return out, errors.New("worker post needs a communication tool and stable identity")
-	}
-	content, err := factory.DecodeMCPCommunication(submission.Tool, submission.Payload)
-	if err != nil {
-		return out, err
 	}
 	tx, err := s.db.BeginTx(ctx, nil)
 	if err != nil {
@@ -57,33 +53,43 @@ func (s *Store) RecordWorkerPost(ctx context.Context, submission factory.MCPSubm
 		}
 		return s.FeedPost(ctx, postID)
 	}
-	var count int
-	if err = tx.QueryRowContext(ctx, `SELECT count(*) FROM factory_feed_posts WHERE data->>'assignment'=$1 AND ('factory.' || (data->'communication'->>'kind')) = ANY($2)`, submission.AssignmentID, communicationToolNames()).Scan(&count); err != nil {
-		return out, err
-	}
-	if count >= factory.MCPMaxCommunications {
-		return out, ErrMCPCommunicationCap
-	}
-	if content.ParentID != "" {
-		var parentKind string
-		if err = tx.QueryRowContext(ctx, `SELECT COALESCE(data->'communication'->>'kind','') FROM factory_feed_posts WHERE id=$1 AND repository=$2 AND NOT COALESCE((data->>'deleted')::boolean,false) AND NOT COALESCE((data->>'revoked')::boolean,false) FOR SHARE`, content.ParentID, capability.Repository).Scan(&parentKind); err != nil {
-			if errors.Is(err, sql.ErrNoRows) {
-				return out, errors.New("reply target is not available in this project")
+	if submission.Tool == factory.MCPToolRecordJourneyResult {
+		if _, err := recordVerificationJourneyPostTx(ctx, tx, capability, submission); err != nil {
+			return out, err
+		}
+	} else {
+		content, err := factory.DecodeMCPCommunication(submission.Tool, submission.Payload)
+		if err != nil {
+			return out, err
+		}
+		var count int
+		if err = tx.QueryRowContext(ctx, `SELECT count(*) FROM factory_feed_posts WHERE data->>'assignment'=$1 AND ('factory.' || (data->'communication'->>'kind')) = ANY($2)`, submission.AssignmentID, communicationToolNames()).Scan(&count); err != nil {
+			return out, err
+		}
+		if count >= factory.MCPMaxCommunications {
+			return out, ErrMCPCommunicationCap
+		}
+		if content.ParentID != "" {
+			var parentKind string
+			if err = tx.QueryRowContext(ctx, `SELECT COALESCE(data->'communication'->>'kind','') FROM factory_feed_posts WHERE id=$1 AND repository=$2 AND NOT COALESCE((data->>'deleted')::boolean,false) AND NOT COALESCE((data->>'revoked')::boolean,false) FOR SHARE`, content.ParentID, capability.Repository).Scan(&parentKind); err != nil {
+				if errors.Is(err, sql.ErrNoRows) {
+					return out, errors.New("reply target is not available in this project")
+				}
+				return out, err
 			}
+			if err := admitWorkerDiscussionReplyTx(ctx, tx, capability, content.ParentID); err != nil {
+				return out, err
+			}
+			if submission.Tool == factory.MCPToolAnswer && parentKind != "ask" {
+				return out, errors.New("answer must refer to an ask post")
+			}
+		}
+		if err := resolveCommunicationArtifactsTx(ctx, tx, capability.Repository, &content); err != nil {
 			return out, err
 		}
-		if err := admitWorkerDiscussionReplyTx(ctx, tx, capability, content.ParentID); err != nil {
+		if _, err := recordWorkerPostTx(ctx, tx, capability, submission, content); err != nil {
 			return out, err
 		}
-		if submission.Tool == factory.MCPToolAnswer && parentKind != "ask" {
-			return out, errors.New("answer must refer to an ask post")
-		}
-	}
-	if err := resolveCommunicationArtifactsTx(ctx, tx, capability.Repository, &content); err != nil {
-		return out, err
-	}
-	if _, err := recordWorkerPostTx(ctx, tx, capability, submission, content); err != nil {
-		return out, err
 	}
 	if err := tx.Commit(); err != nil {
 		return out, err
@@ -110,6 +116,9 @@ func recordWorkerPostTx(ctx context.Context, tx *sql.Tx, capability factory.MCPC
 		"issue": issue, "parent_id": content.ParentID, "at": time.Now().Unix(), "author_name": recordPersona(capability.Profile),
 		"actor": string(capability.Profile), "assignment": capability.AssignmentID, "run": capability.RunID,
 		"project": capability.Project, "communication": content,
+	}
+	if submission.Tool == factory.MCPToolRecordJourneyResult {
+		fields["journey"] = json.RawMessage(submission.Payload)
 	}
 	if content.ParentID == "" && (content.Kind == "partial" || content.Kind == "reply") {
 		fields["source"] = factory.PostSource{Kind: factory.PostSourceRecord, ID: capability.AssignmentID, Issue: issue, Ref: capability.AcceptedRevision}

@@ -437,9 +437,11 @@ func TestApplicationVerificationRequiresApprovedNativeCheck(t *testing.T) {
 	legacyJourneyID := factory.NewID()
 	rawJourney, _ := json.Marshal(legacyJourney)
 	legacyJourneySub := testMCPSubmission(legacyCap, factory.MCPToolRecordJourneyResult, legacyJourneyID, rawJourney)
-	if _, err := db.RecordMCPSubmission(ctx, legacyJourneySub); err != nil {
+	journeyPost, err := db.RecordWorkerPost(ctx, legacyJourneySub)
+	if err != nil {
 		t.Fatal("legacy journey observation refused", err)
 	}
+	legacyJourneyID = journeyPost.Record.ID
 	// Terminal finish-reference validation refuses bad references while the
 	// delivery is still assigned, before any adoption: a malformed ref and
 	// an unknown but well-formed ref admit nothing.

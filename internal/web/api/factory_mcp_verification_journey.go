@@ -35,15 +35,6 @@ func verificationJourneyPayloadSchema(tool factory.MCPTool) *jsonschema.Schema {
 	}
 }
 
-func checkVerificationJourneyPayload(payload map[string]any) error {
-	raw, err := json.Marshal(payload)
-	if err != nil {
-		return err
-	}
-	_, err = factory.DecodeVerificationJourney(raw)
-	return err
-}
-
 func (s *factoryCatalogServer) serveVerificationScope(ctx context.Context, args mcpCallArgs) (*mcp.CallToolResult, any, error) {
 	cap, release, err := s.admitCall(ctx, factory.MCPToolVerificationScope, args)
 	if err != nil {

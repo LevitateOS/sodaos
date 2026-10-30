@@ -21,6 +21,7 @@ func (s *factoryCatalogServer) serveWorkerPost(ctx context.Context, tool factory
 		return nil, nil, err
 	}
 	defer release()
+	s.bindPayload(ctx, cap, tool, args.Payload)
 	writer, ok := s.deps.Submissions.(factoryMCPPostWriter)
 	if !ok {
 		return nil, nil, errors.New("worker posts are unavailable")

@@ -403,9 +403,6 @@ func (s *factoryCatalogServer) checkPayload(tool factory.MCPTool, payload map[st
 	if isIssueMakerTool(tool) {
 		return checkIssueMakerPayload(payload)
 	}
-	if tool == factory.MCPToolRecordJourneyResult {
-		return checkVerificationJourneyPayload(payload)
-	}
 	if tool == factory.MCPToolRecordDiagnosis {
 		return checkRepairDiagnosisPayload(payload)
 	}
@@ -556,7 +553,7 @@ func (s *factoryCatalogServer) serve(ctx context.Context, tool factory.MCPTool, 
 	if factory.MCPIsLibraryRead(tool) {
 		return s.serveLibraryRead(ctx, tool, args)
 	}
-	if slices.Contains(factory.MCPCommunicationTools, tool) {
+	if tool == factory.MCPToolRecordJourneyResult || slices.Contains(factory.MCPCommunicationTools, tool) {
 		return s.serveWorkerPost(ctx, tool, args)
 	}
 	switch tool {

@@ -19,7 +19,7 @@ const (
 
 // VerificationJourneyResult is an attributed worker observation, never a
 // trusted check receipt or a claim that Factory verified the application.
-// Its immutable submission ID is the canonical journey identity.
+// Its post ID is the canonical journey identity.
 type VerificationJourneyResult struct {
 	DeliveryID     string   `json:"delivery_id"`
 	InputDigest    string   `json:"input_digest"`
@@ -39,7 +39,6 @@ type VerificationJourneyResult struct {
 
 type VerificationJourneyRecord struct {
 	ID          string                    `json:"id"`
-	FeedPostID  string                    `json:"feed_post_id"`
 	Sequence    int64                     `json:"sequence"`
 	Observation VerificationJourneyResult `json:"observation"`
 }
@@ -123,10 +122,8 @@ func (o VerificationJourneyResult) Validate() error {
 	return nil
 }
 
+// ValidateFor checks the admitted scope of a decoded or stored observation.
 func (o VerificationJourneyResult) ValidateFor(cap MCPCapability, a Assignment, outcomes []string) error {
-	if err := o.Validate(); err != nil {
-		return err
-	}
 	if cap.Profile != MCPProfileTestPilot || a.Subject.Delivery == nil || a.Phase != project.ExecutionVerify || a.Role != project.RoleReviewer || a.Issue != 0 || a.ID != cap.AssignmentID || a.Run != cap.RunID || a.ProjectID != cap.Project || a.Repository != cap.Repository || a.Subject.SubjectKey(a.Repository) != cap.Subject || o.InputDigest != cap.ScopeDigest() {
 		return errors.New("journey observation differs from this worker")
 	}
@@ -146,7 +143,7 @@ func (o VerificationJourneyResult) ValidateFor(cap MCPCapability, a Assignment, 
 	return nil
 }
 
-// VerificationJourneyReferences reserves journey:<submission ID> for exact
+// VerificationJourneyReferences reserves journey:<post ID> for exact
 // recorded observations. Other evidence references keep their existing meaning.
 func VerificationJourneyReferences(refs []string) ([]string, error) {
 	var ids []string

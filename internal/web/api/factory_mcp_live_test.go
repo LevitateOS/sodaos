@@ -575,10 +575,10 @@ func exerciseFactoryLiveMCP(t *testing.T, wire *liveMCPTypeSafeTransport) {
 		t.Fatalf("worker learned: %v %v", result, err)
 	}
 	var response struct {
-		FeedPostID string `json:"feed_post_id"`
+		PostID string `json:"post_id"`
 	}
-	if err := json.Unmarshal([]byte(catalogText(t, result)), &response); err != nil || response.FeedPostID == "" {
-		t.Fatalf("missing post receipt: %v", err)
+	if err := json.Unmarshal([]byte(catalogText(t, result)), &response); err != nil || response.PostID == "" {
+		t.Fatalf("missing post identity: %v", err)
 	}
 	result, err = session.CallTool(ctx, &mcp.CallToolParams{Name: "factory.learned", Arguments: args})
 	if catalogRefused(result, err) {
@@ -589,7 +589,7 @@ func exerciseFactoryLiveMCP(t *testing.T, wire *liveMCPTypeSafeTransport) {
 		t.Fatalf("worker filter feed=%+v err=%v", page, err)
 	}
 	enrichFeedPosts(ctx, st, map[int64]string{7: "owner/repo"}, page)
-	if page[0].ID != response.FeedPostID || page[0].Actor != "builder" || page[0].Issue != 42 || page[0].Payload.Communication.Kind != "learned" {
+	if page[0].ID != response.PostID || page[0].Actor != "builder" || page[0].Issue != 42 || page[0].Payload.Communication.Kind != "learned" {
 		t.Fatalf("bound feed projection=%+v", page[0])
 	}
 	communication := page[0].Payload.Communication
@@ -601,7 +601,7 @@ func exerciseFactoryLiveMCP(t *testing.T, wire *liveMCPTypeSafeTransport) {
 		t.Fatalf("admitted current-library read failed: %v %v", libraryResult, err)
 	}
 	var library factory.LibraryPage
-	if err := json.Unmarshal([]byte(catalogText(t, libraryResult)), &library); err != nil || len(library.Items) != 1 || library.Items[0].SourcePost != response.FeedPostID || library.Items[0].Revision != 1 {
+	if err := json.Unmarshal([]byte(catalogText(t, libraryResult)), &library); err != nil || len(library.Items) != 1 || library.Items[0].SourcePost != response.PostID || library.Items[0].Revision != 1 {
 		t.Fatalf("current-library read lost exact provenance: %+v %v", library, err)
 	}
 	human, _, _, err := st.SubscribedFeed(ctx, factory.FeedQuery{Repositories: []int64{7}, Kinds: []string{factory.FeedKindPost}, Limit: 10})
@@ -610,7 +610,7 @@ func exerciseFactoryLiveMCP(t *testing.T, wire *liveMCPTypeSafeTransport) {
 	}
 
 	// A real stored human reply becomes readable without a second model/JEV call.
-	humanReply, _, err := st.SaveFeedPost(ctx, factory.PostRequest{Repository: 7, Body: "Please reuse that helper for all task routes.", ParentID: response.FeedPostID, IdempotencyKey: "human-reply"}, "7", "Owner", time.Now().Unix())
+	humanReply, _, err := st.SaveFeedPost(ctx, factory.PostRequest{Repository: 7, Body: "Please reuse that helper for all task routes.", ParentID: response.PostID, IdempotencyKey: "human-reply"}, "7", "Owner", time.Now().Unix())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -629,7 +629,7 @@ func exerciseFactoryLiveMCP(t *testing.T, wire *liveMCPTypeSafeTransport) {
 	if len(inbox.Items) != 2 || inbox.Items[0].ID != humanReply {
 		t.Fatalf("reply missing or unrelated item leaked: %+v", inbox)
 	}
-	discussion, err := session.CallTool(ctx, &mcp.CallToolParams{Name: "factory.discussion", Arguments: map[string]any{"payload": map[string]any{"post_id": response.FeedPostID}}})
+	discussion, err := session.CallTool(ctx, &mcp.CallToolParams{Name: "factory.discussion", Arguments: map[string]any{"payload": map[string]any{"post_id": response.PostID}}})
 	if catalogRefused(discussion, err) {
 		t.Fatalf("discussion failed: %v %v", discussion, err)
 	}
@@ -837,11 +837,13 @@ func verifyLiveMCPConsultations(t *testing.T, ctx context.Context, st *store.Sto
 	if catalogRefused(replay, err) || catalogText(t, first) != catalogText(t, replay) {
 		t.Fatal("follow-up replay did not retain its identity", err)
 	}
-	var receipt factory.MCPReceipt
-	if err := json.Unmarshal([]byte(catalogText(t, first)), &receipt); err != nil || receipt.FeedPostID == "" {
-		t.Fatal("follow-up receipt lacks its post", err)
+	var posted struct {
+		ID string `json:"post_id"`
 	}
-	reply, err := st.FeedPost(ctx, receipt.FeedPostID)
+	if err := json.Unmarshal([]byte(catalogText(t, first)), &posted); err != nil || posted.ID == "" {
+		t.Fatal("follow-up lacks its post identity", err)
+	}
+	reply, err := st.FeedPost(ctx, posted.ID)
 	if err != nil || reply.Consultation != nil || reply.Record.ParentID != posts[instructions[0]] || reply.Payload.Communication == nil || reply.Payload.Communication.Kind != "reply" {
 		t.Fatal("agent follow-up was conflated with provider output", err)
 	}

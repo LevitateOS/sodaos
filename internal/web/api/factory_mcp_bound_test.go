@@ -574,17 +574,25 @@ func TestFactoryBoundCurrentContextUsesRecordedScopeAndState(t *testing.T) {
 	if catalogRefused(result, err) {
 		t.Fatal("scoped journey observation refused", err, catalogText(t, result))
 	}
-	firstReceipt := catalogText(t, result)
+	var journeyPost struct {
+		ID string `json:"post_id"`
+	}
+	if err := json.Unmarshal([]byte(catalogText(t, result)), &journeyPost); err != nil || !factory.ValidID(journeyPost.ID) {
+		t.Fatal("journey did not return its post identity", err)
+	}
+	journeyID = journeyPost.ID
+	firstPost := catalogText(t, result)
 	afterJourney := counts()
 	result, err = pilotSession.CallTool(ctx, &mcp.CallToolParams{Name: string(factory.MCPToolRecordJourneyResult), Arguments: journeyArgs})
-	if catalogRefused(result, err) || catalogText(t, result) != firstReceipt || counts() != afterJourney {
-		t.Fatal("lost journey reply recovery duplicated or changed its receipt", err)
+	if catalogRefused(result, err) || catalogText(t, result) != firstPost || counts() != afterJourney {
+		t.Fatal("repeated journey call duplicated or changed its post", err)
 	}
-	for _, fault := range []string{"foreign-outcome", "foreign-artifact", "verified", "changed-replay"} {
+	if count, err := st.MCPSubmissionCount(ctx, pilot.ID); err != nil || count != 0 {
+		t.Fatal("journey post acquired a duplicate MCP journal record", count, err)
+	}
+	for _, fault := range []string{"foreign-outcome", "foreign-artifact", "verified"} {
 		bad := observation
 		switch fault {
-		case "changed-replay":
-			bad.EvidenceRefs = append(append([]string(nil), bad.EvidenceRefs...), "changed")
 		case "foreign-outcome":
 			bad.OutcomeIDs = []string{"d" + strings.Repeat("e", 24)}
 		case "foreign-artifact":
@@ -593,9 +601,6 @@ func TestFactoryBoundCurrentContextUsesRecordedScopeAndState(t *testing.T) {
 			bad.Result = "verified"
 		}
 		id := factory.NewID()
-		if fault == "changed-replay" {
-			id = journeyID
-		}
 		result, err = pilotSession.CallTool(ctx, &mcp.CallToolParams{Name: string(factory.MCPToolRecordJourneyResult), Arguments: map[string]any{"submission_id": id, "payload": journeyPayload(bad)}})
 		if !catalogRefused(result, err) || counts() != afterJourney || verificationReadState() != beforeVerificationState {
 			t.Fatal("invalid journey changed canonical work or recorded evidence", fault)
@@ -605,7 +610,7 @@ func TestFactoryBoundCurrentContextUsesRecordedScopeAndState(t *testing.T) {
 		observation.Name = "Retained observation " + strings.Repeat("x", i)
 		raw, _ := json.Marshal(observation)
 		sub := factory.MCPSubmission{AssignmentID: pilot.ID, CapabilityID: pilotCap.ID, SubmissionID: factory.NewID(), Tool: factory.MCPToolRecordJourneyResult, PayloadHash: factory.MCPInputDigest(raw), Payload: raw}
-		if _, err := st.RecordMCPSubmission(ctx, sub); err != nil {
+		if _, err := st.RecordWorkerPost(ctx, sub); err != nil {
 			t.Fatal("append retained journey observation", err)
 		}
 	}
@@ -617,7 +622,7 @@ func TestFactoryBoundCurrentContextUsesRecordedScopeAndState(t *testing.T) {
 			t.Fatal("journey scope omitted its total or exceeded its page bound")
 		}
 		for _, record := range scope.Records {
-			if seenJourneys[record.ID] || record.Sequence <= sequences || record.Observation.DeliveryID != observation.DeliveryID || record.Observation.Observed != observation.Observed || record.FeedPostID == "" {
+			if seenJourneys[record.ID] || record.Sequence <= sequences || record.Observation.DeliveryID != observation.DeliveryID || record.Observation.Observed != observation.Observed || !factory.ValidID(record.ID) {
 				t.Fatal("journey paging lost identity, ordering or exact observations")
 			}
 			sequences, seenJourneys[record.ID] = record.Sequence, true
@@ -705,8 +710,8 @@ func TestFactoryBoundCurrentContextUsesRecordedScopeAndState(t *testing.T) {
 		t.Fatal("terminal Test Pilot admitted another journey observation")
 	}
 	result, err = pilotSession.CallTool(ctx, &mcp.CallToolParams{Name: string(factory.MCPToolRecordJourneyResult), Arguments: journeyArgs})
-	if catalogRefused(result, err) || catalogText(t, result) != firstReceipt || counts() != afterTerminal || verificationReadState() != beforeVerificationState {
-		t.Fatal("terminal freeze lost or repeated a recorded journey", err)
+	if catalogRefused(result, err) || catalogText(t, result) != firstPost || counts() != afterTerminal || verificationReadState() != beforeVerificationState {
+		t.Fatal("repeated journey call changed its existing post", err)
 	}
 	write(`UPDATE factory_mcp_capabilities SET state='revoked' WHERE id=$1`, pilotCap.ID)
 	result, err = pilotSession.CallTool(ctx, &mcp.CallToolParams{Name: string(factory.MCPToolVerificationScope), Arguments: map[string]any{}})
@@ -820,11 +825,15 @@ func TestFactoryBoundCurrentContextUsesRecordedScopeAndState(t *testing.T) {
 	if catalogRefused(result, err) {
 		t.Fatal("legacy scoped journey observation refused", err, catalogText(t, result))
 	}
-	legacyReceipt := catalogText(t, result)
+	if err := json.Unmarshal([]byte(catalogText(t, result)), &journeyPost); err != nil || !factory.ValidID(journeyPost.ID) {
+		t.Fatal("legacy journey did not return its post identity", err)
+	}
+	legacyJourneyID = journeyPost.ID
+	legacyPost := catalogText(t, result)
 	legacyAfterRecord := counts()
 	result, err = decidedSession.CallTool(ctx, &mcp.CallToolParams{Name: string(factory.MCPToolRecordJourneyResult), Arguments: legacyArgs})
-	if catalogRefused(result, err) || catalogText(t, result) != legacyReceipt || counts() != legacyAfterRecord {
-		t.Fatal("legacy journey replay changed its receipt or journal", err)
+	if catalogRefused(result, err) || catalogText(t, result) != legacyPost || counts() != legacyAfterRecord {
+		t.Fatal("legacy journey repeat changed its post", err)
 	}
 	for name, ids := range map[string][]string{"pending revival": {legacyScope[0], legacyPending.ID}, "declined revival": {legacyScope[0], legacyDeclined.ID}, "foreign outcome": {"d" + strings.Repeat("9", 24)}} {
 		bad := legacyObservation

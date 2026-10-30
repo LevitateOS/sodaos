@@ -38,50 +38,47 @@ func verificationJourneyScopeTx(ctx context.Context, tx *sql.Tx, cap factory.MCP
 	return a, r, err
 }
 
-// The submission, its observed journey and its attributed feed post commit
-// together. This appends a report only; F10 and terminal results have other owners.
-func recordMCPVerificationJourneyTx(ctx context.Context, tx *sql.Tx, cap factory.MCPCapability, sub factory.MCPSubmission, receipt *factory.MCPReceipt) error {
-	if sub.Tool != factory.MCPToolRecordJourneyResult {
-		return nil
-	}
+// The complete observation lives on its attributed post. This appends a report
+// only; F10 and terminal results have other owners.
+func recordVerificationJourneyPostTx(ctx context.Context, tx *sql.Tx, cap factory.MCPCapability, sub factory.MCPSubmission) (string, error) {
 	o, err := factory.DecodeVerificationJourney(sub.Payload)
 	if err != nil {
-		return err
+		return "", err
 	}
 	a, r, err := verificationJourneyScopeTx(ctx, tx, cap)
 	if err != nil {
-		return err
+		return "", err
 	}
 	if err := o.ValidateFor(cap, a, factory.ResolvedScope(r)); err != nil {
-		return err
+		return "", err
 	}
 	var count int
-	if err := tx.QueryRowContext(ctx, `SELECT count(*) FROM factory_mcp_submissions WHERE assignment=$1 AND tool=$2`, a.ID, string(sub.Tool)).Scan(&count); err != nil {
-		return err
+	if err := tx.QueryRowContext(ctx, `SELECT count(*) FROM factory_feed_posts WHERE data->>'assignment'=$1 AND data->'communication'->>'kind'='journey'`, a.ID).Scan(&count); err != nil {
+		return "", err
 	}
 	if count >= factory.MaxVerificationJourneys {
-		return errors.New("journey observation limit reached; finish remains available")
+		return "", errors.New("journey observation limit reached; finish remains available")
 	}
 	content := factory.FeedCommunication{Kind: "journey", Title: o.Name, Summary: "Recorded journey observation: " + o.Result + ". Application verification is unchanged.", Scope: o.DeliveryID, Before: o.Expected, After: o.Observed, EvidenceRefs: append([]string(nil), o.EvidenceRefs...), Remaining: append([]string(nil), o.Limitations...)}
 	for i, step := range o.Steps {
 		content.Items = append(content.Items, factory.FeedCommunicationItem{Label: fmt.Sprintf("%d. %s", i+1, step), State: "reported"})
 	}
-	content.EvidenceRefs = append(content.EvidenceRefs, o.SourceCommit, "journey:"+sub.SubmissionID)
+	postID := factory.MCPInputDigest([]byte(a.ID + "\n" + sub.SubmissionID))[:32]
+	content.EvidenceRefs = append(content.EvidenceRefs, o.SourceCommit, "journey:"+postID)
 	for _, id := range o.ArtifactIDs {
 		var owned bool
 		if err := tx.QueryRowContext(ctx, `SELECT EXISTS(SELECT 1 FROM factory_feed_artifacts WHERE id=$1 AND repository=$2 AND assignment=$3 AND complete)`, id, cap.Repository, a.ID).Scan(&owned); err != nil {
-			return err
+			return "", err
 		}
 		if !owned {
-			return errors.New("journey artifact is not a complete artifact of this assignment")
+			return "", errors.New("journey artifact is not a complete artifact of this assignment")
 		}
 		content.Artifacts = append(content.Artifacts, factory.FeedArtifact{ID: id})
 	}
 	if err := resolveCommunicationArtifactsTx(ctx, tx, cap.Repository, &content); err != nil {
-		return err
+		return "", err
 	}
-	receipt.FeedPostID, err = recordWorkerPostTx(ctx, tx, cap, sub, content)
-	return err
+	return recordWorkerPostTx(ctx, tx, cap, sub, content)
 }
 
 // Validate new references only after immutable submission/terminal replay has
@@ -141,15 +138,14 @@ func validateVerificationJourneyRefsTx(ctx context.Context, tx *sql.Tx, a factor
 	}
 	for _, id := range ids {
 		var raw []byte
-		var capability, input, digest string
-		if err := tx.QueryRowContext(ctx, `SELECT capability,input_digest,payload_hash,payload FROM factory_mcp_submissions WHERE assignment=$1 AND submission=$2 AND tool=$3 FOR SHARE`, a.ID, id, string(factory.MCPToolRecordJourneyResult)).Scan(&capability, &input, &digest, &raw); err != nil {
+		if err := tx.QueryRowContext(ctx, `SELECT data->'journey' FROM factory_feed_posts WHERE id=$1 AND repository=$2 AND data->>'assignment'=$3 AND data->>'run'=$4 AND data->'communication'->>'kind'='journey' FOR SHARE`, id, a.Repository, a.ID, a.Run).Scan(&raw); err != nil {
 			if errors.Is(err, sql.ErrNoRows) {
 				return errors.New("journey reference is not a recorded observation of this assignment")
 			}
 			return err
 		}
-		o, err := factory.DecodeVerificationJourney(raw)
-		if err != nil || capability != cap.ID || input != report.InputDigest || digest != factory.MCPInputDigest(raw) || o.ValidateFor(cap, a, factory.ResolvedScope(revision)) != nil {
+		var o factory.VerificationJourneyResult
+		if json.Unmarshal(raw, &o) != nil || o.ValidateFor(cap, a, factory.ResolvedScope(revision)) != nil {
 			return errors.New("journey reference differs from its canonical observation")
 		}
 		if report.Outcome == factory.AppVerificationVerified && o.Result != "passed" {
@@ -176,17 +172,17 @@ func (s *Store) VerificationScope(ctx context.Context, cap factory.MCPCapability
 		return out, err
 	}
 	out = factory.VerificationScopeView{Assignment: a.ID, Run: a.Run, InputDigest: cap.ScopeDigest(), Delivery: *a.Subject.Delivery, OutcomeIDs: append([]string(nil), factory.ResolvedScope(r)...), Records: []factory.VerificationJourneyRecord{}, Limit: factory.VerificationJourneyPageSize, Maximum: factory.MaxVerificationJourneys}
-	if err := tx.QueryRowContext(ctx, `SELECT count(*) FROM factory_mcp_submissions WHERE assignment=$1 AND tool=$2`, a.ID, string(factory.MCPToolRecordJourneyResult)).Scan(&out.Total); err != nil {
+	if err := tx.QueryRowContext(ctx, `SELECT count(*) FROM factory_feed_posts WHERE repository=$1 AND data->>'assignment'=$2 AND data->>'run'=$3 AND data->'communication'->>'kind'='journey'`, a.Repository, a.ID, a.Run).Scan(&out.Total); err != nil {
 		return out, err
 	}
-	rows, err := tx.QueryContext(ctx, `SELECT s.submission,s.receipt->>'feed_post_id',p.seq,s.payload FROM factory_mcp_submissions s JOIN factory_feed_posts p ON p.id=s.receipt->>'feed_post_id' AND p.repository=$2 WHERE s.assignment=$1 AND s.tool=$3 AND p.seq>$4 ORDER BY p.seq LIMIT $5`, a.ID, a.Repository, string(factory.MCPToolRecordJourneyResult), after, factory.VerificationJourneyPageSize+1)
+	rows, err := tx.QueryContext(ctx, `SELECT id,seq,data->'journey' FROM factory_feed_posts WHERE repository=$1 AND data->>'assignment'=$2 AND data->>'run'=$3 AND data->'communication'->>'kind'='journey' AND seq>$4 ORDER BY seq LIMIT $5`, a.Repository, a.ID, a.Run, after, factory.VerificationJourneyPageSize+1)
 	if err != nil {
 		return out, err
 	}
 	for rows.Next() {
 		var record factory.VerificationJourneyRecord
 		var raw []byte
-		if err := rows.Scan(&record.ID, &record.FeedPostID, &record.Sequence, &raw); err != nil {
+		if err := rows.Scan(&record.ID, &record.Sequence, &raw); err != nil {
 			rows.Close()
 			return out, err
 		}
@@ -194,8 +190,7 @@ func (s *Store) VerificationScope(ctx context.Context, cap factory.MCPCapability
 			out.NextAfter = out.Records[len(out.Records)-1].Sequence
 			break
 		}
-		record.Observation, err = factory.DecodeVerificationJourney(raw)
-		if err != nil || record.Observation.ValidateFor(cap, a, factory.ResolvedScope(r)) != nil {
+		if json.Unmarshal(raw, &record.Observation) != nil || record.Observation.ValidateFor(cap, a, factory.ResolvedScope(r)) != nil {
 			rows.Close()
 			return out, errors.New("recorded journey differs from its admitted scope")
 		}
@@ -205,10 +200,6 @@ func (s *Store) VerificationScope(ctx context.Context, cap factory.MCPCapability
 	rows.Close()
 	if err != nil {
 		return out, err
-	}
-	// Missing atomic feed projections must not appear as a complete empty log.
-	if after == 0 && out.NextAfter == 0 && len(out.Records) != out.Total {
-		return out, errors.New("journey observation projection is incomplete")
 	}
 	out.Complete = out.NextAfter == 0
 	if err := tx.Commit(); err != nil {

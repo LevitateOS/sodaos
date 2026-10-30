@@ -159,9 +159,6 @@ func (s *Store) RecordMCPSubmission(ctx context.Context, submission factory.MCPS
 	if err = recordMCPArtifactTx(ctx, tx, capability, submission, &receipt); err != nil {
 		return factory.MCPReceipt{}, err
 	}
-	if err = recordMCPVerificationJourneyTx(ctx, tx, capability, submission, &receipt); err != nil {
-		return factory.MCPReceipt{}, err
-	}
 	if err = recordMCPRepairDiagnosisTx(ctx, tx, capability, submission, &receipt); err != nil {
 		return factory.MCPReceipt{}, err
 	}

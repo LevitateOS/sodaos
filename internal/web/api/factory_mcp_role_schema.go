@@ -74,7 +74,7 @@ func rolePayloadSchema(tool factory.MCPTool) *jsonschema.Schema {
 		props["report"].Then = &jsonschema.Schema{Type: "object", Properties: map[string]*jsonschema.Schema{"outcome": outcome}, Required: []string{"outcome"}}
 	case factory.MCPToolFinishAppVerify:
 		set("delivery_id", serverFilled, text)
-		set("evidence_refs", "Inspected evidence; journey:<submission ID> must resolve to this assignment's exact recorded observation. Verified claims may cite only passed journeys. These references never replace trusted check receipts.", strings)
+		set("evidence_refs", "Inspected evidence; journey:<post ID> must resolve to this assignment's exact recorded observation. Verified claims may cite only passed journeys. These references never replace trusted check receipts.", strings)
 		set("coverage", "Structured outcome coverage for the assigned delivery.", mcpCarrier[[]factory.ReassessmentCoverage]())
 		set("check_receipts", "Observed typed receipts for approved checks; required to settle verified or failed.", mcpCarrier[[]factory.VerificationCheckReceipt]())
 		set("artifact_refs", "Content digests from the publish response of this assignment's complete artifacts. Settlement resolves each digest back to the assignment and fences unknown, foreign or unfinished citations.", strings)
