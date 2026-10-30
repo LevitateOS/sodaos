@@ -14,9 +14,6 @@ func currentReviewTx(ctx context.Context, tx *sql.Tx, a factory.Assignment, out 
 		out.Evidence.MissingReasons = append(out.Evidence.MissingReasons, "required_review_context_unavailable")
 		return nil
 	}
-	if err := a.ReviewContext.ValidateFor(a); err != nil {
-		return err
-	}
 	var owner factory.Assignment
 	if err := contextJSONRow(ctx, tx, &owner, `SELECT data FROM factory_assignments WHERE id=$1`, a.PublicationAssignment); err != nil {
 		return err
@@ -38,9 +35,6 @@ func currentReviewTx(ctx context.Context, tx *sql.Tx, a factory.Assignment, out 
 		if cycle.ID != a.ReviewContext.Cycle.ID {
 			continue
 		}
-		if cycle != a.ReviewContext.Cycle {
-			return errors.New("review context cycle changed")
-		}
 		found = true
 	}
 	if !found {
@@ -49,9 +43,6 @@ func currentReviewTx(ctx context.Context, tx *sql.Tx, a factory.Assignment, out 
 	tuple := factory.CandidateTuple{Head: p.Candidate, Base: p.BaseSHA, DiffBase: p.CurrentDiffBase(), Revision: p.NativeRev}
 	if p.Tuple != nil {
 		tuple = *p.Tuple
-	}
-	if tuple.Validate() != nil {
-		return errors.New("current review candidate tuple is unavailable")
 	}
 	current := *a.ReviewContext
 	current.Assessments = []factory.CurrentFindingAssessment{}
@@ -83,7 +74,7 @@ func currentReviewTx(ctx context.Context, tx *sql.Tx, a factory.Assignment, out 
 		if err := contextJSONRow(ctx, tx, &policy, `SELECT data FROM factory_policies WHERE repository=$1`, p.Repository); err != nil {
 			return err
 		}
-		if assessment.Validate() == nil && policy.Validate() == nil && assessment.Repository == p.Repository && assessment.PRNumber == p.PRNumber && assessment.PRID == p.PRID && assessment.IssueID == p.PRCreate.IssueID && assessment.HeadOID == current.AdmittedTuple.Head && assessment.HeadOID == p.Candidate && assessment.BaseOID == p.PRCreate.BaseOID && assessment.HeadRef == p.PRCreate.HeadRef && assessment.BaseRef == p.PRCreate.BaseRef && assessment.PolicyRevision == policy.Revision && slices.Equal(assessment.Checks, policy.Checks) && assessment.ChecksDigest == factory.ChecksDigest(policy.Checks) && (assessment.Verdict == factory.CheckPass || assessment.Verdict == factory.CheckFailed) {
+		if assessment.Repository == p.Repository && assessment.PRNumber == p.PRNumber && assessment.PRID == p.PRID && assessment.IssueID == p.PRCreate.IssueID && assessment.HeadOID == current.AdmittedTuple.Head && assessment.HeadOID == p.Candidate && assessment.BaseOID == p.PRCreate.BaseOID && assessment.HeadRef == p.PRCreate.HeadRef && assessment.BaseRef == p.PRCreate.BaseRef && assessment.PolicyRevision == policy.Revision && slices.Equal(assessment.Checks, policy.Checks) && assessment.ChecksDigest == factory.ChecksDigest(policy.Checks) && (assessment.Verdict == factory.CheckPass || assessment.Verdict == factory.CheckFailed) {
 			current.CheckAssessment = &assessment
 		}
 	}

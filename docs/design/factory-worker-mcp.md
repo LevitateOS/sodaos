@@ -326,6 +326,11 @@ The API validates worker content and its size before constructing the internal
 submission. The writer checks current authority under the capability lock; it
 does not repeat shape validation on server-generated identities or saved scope.
 
+Saved assignments and accepted inputs are validated when admitted. Context reads
+preserve those bytes and check their current scope, acceptance head and
+withdrawals; review evidence is selected for the current candidate and check
+policy.
+
 Worker context does not carry a submission-receipt history; communications and
 results are available through the work posts and discussion. Ordinary worker
 communications write directly to posts and return the post representation.

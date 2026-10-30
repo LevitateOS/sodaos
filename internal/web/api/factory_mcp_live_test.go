@@ -339,9 +339,8 @@ func TestFactoryLiveMCPNativeTasksBoundToObservedRun(t *testing.T) {
 				state = original
 				stateMu.Unlock()
 			}
-			// The real host client owns exact inspect-address validation even
-			// when this callback is exercised without the transport's prior
-			// activation observation.
+			// Native-task admission binds the observation even when this callback
+			// runs without the transport's prior activation observation.
 			active, err := st.GetMCPCapability(ctx, cap.ID)
 			if err != nil {
 				t.Fatal(err)
@@ -643,7 +642,7 @@ func exerciseFactoryLiveMCP(t *testing.T, wire *liveMCPTypeSafeTransport) {
 func seedLiveConsultationScope(t *testing.T, ctx context.Context, db *sql.DB, a factory.Assignment) {
 	t.Helper()
 	accepted := factory.Acceptance{ID: a.Acceptance, Repository: a.Repository, IssueIndex: strconv.FormatInt(a.Issue, 10), Approver: 7, NativeRev: a.NativeRev, Initial: true, TitleOccurrence: factory.OriginalOccurrence, TitleDigest: factory.MCPInputDigest([]byte(a.AcceptedContext.Title)), ContentDigest: factory.MCPInputDigest([]byte(a.AcceptedContext.Body))}
-	if accepted.Validate() != nil || a.AcceptedContext.ValidateFor(a) != nil || a.AcceptedContext.ValidateAcceptance(accepted) != nil {
+	if accepted.Validate() != nil || a.AcceptedContext.ValidateFor(a) != nil {
 		t.Fatal("invalid recorded acceptance fixture")
 	}
 	raw, _ := json.Marshal(accepted)

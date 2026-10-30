@@ -1,8 +1,6 @@
 package factory
 
 import (
-	"crypto/sha256"
-	"encoding/hex"
 	"encoding/json"
 	"errors"
 
@@ -69,26 +67,6 @@ func (c AcceptedContext) ValidateFor(a Assignment) error {
 	raw, err := json.Marshal(c)
 	if err != nil || len(raw) > MaxEncodedPlan {
 		return errors.New("accepted context exceeds its bound")
-	}
-	return nil
-}
-
-// ValidateAcceptance checks the retained bytes against the same immutable
-// native digests verified at dispatch, without fetching changed source text.
-func (c AcceptedContext) ValidateAcceptance(a Acceptance) error {
-	digest := func(text string) string { sum := sha256.Sum256([]byte(text)); return hex.EncodeToString(sum[:]) }
-	if c.AcceptanceID != a.ID || c.Repository != a.Repository || c.NativeRevision < a.NativeRev || digest(c.Title) != a.TitleDigest || digest(c.Body) != a.ContentDigest || len(c.Sources) != len(a.Sources) || len(c.Resolutions) != len(a.Resolutions) {
-		return errors.New("retained context differs from accepted native bytes")
-	}
-	for i, source := range c.Sources {
-		if source.ID != a.Sources[i].ID || digest(source.Content) != a.Sources[i].Digest {
-			return errors.New("retained source differs from accepted revision")
-		}
-	}
-	for i, source := range c.Resolutions {
-		if source.ID != a.Resolutions[i].ID || digest(source.Content) != a.Resolutions[i].Digest {
-			return errors.New("retained resolution differs from accepted revision")
-		}
 	}
 	return nil
 }

@@ -3,6 +3,7 @@ package control
 import (
 	"context"
 	"fmt"
+	"reflect"
 	"strings"
 	"testing"
 	"time"
@@ -47,7 +48,7 @@ func TestDispatchPassLaunchesOldestWithinShortLimit(t *testing.T) {
 	if a.Authority.Sponsorship != 1 || a.Authority.RequirementsID == "" || a.Authority.ApprovalID == "" {
 		t.Fatalf("assignment authority = %+v", a.Authority)
 	}
-	if a.AcceptedContext == nil || a.AcceptedContext.Title != "objective 3; inspect README.md" || a.AcceptedContext.Body != acceptedBody || len(a.AcceptedContext.Sources) != 1 || a.AcceptedContext.Sources[0].Content != "answer 3" || a.AcceptedContext.RepositoryContext == nil || a.AcceptedContext.ValidateAcceptance(oldHead) != nil {
+	if a.AcceptedContext == nil || a.AcceptedContext.Title != "objective 3; inspect README.md" || a.AcceptedContext.Body != acceptedBody || len(a.AcceptedContext.Sources) != 1 || a.AcceptedContext.Sources[0].Content != "answer 3" || a.AcceptedContext.RepositoryContext == nil {
 		t.Fatal("atomic dispatch lost exact structured accepted context")
 	}
 	for _, want := range []string{
@@ -176,7 +177,7 @@ func TestDispatchPassLaunchesOldestWithinShortLimit(t *testing.T) {
 	if err != nil || child.ParentAssignment != a.ID || child.Phase != project.ExecutionImplement || child.AttemptRoot != a.AttemptRoot {
 		t.Fatalf("advanced child = %+v %v", child, err)
 	}
-	if child.AcceptedContext == nil || child.AcceptedContext.ValidateFor(child) != nil || child.AcceptedContext.ValidateAcceptance(oldHead) != nil {
+	if child.AcceptedContext == nil || child.AcceptedContext.AcceptanceID != oldHead.ID || child.AcceptedContext.Title != a.AcceptedContext.Title || child.AcceptedContext.Body != acceptedBody || !reflect.DeepEqual(child.AcceptedContext.Sources, a.AcceptedContext.Sources) {
 		t.Fatal("implementation child lost its verified accepted context")
 	}
 	childRun, err := db.FactoryRun(ctx, child.Run)

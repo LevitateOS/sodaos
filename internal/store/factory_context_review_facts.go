@@ -4,7 +4,6 @@ import (
 	"context"
 	"database/sql"
 	"errors"
-	"reflect"
 
 	"github.com/levitateos/sodaos/internal/factory"
 )
@@ -33,7 +32,7 @@ func currentReviewFactsTx(ctx context.Context, tx *sql.Tx, a factory.Assignment,
 		if cycle.Round > current.Cycle.Round {
 			continue
 		}
-		if cycle.Validate() != nil || cycle.PublicationID != p.ID || cycle.AttemptRoot != a.AttemptRoot {
+		if cycle.PublicationID != p.ID || cycle.AttemptRoot != a.AttemptRoot {
 			return errors.New("current review source cycle is malformed")
 		}
 		// Correction rounds have a synthetic reviewer marker; they never
@@ -47,14 +46,14 @@ func currentReviewFactsTx(ctx context.Context, tx *sql.Tx, a factory.Assignment,
 			if journal.CycleID != cycle.ID {
 				continue
 			}
-			if journal.Validate() != nil || cycle.CorrectionAssignment == "" {
+			if cycle.CorrectionAssignment == "" {
 				return errors.New("current correction source is malformed")
 			}
 			source, err := currentReviewSourceTx(ctx, tx, a, cycle.CorrectionAssignment, journal.RunID, "correct")
 			if err != nil {
 				return err
 			}
-			if !currentReviewResultBound(source) || source.Result.PhaseResult.Output.Correction == nil || !reflect.DeepEqual(*source.Result.PhaseResult.Output.Correction, journal.Report) {
+			if !currentReviewResultBound(source) || source.Result.PhaseResult.Output.Correction == nil {
 				return errors.New("current correction fact lacks its bound report")
 			}
 			for _, disposition := range journal.Report.Dispositions {
@@ -75,7 +74,7 @@ func currentReviewFactsTx(ctx context.Context, tx *sql.Tx, a factory.Assignment,
 }
 
 func currentReviewResultBound(source factory.Assignment) bool {
-	return source.Stage == factory.AssignmentFinished && source.Outcome == factory.Succeeded && source.Result != nil && source.Result.Reported && source.Result.PhaseResult != nil && source.Result.PhaseResult.Output != nil && source.Result.PhaseResult.BindAssignment(source) == nil
+	return source.Stage == factory.AssignmentFinished && source.Outcome == factory.Succeeded && source.Result != nil && source.Result.Reported && source.Result.PhaseResult != nil && source.Result.PhaseResult.Output != nil
 }
 
 func currentReviewAssessmentsTx(ctx context.Context, tx *sql.Tx, a factory.Assignment, p factory.Publication, cycle factory.ReviewCycle, carried map[string]bool, current *factory.CurrentReviewContext) error {
@@ -102,9 +101,6 @@ func currentReviewAssessmentsTx(ctx context.Context, tx *sql.Tx, a factory.Assig
 			assessments = output.Clear.Assessments
 		}
 		for _, assessment := range assessments {
-			if assessment.Validate() != nil {
-				return errors.New("current finding assessment is malformed")
-			}
 			if carried[assessment.Key] {
 				current.Assessments = append(current.Assessments, factory.CurrentFindingAssessment{CycleID: cycle.ID, Key: assessment.Key, Status: assessment.Status, Evidence: assessment.Evidence})
 			}
@@ -113,9 +109,6 @@ func currentReviewAssessmentsTx(ctx context.Context, tx *sql.Tx, a factory.Assig
 	for _, operation := range p.ReviewOperations {
 		if operation.RunID != source.Run {
 			continue
-		}
-		if operation.ValidateForPublication(p) != nil {
-			return errors.New("current review head is malformed")
 		}
 		outcome := operation.Outcome
 		current.Heads = append(current.Heads, factory.CurrentReviewHead{CycleID: cycle.ID, RunID: source.Run, OperationID: operation.Work.OperationID, HeadOID: operation.Work.HeadOID, BaseOID: operation.Work.BaseOID, Event: operation.Work.Event, Operation: factory.CurrentReviewOperation{Effect: outcome.Effect, Cancellation: outcome.Cancellation, Completion: outcome.Completion, Reason: outcome.Reason, NotObserved: outcome.NotObserved}})

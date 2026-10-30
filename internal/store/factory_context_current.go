@@ -17,9 +17,6 @@ import (
 // prompt or historical sibling becomes readable through this method.
 func (s *Store) FactoryCurrentContext(ctx context.Context, cap factory.MCPCapability, now time.Time) (factory.CurrentContext, error) {
 	var out factory.CurrentContext
-	if cap.Validate() != nil {
-		return out, errors.New("invalid current context capability")
-	}
 	tx, err := s.db.BeginTx(ctx, &sql.TxOptions{Isolation: sql.LevelRepeatableRead})
 	if err != nil {
 		return out, err
@@ -140,7 +137,7 @@ func currentAllowanceTx(ctx context.Context, tx *sql.Tx, a factory.Assignment, c
 	if err != nil {
 		return err
 	}
-	if allowance.Validate() != nil || allowance.Repository != cap.Repository || allowance.RootAssignment != a.AttemptRoot || allowance.Issue != a.Issue {
+	if allowance.Repository != cap.Repository || allowance.RootAssignment != a.AttemptRoot || allowance.Issue != a.Issue {
 		return errors.New("current context allowance differs from assignment")
 	}
 	remaining := max(int64(0), cap.DeadlineUnix-now.Unix())
@@ -163,7 +160,7 @@ func currentAcceptanceTx(ctx context.Context, tx *sql.Tx, a factory.Assignment, 
 	if err != nil {
 		return err
 	}
-	if accepted.Validate() != nil || accepted.ID != a.Acceptance || accepted.Repository != a.Repository || accepted.IssueIndex != strconv.FormatInt(a.Issue, 10) {
+	if accepted.ID != a.Acceptance || accepted.Repository != a.Repository || accepted.IssueIndex != strconv.FormatInt(a.Issue, 10) {
 		return errors.New("current accepted scope differs from assignment")
 	}
 	var current bool
@@ -174,12 +171,6 @@ func currentAcceptanceTx(ctx context.Context, tx *sql.Tx, a factory.Assignment, 
 		return errors.New("accepted context is withdrawn or superseded")
 	}
 	if a.AcceptedContext != nil {
-		if err = a.AcceptedContext.ValidateFor(a); err != nil {
-			return err
-		}
-		if err = a.AcceptedContext.ValidateAcceptance(accepted); err != nil {
-			return err
-		}
 		out.Role.Accepted = a.AcceptedContext
 	}
 	out.Role.Acceptance = &factory.CurrentAcceptanceContext{ID: accepted.ID, NativeRevision: accepted.NativeRev, TitleDigest: accepted.TitleDigest, ContentDigest: accepted.ContentDigest, Sources: accepted.Sources, Prerequisites: accepted.Prerequisites, Resolutions: accepted.Resolutions}
@@ -204,14 +195,12 @@ func currentProductTx(ctx context.Context, tx *sql.Tx, a factory.Assignment, out
 	if err != nil {
 		return err
 	}
-	if revision.Validate() != nil || revision.ID != bound.RevisionID || revision.Intent != bound.IntentID || revision.Owner != a.ActorID || revision.Repository != a.Repository || revision.Digest() != bound.ScopeDigest {
+	if revision.ID != bound.RevisionID || revision.Intent != bound.IntentID || revision.Owner != a.ActorID || revision.Repository != a.Repository || revision.Digest() != bound.ScopeDigest {
 		return errors.New("current intent differs from admitted subject")
 	}
 	setCurrentProduct(revision, out)
 	if a.PlanningContext == nil {
 		out.Evidence.MissingReasons = append(out.Evidence.MissingReasons, "admitted_planning_inputs_unavailable")
-	} else if err = a.PlanningContext.ValidateAssignment(a); err != nil {
-		return err
 	} else {
 		out.Role.Planning = a.PlanningContext.CurrentContext()
 	}
@@ -240,12 +229,12 @@ func currentPlanTx(ctx context.Context, tx *sql.Tx, a factory.Assignment, run fa
 		return err
 	}
 	var plan factory.InvestigationPlan
-	if json.Unmarshal(manifest.Plan, &plan) != nil || plan.Validate() != nil || manifest.Run != run.ID || manifest.Phase != a.Phase || plan.AttemptRoot != a.AttemptRoot || plan.Preparation != a.Preparation {
+	if json.Unmarshal(manifest.Plan, &plan) != nil || manifest.Run != run.ID || manifest.Phase != a.Phase || plan.AttemptRoot != a.AttemptRoot || plan.Preparation != a.Preparation {
 		return errors.New("current plan differs from assigned manifest")
 	}
 	projected := &factory.CurrentPlanContext{AttemptRoot: plan.AttemptRoot, PlanID: plan.ID, Generation: plan.Generation, Digest: plan.Digest, InputDigest: plan.InputDigest, ScopeDigest: plan.ScopeDigest, SourceCommit: plan.SourceCommit, IntegrationCommit: plan.IntegrationCommit, Preparation: plan.Preparation, ManifestDigest: project.ExecutionManifestDigest(run.ExecutionManifest), Tasks: plan.Tasks, Checks: plan.Checks, Receipts: []factory.CurrentTaskReceipt{}}
 	if checkpoint := run.FinalCheckpoint; checkpoint != nil {
-		if checkpoint.ValidateFor(checkpoint.Request, true) != nil || checkpoint.Request.Project != a.ProjectID || checkpoint.Request.ID != run.ID || checkpoint.Request.ManifestDigest != projected.ManifestDigest {
+		if checkpoint.Request.Project != a.ProjectID || checkpoint.Request.ID != run.ID || checkpoint.Request.ManifestDigest != projected.ManifestDigest {
 			return errors.New("current integration checkpoint differs from assigned manifest")
 		}
 		projected.FinalCheckpoint = checkpoint
