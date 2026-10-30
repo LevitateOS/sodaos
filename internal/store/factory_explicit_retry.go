@@ -87,8 +87,7 @@ func (s *Store) RecordExplicitRetryCommand(ctx context.Context, cmd factory.Comm
 		return stored, false, nil
 	}
 	var collision bool
-	if err = tx.QueryRowContext(ctx, `SELECT EXISTS(SELECT 1 FROM factory_assignments WHERE id=$1)
-		OR EXISTS(SELECT 1 FROM factory_dispatch_regs WHERE id=$1)`, cmd.ID).Scan(&collision); err != nil {
+	if err = tx.QueryRowContext(ctx, `SELECT EXISTS(SELECT 1 FROM factory_assignments WHERE id=$1)`, cmd.ID).Scan(&collision); err != nil {
 		return factory.Command{}, false, err
 	}
 	if collision {
@@ -187,8 +186,7 @@ func admitRetryGateTx(ctx context.Context, tx *sql.Tx, a factory.Assignment) err
 		return err
 	}
 	var collision bool
-	if err := tx.QueryRowContext(ctx, `SELECT EXISTS(SELECT 1 FROM factory_assignments WHERE id=$1)
-		OR EXISTS(SELECT 1 FROM factory_dispatch_regs WHERE id=$1)`, a.ID).Scan(&collision); err != nil {
+	if err := tx.QueryRowContext(ctx, `SELECT EXISTS(SELECT 1 FROM factory_assignments WHERE id=$1)`, a.ID).Scan(&collision); err != nil {
 		return err
 	}
 	if collision {
@@ -245,7 +243,7 @@ func (s *Store) RecordExplicitRetryPacket(ctx context.Context, decision factory.
 	if err = validateExplicitRetryFactsTx(ctx, tx, decision.Prior, a.Repository, a.Issue, a.Acceptance, admitted.priorOutcome); err != nil {
 		return err
 	}
-	if err = registerDispatchTx(ctx, tx, d); err != nil {
+	if err = checkDispatchOpenTx(ctx, tx, a.Repository); err != nil {
 		return err
 	}
 	if err = recordDispatchPacketTx(ctx, tx, d, expected, a, r, run, view, true); err != nil {

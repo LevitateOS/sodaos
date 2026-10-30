@@ -22,7 +22,7 @@ func (e ErrPendingRuns) Error() string { return "factory runs are not settled" }
 
 // PauseRepository latches one repository's dispatch closed and then stops
 // its outstanding runs. Withdrawal precedes every stop, so a delayed
-// registration cannot escape the captured set and a delayed start meets
+// dispatch cannot pass the closed gate and a delayed start meets
 // the stop tombstone. Uncertain runs stay fenced inside the receipt.
 func (c *Coordinator) PauseRepository(ctx context.Context, commandID, principal string, repository int64) (factory.PauseReceipt, error) {
 	bounded, stop := context.WithTimeout(ctx, 10*time.Minute)

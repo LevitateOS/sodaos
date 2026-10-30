@@ -387,7 +387,6 @@ type GrantReceipt struct {
 	PublicationsPending bool               `json:"publications_pending"`
 	MergesPending       bool               `json:"merges_pending"`
 	Effective           EffectiveAuthority `json:"effective"`
-	Captured            []string           `json:"captured,omitempty"`
 	CommandID           string             `json:"command_id"`
 	Revision            int64              `json:"revision"`
 	Withdrawn           bool               `json:"withdrawn"`
@@ -407,9 +406,7 @@ type AuthorityInput struct {
 	DispatchOpen     bool
 }
 
-// DispatchRegistration is one outstanding dispatch captured by withdrawal in
-// order. Registration is refused once dispatch closes; a delayed
-// registration cannot escape the withdrawal set.
+// DispatchRegistration carries the identity and authority for dispatch admission.
 type DispatchRegistration struct {
 	Authority  AuthorityRef `json:"authority"`
 	ID         string       `json:"id"`
@@ -424,22 +421,17 @@ func (d DispatchRegistration) Validate() error {
 	return nil
 }
 
-// MaxCapturedDispatch bounds the outstanding IDs one withdrawal reports.
-const MaxCapturedDispatch = 1024
-
 // MaxActiveDispatchCauses bounds the cause labels retained on one gate.
 // Labels remain bounded strings because grant withdrawal callers own their
 // vocabulary; lifecycle controls do not reinterpret grant causes.
 const MaxActiveDispatchCauses = 16
 
-// Withdrawal is the durable record of one dispatch closure: the cause, the
-// closing principal and every outstanding ID captured in order. Local
+// Withdrawal is the durable state of one dispatch closure and its causes. Local
 // withdrawal acknowledges requested cancellation, not a won native race.
 type Withdrawal struct {
 	ActiveCauses []string              `json:"active_causes"`
 	Publications PublicationWithdrawal `json:"publications"`
 	Merges       MergeWithdrawal       `json:"merges"`
-	Captured     []string              `json:"captured"`
 	Repository   int64                 `json:"repository,string"`
 	Revision     int64                 `json:"revision"`
 	Cause        string                `json:"cause"`
@@ -449,9 +441,6 @@ type Withdrawal struct {
 func (w Withdrawal) Validate() error {
 	if w.Repository <= 0 || w.Revision < 0 || w.Cause == "" || len(w.Cause) > 256 || w.ClosedBy == "" || len(w.ClosedBy) > 128 {
 		return errors.New("invalid dispatch withdrawal")
-	}
-	if len(w.Captured) > MaxCapturedDispatch {
-		return errors.New("withdrawal captures too many outstanding dispatches")
 	}
 	if len(w.ActiveCauses) > MaxActiveDispatchCauses {
 		return errors.New("dispatch has too many active closure causes")
@@ -465,11 +454,6 @@ func (w Withdrawal) Validate() error {
 			return errors.New("duplicate active dispatch cause")
 		}
 		seenCauses[cause] = struct{}{}
-	}
-	for _, id := range w.Captured {
-		if !ValidID(id) {
-			return errors.New("withdrawal captures an invalid dispatch identity")
-		}
 	}
 	return nil
 }

@@ -45,7 +45,6 @@ func (s *Store) RecordDeliveryRetryCommand(ctx context.Context, cmd factory.Comm
 	}
 	var occupied bool
 	err = tx.QueryRowContext(ctx, `SELECT EXISTS(SELECT 1 FROM factory_assignments WHERE id=$1)
-		OR EXISTS(SELECT 1 FROM factory_dispatch_regs WHERE id=$1)
 		OR EXISTS(SELECT 1 FROM factory_commands c WHERE c.type=$2 AND c.target=$3 AND c.id<>$1 AND c.finished<>''
 		AND NOT EXISTS(SELECT 1 FROM factory_assignments a WHERE a.id=c.id))`, cmd.ID, factory.CommandRetry, cmd.Target).Scan(&occupied)
 	if err != nil {

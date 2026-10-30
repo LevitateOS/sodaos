@@ -113,7 +113,6 @@ func dispatchTestAuthority() factory.AuthorityRef {
 func assertDispatchPacketAbsent(t *testing.T, db *Store, a factory.Assignment) {
 	t.Helper()
 	for _, check := range []struct{ table, key, value string }{
-		{"factory_dispatch_regs", "id", a.ID},
 		{"factory_assignments", "id", a.ID},
 		{"factory_reservations", "assignment", a.ID},
 		{"factory_runs", "id", a.Run},

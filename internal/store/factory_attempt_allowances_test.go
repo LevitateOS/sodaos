@@ -645,7 +645,6 @@ func TestInitialAttemptDeadlineMustFitRecordedAllowance(t *testing.T) {
 				{"factory_assignments", "id", a.ID},
 				{"factory_runs", "id", run.ID},
 				{"factory_reservations", "assignment", a.ID},
-				{"factory_dispatch_regs", "id", a.ID},
 			} {
 				var exists bool
 				if err := db.db.QueryRowContext(ctx, `SELECT EXISTS(SELECT 1 FROM `+check.table+` WHERE `+check.key+`=$1)`, check.id).Scan(&exists); err != nil {

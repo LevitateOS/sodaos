@@ -11,28 +11,6 @@ import (
 	"github.com/levitateos/sodaos/internal/store"
 )
 
-// RegisterDispatch records one outstanding dispatch under currently
-// effective authority. Stale or ineffective authority is refused; a delayed
-// registration after withdrawal cannot escape the captured set.
-func (c *Coordinator) RegisterDispatch(ctx context.Context, d factory.DispatchRegistration) error {
-	bounded, stop := context.WithTimeout(ctx, 30*time.Second)
-	defer stop()
-	if err := d.Validate(); err != nil {
-		return err
-	}
-	effective, err := c.EffectiveAuthority(bounded, d.Repository)
-	if err != nil {
-		return err
-	}
-	if !effective.Effective || effective.Authority != d.Authority {
-		if !effective.Effective {
-			return ErrIneffectiveAuthority
-		}
-		return store.ErrStaleRevision
-	}
-	return c.Store.RegisterDispatch(bounded, d)
-}
-
 // ReopenDispatch reopens a withdrawn gate after an authorized control
 // revalidated every grant. The expected revision must equal the recorded
 // withdrawal revision.

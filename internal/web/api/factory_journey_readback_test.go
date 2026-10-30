@@ -145,7 +145,7 @@ func TestQualificationJourneyLostHTTPResponse(t *testing.T) {
 		t.Fatalf("unexpected transport counts: mutations=%d dropped=%d lookups=%d", mutations.Load(), dropped.Load(), lookups.Load())
 	}
 	open, revision, withdrawal, err := fx.db.DispatchState(ctx, journeyRepo)
-	if err != nil || open || revision != 1 || len(withdrawal.Captured) != 0 {
+	if err != nil || open || revision != 1 {
 		t.Fatalf("canonical dispatch withdrawal: open=%v revision=%d withdrawal=%+v error=%v", open, revision, withdrawal, err)
 	}
 	var commands, runs, usage, allowances, projects, reservations int

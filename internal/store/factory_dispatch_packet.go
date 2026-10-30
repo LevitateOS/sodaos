@@ -33,8 +33,8 @@ var (
 	ErrAdmissionChanged     = errors.New("admission grants changed during dispatch")
 )
 
-// RecordDispatchPacket stores one dispatch atomically: the gate
-// registration, the exact current queued control, the assigned assignment, its held reservation, the
+// RecordDispatchPacket checks the gate and stores one dispatch atomically:
+// the exact current queued control, the assigned assignment, its held reservation, the
 // recorded run and the display binding. Either the whole packet lands or
 // nothing does, so a crash never leaves a reservation without its
 // assignment or a run without its dispatch. A second unfinished
@@ -57,7 +57,7 @@ func (s *Store) RecordDispatchPacket(ctx context.Context, d factory.DispatchRegi
 		return err
 	}
 	defer func() { _ = tx.Rollback() }()
-	if err = registerDispatchTx(ctx, tx, d); err != nil {
+	if err = checkDispatchOpenTx(ctx, tx, a.Repository); err != nil {
 		return err
 	}
 	if err = recordDispatchPacketTx(ctx, tx, d, expected, a, r, run, view, false); err != nil {

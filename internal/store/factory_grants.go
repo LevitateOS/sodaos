@@ -18,9 +18,6 @@ var ErrStaleRevision = errors.New("stale record revision")
 // caller waits for an authorized resume instead of dispatching around it.
 var ErrDispatchClosed = errors.New("factory dispatch is closed")
 
-// ErrDispatchConflict reports a reused dispatch identity with changed content.
-var ErrDispatchConflict = errors.New("dispatch identity reused for different content")
-
 // saveRevisionedGrant CAS-saves one revisioned JSON grant row. Withdrawn
 // grants stay as inactive rows, never deleted ones.
 func (s *Store) saveRevisionedGrant(ctx context.Context, table, key string, id any, revision int64, next any, what string) error {
@@ -163,77 +160,8 @@ func dispatchStateQuery(ctx context.Context, q grantCommandSQL, repository int64
 	return open, revision, withdrawal, err
 }
 
-// RegisterDispatch records one outstanding dispatch under the open gate. A
-// delayed registration after withdrawal is refused; it cannot escape the
-// captured set. The same ID with identical content replays.
-func (s *Store) RegisterDispatch(ctx context.Context, d factory.DispatchRegistration) error {
-	if err := d.Validate(); err != nil {
-		return err
-	}
-	tx, err := s.db.BeginTx(ctx, nil)
-	if err != nil {
-		return err
-	}
-	defer func() { _ = tx.Rollback() }()
-	if err = registerDispatchTx(ctx, tx, d); err != nil {
-		return err
-	}
-	return tx.Commit()
-}
-
-// registerDispatchTx records one outstanding dispatch under the open gate
-// inside the caller's transaction. The dispatch packet shares it so a
-// refused packet leaves no orphan registration behind.
-func registerDispatchTx(ctx context.Context, t *sql.Tx, d factory.DispatchRegistration) error {
-	if _, err := t.ExecContext(ctx, `INSERT INTO factory_dispatch(repository,revision,open,data)
-		VALUES($1,0,TRUE,'{}'::jsonb) ON CONFLICT(repository) DO NOTHING`, d.Repository); err != nil {
-		return err
-	}
-	var open bool
-	err := t.QueryRowContext(ctx, `SELECT open FROM factory_dispatch WHERE repository=$1 FOR UPDATE`, d.Repository).Scan(&open)
-	if err != nil {
-		if !errors.Is(err, ErrNotFound) {
-			return err
-		}
-		// Never withdrawn: open at revision zero.
-		open = true
-	}
-	if !open {
-		return ErrDispatchClosed
-	}
-	data, err := json.Marshal(d)
-	if err != nil {
-		return err
-	}
-	result, err := t.ExecContext(ctx, `INSERT INTO factory_dispatch_regs(id,repository,revision,data) VALUES($1,$2,$3,$4) ON CONFLICT(id) DO NOTHING`,
-		d.ID, d.Repository, d.Revision, string(data))
-	if err != nil {
-		return fmt.Errorf("dispatch registration failed: %w", err)
-	}
-	n, err := result.RowsAffected()
-	if err != nil {
-		return err
-	}
-	if n == 1 {
-		return nil
-	}
-	var existing factory.DispatchRegistration
-	var raw []byte
-	if err = t.QueryRowContext(ctx, `SELECT data FROM factory_dispatch_regs WHERE id=$1`, d.ID).Scan(&raw); err != nil {
-		return err
-	}
-	if err = json.Unmarshal(raw, &existing); err != nil {
-		return err
-	}
-	if existing != d {
-		return ErrDispatchConflict
-	}
-	return nil
-}
-
-// WithdrawDispatch atomically closes dispatch for one repository and captures
-// every outstanding ID in order. Closing an already closed gate replays its
-// recorded withdrawal instead of capturing twice.
+// WithdrawDispatch atomically closes dispatch for one repository. Repeated
+// requests retain the first closure and add any independent active cause.
 func (s *Store) WithdrawDispatch(ctx context.Context, repository int64, cause, closedBy string) (factory.Withdrawal, error) {
 	tx, err := s.db.BeginTx(ctx, nil)
 	if err != nil {
@@ -251,7 +179,7 @@ func (s *Store) WithdrawDispatch(ctx context.Context, repository int64, cause, c
 }
 
 // ensureDispatchGateTx materializes and locks the repository gate. Grant
-// commands, dispatch registration and other repository writers take this
+// commands, dispatch packets and other repository writers take this
 // lock before their own records to preserve one lock order.
 func ensureDispatchGateTx(ctx context.Context, tx *sql.Tx, repository int64) (bool, int64, []byte, error) {
 	if _, err := tx.ExecContext(ctx, `INSERT INTO factory_dispatch(repository,revision,open,data)
@@ -265,16 +193,25 @@ func ensureDispatchGateTx(ctx context.Context, tx *sql.Tx, repository int64) (bo
 	return open, revision, raw, err
 }
 
-// withdrawDispatchTx closes the already-locked gate and captures the full
-// bounded registration set. The caller owns commit so the closure can share
-// the settings command transaction.
+// checkDispatchOpenTx holds the gate lock until the admitted packet commits.
+func checkDispatchOpenTx(ctx context.Context, tx *sql.Tx, repository int64) error {
+	open, _, _, err := ensureDispatchGateTx(ctx, tx, repository)
+	if err != nil {
+		return err
+	}
+	if !open {
+		return ErrDispatchClosed
+	}
+	return nil
+}
+
+// withdrawDispatchTx locks and closes the gate in the caller's transaction,
+// so closure commits with the settings change.
 func withdrawDispatchTx(ctx context.Context, tx *sql.Tx, repository int64, cause, closedBy string) (factory.Withdrawal, error) {
 	if repository <= 0 || cause == "" || len(cause) > 256 || closedBy == "" || len(closedBy) > 128 {
 		return factory.Withdrawal{}, errors.New("invalid dispatch withdrawal")
 	}
-	// Create the logical default-open row before locking it. Dispatch
-	// registration and publication correction registration lock this same row,
-	// so the captured set cannot miss work that committed just before closure.
+	// Dispatch and publication admission take this same lock.
 	open, revision, raw, err := ensureDispatchGateTx(ctx, tx, repository)
 	if err != nil {
 		return factory.Withdrawal{}, err
@@ -286,7 +223,7 @@ func withdrawDispatchTx(ctx context.Context, tx *sql.Tx, repository int64, cause
 	if !open {
 		return replayDispatchWithdrawal(ctx, tx, repository, revision, recorded, cause)
 	}
-	return captureDispatchWithdrawal(ctx, tx, repository, revision, cause, closedBy)
+	return closeDispatchGateTx(ctx, tx, repository, revision, cause, closedBy)
 }
 
 func replayDispatchWithdrawal(ctx context.Context, tx *sql.Tx, repository, revision int64, recorded factory.Withdrawal, cause string) (factory.Withdrawal, error) {
@@ -328,32 +265,9 @@ func replayDispatchWithdrawal(ctx context.Context, tx *sql.Tx, repository, revis
 	return recorded, nil
 }
 
-func captureDispatchWithdrawal(ctx context.Context, tx *sql.Tx, repository, revision int64, cause, closedBy string) (factory.Withdrawal, error) {
-	rows, err := tx.QueryContext(ctx, `SELECT id FROM factory_dispatch_regs WHERE repository=$1 ORDER BY seq LIMIT $2`, repository, factory.MaxCapturedDispatch+1)
-	if err != nil {
-		return factory.Withdrawal{}, err
-	}
-	captured := []string{}
-	for rows.Next() {
-		var id string
-		if err = rows.Scan(&id); err != nil {
-			_ = rows.Close()
-			return factory.Withdrawal{}, err
-		}
-		captured = append(captured, id)
-	}
-	if err = rows.Err(); err != nil {
-		_ = rows.Close()
-		return factory.Withdrawal{}, err
-	}
-	if err = rows.Close(); err != nil {
-		return factory.Withdrawal{}, err
-	}
-	if len(captured) > factory.MaxCapturedDispatch {
-		return factory.Withdrawal{}, errors.New("too many outstanding dispatches to withdraw")
-	}
-	withdrawal := factory.Withdrawal{Repository: repository, Revision: revision + 1, Cause: cause, ClosedBy: closedBy, Captured: captured, ActiveCauses: []string{cause}}
-	if err = withdrawal.Validate(); err != nil {
+func closeDispatchGateTx(ctx context.Context, tx *sql.Tx, repository, revision int64, cause, closedBy string) (factory.Withdrawal, error) {
+	withdrawal := factory.Withdrawal{Repository: repository, Revision: revision + 1, Cause: cause, ClosedBy: closedBy, ActiveCauses: []string{cause}}
+	if err := withdrawal.Validate(); err != nil {
 		return factory.Withdrawal{}, err
 	}
 	data, err := json.Marshal(withdrawal)
@@ -372,9 +286,13 @@ func captureDispatchWithdrawal(ctx context.Context, tx *sql.Tx, repository, revi
 	if n != 1 {
 		return factory.Withdrawal{}, ErrStaleRevision
 	}
+	var assigned int
+	if err = tx.QueryRowContext(ctx, `SELECT count(*) FROM factory_assignments WHERE repository=$1 AND stage=$2`, repository, factory.AssignmentAssigned).Scan(&assigned); err != nil {
+		return factory.Withdrawal{}, err
+	}
 	if err = recordFactoryFeedEventTx(ctx, tx, repository, 0, "", fmt.Sprintf("pause:%d", withdrawal.Revision), "dispatch:paused", factory.FeedCommunication{
 		ComponentID: "F08", Title: "Factory paused", Summary: cause,
-		Items: []factory.FeedCommunicationItem{{Label: "New worker dispatch", State: "paused"}, {Label: "Outstanding work", Detail: fmt.Sprintf("%d recorded dispatches", len(captured)), State: "stopping"}},
+		Items: []factory.FeedCommunicationItem{{Label: "New worker dispatch", State: "paused"}, {Label: "Outstanding work", Detail: fmt.Sprintf("%d assigned work items", assigned), State: "stopping"}},
 	}, 0); err != nil {
 		return factory.Withdrawal{}, err
 	}

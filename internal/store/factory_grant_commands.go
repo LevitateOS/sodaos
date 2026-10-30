@@ -257,13 +257,9 @@ func settleGrantWithdrawalTx(ctx context.Context, tx *sql.Tx, repository int64, 
 	if repository <= 0 || !withdraw {
 		return nil
 	}
-	withdrawal, err := withdrawDispatchTx(ctx, tx, repository, cause, principal)
+	_, err := withdrawDispatchTx(ctx, tx, repository, cause, principal)
 	if err != nil {
 		return err
-	}
-	receipt.Captured = withdrawal.Captured
-	if receipt.Captured == nil {
-		receipt.Captured = []string{}
 	}
 	if receipt.PublicationsPending, err = requestPublicationWithdrawalsTx(ctx, tx, repository); err != nil {
 		return err

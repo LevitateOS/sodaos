@@ -112,48 +112,34 @@ func TestSponsorships(t *testing.T) {
 }
 
 func TestDispatchWithdrawalOrdering(t *testing.T) {
-	db := grantStoreFixture(t)
+	db := dispatchStoreFixture(t)
 	ctx := context.Background()
-	open, revision, _, err := db.DispatchState(ctx, 42)
+	open, revision, _, err := db.DispatchState(ctx, 7)
 	if err != nil || !open || revision != 0 {
 		t.Fatal("fresh dispatch is not open", open, revision, err)
 	}
-	first := factory.DispatchRegistration{ID: factory.NewID(), Repository: 42, Authority: factory.AuthorityRef{Policy: 1}}
-	second := factory.DispatchRegistration{ID: factory.NewID(), Repository: 42, Authority: factory.AuthorityRef{Policy: 1}}
-	if err = db.RegisterDispatch(ctx, first); err != nil {
-		t.Fatal(err)
-	}
-	if err = db.RegisterDispatch(ctx, first); err != nil {
-		t.Fatal("identical registration refused", err)
-	}
-	changed := first
-	changed.Revision = 9
-	if err = db.RegisterDispatch(ctx, changed); !errors.Is(err, ErrDispatchConflict) {
-		t.Fatal("changed registration accepted", err)
-	}
-	if err = db.RegisterDispatch(ctx, second); err != nil {
-		t.Fatal(err)
-	}
-	withdrawal, err := db.WithdrawDispatch(ctx, 42, "policy_paused", "native:7")
-	if err != nil || len(withdrawal.Captured) != 2 || withdrawal.Captured[0] != first.ID || withdrawal.Revision != 1 {
+	a, r, run, view := dispatchTestPacket(t, time.Now().UTC())
+	expected := dispatchTestControlFor(t, db, a)
+	withdrawal, err := db.WithdrawDispatch(ctx, 7, "policy_paused", "native:7")
+	if err != nil || withdrawal.Revision != 1 {
 		t.Fatalf("withdrawal: %+v %v", withdrawal, err)
 	}
-	late := factory.DispatchRegistration{ID: factory.NewID(), Repository: 42}
-	if err = db.RegisterDispatch(ctx, late); !errors.Is(err, ErrDispatchClosed) {
-		t.Fatal("late registration escaped withdrawal", err)
+	if err = db.RecordDispatchPacket(ctx, dispatchTestRegistration(a), expected, a, r, run, view); !errors.Is(err, ErrDispatchClosed) {
+		t.Fatal("late dispatch escaped withdrawal", err)
 	}
-	replay, err := db.WithdrawDispatch(ctx, 42, "policy_paused", "native:7")
-	if err != nil || len(replay.Captured) != 2 || replay.Revision != 1 {
-		t.Fatalf("withdrawal replay: %+v %v", replay, err)
+	assertDispatchPacketAbsent(t, db, a)
+	repeated, err := db.WithdrawDispatch(ctx, 7, "policy_paused", "native:7")
+	if err != nil || repeated.Revision != 1 {
+		t.Fatalf("repeated withdrawal: %+v %v", repeated, err)
 	}
-	if _, _, err = db.ReopenDispatch(ctx, 42, 0); !errors.Is(err, ErrStaleRevision) {
+	if _, _, err = db.ReopenDispatch(ctx, 7, 0); !errors.Is(err, ErrStaleRevision) {
 		t.Fatal("stale reopen accepted", err)
 	}
-	if opened, revision, reopenErr := db.ReopenDispatch(ctx, 42, 1); reopenErr != nil || !opened || revision != 2 {
+	if opened, revision, reopenErr := db.ReopenDispatch(ctx, 7, 1); reopenErr != nil || !opened || revision != 2 {
 		t.Fatal(opened, revision, reopenErr)
 	}
-	if err = db.RegisterDispatch(ctx, late); err != nil {
-		t.Fatal("registration refused after reopen", err)
+	if err = db.RecordDispatchPacket(ctx, dispatchTestRegistration(a), expected, a, r, run, view); err != nil {
+		t.Fatal("dispatch refused after reopen", err)
 	}
 }
 
@@ -169,7 +155,7 @@ func TestDispatchCausesComposeAndClearIndependently(t *testing.T) {
 		t.Fatalf("second cause changed first-closure receipt: %+v %v", second, err)
 	}
 	open, revision, state, err := db.DispatchState(ctx, 42)
-	if err != nil || open || revision != 2 || len(state.Captured) != 0 || len(state.ActiveCauses) != 2 {
+	if err != nil || open || revision != 2 || len(state.ActiveCauses) != 2 {
 		t.Fatalf("composed state: %v %d %+v %v", open, revision, state, err)
 	}
 	duplicate, err := db.WithdrawDispatch(ctx, 42, factory.CauseControlPaused, "different-principal")
@@ -242,10 +228,6 @@ func TestSettingsCommandReplay(t *testing.T) {
 func TestPolicyCommandCommitsReceiptAndCancellationIntentsTogether(t *testing.T) {
 	db := grantStoreFixture(t)
 	ctx := context.Background()
-	registration := factory.DispatchRegistration{ID: factory.NewID(), Repository: 42, Authority: factory.AuthorityRef{Policy: 1}}
-	if err := db.RegisterDispatch(ctx, registration); err != nil {
-		t.Fatal("register dispatch", err)
-	}
 	publication := publicationTestRecord()
 	publication.Repository = 42
 	if err := db.RecordPublication(ctx, publication); err != nil {
@@ -276,7 +258,7 @@ func TestPolicyCommandCommitsReceiptAndCancellationIntentsTogether(t *testing.T)
 	if err = json.Unmarshal([]byte(stored.Outcome), &receipt); err != nil {
 		t.Fatal("decode durable receipt", err)
 	}
-	if !receipt.Withdrawn || receipt.Revision != 1 || len(receipt.Captured) != 1 || receipt.Captured[0] != registration.ID {
+	if !receipt.Withdrawn || receipt.Revision != 1 {
 		t.Fatalf("receipt omitted policy withdrawal: %+v", receipt)
 	}
 	if !receipt.PublicationsPending {
@@ -307,12 +289,6 @@ func TestPolicyReceiptFailureDoesNotCommitPartialWithdrawal(t *testing.T) {
 	ctx := context.Background()
 	if err := db.SaveRepositoryPolicy(ctx, grantTestPolicy()); err != nil {
 		t.Fatal("save initial policy", err)
-	}
-	registration := factory.DispatchRegistration{
-		ID: factory.NewID(), Repository: 42, Authority: factory.AuthorityRef{Policy: 1},
-	}
-	if err := db.RegisterDispatch(ctx, registration); err != nil {
-		t.Fatal("register dispatch", err)
 	}
 	_, err := db.db.ExecContext(ctx, `CREATE FUNCTION refuse_factory_command_receipt() RETURNS trigger LANGUAGE plpgsql AS $$
 BEGIN
@@ -369,11 +345,33 @@ END $$;`)
 func TestPolicyCommandReceiptStaysBoundedAcrossOutstandingWork(t *testing.T) {
 	db := grantStoreFixture(t)
 	ctx := context.Background()
-	for i := 0; i < factory.MaxCapturedDispatch; i++ {
-		registration := factory.DispatchRegistration{ID: factory.NewID(), Repository: 42}
-		if err := db.RegisterDispatch(ctx, registration); err != nil {
-			t.Fatalf("register dispatch %d: %v", i, err)
+	// Retained history must not limit withdrawal. Only the two current
+	// assignments should appear as outstanding work on the pause post.
+	tx, err := db.db.BeginTx(ctx, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() { _ = tx.Rollback() }()
+	for i := 0; i < 1027; i++ {
+		a, _, _, _ := dispatchTestPacket(t, grantTestTime())
+		a.Repository, a.Issue = 42, int64(i+1)
+		a.Subject.Issue.Issue = a.Issue
+		if i < 1025 {
+			a.Stage, a.Outcome, a.Reason = factory.AssignmentFinished, factory.Failed, factory.AssignReasonRunFailed
+			a.FinishedUnix = grantTestTime().Unix()
+			result := factory.ResultSynthesized(a.ID, a.Run, "failed", "completed", a.FinishedUnix)
+			a.Result = &result
 		}
+		data, marshalErr := json.Marshal(a)
+		if marshalErr != nil {
+			t.Fatal(marshalErr)
+		}
+		if _, err = tx.ExecContext(ctx, `INSERT INTO factory_assignments(id,repository,issue,run,stage,revision,data) VALUES($1,$2,$3,$4,$5,$6,$7)`, a.ID, a.Repository, a.Issue, a.Run, a.Stage, a.Revision, string(data)); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if err = tx.Commit(); err != nil {
+		t.Fatal(err)
 	}
 	for i := 0; i < storePublicationLimit; i++ {
 		publication := publicationTestRecord()
@@ -409,8 +407,12 @@ func TestPolicyCommandReceiptStaysBoundedAcrossOutstandingWork(t *testing.T) {
 	if err = json.Unmarshal([]byte(stored.Outcome), &receipt); err != nil {
 		t.Fatal("decode durable receipt", err)
 	}
-	if len(receipt.Captured) != factory.MaxCapturedDispatch || !receipt.PublicationsPending || !receipt.MergesPending {
-		t.Fatalf("receipt omitted bounded outstanding work: captured=%d publications=%t merges=%t", len(receipt.Captured), receipt.PublicationsPending, receipt.MergesPending)
+	if !receipt.PublicationsPending || !receipt.MergesPending {
+		t.Fatalf("settings result omitted outstanding effects: %+v", receipt)
+	}
+	cards := factoryEventCards(t, db, 42)["F08"]
+	if len(cards) != 1 || len(cards[0].Payload.Communication.Items) != 2 || cards[0].Payload.Communication.Items[1].Detail != "2 assigned work items" {
+		t.Fatalf("pause post did not report current assignments: %+v", cards)
 	}
 	if len(stored.Outcome) > 64<<10 {
 		t.Fatalf("maximum-work grant receipt grew to %d bytes", len(stored.Outcome))

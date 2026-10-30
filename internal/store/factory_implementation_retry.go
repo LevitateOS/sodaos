@@ -139,7 +139,7 @@ func (s *Store) RecordImplementationRetryCommand(ctx context.Context, cmd factor
 		return stored, false, tx.Commit()
 	}
 	var collision bool
-	if err = tx.QueryRowContext(ctx, `SELECT EXISTS(SELECT 1 FROM factory_assignments WHERE id=$1) OR EXISTS(SELECT 1 FROM factory_dispatch_regs WHERE id=$1)`, cmd.ID).Scan(&collision); err != nil {
+	if err = tx.QueryRowContext(ctx, `SELECT EXISTS(SELECT 1 FROM factory_assignments WHERE id=$1)`, cmd.ID).Scan(&collision); err != nil {
 		return factory.Command{}, false, err
 	}
 	if collision {
@@ -251,7 +251,7 @@ func (s *Store) RecordImplementationRetryPacket(ctx context.Context, decision fa
 	if err = checkImplementationRetryPacket(facts, a, run); err != nil {
 		return err
 	}
-	if err = registerDispatchTx(ctx, tx, d); err != nil {
+	if err = checkDispatchOpenTx(ctx, tx, a.Repository); err != nil {
 		return err
 	}
 	if err = recordDispatchPacketTx(ctx, tx, d, expected, a, r, run, view, false); err != nil {
