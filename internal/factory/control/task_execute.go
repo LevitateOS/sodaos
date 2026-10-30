@@ -120,7 +120,7 @@ func ImportTaskEvents(plan factory.InvestigationPlan, receipts []store.PlanTaskR
 	if err != nil {
 		return result, err
 	}
-	stored, err := admitTaskEventReceipts(plan, receipts, imp, byTask)
+	stored, err := admitTaskEventReceipts(receipts, imp, byTask)
 	if err != nil {
 		return result, err
 	}
@@ -138,9 +138,7 @@ func ImportTaskEvents(plan factory.InvestigationPlan, receipts []store.PlanTaskR
 			fold.lastDigest = digest
 		}
 	}
-	if err := fold.seedPendingReceipts(); err != nil {
-		return result, err
-	}
+	fold.seedPendingReceipts()
 	for _, event := range imp.Events {
 		if err := fold.foldEvent(event); err != nil {
 			return result, err
@@ -180,7 +178,7 @@ func admitTaskEventImport(plan factory.InvestigationPlan, imp TaskEventImport) (
 }
 
 // admitTaskEventReceipts binds stored receipts to one import's plan revision.
-func admitTaskEventReceipts(plan factory.InvestigationPlan, receipts []store.PlanTaskReceipt, imp TaskEventImport, byTask map[string]int) (map[string]store.PlanTaskReceipt, error) {
+func admitTaskEventReceipts(receipts []store.PlanTaskReceipt, imp TaskEventImport, byTask map[string]int) (map[string]store.PlanTaskReceipt, error) {
 	stored := make(map[string]store.PlanTaskReceipt, len(receipts))
 	for _, receipt := range receipts {
 		if receipt.AttemptRoot != imp.AttemptRoot || receipt.PlanID != imp.PlanID {
@@ -214,13 +212,9 @@ type taskEventFold struct {
 
 // seedPendingReceipts seeds pending receipts for tasks the store
 // never saw. Identical replays of an existing receipt emit nothing.
-func (f *taskEventFold) seedPendingReceipts() error {
-	pending := make(map[string]store.PlanTaskReceipt, len(f.plan.Tasks))
-	for taskID, receipt := range f.pending {
-		pending[taskID] = receipt
-	}
+func (f *taskEventFold) seedPendingReceipts() {
 	for _, task := range f.plan.Tasks {
-		if _, ok := pending[task.ID]; ok {
+		if _, ok := f.pending[task.ID]; ok {
 			continue
 		}
 		seed := store.PlanTaskReceipt{
@@ -228,14 +222,9 @@ func (f *taskEventFold) seedPendingReceipts() error {
 			State:  store.PlanTaskPending,
 			Parent: f.imp.Phase == project.ExecutionCorrect,
 		}
-		if err := seed.Validate(); err != nil {
-			return err
-		}
-		pending[task.ID] = seed
+		f.pending[task.ID] = seed
 		f.result.Writes = append(f.result.Writes, seed)
 	}
-	f.pending = pending
-	return nil
 }
 
 // emit stages one receipt write when it changes stored state. The
@@ -407,9 +396,6 @@ func cancelRunTasks(plan factory.InvestigationPlan, pending map[string]store.Pla
 			next.Reason = boundSummary(event.Detail, "run stopped")
 		}
 		next.Events = appendRef(next.Events, taskEventRef(event))
-		if err := next.Validate(); err != nil {
-			return nil, err
-		}
 		writes = append(writes, next)
 	}
 	return writes, nil
@@ -423,14 +409,11 @@ type taskEventCase struct {
 	event   project.TaskEvent
 }
 
-// seal records one receipt advance with its event ref, validating the result.
+// seal records one task-state advance with its event ref.
 func (fold *taskEventCase) seal(apply func(*store.PlanTaskReceipt)) ([]store.PlanTaskReceipt, error) {
 	next := fold.receipt
 	apply(&next)
 	next.Events = appendRef(next.Events, fold.ref)
-	if err := next.Validate(); err != nil {
-		return nil, err
-	}
 	return []store.PlanTaskReceipt{next}, nil
 }
 
@@ -677,9 +660,6 @@ func cancelBlocked(plan factory.InvestigationPlan, pending map[string]store.Plan
 		next := receipt
 		next.State = store.PlanTaskCancelled
 		next.Reason = "prerequisite " + nearest + " failed"
-		if err := next.Validate(); err != nil {
-			continue
-		}
 		emit(next)
 	}
 }

@@ -277,7 +277,7 @@ func currentPlanTx(ctx context.Context, tx *sql.Tx, a factory.Assignment, run fa
 		if err = rows.Scan(&raw); err != nil {
 			return err
 		}
-		if json.Unmarshal(raw, &receipt) != nil || receipt.Validate() != nil || receipt.AttemptRoot != plan.AttemptRoot || receipt.PlanID != plan.ID || !known[receipt.TaskID] || len(projected.Receipts) >= factory.MaxPlanTasks {
+		if json.Unmarshal(raw, &receipt) != nil || receipt.AttemptRoot != plan.AttemptRoot || receipt.PlanID != plan.ID || !known[receipt.TaskID] || len(projected.Receipts) >= factory.MaxPlanTasks {
 			return errors.New("current task receipt differs from bound plan")
 		}
 		projected.Receipts = append(projected.Receipts, factory.CurrentTaskReceipt{AttemptRoot: receipt.AttemptRoot, PlanID: receipt.PlanID, TaskID: receipt.TaskID, Revision: receipt.Revision, State: receipt.State, Child: receipt.Child, InputDigest: receipt.InputDigest, OutputDigest: receipt.OutputDigest, Tree: receipt.Tree, Commit: receipt.Commit, Checks: receipt.Checks, Reason: receipt.Reason})
