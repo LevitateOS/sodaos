@@ -118,10 +118,5 @@ func (s *API) apiFactoryRepair(w http.ResponseWriter, r *http.Request, v store.S
 		factoryCommandError(w, err)
 		return
 	}
-	var receipt factory.GrantResult
-	if json.Unmarshal([]byte(recorded.Outcome), &receipt) != nil {
-		factoryCommandError(w, errors.New("repair receipt unavailable"))
-		return
-	}
-	auth.JSONResponse(w, 200, receipt)
+	auth.JSONResponse(w, 200, factory.GrantResult{CommandID: recorded.ID, Revision: grant.Revision + 1})
 }

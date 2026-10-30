@@ -49,7 +49,7 @@ func (s *Store) AdmitStallRepairJudgment(ctx context.Context, repository int64, 
 		evidence = cycle.InventoryDigest
 	}
 	charge := factory.RepairCharge{ID: factory.RepairChargeID(record.EpisodeID, factory.RepairChargeJudgment, cycle.Number), GrantID: grant.ID, Kind: factory.RepairChargeJudgment, EpisodeID: record.EpisodeID, EvidenceDigest: evidence, Cycle: cycle.Number, SpentUnix: now.Unix()}
-	_, created, err := s.AdmitStallInvestigation(ctx, repository, charge, now)
+	created, err := s.AdmitStallInvestigation(ctx, repository, charge, now)
 	if err != nil || !created {
 		return false, err
 	}

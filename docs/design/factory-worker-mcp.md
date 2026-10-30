@@ -376,6 +376,12 @@ uses that identity rather than creating another paid attempt.
 Verification limit increases retain the admitted grant and return current limits
 and consumption directly. They do not save a frozen usage response, replay one
 in the browser, or revalidate the full admitted grant chain on each read.
+Repair funding and intent execution limits likewise retain their admitted grant
+without a second serialized response or receipt-completion replay path. Charges
+and cumulative execution accounting continue to reference those grant identities.
+Repair charges keep only the actual charge record. Admission returns whether it
+spent new allowance; there is no copied charge receipt, and repeated identities
+compare against the charge already used by accounting.
 
 Worker context does not carry a submission-receipt history; communications and
 results are available through the work posts and discussion. Ordinary worker

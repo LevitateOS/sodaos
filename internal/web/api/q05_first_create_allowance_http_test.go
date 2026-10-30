@@ -69,7 +69,7 @@ func TestFirstCreateAllowanceHTTPBoundary(t *testing.T) {
 			t.Fatal("grant lost authenticated sponsor", err)
 		}
 		charge := factory.RepairCharge{ID: factory.NewID(), GrantID: grant.ID, Kind: factory.RepairChargeRun, EpisodeID: factory.NewID(), Cycle: 1, EvidenceDigest: strings.Repeat("a", 64), ActiveMinutes: 10, SpentUnix: time.Now().Unix()}
-		if _, spent, err := s.AdmitStallInvestigation(context.Background(), 7, charge, time.Now()); err != nil || !spent {
+		if spent, err := s.AdmitStallInvestigation(context.Background(), 7, charge, time.Now()); err != nil || !spent {
 			t.Fatal("canonical charge", err)
 		}
 		conflict := first

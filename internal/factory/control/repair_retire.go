@@ -77,7 +77,7 @@ func (c *Coordinator) nextStallRepairCycle(ctx context.Context, record store.Sta
 			charge = prior
 		}
 	}
-	if _, _, err = c.Store.AdmitStallInvestigation(ctx, record.Repository, charge, time.Now()); err != nil {
+	if _, err = c.Store.AdmitStallInvestigation(ctx, record.Repository, charge, time.Now()); err != nil {
 		if !errors.Is(err, store.ErrStaleRevision) {
 			c.holdRepair(ctx, record, previous, "repair_new_evidence_needs_grant_room", false)
 		}

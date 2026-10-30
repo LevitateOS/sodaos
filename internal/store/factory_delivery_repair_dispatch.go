@@ -32,46 +32,46 @@ func deliveryRepairChargeMatches(record DeliveryRepairRecord, charge factory.Rep
 	return charge.Validate() == nil && charge.EpisodeID == episode && charge.Cycle == 1 && charge.ID == factory.RepairChargeID(episode, charge.Kind, 1) && charge.EvidenceDigest == record.Subject.InventoryDigest && (charge.Kind != factory.RepairChargeRun || charge.ActiveMinutes > 0) && (charge.Kind != factory.RepairChargeJudgment || charge.ActiveMinutes == 0)
 }
 
-func (s *Store) AdmitDeliveryRepairInvestigation(ctx context.Context, repository int64, failedRun string, charge factory.RepairCharge, now time.Time) (repairChargeReceipt, bool, error) {
+func (s *Store) AdmitDeliveryRepairInvestigation(ctx context.Context, repository int64, failedRun string, charge factory.RepairCharge, now time.Time) (bool, error) {
 	tx, err := s.db.BeginTx(ctx, nil)
 	if err != nil {
-		return repairChargeReceipt{}, false, err
+		return false, err
 	}
 	defer tx.Rollback()
 	if _, err = tx.ExecContext(ctx, `SELECT pg_advisory_xact_lock(hashtextextended($1,0))`, factory.RepairTarget(repository)); err != nil {
-		return repairChargeReceipt{}, false, err
+		return false, err
 	}
 	record, err := deliveryRepairRecordTx(ctx, tx, repository, failedRun, true)
 	if err != nil {
-		return repairChargeReceipt{}, false, err
+		return false, err
 	}
 	if !deliveryRepairChargeMatches(record, charge) {
-		return repairChargeReceipt{}, false, errors.New("delivery repair charge differs from its sealed cause")
+		return false, errors.New("delivery repair charge differs from its sealed cause")
 	}
 	// Exact replay stays readable after withdrawal; it never admits a new worker.
 	var exists bool
 	if err = tx.QueryRowContext(ctx, `SELECT EXISTS(SELECT 1 FROM factory_commands WHERE id=$1 AND type=$2 AND target=$3 AND finished<>'')`, charge.ID, factory.CommandRepairCharge, repairChargeTarget(repository)).Scan(&exists); err != nil {
-		return repairChargeReceipt{}, false, err
+		return false, err
 	}
 	if !exists {
 		if record.Cycle.State != factory.RepairReady || charge.Kind != factory.RepairChargeRun {
-			return repairChargeReceipt{}, false, ErrStaleRevision
+			return false, ErrStaleRevision
 		}
 		if err = validateDeliveryRepairCauseTx(ctx, tx, record.Cause); err != nil {
-			return repairChargeReceipt{}, false, err
+			return false, err
 		}
 		if err = checkDeliveryRepairRunsTx(ctx, tx, record, charge.ID); err != nil {
-			return repairChargeReceipt{}, false, err
+			return false, err
 		}
 		if err = checkDeliveryRepairIntentTimeTx(ctx, tx, record, charge.ID, int64(charge.ActiveMinutes)*60, now); err != nil {
-			return repairChargeReceipt{}, false, err
+			return false, err
 		}
 	}
-	receipt, created, err := admitRepairChargeTx(ctx, tx, repository, charge, now)
+	created, err := admitRepairChargeTx(ctx, tx, repository, charge, now)
 	if err != nil {
-		return repairChargeReceipt{}, false, err
+		return false, err
 	}
-	return receipt, created, tx.Commit()
+	return created, tx.Commit()
 }
 
 func deliveryRepairRootInputsTx(ctx context.Context, tx *sql.Tx, a factory.Assignment) (DeliveryRepairRecord, factory.RepairCharge, error) {

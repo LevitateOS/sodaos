@@ -48,8 +48,8 @@ func AdmitStallEpisodeRun(ctx context.Context, db *store.Store, result StallRepo
 	for _, prior := range charges {
 		if prior.ID == repairEpisodeChargeID(event.EpisodeID) {
 			// Observation hashes and explicit grant revisions never rewrite the
-			// original admitted cycle or replenish its immutable receipt.
-			_, spent, err := db.AdmitStallInvestigation(ctx, result.Repository, prior, now)
+			// original admitted cycle or replenish its charge.
+			spent, err := db.AdmitStallInvestigation(ctx, result.Repository, prior, now)
 			return spent, err
 		}
 	}
@@ -63,7 +63,7 @@ func AdmitStallEpisodeRun(ctx context.Context, db *store.Store, result StallRepo
 		EvidenceDigest: event.InventoryDigest, ActiveMinutes: activeMinutes,
 		SpentUnix: now.Unix(),
 	}
-	_, spent, err := db.AdmitStallInvestigation(ctx, result.Repository, charge, now)
+	spent, err := db.AdmitStallInvestigation(ctx, result.Repository, charge, now)
 	if err != nil {
 		return false, err
 	}

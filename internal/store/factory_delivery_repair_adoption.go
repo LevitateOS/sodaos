@@ -63,7 +63,7 @@ func (s *Store) AdmitDeliveryRepairJudgment(ctx context.Context, repository int6
 	}
 	episode := factory.DeliveryRepairCauseID(failedRun)
 	charge := factory.RepairCharge{ID: factory.RepairChargeID(episode, factory.RepairChargeJudgment, 1), GrantID: grant.ID, Kind: factory.RepairChargeJudgment, EpisodeID: episode, Cycle: 1, EvidenceDigest: record.Subject.InventoryDigest, SpentUnix: now.Unix()}
-	if _, created, err := admitRepairChargeTx(ctx, tx, repository, charge, now); err != nil || !created {
+	if created, err := admitRepairChargeTx(ctx, tx, repository, charge, now); err != nil || !created {
 		if err == nil {
 			err = ErrCommandConflict
 		}

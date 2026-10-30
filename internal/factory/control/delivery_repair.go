@@ -127,7 +127,7 @@ func (c *Coordinator) dispatchDeliveryRepair(ctx context.Context, record store.D
 	if charge.ActiveMinutes < 1 {
 		return factory.ErrRepairTimeExhausted
 	}
-	if _, _, err = c.Store.AdmitDeliveryRepairInvestigation(ctx, record.Cause.Repository, record.Cause.FailedVerificationRunID, charge, time.Now()); err != nil {
+	if _, err = c.Store.AdmitDeliveryRepairInvestigation(ctx, record.Cause.Repository, record.Cause.FailedVerificationRunID, charge, time.Now()); err != nil {
 		return err
 	}
 	preparations, err := c.Store.ProjectPreparations(ctx, record.Cause.ProjectID)

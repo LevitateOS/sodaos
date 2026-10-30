@@ -69,7 +69,7 @@ func TestRepairGrantAdmissionAndNoRefillPG(t *testing.T) {
 				defer jobs.Done()
 				<-start
 				charge := repairChargeFixture(factory.NewID(), grantID, factory.NewID(), 1, factory.RepairChargeRun, "a", 1, false)
-				_, created, err := db.AdmitStallInvestigation(ctx, 991, charge, now)
+				created, err := db.AdmitStallInvestigation(ctx, 991, charge, now)
 				results <- err
 				spent <- created
 			}()
@@ -100,12 +100,16 @@ func TestRepairGrantAdmissionAndNoRefillPG(t *testing.T) {
 	const repo = 7
 	grantID := "d0000000000000000000000000000001"
 	cmd, grant := repairGrantFixture(grantID, "", 0, repo, 7, 4, 4, 120, "")
-	if _, created, err := db.ApplyRepairGrantCommand(ctx, cmd, grant, now); err != nil || !created {
+	admitted, created, err := db.ApplyRepairGrantCommand(ctx, cmd, grant, now)
+	if err != nil || !created {
 		t.Fatalf("apply grant: created=%v err=%v", created, err)
 	}
-	// Replaying the identical command replays instead of duplicating.
-	if _, created, err := db.ApplyRepairGrantCommand(ctx, cmd, grant, now); err != nil || created {
-		t.Fatalf("grant replay: created=%v err=%v", created, err)
+	if admitted.Finished == "" || admitted.Outcome != "" {
+		t.Fatalf("grant retained a response or did not commit admission: %+v", admitted)
+	}
+	// Repeating the admitted grant reads it without recording another outcome.
+	if repeated, created, err := db.ApplyRepairGrantCommand(ctx, cmd, grant, now.Add(time.Minute)); err != nil || created || repeated.Finished != admitted.Finished || repeated.Outcome != "" {
+		t.Fatalf("grant repeat: %+v created=%v err=%v", repeated, created, err)
 	}
 	// A revision that skips the predecessor chain is stale.
 	badCmd, badGrant := repairGrantFixture("d0000000000000000000000000000002", "d0000000000000000000000000000099", 1, repo, 7, 4, 4, 120, "raise")
@@ -114,33 +118,47 @@ func TestRepairGrantAdmissionAndNoRefillPG(t *testing.T) {
 	}
 	episode := "e0000000000000000000000000000001"
 	first := repairChargeFixture("c0000000000000000000000000000001", grantID, episode, 1, factory.RepairChargeRun, "a", 30, false)
-	receipt, spent, err := db.AdmitStallInvestigation(ctx, repo, first, now)
-	if err != nil || !spent || receipt.ChargeID != first.ID {
+	spent, err := db.AdmitStallInvestigation(ctx, repo, first, now)
+	if err != nil || !spent {
 		t.Fatalf("first charge: spent=%v err=%v", spent, err)
 	}
+	chargeRecord, err := db.FactoryCommand(ctx, first.ID)
+	if err != nil || chargeRecord.Finished == "" || chargeRecord.Outcome != "" {
+		t.Fatalf("charge retained a response or did not commit: %+v %v", chargeRecord, err)
+	}
 	// A restart replaying the same run identity spends nothing.
-	if _, spent, err := db.AdmitStallInvestigation(ctx, repo, first, now); err != nil || spent {
+	if spent, err := db.AdmitStallInvestigation(ctx, repo, first, now); err != nil || spent {
 		t.Fatalf("restart replay: spent=%v err=%v", spent, err)
+	}
+	resumed := first
+	resumed.SpentUnix++
+	if spent, err := db.AdmitStallInvestigation(ctx, repo, resumed, now); err != nil || spent {
+		t.Fatalf("repeated charge with a later observation spent again: spent=%v err=%v", spent, err)
+	}
+	changedCharge := first
+	changedCharge.ActiveMinutes--
+	if _, err := db.AdmitStallInvestigation(ctx, repo, changedCharge, now); !errors.Is(err, ErrCommandConflict) {
+		t.Fatalf("changed charge reused its identity: %v", err)
 	}
 	// A reshuffled second cycle over identical facts is refused.
 	reshuffle := repairChargeFixture("c0000000000000000000000000000003", grantID, episode, 2, factory.RepairChargeRun, "a", 30, false)
-	if _, _, err := db.AdmitStallInvestigation(ctx, repo, reshuffle, now); !errors.Is(err, factory.ErrRepairNeedsEvidence) {
+	if _, err := db.AdmitStallInvestigation(ctx, repo, reshuffle, now); !errors.Is(err, factory.ErrRepairNeedsEvidence) {
 		t.Fatalf("reshuffle without new facts: err=%v", err)
 	}
 	// Materially new factual evidence opens exactly one second cycle;
 	// failure stays charged and counts against the bounds.
 	second := repairChargeFixture("c0000000000000000000000000000004", grantID, episode, 2, factory.RepairChargeRun, "b", 30, true)
-	if _, spent, err := db.AdmitStallInvestigation(ctx, repo, second, now); err != nil || !spent {
+	if spent, err := db.AdmitStallInvestigation(ctx, repo, second, now); err != nil || !spent {
 		t.Fatalf("evidenced second cycle: spent=%v err=%v", spent, err)
 	}
 	judgment := repairChargeFixture("c0000000000000000000000000000041", grantID, episode, 2, factory.RepairChargeJudgment, "b", 0, false)
-	if _, spent, err := db.AdmitStallInvestigation(ctx, repo, judgment, now); err != nil || !spent {
+	if spent, err := db.AdmitStallInvestigation(ctx, repo, judgment, now); err != nil || !spent {
 		t.Fatalf("second-cycle judgment: spent=%v err=%v", spent, err)
 	}
 	// Two unsuccessful cycles need owner attention: no further
 	// automatic charge fits the episode, whatever its evidence.
 	third := repairChargeFixture("c0000000000000000000000000000005", grantID, episode, 2, factory.RepairChargeRun, "c", 30, false)
-	if _, _, err := db.AdmitStallInvestigation(ctx, repo, third, now); !errors.Is(err, factory.ErrRepairCyclesExhausted) {
+	if _, err := db.AdmitStallInvestigation(ctx, repo, third, now); !errors.Is(err, factory.ErrRepairCyclesExhausted) {
 		t.Fatalf("third charge: err=%v", err)
 	}
 	charges, err := db.RepairCharges(ctx, repo)
@@ -154,15 +172,15 @@ func TestRepairGrantAdmissionAndNoRefillPG(t *testing.T) {
 		repairChargeFixture("c0000000000000000000000000000006", grantID, episode2, 1, factory.RepairChargeRun, "a", 30, false),
 		repairChargeFixture("c0000000000000000000000000000007", grantID, episode2, 2, factory.RepairChargeRun, "b", 30, false),
 	} {
-		if _, spent, err := db.AdmitStallInvestigation(ctx, repo, charge, now); err != nil || !spent {
+		if spent, err := db.AdmitStallInvestigation(ctx, repo, charge, now); err != nil || !spent {
 			t.Fatalf("charge %s: spent=%v err=%v", charge.ID, spent, err)
 		}
 	}
 	fifth := repairChargeFixture("c0000000000000000000000000000042", grantID, "e0000000000000000000000000000003", 1, factory.RepairChargeRun, "a", 1, false)
-	if _, _, err := db.AdmitStallInvestigation(ctx, repo, fifth, now); !errors.Is(err, factory.ErrRepairRunsExhausted) {
+	if _, err := db.AdmitStallInvestigation(ctx, repo, fifth, now); !errors.Is(err, factory.ErrRepairRunsExhausted) {
 		t.Fatalf("fifth run: err=%v", err)
 	}
-	if _, spent, err := db.AdmitStallInvestigation(ctx, repo, first, now); err != nil || spent {
+	if spent, err := db.AdmitStallInvestigation(ctx, repo, first, now); err != nil || spent {
 		t.Fatalf("exhausted replay: spent=%v err=%v", spent, err)
 	}
 	// Judgment calls hold their own finite bound: one per cycle across
@@ -173,12 +191,12 @@ func TestRepairGrantAdmissionAndNoRefillPG(t *testing.T) {
 		repairChargeFixture("c0000000000000000000000000000032", grantID, episode4, 2, factory.RepairChargeJudgment, "b", 0, false),
 		repairChargeFixture("c0000000000000000000000000000033", grantID, episode2, 1, factory.RepairChargeJudgment, "a", 0, false),
 	} {
-		if _, spent, err := db.AdmitStallInvestigation(ctx, repo, charge, now); err != nil || !spent {
+		if spent, err := db.AdmitStallInvestigation(ctx, repo, charge, now); err != nil || !spent {
 			t.Fatalf("judgment %s: spent=%v err=%v", charge.ID, spent, err)
 		}
 	}
 	extra := repairChargeFixture("c0000000000000000000000000000019", grantID, episode2, 2, factory.RepairChargeJudgment, "b", 0, false)
-	if _, _, err := db.AdmitStallInvestigation(ctx, repo, extra, now); !errors.Is(err, factory.ErrRepairJudgmentsExhausted) {
+	if _, err := db.AdmitStallInvestigation(ctx, repo, extra, now); !errors.Is(err, factory.ErrRepairJudgmentsExhausted) {
 		t.Fatalf("fifth judgment: err=%v", err)
 	}
 }
@@ -197,20 +215,20 @@ func TestRepairActiveTimeBoundPG(t *testing.T) {
 	}
 	episode := "e0000000000000000000000000000011"
 	first := repairChargeFixture("c0000000000000000000000000000011", grantID, episode, 1, factory.RepairChargeRun, "a", 30, false)
-	if _, spent, err := db.AdmitStallInvestigation(ctx, repo, first, now); err != nil || !spent {
+	if spent, err := db.AdmitStallInvestigation(ctx, repo, first, now); err != nil || !spent {
 		t.Fatalf("first run: spent=%v err=%v", spent, err)
 	}
 	second := repairChargeFixture("c0000000000000000000000000000014", grantID, episode, 2, factory.RepairChargeRun, "b", 30, false)
-	if _, spent, err := db.AdmitStallInvestigation(ctx, repo, second, now); err != nil || !spent {
+	if spent, err := db.AdmitStallInvestigation(ctx, repo, second, now); err != nil || !spent {
 		t.Fatalf("second run: spent=%v err=%v", spent, err)
 	}
 	episode2 := "e0000000000000000000000000000015"
 	over := repairChargeFixture("c0000000000000000000000000000012", grantID, episode2, 1, factory.RepairChargeRun, "a", 30, false)
-	if _, _, err := db.AdmitStallInvestigation(ctx, repo, over, now); !errors.Is(err, factory.ErrRepairTimeExhausted) {
+	if _, err := db.AdmitStallInvestigation(ctx, repo, over, now); !errors.Is(err, factory.ErrRepairTimeExhausted) {
 		t.Fatalf("over-time run: err=%v", err)
 	}
 	fitting := repairChargeFixture("c0000000000000000000000000000013", grantID, episode2, 1, factory.RepairChargeRun, "a", 20, false)
-	if _, spent, err := db.AdmitStallInvestigation(ctx, repo, fitting, now); err != nil || !spent {
+	if spent, err := db.AdmitStallInvestigation(ctx, repo, fitting, now); err != nil || !spent {
 		t.Fatalf("fitting run: spent=%v err=%v", spent, err)
 	}
 }
@@ -232,12 +250,12 @@ func TestRepairGrantIncreasePreservesConsumptionPG(t *testing.T) {
 		repairChargeFixture("c0000000000000000000000000000021", grantID, episode, 1, factory.RepairChargeRun, "a", 10, false),
 		repairChargeFixture("c0000000000000000000000000000022", grantID, episode, 2, factory.RepairChargeRun, "b", 10, false),
 	} {
-		if _, spent, err := db.AdmitStallInvestigation(ctx, repo, charge, now); err != nil || !spent {
+		if spent, err := db.AdmitStallInvestigation(ctx, repo, charge, now); err != nil || !spent {
 			t.Fatalf("charge %s: spent=%v err=%v", charge.ID, spent, err)
 		}
 	}
 	capped := repairChargeFixture("c0000000000000000000000000000023", grantID, "e0000000000000000000000000000025", 1, factory.RepairChargeRun, "a", 10, false)
-	if _, _, err := db.AdmitStallInvestigation(ctx, repo, capped, now); !errors.Is(err, factory.ErrRepairRunsExhausted) {
+	if _, err := db.AdmitStallInvestigation(ctx, repo, capped, now); !errors.Is(err, factory.ErrRepairRunsExhausted) {
 		t.Fatalf("capped run: err=%v", err)
 	}
 	// An unexplained raise is refused; a stated raise preserves history.
@@ -253,7 +271,7 @@ func TestRepairGrantIncreasePreservesConsumptionPG(t *testing.T) {
 	// stay valid history against the same scope. The refused capped
 	// charge never persisted, so its identity is reusable.
 	rebound := repairChargeFixture("c0000000000000000000000000000023", raisedCmd.ID, "e0000000000000000000000000000025", 1, factory.RepairChargeRun, "a", 10, false)
-	if _, spent, err := db.AdmitStallInvestigation(ctx, repo, rebound, now); err != nil || !spent {
+	if spent, err := db.AdmitStallInvestigation(ctx, repo, rebound, now); err != nil || !spent {
 		t.Fatalf("post-raise charge: spent=%v err=%v", spent, err)
 	}
 	charges, err := db.RepairCharges(ctx, repo)
@@ -404,8 +422,15 @@ func TestIntentExecutionAggregatePG(t *testing.T) {
 		Principal: "soda-tester", Payload: string(raw),
 	}
 	limitCmd.Digest = factory.SettingsDigest(limitCmd.Type, limitCmd.Target, limitCmd.Payload)
-	if _, created, err := db.ApplyIntentExecutionLimitCommand(ctx, limitCmd, limit, now); err != nil || !created {
+	admitted, created, err := db.ApplyIntentExecutionLimitCommand(ctx, limitCmd, limit, now)
+	if err != nil || !created {
 		t.Fatalf("apply limit: created=%v err=%v", created, err)
+	}
+	if admitted.Finished == "" || admitted.Outcome != "" {
+		t.Fatalf("execution limit retained a response or did not commit admission: %+v", admitted)
+	}
+	if repeated, created, err := db.ApplyIntentExecutionLimitCommand(ctx, limitCmd, limit, now.Add(time.Minute)); err != nil || created || repeated.Finished != admitted.Finished || repeated.Outcome != "" {
+		t.Fatalf("execution limit repeat: %+v created=%v err=%v", repeated, created, err)
 	}
 	raised := limit
 	raised.Revision = 1
