@@ -60,7 +60,6 @@ func priorityCandidateDTO(c factory.PriorityCandidate, observed int64) priorityC
 type priorityCallView struct {
 	Selected     string  `json:"selected,omitempty"`
 	Model        string  `json:"model,omitempty"`
-	Failure      string  `json:"failure,omitempty"`
 	Confidence   float64 `json:"confidence,omitempty"`
 	InputTokens  int64   `json:"input_tokens,omitempty"`
 	OutputTokens int64   `json:"output_tokens,omitempty"`
@@ -68,7 +67,7 @@ type priorityCallView struct {
 
 func priorityCallDTO(c factory.PriorityCall) priorityCallView {
 	return priorityCallView{
-		Selected: c.Answer.Selected, Model: c.Answer.Model, Failure: c.Failure,
+		Selected: c.Answer.Selected, Model: c.Answer.Model,
 		Confidence:  c.Answer.Confidence,
 		InputTokens: c.Answer.InputTokens, OutputTokens: c.Answer.OutputTokens,
 	}

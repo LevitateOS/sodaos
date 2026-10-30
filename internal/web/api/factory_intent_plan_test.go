@@ -1047,6 +1047,10 @@ func TestIntentPlanConsumerLaunchesBoundDecompose(t *testing.T) {
 	if catalogRefused(result, err) {
 		t.Fatalf("approved manifest finish refused: %v %v", catalogText(t, result), err)
 	}
+	posted, found, err := s.TerminalMCPSubmission(ctx, launched.ID)
+	if err != nil || !found {
+		t.Fatal("approved finish was not posted", found, err)
+	}
 	if err := s.AdmitApprovalDecision(ctx, project.ApprovalDecision{ID: "d" + strings.Repeat("a", 24), Predecessor: preparation.Preparation.Approval.ID, Project: cap.Project, Requirement: preparation.Preparation.Requirements.ID, Approver: 1, EffectsDigest: strings.Repeat("d", 64), ReadinessDigest: strings.Repeat("d", 64), Verified: true}); err != nil {
 		t.Fatal(err)
 	}
@@ -1054,8 +1058,8 @@ func TestIntentPlanConsumerLaunchesBoundDecompose(t *testing.T) {
 		t.Fatal("moved approval retained current catalog")
 	}
 	result, err = finishLong(id, proposal)
-	if catalogRefused(result, err) {
-		t.Fatalf("changed approval blocked exact immutable finish replay: %v", err)
+	if !catalogRefused(result, err) {
+		t.Fatal("recorded finish bypassed a changed approval")
 	}
 	changed := proposal
 	changed.Checks = append([]factory.ManifestCheckRef(nil), proposal.Checks...)
@@ -1073,8 +1077,12 @@ func TestIntentPlanConsumerLaunchesBoundDecompose(t *testing.T) {
 		t.Fatal("moved draft retained planning catalog", err)
 	}
 	result, err = finishLong(id, proposal)
-	if catalogRefused(result, err) {
-		t.Fatalf("moved draft blocked immutable proposal replay: %v", err)
+	if !catalogRefused(result, err) {
+		t.Fatal("recorded finish bypassed a changed draft")
+	}
+	retained, found, err := s.TerminalMCPSubmission(ctx, launched.ID)
+	if err != nil || !found || string(retained.Payload) != string(posted.Payload) {
+		t.Fatal("refused calls changed the original posted finish", found, err)
 	}
 	if settled, err := control.SettleMCPTerminalProposal(ctx, s, launched.ID, time.Now()); err != nil || !settled {
 		t.Fatalf("approved MCP plan did not settle: %v/%v", settled, err)

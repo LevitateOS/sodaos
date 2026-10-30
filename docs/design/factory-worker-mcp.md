@@ -392,6 +392,12 @@ the tournament size check, current intent/run scope, work allowances and repair
 cycle ledgers. Completion calls derive their existing ledger identity from the
 judgment key, so an unanswered call does not consume another cycle entry.
 
+Generic advice uses the JEV client's validated answer and reads completed
+choices directly, without a second protocol validator or a failed-call receipt
+variant. Context reads check the saved choice's purpose and actual run scope,
+then apply the confidence, probability and eligible-history policy. They do not
+rebuild the original request, recompute its hash or compare copied selections.
+
 `factory.context` supplies typed required role inputs independently of optional
 history selection. Large role fields travel as ordered UTF-8 JSON fragments in
 `current_role_page`: concatenate a field's parts and decode its JSON. The complete

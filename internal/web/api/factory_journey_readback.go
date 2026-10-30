@@ -601,7 +601,7 @@ func (s *API) journeyCycleSections(ctx context.Context, view *factoryIssueJourne
 			}
 			return err
 		}
-		if len(receipt.Calls) != 1 || receipt.Calls[0].Failure != "" {
+		if len(receipt.Calls) != 1 {
 			continue
 		}
 		answer := receipt.Calls[0].Answer

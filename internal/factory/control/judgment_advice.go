@@ -45,20 +45,10 @@ func buildPurposeRequest(advice PurposeAdvice) (factory.PriorityRequest, string,
 	return request, fingerprint, nil
 }
 
-func replayPurposeJudgment(prior factory.PriorityReceipt, advice PurposeAdvice, request factory.PriorityRequest) (factory.PriorityAnswer, error) {
-	if prior.Purpose != advice.Purpose || prior.Outcome != advice.Outcome || len(prior.Calls) != 1 || prior.Calls[0].Failure != "" || prior.Calls[0].Answer.Validate(request) != nil {
-		return factory.PriorityAnswer{}, ErrPriorityUnavailable
-	}
-	return prior.Calls[0].Answer, nil
-}
-
 func (c *Coordinator) consultPurposeChoice(ctx context.Context, advice PurposeAdvice, fingerprint string, request factory.PriorityRequest) (factory.PriorityAnswer, error) {
 	bounded, cancel := context.WithTimeout(ctx, 30*time.Second)
 	answer, callErr := c.Planning.Chooser.Select(bounded, advice.State, advice.Question, advice.Options)
 	cancel()
-	if callErr == nil {
-		callErr = answer.Validate(request)
-	}
 	if callErr != nil {
 		return factory.PriorityAnswer{}, ErrConsultationFailed
 	}
@@ -84,11 +74,7 @@ func (c *Coordinator) AdvisePurpose(ctx context.Context, advice PurposeAdvice) (
 	}
 	prior, err := c.Store.PriorityJudgment(ctx, fingerprint)
 	if err == nil {
-		answer, err := replayPurposeJudgment(prior, advice, request)
-		if err != nil {
-			return factory.PriorityAnswer{}, false, err
-		}
-		return answer, true, nil
+		return prior.Calls[0].Answer, true, nil
 	}
 	if !errors.Is(err, store.ErrNotFound) {
 		return factory.PriorityAnswer{}, false, err

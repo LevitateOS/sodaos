@@ -213,7 +213,7 @@ func TestCompletionDriveReleasesContinuePG(t *testing.T) {
 		t.Fatal(err)
 	}
 	receipt, err := db.PriorityJudgment(ctx, fingerprintOf(state))
-	if err != nil || len(receipt.Calls) != 1 || receipt.Calls[0].Failure != "" {
+	if err != nil || len(receipt.Calls) != 1 {
 		t.Fatalf("receipt=%+v err=%v, want the charged continue receipt", receipt, err)
 	}
 	if !strings.Contains(string(receipt.Calls[0].Request.State), "title 2") {
@@ -557,8 +557,7 @@ func TestCompletionDrivePaidReassessKeepsLedgerPG(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	t.Logf("AFTER decision: receiptCalls=%d receiptFailure=%q ledgerCalls=%d ledger=%v", len(receipt.Calls), receipt.Calls[0].Failure, len(after.Cycle.Ledger.DecisionCalls), after.Cycle.Ledger.DecisionCalls)
-	if len(receipt.Calls) != 1 || receipt.Calls[0].Failure != "" {
+	if len(receipt.Calls) != 1 {
 		t.Fatalf("receipt=%+v, want the one charged reassess receipt", receipt)
 	}
 
@@ -628,8 +627,7 @@ func TestCompletionDrivePaidLowConfidenceHoldsAttentionPG(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	t.Logf("AFTER low-confidence hold: receiptCalls=%d receiptFailure=%q selected=%q ledgerCalls=%d", len(receipt.Calls), receipt.Calls[0].Failure, receipt.Calls[0].Answer.Selected, len(attended.Cycle.Ledger.DecisionCalls))
-	if len(receipt.Calls) != 1 || receipt.Calls[0].Failure != "" || receipt.Calls[0].Answer.Selected != factory.ReassessmentOptionContinue {
+	if len(receipt.Calls) != 1 || receipt.Calls[0].Answer.Selected != factory.ReassessmentOptionContinue {
 		t.Fatalf("receipt=%+v, want the one recorded low-confidence continue answer", receipt)
 	}
 

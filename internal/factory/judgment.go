@@ -52,7 +52,6 @@ type PriorityAnswer struct {
 type PriorityCall struct {
 	Request PriorityRequest `json:"request"`
 	Answer  PriorityAnswer  `json:"answer"`
-	Failure string          `json:"failure,omitempty"`
 }
 
 type PriorityReceipt struct {

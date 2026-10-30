@@ -6,6 +6,7 @@ import (
 	"github.com/levitateos/sodaos/internal/factory"
 )
 
+// ProductJudgment returns a validated JEV answer for the supplied options.
 type ProductJudgment interface {
 	Select(context.Context, any, string, map[string]any) (factory.PriorityAnswer, error)
 }

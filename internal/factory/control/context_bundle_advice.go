@@ -41,7 +41,6 @@ type contextBundleScope struct {
 }
 
 type contextBundleState struct {
-	Version        string                              `json:"version"`
 	Scope          contextBundleScope                  `json:"scope"`
 	Current        contextSelectionCurrent             `json:"current"`
 	HistoryPreview []contextHistoryPreview             `json:"history_preview"`
@@ -50,7 +49,6 @@ type contextBundleState struct {
 
 func contextBundleStateFor(capability factory.MCPCapability, assignment factory.Assignment) contextBundleState {
 	return contextBundleState{
-		Version:        "context-selection-v1",
 		Current:        contextSelectionCurrent{Availability: "unknown", MissingReasons: []string{"required_current_not_collected"}},
 		HistoryPreview: []contextHistoryPreview{},
 		Bundles:        describeContextBundles(false, false, 0),
@@ -118,32 +116,12 @@ func (c *Coordinator) selectContextBundleState(ctx context.Context, state contex
 	return bundle, reason, nil
 }
 
-// ContextBundleFromReceipt reapplies the same validation and confidence policy
-// used at preparation. The summary Selected field alone grants no projection.
+// ContextBundleFromReceipt binds the saved choice to this run's scope and
+// applies the context policy. Reads do not reconstruct the original request.
 func ContextBundleFromReceipt(receipt factory.PriorityReceipt, capability factory.MCPCapability, assignment factory.Assignment, attemptEligible, lineageEligible bool) (string, string) {
 	var state contextBundleState
-	if len(receipt.Calls) != 1 || json.Unmarshal(receipt.Calls[0].Request.State, &state) != nil || state.Version != "context-selection-v1" || !reflect.DeepEqual(state.Scope, contextBundleStateFor(capability, assignment).Scope) {
+	if receipt.Purpose != factory.JudgmentContextBundle || len(receipt.Calls) != 1 || json.Unmarshal(receipt.Calls[0].Request.State, &state) != nil || !reflect.DeepEqual(state.Scope, contextBundleStateFor(capability, assignment).Scope) {
 		return factory.ContextBundleSnapshotHold, "context_selection_stale"
 	}
-	// Reuse the exact recorded preparation point. Current status is read
-	// separately and cannot buy a new choice or alter this paid request.
-	priorAttempt, priorLineage := false, false
-	for _, candidate := range receipt.Calls[0].Request.Candidates {
-		priorAttempt = priorAttempt || candidate.ID == factory.ContextBundleAttempt
-		priorLineage = priorLineage || candidate.ID == factory.ContextBundleLineage
-	}
-	advice := PurposeAdvice{Purpose: factory.JudgmentContextBundle, State: state, Question: contextBundleRubric, Options: contextBundleOptions(priorAttempt, priorLineage), Outcome: "context-bundle"}
-	request, fingerprint, err := buildPurposeRequest(advice)
-	if err != nil || receipt.Snapshot != fingerprint {
-		return factory.ContextBundleSnapshotHold, "context_selection_stale"
-	}
-	answer, err := replayPurposeJudgment(receipt, advice, request)
-	if err != nil || receipt.Selected != answer.Selected || receipt.Calls[0].Request.Snapshot != fingerprint {
-		return factory.ContextBundleSnapshotHold, "context_selection_unavailable"
-	}
-	bundle, reason := factory.ApplyContextBundleAnswer(answer, map[string]bool{factory.ContextBundleCurrent: true, factory.ContextBundleAttempt: attemptEligible, factory.ContextBundleLineage: lineageEligible, factory.ContextBundleSnapshotHold: true})
-	if reason != "" || bundle == factory.ContextBundleSnapshotHold {
-		return factory.ContextBundleSnapshotHold, "context_selection_attention"
-	}
-	return bundle, ""
+	return factory.ApplyContextBundleAnswer(receipt.Calls[0].Answer, map[string]bool{factory.ContextBundleCurrent: true, factory.ContextBundleAttempt: attemptEligible, factory.ContextBundleLineage: lineageEligible, factory.ContextBundleSnapshotHold: true})
 }
