@@ -8,6 +8,7 @@ import (
 
 	"github.com/levitateos/sodaos/internal/factory"
 	"github.com/levitateos/sodaos/internal/project"
+	"github.com/levitateos/sodaos/internal/store"
 )
 
 func TestWithdrawAcceptanceStopsAdmittedRun(t *testing.T) {
@@ -56,8 +57,7 @@ func TestWithdrawAcceptanceStopsAdmittedRun(t *testing.T) {
 		return confirmedStop(in)
 	}
 	coord := &Coordinator{Store: db, Host: host, Broker: broker}
-	commandID := factory.NewID()
-	pending, err := coord.WithdrawAcceptance(ctx, commandID, "native:7", fx.repo, 3, decision.ID, 7)
+	pending, err := coord.WithdrawAcceptance(ctx, fx.repo, 3, decision.ID, 7)
 	if !errors.Is(err, ErrCommandRunning) || len(pending.PendingRuns) != 1 {
 		t.Fatalf("uncertain host stop was reported as completed or lost its pending target: %+v, %v", pending, err)
 	}
@@ -73,9 +73,9 @@ func TestWithdrawAcceptanceStopsAdmittedRun(t *testing.T) {
 	if err != nil || other.Acceptance != otherDecision.ID || other.Readiness != factory.ReadinessQueued {
 		t.Fatalf("withdrawal changed queued unrelated issue: %+v, %v", other, err)
 	}
-	receipt, err := coord.WithdrawAcceptance(ctx, commandID, "native:7", fx.repo, 3, decision.ID, 7)
-	if err != nil || !receipt.Withdrawn {
-		t.Fatalf("retry same withdrawal command: %+v, %v", receipt, err)
+	result, err := coord.WithdrawAcceptance(ctx, fx.repo, 3, decision.ID, 7)
+	if err != nil || !result.Withdrawn {
+		t.Fatalf("complete withdrawal from current run state: %+v, %v", result, err)
 	}
 	if len(stopped) != 2 || stopped[0] != runID || stopped[1] != runID {
 		t.Fatalf("withdrawal stop calls = %v, want two attempts on only %q", stopped, runID)
@@ -89,9 +89,9 @@ func TestWithdrawAcceptanceStopsAdmittedRun(t *testing.T) {
 		t.Fatalf("withdrawal changed assignment attempt history: %+v, %v", assignment.RunHistory, err)
 	}
 	before := stopCalls
-	replayed, err := coord.WithdrawAcceptance(ctx, commandID, "native:7", fx.repo, 3, decision.ID, 7)
-	if err != nil || stopCalls != before || replayed.CommandID != receipt.CommandID {
-		t.Fatalf("completed replay re-stopped a run: receipt=%+v calls=%d err=%v", replayed, stopCalls, err)
+	replayed, err := coord.WithdrawAcceptance(ctx, fx.repo, 3, decision.ID, 7)
+	if err != nil || stopCalls != before || replayed.Decision != result.Decision || !replayed.Withdrawn {
+		t.Fatalf("repeating completed withdrawal re-stopped a run: result=%+v calls=%d err=%v", replayed, stopCalls, err)
 	}
 	other, err = db.IssueControl(ctx, fx.repo, 5)
 	if err != nil || other.Acceptance != otherDecision.ID || other.Readiness != factory.ReadinessQueued {
@@ -125,14 +125,9 @@ func TestAcceptanceWithdrawalSurvivesRunReconciliation(t *testing.T) {
 		return confirmedStop(in)
 	}
 	coord := &Coordinator{Store: db, Host: host, Broker: broker}
-	commandID := factory.NewID()
-	pending, err := coord.WithdrawAcceptance(ctx, commandID, "native:7", fx.repo, 3, decision.ID, 7)
+	pending, err := coord.WithdrawAcceptance(ctx, fx.repo, 3, decision.ID, 7)
 	if !errors.Is(err, ErrCommandRunning) || len(pending.PendingRuns) != 1 {
 		t.Fatalf("initial withdrawal = %+v, %v", pending, err)
-	}
-	command, err := db.FactoryCommand(ctx, commandID)
-	if err != nil || command.Finished != "" {
-		t.Fatalf("uncertain withdrawal command is not unfinished: %+v, %v", command, err)
 	}
 	reservation, err := db.Reservation(ctx, dispatched.Launched[0].AssignmentID)
 	if err != nil || reservation.State != factory.ReservationHeld {
@@ -148,10 +143,6 @@ func TestAcceptanceWithdrawalSurvivesRunReconciliation(t *testing.T) {
 	if _, err := coord.reconcileRuns(ctx); err != nil {
 		t.Fatal(err)
 	}
-	command, err = db.FactoryCommand(ctx, commandID)
-	if err != nil || command.Finished != "" {
-		t.Fatalf("reconciliation manufactured a command outcome: %+v, %v", command, err)
-	}
 	if stopCalls != 2 {
 		t.Fatalf("stop calls = %d, want initial withdrawal and actual run reconciliation", stopCalls)
 	}
@@ -166,6 +157,12 @@ func TestAcceptanceWithdrawalSurvivesRunReconciliation(t *testing.T) {
 	run, err := db.FactoryRun(ctx, runID)
 	if err != nil || !run.Reconciled || run.Outcome != factory.Cancelled {
 		t.Fatalf("reconciled run = %+v, %v", run, err)
+	}
+	if _, err := coord.WithdrawAcceptance(ctx, fx.repo, 3, decision.ID, 7); !errors.Is(err, store.ErrStaleRevision) {
+		t.Fatalf("superseded withdrawal did not check the current head: %v", err)
+	}
+	if stopCalls != 2 {
+		t.Fatal("stale withdrawal stopped a run again", stopCalls)
 	}
 }
 
@@ -219,7 +216,7 @@ func TestWithdrawAcceptancePreservesSettledRunHistory(t *testing.T) {
 		return confirmedStop(in)
 	}
 	coord := &Coordinator{Store: db, Host: host, Broker: broker}
-	if _, err := coord.WithdrawAcceptance(ctx, factory.NewID(), "native:7", fx.repo, 3, decision.ID, 7); err != nil {
+	if _, err := coord.WithdrawAcceptance(ctx, fx.repo, 3, decision.ID, 7); err != nil {
 		t.Fatal(err)
 	}
 	old, err := db.FactoryRun(ctx, assignment.RunHistory[0])

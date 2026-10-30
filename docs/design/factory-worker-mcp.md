@@ -366,6 +366,9 @@ Issue requirements acceptance likewise uses its immutable decision and
 predecessor chain directly. Repeating a decision checks current visibility and
 returns its chain state; there is no second command ID, payload digest or saved
 response. New decisions still verify exact native inputs and prerequisite heads.
+Acceptance withdrawal uses its existing decision latch and actual run state,
+without a command journal or frozen response. It still stops affected runs,
+confirms native settlement, accounts reservations and refuses a superseded head.
 
 Worker context does not carry a submission-receipt history; communications and
 results are available through the work posts and discussion. Ordinary worker

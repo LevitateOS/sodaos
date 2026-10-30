@@ -139,7 +139,6 @@ func acceptanceSources(w http.ResponseWriter, in []acceptanceSourceRequest) ([]f
 }
 
 type issueWithdrawalRequest struct {
-	CommandID  string `json:"command_id"`
 	DecisionID string `json:"decision_id"`
 }
 
@@ -159,7 +158,7 @@ func (s *API) apiIssueWithdrawal(w http.ResponseWriter, r *http.Request, v store
 		return
 	}
 	var in issueWithdrawalRequest
-	if !auth.DecodeAPIObject(w, r, &in) || !settingsCommandID(w, in.CommandID) {
+	if !auth.DecodeAPIObject(w, r, &in) {
 		return
 	}
 	if s.Coordinator == nil {
@@ -167,12 +166,12 @@ func (s *API) apiIssueWithdrawal(w http.ResponseWriter, r *http.Request, v store
 		return
 	}
 	index, _ := strconv.ParseInt(issue, 10, 64)
-	receipt, err := s.Coordinator.WithdrawAcceptance(r.Context(), in.CommandID, factoryPrincipal(v), repository, index, in.DecisionID, v.User.ID)
+	result, err := s.Coordinator.WithdrawAcceptance(r.Context(), repository, index, in.DecisionID, v.User.ID)
 	if err != nil {
 		acceptanceDecisionError(w, err)
 		return
 	}
-	auth.JSONResponse(w, 200, receipt)
+	auth.JSONResponse(w, 200, result)
 }
 
 // acceptanceDecisionError maps acceptance failures to status codes.

@@ -254,9 +254,12 @@ func TestIssueAcceptanceJourney(t *testing.T) {
 		t.Fatalf("view: %+v", seen.Status)
 	}
 	withdraw := lifecycleAction(t, s, "POST", "/api/repositories/7/factory/issues/3/withdrawal",
-		`{"command_id":"`+factory.NewID()+`","decision_id":"`+decision+`"}`, "alice")
+		`{"decision_id":"`+decision+`"}`, "alice")
 	if withdraw.Code != 200 {
 		t.Fatal(withdraw.Code, withdraw.Body.String())
+	}
+	if strings.Contains(withdraw.Body.String(), "command_id") {
+		t.Fatal("withdrawal returned a command receipt", withdraw.Body.String())
 	}
 	stale := lifecycleAction(t, s, "GET", "/api/repositories/7/factory/issues/3", "", "alice")
 	if stale.Code != 200 {

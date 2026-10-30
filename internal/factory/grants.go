@@ -40,7 +40,6 @@ const MergeFastForward = "fast-forward-only"
 // Queued actions and finite funding records use the command ledger. Standing
 // settings use their own revisions directly.
 const (
-	CommandWithdrawal            = "withdrawal"
 	CommandRetry                 = "retry"
 	CommandRetryImplementation   = "retry_implementation"
 	CommandVerificationAllowance = "verification-allowance"
@@ -70,8 +69,7 @@ const (
 // command. Pause, resume and stop operate directly on their current state.
 func SettingsCommandType(typ string) bool {
 	switch typ {
-	case CommandWithdrawal,
-		CommandRetry, CommandRetryImplementation, CommandPlanIntent, CommandCompletionRetry,
+	case CommandRetry, CommandRetryImplementation, CommandPlanIntent, CommandCompletionRetry,
 		CommandRepairGrant, CommandIntentExecutionLimit, CommandRepairCharge, CommandVerificationAllowance, CommandDeliveryRepair:
 		return true
 	default:

@@ -71,7 +71,7 @@ repository and Project permissions.
 | GET | `/api/repositories/{repositoryID}/factory/issues/{issueID}` | Work detail: acceptance, validity, readiness, attempt, publication/review/correction, checks, merge, closure, links, capabilities, queued requests and observation time |
 | GET | `/api/repositories/{repositoryID}/factory/issues/{issueID}/acceptance-preview` | Current revision-bound acceptance facts (optional repeated `comment_id`; metadata only) |
 | POST | `/api/repositories/{repositoryID}/factory/issues/{issueID}/acceptances` | Code-write exact-inputs acceptance (decision envelope) |
-| POST | `/api/repositories/{repositoryID}/factory/issues/{issueID}/withdrawal` | Code-write acceptance withdrawal (command envelope) |
+| POST | `/api/repositories/{repositoryID}/factory/issues/{issueID}/withdrawal` | Code-write acceptance withdrawal (decision ID) |
 | GET | `/api/repositories/{repositoryID}/factory/issues/{issueID}/assignment` | Current dispatch assignment: exact bound inputs, staged prompt, recorded result, publication operation IDs, effects, completion and cancellation |
 | GET | `/api/repositories/{repositoryID}/factory/issues/{issueID}/plan?limit=1..20` | Recorded plan and recent priority comparisons for one native issue (optional before_unix/before_snapshot cursor) |
 | POST | `/api/factory/intake` | Authenticated native webhook intake (HMAC; repository creation publishes the Factory opening question; issue events queue readiness assessment) |
