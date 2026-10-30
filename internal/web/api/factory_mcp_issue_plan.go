@@ -15,8 +15,7 @@ import (
 // checkNewFinish refuses a new terminal finish that settlement could not
 // settle, before its immutable proposal freezes the assignment. It runs the
 // settler's own mapping, so the worker sees the exact defect while it can
-// still correct the payload and finish again. Retained proposals replay
-// through the store without reaching this check.
+// still correct the payload and finish again.
 func (s *factoryCatalogServer) checkNewFinish(ctx context.Context, capability factory.MCPCapability, submission factory.MCPSubmission, payload map[string]any) error {
 	if !factory.MCPIsTerminal(submission.Tool) {
 		return nil
@@ -38,12 +37,12 @@ func (s *factoryCatalogServer) checkNewFinish(ctx context.Context, capability fa
 
 // Accepted means the immutable proposal was consumed. The result explicitly
 // distinguishes successful work from a blocked or invalid consumed report.
-func (s *factoryCatalogServer) receiptBody(ctx context.Context, assignment string, receipt factory.MCPReceipt) map[string]any {
+func (s *factoryCatalogServer) workStatusBody(ctx context.Context, assignment string, status factory.MCPWorkStatus) map[string]any {
 	body := map[string]any{
-		"submission_id": receipt.SubmissionID, "state": receipt.State, "reason": receipt.Reason,
-		"feed_post_id": receipt.FeedPostID,
+		"submission_id": status.SubmissionID, "state": status.State, "reason": status.Reason,
+		"feed_post_id": status.FeedPostID,
 	}
-	if factory.MCPIsTerminal(receipt.Tool) && receipt.State == factory.MCPReceiptAccepted && s.deps.Assignments != nil {
+	if factory.MCPIsTerminal(status.Tool) && status.State == factory.MCPWorkAccepted && s.deps.Assignments != nil {
 		body["settlement"] = map[string]any{"availability": "unavailable"}
 		if a, err := s.deps.Assignments.Assignment(ctx, assignment); err == nil && a.Stage == factory.AssignmentFinished {
 			settlement := map[string]any{"availability": "complete", "outcome": a.Outcome, "reason": a.Reason, "reported": a.Result != nil && a.Result.Reported}

@@ -7,7 +7,7 @@ import (
 
 	"github.com/google/jsonschema-go/jsonschema"
 	"github.com/levitateos/sodaos/internal/factory"
-	"github.com/levitateos/sodaos/internal/factory/control"
+	"github.com/levitateos/sodaos/internal/store"
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 )
 
@@ -44,7 +44,7 @@ func (s *factoryCatalogServer) serveIssueMaker(ctx context.Context, tool factory
 	if _, frozen, err := s.deps.Submissions.TerminalMCPProposal(ctx, cap.AssignmentID); err != nil {
 		return nil, nil, err
 	} else if frozen {
-		return nil, nil, control.ErrMCPSubmissionFrozen
+		return nil, nil, store.ErrMCPSubmissionFrozen
 	}
 	if s.deps.IssueMaker == nil {
 		return nil, nil, errors.New("Issue Maker native tools are unavailable")

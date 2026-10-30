@@ -45,12 +45,12 @@ func TestRecordedTerminalMCPAssignments(t *testing.T) {
 	if _, err := db.RecordedTerminalMCPAssignments(ctx, 0); err == nil {
 		t.Fatal("unbounded listing admitted")
 	}
-	accepted := factory.MCPReceipt{
+	accepted := factory.MCPWorkStatus{
 		SubmissionID: terminal.SubmissionID, Tool: terminal.Tool,
-		State: factory.MCPReceiptAccepted, InputDigest: terminal.PayloadHash,
+		State:  factory.MCPWorkAccepted,
 		Reason: "settled in test",
 	}
-	if err := db.AdvanceMCPReceipt(ctx, active.AssignmentID, terminal.SubmissionID, factory.MCPReceiptRecorded, accepted); err != nil {
+	if err := db.AdvanceMCPWork(ctx, active.AssignmentID, terminal.SubmissionID, factory.MCPWorkRecorded, accepted); err != nil {
 		t.Fatalf("advance receipt: %v", err)
 	}
 	ids, err = db.RecordedTerminalMCPAssignments(ctx, 10)

@@ -119,8 +119,8 @@ func TestSettleCorrectionTerminalPGDrive(t *testing.T) {
 		} else if finished.Outcome != factory.Succeeded || finished.Result == nil || finished.Result.PhaseResult == nil || finished.Result.PhaseResult.Output.Correction == nil || finished.Result.Candidate != candidate || len(finished.Result.PhaseResult.Output.Correction.Evidence) != 1 || finished.Result.PhaseResult.Output.Correction.Findings[0].Defect != finding.Defect {
 			t.Fatalf("typed correction report lost: %+v", finished)
 		}
-		receipt, err := db.MCPReceipt(ctx, a.ID, submission.SubmissionID)
-		if err != nil || receipt.State != factory.MCPReceiptAccepted {
+		receipt, err := db.MCPWorkStatus(ctx, a.ID, submission.SubmissionID)
+		if err != nil || receipt.State != factory.MCPWorkAccepted {
 			t.Fatalf("correction receipt: %+v err=%v", receipt, err)
 		}
 		if err := finishFromRun(ctx, db, a, retired, time.Now()); err != nil {
@@ -197,11 +197,11 @@ func TestSettleMCPTerminalsPGDrive(t *testing.T) {
 		finished.Result.PhaseResult == nil || finished.Result.PhaseResult.Status != "blocked" {
 		t.Fatalf("driven finish not typed blocked: %+v", finished)
 	}
-	advanced, err := db.MCPReceipt(ctx, a.ID, submission.SubmissionID)
+	advanced, err := db.MCPWorkStatus(ctx, a.ID, submission.SubmissionID)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if advanced.State != factory.MCPReceiptAccepted {
+	if advanced.State != factory.MCPWorkAccepted {
 		t.Fatalf("receipt state %q, want accepted", advanced.State)
 	}
 	if settled := coordinator.settleMCPTerminals(ctx); settled != 0 {
@@ -296,11 +296,11 @@ func TestSettleVerifyRepairWrongSubjectFencedPGDrive(t *testing.T) {
 			finished.Result == nil || finished.Result.Status != "blocked" {
 			t.Fatalf("%s wrong-subject finish not fenced blocked: %+v", tc.name, finished)
 		}
-		advanced, err := db.MCPReceipt(ctx, tc.assignment.ID, tc.submission.SubmissionID)
+		advanced, err := db.MCPWorkStatus(ctx, tc.assignment.ID, tc.submission.SubmissionID)
 		if err != nil {
 			t.Fatal(err)
 		}
-		if advanced.State != factory.MCPReceiptAccepted {
+		if advanced.State != factory.MCPWorkAccepted {
 			t.Fatalf("%s receipt state %q, want accepted", tc.name, advanced.State)
 		}
 	}
@@ -508,11 +508,11 @@ func TestSettleVerifyArtifactRefsResolvedPGDrive(t *testing.T) {
 		goodFinished.Result.PhaseResult.Output.Verification.ArtifactRefs[0] != digest {
 		t.Fatalf("verified finish did not record its artifact ref: %+v", goodFinished)
 	}
-	goodReceipt, err := db.MCPReceipt(ctx, goodAssignment.ID, goodSubmission.SubmissionID)
+	goodReceipt, err := db.MCPWorkStatus(ctx, goodAssignment.ID, goodSubmission.SubmissionID)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if goodReceipt.State != factory.MCPReceiptAccepted {
+	if goodReceipt.State != factory.MCPWorkAccepted {
 		t.Fatalf("verified receipt state %q, want accepted", goodReceipt.State)
 	}
 	badFinished, err := db.Assignment(ctx, badAssignment.ID)
@@ -523,11 +523,11 @@ func TestSettleVerifyArtifactRefsResolvedPGDrive(t *testing.T) {
 		badFinished.Result == nil || badFinished.Result.Status != "blocked" {
 		t.Fatalf("unknown digest finish not fenced blocked: %+v", badFinished)
 	}
-	badReceipt, err := db.MCPReceipt(ctx, badAssignment.ID, badSubmission.SubmissionID)
+	badReceipt, err := db.MCPWorkStatus(ctx, badAssignment.ID, badSubmission.SubmissionID)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if badReceipt.State != factory.MCPReceiptAccepted {
+	if badReceipt.State != factory.MCPWorkAccepted {
 		t.Fatalf("fenced receipt state %q, want accepted", badReceipt.State)
 	}
 	if settled := coordinator.settleMCPTerminals(ctx); settled != 0 {
@@ -892,11 +892,11 @@ func TestSettleProductPlanFinishArgsPGDrive(t *testing.T) {
 			settledWalkthroughs.Facts[0] != head.Objective {
 			t.Fatalf("%s finish did not preserve its long nested objective/facts verbatim", tc.name)
 		}
-		advanced, err := db.MCPReceipt(ctx, tc.assignment.ID, tc.submission.SubmissionID)
+		advanced, err := db.MCPWorkStatus(ctx, tc.assignment.ID, tc.submission.SubmissionID)
 		if err != nil {
 			t.Fatal(err)
 		}
-		if advanced.State != factory.MCPReceiptAccepted {
+		if advanced.State != factory.MCPWorkAccepted {
 			t.Fatalf("%s receipt state %q, want accepted", tc.name, advanced.State)
 		}
 	}
@@ -1002,11 +1002,11 @@ func TestSettleMissingAllowanceKeepsReceiptRecordedPGDrive(t *testing.T) {
 	if stored.Stage != factory.AssignmentAssigned {
 		t.Fatalf("missing allowance finished its assignment: %+v", stored)
 	}
-	receipt, err := db.MCPReceipt(ctx, a.ID, submission.SubmissionID)
+	receipt, err := db.MCPWorkStatus(ctx, a.ID, submission.SubmissionID)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if receipt.State != factory.MCPReceiptRecorded {
+	if receipt.State != factory.MCPWorkRecorded {
 		t.Fatalf("missing-allowance receipt state %q, want recorded", receipt.State)
 	}
 }
@@ -1058,11 +1058,11 @@ func TestSettleConcurrentFinishSettlesAcceptedPGDrive(t *testing.T) {
 	if finished.Stage != factory.AssignmentFinished || finished.Outcome != factory.Succeeded {
 		t.Fatalf("concurrent finish unsettled: %+v", finished)
 	}
-	advanced, err := db.MCPReceipt(ctx, a.ID, submission.SubmissionID)
+	advanced, err := db.MCPWorkStatus(ctx, a.ID, submission.SubmissionID)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if advanced.State != factory.MCPReceiptAccepted {
+	if advanced.State != factory.MCPWorkAccepted {
 		t.Fatalf("concurrent receipt state %q, want accepted", advanced.State)
 	}
 }
@@ -1135,11 +1135,11 @@ func TestSettleFinishedRowRereadAcceptsPGDrive(t *testing.T) {
 	if stored.Stage != factory.AssignmentFinished {
 		t.Fatalf("reread left assignment: %+v", stored)
 	}
-	advanced, err := db.MCPReceipt(ctx, a.ID, submission.SubmissionID)
+	advanced, err := db.MCPWorkStatus(ctx, a.ID, submission.SubmissionID)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if advanced.State != factory.MCPReceiptAccepted {
+	if advanced.State != factory.MCPWorkAccepted {
 		t.Fatalf("reread receipt state %q, want accepted", advanced.State)
 	}
 }

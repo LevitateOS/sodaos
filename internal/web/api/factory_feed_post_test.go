@@ -937,7 +937,7 @@ func TestRecordInvitationThreadReachesOriginalAssignment(t *testing.T) {
 		submission := factory.MCPSubmission{
 			AssignmentID: capability.AssignmentID, SubmissionID: factory.NewID(),
 			CapabilityID: capability.ID, Tool: tool,
-			PayloadHash: factory.MCPInputDigest(payload), Payload: payload,
+			Payload: payload,
 		}
 		receipt, err := s.RecordWorkerPost(ctx, submission)
 		if err != nil {
@@ -957,8 +957,8 @@ func TestRecordInvitationThreadReachesOriginalAssignment(t *testing.T) {
 	duplicate := factory.MCPSubmission{
 		AssignmentID: capability.AssignmentID, SubmissionID: factory.NewID(),
 		CapabilityID: capability.ID, Tool: factory.MCPToolReply,
-		PayloadHash: factory.MCPInputDigest([]byte(`{"title":"Again","summary":"Second reply.","parent_id":"` + invitation + `"}`)),
-		Payload:     []byte(`{"title":"Again","summary":"Second reply.","parent_id":"` + invitation + `"}`),
+
+		Payload: []byte(`{"title":"Again","summary":"Second reply.","parent_id":"` + invitation + `"}`),
 	}
 	if _, err := s.RecordWorkerPost(ctx, duplicate); err == nil {
 		t.Fatal("record invitation admitted a second reply")

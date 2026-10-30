@@ -4,7 +4,7 @@ package api
 // through the Rust stdio relay. Host-staged credentials bind each interface to
 // its worker; tool arguments carry content rather than identity. The SDK
 // validates schemas, admission rechecks the current capability, and durable
-// submissions share a transaction with their feed posts and receipts. Role
+// submitted work and its processing state live on feed posts. Role
 // results still pass through their existing workflow consumers.
 
 import (
@@ -33,11 +33,10 @@ type FactoryMCPCapabilitySource interface {
 	GetMCPCapability(ctx context.Context, id string) (factory.MCPCapability, error)
 }
 
-// FactoryMCPSubmissionSink persists submissions and recovers
-// receipts. *store.Store implements it; tests stub it.
+// FactoryMCPSubmissionSink reads and writes work posts.
 type FactoryMCPSubmissionSink interface {
-	control.MCPSubmissionJournal
-	RecordMCPSubmission(ctx context.Context, submission factory.MCPSubmission) (factory.MCPReceipt, error)
+	TerminalMCPProposal(context.Context, string) (factory.MCPWorkStatus, bool, error)
+	RecordMCPSubmission(ctx context.Context, submission factory.MCPSubmission) (factory.MCPWorkStatus, error)
 	MCPSubmissionCount(ctx context.Context, assignmentID string) (int, error)
 }
 
@@ -450,8 +449,7 @@ func (s *factoryCatalogServer) checkManifestProposal(ctx context.Context, cap fa
 }
 
 // admitMutation runs the shared mutation gate after admitCall:
-// strict payload shape, digest binding and control submission
-// admission (terminal freeze, handoff cap).
+// payload shape, required work inputs and the role's finish checks.
 func (s *factoryCatalogServer) admitMutation(ctx context.Context, tool factory.MCPTool, args mcpCallArgs) (factory.MCPCapability, factory.MCPSubmission, func(), error) {
 	capability, release, err := s.admitCall(ctx, tool, args)
 	if err != nil {
@@ -471,14 +469,11 @@ func (s *factoryCatalogServer) admitMutation(ctx context.Context, tool factory.M
 		AssignmentID: capability.AssignmentID, SubmissionID: args.SubmissionID,
 		CapabilityID: capability.ID,
 		Tool:         tool,
-		PayloadHash:  factory.MCPInputDigest(raw), Payload: raw,
+		Payload:      raw,
 	}
-	replay, err := control.AdmitMCPSubmission(ctx, s.deps.Submissions, capability, submission)
-	if err == nil && !replay {
-		err = s.checkNewFinish(ctx, capability, submission, args.Payload)
-		if err == nil && tool != factory.MCPToolFinishIncomplete && !factory.MCPIsCommunication(tool) && tool != factory.MCPToolResolvePost {
-			err = s.requireCurrentWork(ctx, capability)
-		}
+	err = s.checkNewFinish(ctx, capability, submission, args.Payload)
+	if err == nil && tool != factory.MCPToolFinishIncomplete && tool != factory.MCPToolResolvePost {
+		err = s.requireCurrentWork(ctx, capability)
 	}
 	if err != nil {
 		release()
@@ -503,8 +498,7 @@ func mcpJSONResult(value any) (*mcp.CallToolResult, any, error) {
 }
 
 // newFactoryCatalogServer builds the shared, role-filtered catalog. Reads
-// serve capability-bound state; mutations record immutable proposals
-// with durable receipts; receipt recovers lost responses.
+// serve capability-bound state; mutations submit work on posts.
 func newFactoryCatalogServer(deps FactoryMCPDeps) *mcp.Server {
 	limiter := deps.Limiter
 	if limiter == nil {
@@ -586,7 +580,7 @@ func (s *factoryCatalogServer) serve(ctx context.Context, tool factory.MCPTool, 
 }
 
 // serveRead serves capability-bound reads: the immutable assignment
-// summary (context) and the live capability plus recorded receipt
+// summary (context) and the live capability plus submitted work's
 // state (status). Reading never launches work and records no row.
 func (s *factoryCatalogServer) serveRead(ctx context.Context, tool factory.MCPTool, args mcpCallArgs) (*mcp.CallToolResult, any, error) {
 	read, err := s.loadReadContext(ctx, tool, args)
@@ -630,7 +624,7 @@ func (s *factoryCatalogServer) serveRead(ctx context.Context, tool factory.MCPTo
 type readContext struct {
 	capability   factory.MCPCapability
 	release      func()
-	terminal     factory.MCPReceipt
+	terminal     factory.MCPWorkStatus
 	frozen       bool
 	count        int
 	assignment   factory.Assignment
@@ -841,10 +835,8 @@ func (s *factoryCatalogServer) serveEvidence(ctx context.Context, args mcpCallAr
 	return mcpJSONResult(body)
 }
 
-// serveMutation records one immutable proposal with its durable
-// receipt. Downstream effects (graph writes, checkpoints, reviews,
-// adoption) belong to FW40/FW41/FW42/FW44/FW45 consumers of the
-// recorded proposal; this server never mutates the graph directly.
+// serveMutation posts work for the existing graph, checkpoint, review and
+// adoption controllers to process.
 func (s *factoryCatalogServer) serveMutation(ctx context.Context, tool factory.MCPTool, args mcpCallArgs) (*mcp.CallToolResult, any, error) {
 	_, submission, release, err := s.admitMutation(ctx, tool, args)
 	if err != nil {
@@ -855,7 +847,7 @@ func (s *factoryCatalogServer) serveMutation(ctx context.Context, tool factory.M
 	if err != nil {
 		return nil, nil, err
 	}
-	return mcpJSONResult(s.receiptBody(ctx, submission.AssignmentID, recorded))
+	return mcpJSONResult(s.workStatusBody(ctx, submission.AssignmentID, recorded))
 }
 
 // factoryCatalogMux serves the catalog on the fixed route only: POST
@@ -924,7 +916,7 @@ var (
 
 // mcpSubmissionID turns whatever the worker sent into the 32-hex submission
 // identity: a valid identity passes, any other string is hashed so the same
-// string recovers the same receipt, and a mutation without one gets a fresh
+// string identifies the same post, and a mutation without one gets a fresh
 // identity. Workers never have to mint identifiers.
 func mcpSubmissionID(id string, mutation bool) string {
 	switch {

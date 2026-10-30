@@ -49,18 +49,13 @@ func fakeCatalogCapability() factory.MCPCapability {
 }
 
 type fakeCatalogRecord struct {
-	payload  []byte
-	tool     factory.MCPTool
-	input    string
-	hash     string
-	receipt  factory.MCPReceipt
+	receipt  factory.MCPWorkStatus
 	terminal bool
 }
 
 // fakeCatalogSink mirrors store.RecordMCPSubmission semantics in
-// memory: exact replay returns the recorded receipt, changed bytes
-// conflict, and the terminal freezes new identities except the same
-// terminal content under another ID.
+// memory: a repeated post key returns its original work, and a terminal
+// result prevents new work posts.
 type fakeCatalogSink struct {
 	mu          sync.Mutex
 	capability  factory.MCPCapability
@@ -141,35 +136,27 @@ func (f *fakeCatalogSink) GetMCPCapability(_ context.Context, id string) (factor
 	return f.capability, nil
 }
 
-func (f *fakeCatalogSink) record(submission factory.MCPSubmission, receipt factory.MCPReceipt) (factory.MCPReceipt, error) {
+func (f *fakeCatalogSink) record(submission factory.MCPSubmission, receipt factory.MCPWorkStatus) (factory.MCPWorkStatus, error) {
 	key := submission.AssignmentID + "/" + submission.SubmissionID
 	if current, ok := f.submissions[key]; ok {
-		if current.tool != submission.Tool || current.input != submission.CapabilityID || current.hash != submission.PayloadHash {
-			return factory.MCPReceipt{}, store.ErrMCPSubmissionConflict
-		}
 		return current.receipt, nil
 	}
 	for _, current := range f.submissions {
 		if current.terminal {
-			if current.tool == submission.Tool && current.receipt.InputDigest == submission.PayloadHash {
-				return current.receipt, nil
-			}
-			return factory.MCPReceipt{}, store.ErrMCPSubmissionFrozen
+			return factory.MCPWorkStatus{}, store.ErrMCPSubmissionFrozen
 		}
 	}
 	f.submissions[key] = fakeCatalogRecord{
-		payload: append([]byte{}, submission.Payload...),
-		tool:    submission.Tool, input: submission.CapabilityID,
-		hash: submission.PayloadHash, receipt: receipt,
+		receipt:  receipt,
 		terminal: factory.MCPIsTerminal(submission.Tool),
 	}
 	return receipt, nil
 }
 
-func (f *fakeCatalogSink) RecordMCPSubmission(_ context.Context, submission factory.MCPSubmission) (factory.MCPReceipt, error) {
+func (f *fakeCatalogSink) RecordMCPSubmission(_ context.Context, submission factory.MCPSubmission) (factory.MCPWorkStatus, error) {
 	f.mu.Lock()
 	defer f.mu.Unlock()
-	return f.record(submission, factory.MCPReceipt{SubmissionID: submission.SubmissionID, Tool: submission.Tool, State: factory.MCPReceiptRecorded, InputDigest: submission.PayloadHash})
+	return f.record(submission, factory.MCPWorkStatus{SubmissionID: submission.SubmissionID, Tool: submission.Tool, State: factory.MCPWorkRecorded})
 }
 
 func (f *fakeCatalogSink) RecordWorkerPost(_ context.Context, submission factory.MCPSubmission) (store.FeedPostDetail, error) {
@@ -182,17 +169,17 @@ func (f *fakeCatalogSink) RecordWorkerPost(_ context.Context, submission factory
 	return store.FeedPostDetail{Record: factory.PostRecord{ID: id}, Assignment: submission.AssignmentID, Actor: string(f.capability.Profile)}, nil
 }
 
-func (f *fakeCatalogSink) MCPReceipt(_ context.Context, assignmentID, submissionID string) (factory.MCPReceipt, error) {
+func (f *fakeCatalogSink) MCPWorkStatus(_ context.Context, assignmentID, submissionID string) (factory.MCPWorkStatus, error) {
 	f.mu.Lock()
 	defer f.mu.Unlock()
 	current, ok := f.submissions[assignmentID+"/"+submissionID]
 	if !ok {
-		return factory.MCPReceipt{}, store.ErrNotFound
+		return factory.MCPWorkStatus{}, store.ErrNotFound
 	}
 	return current.receipt, nil
 }
 
-func (f *fakeCatalogSink) TerminalMCPProposal(_ context.Context, assignmentID string) (factory.MCPReceipt, bool, error) {
+func (f *fakeCatalogSink) TerminalMCPProposal(_ context.Context, assignmentID string) (factory.MCPWorkStatus, bool, error) {
 	f.mu.Lock()
 	defer f.mu.Unlock()
 	for key, current := range f.submissions {
@@ -200,7 +187,7 @@ func (f *fakeCatalogSink) TerminalMCPProposal(_ context.Context, assignmentID st
 			return current.receipt, true, nil
 		}
 	}
-	return factory.MCPReceipt{}, false, nil
+	return factory.MCPWorkStatus{}, false, nil
 }
 
 func (f *fakeCatalogSink) MCPSubmissionCount(_ context.Context, assignmentID string) (int, error) {

@@ -109,7 +109,7 @@ func (c *Coordinator) driveRunCheckpoints(ctx context.Context, run factory.Run, 
 		if err != nil {
 			return err
 		}
-		receipt, err := c.Store.MCPReceipt(ctx, owner.ID, submission.SubmissionID)
+		receipt, err := c.Store.MCPWorkStatus(ctx, owner.ID, submission.SubmissionID)
 		if err != nil {
 			return err
 		}
@@ -122,7 +122,7 @@ func (c *Coordinator) driveRunCheckpoints(ctx context.Context, run factory.Run, 
 			copied := capability
 			activeCapability = &copied
 		}
-		if receipt.Checkpoint != nil && receipt.State == factory.MCPReceiptAccepted && receipt.Checkpoint.Status == "committed" {
+		if receipt.Checkpoint != nil && receipt.State == factory.MCPWorkAccepted && receipt.Checkpoint.Status == "committed" {
 			checkpoint := receipt.Checkpoint
 			task, exists := byTask[proposal.TaskID]
 			if !exists || checkpoint.Request.ID != run.ID || checkpoint.Request.ManifestDigest != project.ExecutionManifestDigest(run.ExecutionManifest) ||
@@ -131,7 +131,7 @@ func (c *Coordinator) driveRunCheckpoints(ctx context.Context, run factory.Run, 
 			}
 			accepted[proposal.TaskID] = true
 		}
-		if receipt.State != factory.MCPReceiptVerifying || receipt.Checkpoint == nil {
+		if receipt.State != factory.MCPWorkVerifying || receipt.Checkpoint == nil {
 			continue
 		}
 		task, exists := byTask[proposal.TaskID]
@@ -181,11 +181,11 @@ func (c *Coordinator) driveRunCheckpoints(ctx context.Context, run factory.Run, 
 				proposal.OutputDigest != task.OutputDigest || proposal.NativeChildRef != task.Child {
 				continue
 			}
-			receipt, err := c.Store.MCPReceipt(ctx, owner.ID, submission.SubmissionID)
+			receipt, err := c.Store.MCPWorkStatus(ctx, owner.ID, submission.SubmissionID)
 			if err != nil {
 				return err
 			}
-			if receipt.State != factory.MCPReceiptRecorded {
+			if receipt.State != factory.MCPWorkRecorded {
 				continue
 			}
 			capability, err := c.Store.GetMCPCapability(ctx, submission.CapabilityID)
@@ -194,9 +194,9 @@ func (c *Coordinator) driveRunCheckpoints(ctx context.Context, run factory.Run, 
 			}
 			request := checkpointRequest(run, state, head)
 			request.TaskKey, request.OutputDigest = task.TaskID, task.OutputDigest
-			receipt.State = factory.MCPReceiptVerifying
+			receipt.State = factory.MCPWorkVerifying
 			receipt.Checkpoint = &project.FactoryTaskCheckpointState{Request: request, Status: "pending"}
-			if err := c.Store.AdvanceMCPReceipt(ctx, owner.ID, submission.SubmissionID, factory.MCPReceiptRecorded, receipt); err != nil {
+			if err := c.Store.AdvanceMCPWork(ctx, owner.ID, submission.SubmissionID, factory.MCPWorkRecorded, receipt); err != nil {
 				return err
 			}
 			return c.advanceTaskCheckpoint(ctx, native, submission, receipt, request)
@@ -279,11 +279,11 @@ func (c *Coordinator) recoverFinalCheckpoint(ctx context.Context, run factory.Ru
 			if capability.AssignmentID != owner.ID || capability.RunID != run.ID || capability.Project != run.ProjectID || factory.MCPPhaseOf(capability.Profile) != manifest.Phase {
 				return ErrTaskEventBinding
 			}
-			receipt, err := c.Store.MCPReceipt(ctx, owner.ID, submission.SubmissionID)
+			receipt, err := c.Store.MCPWorkStatus(ctx, owner.ID, submission.SubmissionID)
 			if err != nil {
 				return err
 			}
-			if receipt.Checkpoint != nil && (receipt.State == factory.MCPReceiptAccepted || receipt.State == factory.MCPReceiptVerifying) && receipt.Checkpoint.Request.TaskKey == task.TaskID && receipt.Checkpoint.Request.OutputDigest == task.OutputDigest && receipt.Checkpoint.Request.ID == run.ID && receipt.Checkpoint.Request.ManifestDigest == proposal.ManifestDigest {
+			if receipt.Checkpoint != nil && (receipt.State == factory.MCPWorkAccepted || receipt.State == factory.MCPWorkVerifying) && receipt.Checkpoint.Request.TaskKey == task.TaskID && receipt.Checkpoint.Request.OutputDigest == task.OutputDigest && receipt.Checkpoint.Request.ID == run.ID && receipt.Checkpoint.Request.ManifestDigest == proposal.ManifestDigest {
 				matched = true
 				break
 			}
@@ -314,7 +314,7 @@ func (c *Coordinator) recoverFinalCheckpoint(ctx context.Context, run factory.Ru
 	return c.Store.SaveFactoryFinalCheckpoint(ctx, run, result)
 }
 
-func (c *Coordinator) advanceTaskCheckpoint(ctx context.Context, native taskCheckpointHost, submission factory.MCPSubmission, receipt factory.MCPReceipt, request project.FactoryTaskCheckpoint) error {
+func (c *Coordinator) advanceTaskCheckpoint(ctx context.Context, native taskCheckpointHost, submission factory.MCPSubmission, receipt factory.MCPWorkStatus, request project.FactoryTaskCheckpoint) error {
 	result, err := native.FactoryTaskCheckpoint(ctx, request)
 	if err != nil {
 		return err
@@ -326,14 +326,14 @@ func (c *Coordinator) advanceTaskCheckpoint(ctx context.Context, native taskChec
 	next.Checkpoint = &result
 	switch result.Status {
 	case "committed":
-		next.State, next.Reason = factory.MCPReceiptAccepted, "native_checkpoint:"+result.ReceiptDigest
+		next.State, next.Reason = factory.MCPWorkAccepted, "native_checkpoint:"+result.ReceiptDigest
 	case "failed":
-		next.State, next.Reason = factory.MCPReceiptRefused, result.Reason
+		next.State, next.Reason = factory.MCPWorkRefused, result.Reason
 	case "busy":
-		next.State, next.Reason, next.Checkpoint = factory.MCPReceiptRecorded, "checkpoint_busy", nil
+		next.State, next.Reason, next.Checkpoint = factory.MCPWorkRecorded, "checkpoint_busy", nil
 	}
 	if !reflect.DeepEqual(receipt, next) {
-		if err := c.Store.AdvanceMCPReceipt(ctx, submission.AssignmentID, submission.SubmissionID, receipt.State, next); err != nil {
+		if err := c.Store.AdvanceMCPWork(ctx, submission.AssignmentID, submission.SubmissionID, receipt.State, next); err != nil {
 			return err
 		}
 	}

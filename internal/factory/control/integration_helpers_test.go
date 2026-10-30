@@ -494,7 +494,7 @@ func testMCPSubmission(capability factory.MCPCapability, tool factory.MCPTool, i
 	return factory.MCPSubmission{
 		AssignmentID: capability.AssignmentID, SubmissionID: id,
 		CapabilityID: capability.ID, Tool: tool,
-		PayloadHash: factory.MCPInputDigest(payload), Payload: payload,
+		Payload: payload,
 	}
 }
 

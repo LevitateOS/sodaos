@@ -267,7 +267,7 @@ func TestMCPCommunicationPersistsFeedAndReplay(t *testing.T) {
 	if _, err = s.RecordWorkerPost(ctx, bad); err == nil {
 		t.Fatal("spoofed actor admitted")
 	}
-	if _, err = s.MCPReceipt(ctx, cap.AssignmentID, bad.SubmissionID); !errors.Is(err, ErrNotFound) {
+	if _, err = s.MCPWorkStatus(ctx, cap.AssignmentID, bad.SubmissionID); !errors.Is(err, ErrNotFound) {
 		t.Fatalf("refused report saved receipt: %v", err)
 	}
 	// A caller-selected Factory event ID is ignored, so it cannot become a trusted card.
@@ -1018,7 +1018,7 @@ func TestMCPInvitationAtomicityHoldsSourceThroughReply(t *testing.T) {
 	if after != before {
 		t.Fatalf("stale reply created a comment: %d vs %d", after, before)
 	}
-	if _, err := s.MCPReceipt(ctx, cap.AssignmentID, stale.SubmissionID); !errors.Is(err, ErrNotFound) {
+	if _, err := s.MCPWorkStatus(ctx, cap.AssignmentID, stale.SubmissionID); !errors.Is(err, ErrNotFound) {
 		t.Fatalf("stale reply saved a receipt: %v", err)
 	}
 	if detail, err := s.FeedPost(ctx, invitation); err != nil || detail.Contribution == nil || detail.Contribution.State != "invited" {

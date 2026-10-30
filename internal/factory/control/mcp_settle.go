@@ -2,24 +2,10 @@ package control
 
 // MCP terminal-proposal settlement.
 //
-// The finish tools are the only result channel. The MCP handler checks
-// each new finish with the same mapping this settler uses, so a bad finish
-// is refused before anything is recorded. This settler maps one recorded
-// terminal proposal to the FinishAssignment store owner and advances the
-// receipt recorded→accepted, reusing the repair-chain joint. Builder and
-// Fixer finishes wait for their native final checkpoint; nothing else
-// parks.
-//
-// Ordering is crash-safe: FinishAssignment commits first, then the
-// receipt advances recorded→accepted under its expected-state guard.
-// A crash between the two recovers on the next pass (finished
-// assignment plus recorded receipt advances with an already-finished
-// note). ErrNotFound from FinishAssignment is ambiguous — a concurrent
-// foreign finish, a missing allowance, or a stale input rollback — so
-// the settler re-reads the assignment and settles only a genuinely
-// terminal one; still-assigned work returns the refusal with its
-// receipt left recorded for a later pass. Other transient store errors
-// return without touching the receipt, so a later pass retries.
+// The MCP handler checks each finish with the mapping used here. The controller
+// then passes the posted result to FinishAssignment and marks the post accepted.
+// Builder and Fixer finishes wait for their native final checkpoint. The
+// assignment's actual state decides whether a refused write was already settled.
 
 import (
 	"context"
@@ -40,8 +26,8 @@ type MCPTerminalSettleStore interface {
 	Assignment(ctx context.Context, id string) (factory.Assignment, error)
 	AssignmentByRun(ctx context.Context, runID string) (factory.Assignment, error)
 	TerminalMCPSubmission(ctx context.Context, assignmentID string) (factory.MCPSubmission, bool, error)
-	TerminalMCPProposal(ctx context.Context, assignmentID string) (factory.MCPReceipt, bool, error)
-	AdvanceMCPReceipt(ctx context.Context, assignmentID, submissionID, expectedState string, receipt factory.MCPReceipt) error
+	TerminalMCPProposal(ctx context.Context, assignmentID string) (factory.MCPWorkStatus, bool, error)
+	AdvanceMCPWork(ctx context.Context, assignmentID, submissionID, expectedState string, status factory.MCPWorkStatus) error
 	ResolveArtifactDigest(ctx context.Context, repository int64, assignment, digest string) (string, error)
 	FinishAssignment(ctx context.Context, a factory.Assignment) error
 }
@@ -75,12 +61,12 @@ var _ mcpDriveStore = (*store.Store)(nil)
 
 var _ MCPTerminalSettleStore = (*store.Store)(nil)
 
-// mcpSettleNote bounds the receipt reason the settler records.
+// mcpSettleNote bounds the status reason the settler records.
 const mcpSettleNoteChars = 200
 
 // SettleMCPTerminalProposal settles one assignment's recorded terminal
 // proposal. It reports settled=true only when the assignment finished
-// through this proposal and the receipt advanced to accepted. A
+// through this proposal and the status advanced to accepted. A
 // Builder or Fixer finish waits (settled=false, nil error) for its
 // native final checkpoint; anything else either has no terminal yet or
 // already settled.
@@ -99,14 +85,14 @@ func SettleMCPTerminalProposal(ctx context.Context, st MCPTerminalSettleStore, a
 	if !ok {
 		return false, nil
 	}
-	// A consumed receipt stays settled: only a recorded terminal
+	// A consumed status stays settled: only a recorded terminal
 	// still owns its assignment finish. The FinishAssignment CAS
 	// below remains the exactly-once guard against races.
-	receipt, ok, err := st.TerminalMCPProposal(ctx, assignmentID)
+	status, ok, err := st.TerminalMCPProposal(ctx, assignmentID)
 	if err != nil {
 		return false, err
 	}
-	if !ok || receipt.State != factory.MCPReceiptRecorded {
+	if !ok || status.State != factory.MCPWorkRecorded {
 		return false, nil
 	}
 	if assigned.Stage != factory.AssignmentAssigned {
@@ -140,7 +126,7 @@ func SettleMCPTerminalProposal(ctx context.Context, st MCPTerminalSettleStore, a
 	}
 	// The delivery-repair chain binds before persistence, exactly as
 	// on the run-output path: a proven miss fences the repair, a load
-	// failure retries on a later pass with the receipt untouched.
+	// failure retries on a later pass with the status untouched.
 	finished, err = settleRepairChain(ctx, st, finished, now)
 	if err != nil {
 		return false, err
@@ -151,7 +137,7 @@ func SettleMCPTerminalProposal(ctx context.Context, st MCPTerminalSettleStore, a
 			// consumes the assignment, but a missing allowance or a
 			// stale input rollback refuses while the assignment stays
 			// assigned. Settle only a genuinely terminal re-read;
-			// still-assigned work keeps its recorded receipt for a
+			// still-assigned work keeps its recorded status for a
 			// later pass instead of stranding as accepted.
 			current, rerr := st.Assignment(ctx, assignmentID)
 			if rerr != nil {
@@ -167,22 +153,19 @@ func SettleMCPTerminalProposal(ctx context.Context, st MCPTerminalSettleStore, a
 	return advanceSettledTerminal(ctx, st, submission, note)
 }
 
-// advanceSettledTerminal advances one terminal receipt
+// advanceSettledTerminal advances one terminal status
 // recorded→accepted with its settlement note. A stale guard means a
 // concurrent settler already consumed the proposal.
 func advanceSettledTerminal(ctx context.Context, st MCPTerminalSettleStore, submission factory.MCPSubmission, note string) (bool, error) {
 	if len(note) > mcpSettleNoteChars {
 		note = note[:mcpSettleNoteChars]
 	}
-	receipt := factory.MCPReceipt{
+	status := factory.MCPWorkStatus{
 		SubmissionID: submission.SubmissionID, Tool: submission.Tool,
-		State: factory.MCPReceiptAccepted, InputDigest: submission.PayloadHash,
+		State:  factory.MCPWorkAccepted,
 		Reason: note,
 	}
-	if err := receipt.Validate(); err != nil {
-		return false, err
-	}
-	if err := st.AdvanceMCPReceipt(ctx, submission.AssignmentID, submission.SubmissionID, factory.MCPReceiptRecorded, receipt); err != nil {
+	if err := st.AdvanceMCPWork(ctx, submission.AssignmentID, submission.SubmissionID, factory.MCPWorkRecorded, status); err != nil {
 		if errors.Is(err, store.ErrStaleRevision) || errors.Is(err, store.ErrNotFound) {
 			return false, nil
 		}
@@ -270,7 +253,7 @@ func mcpTerminalSummary(tool factory.MCPTool, submissionID, text, fallback strin
 
 // fenceMCPTerminal finishes one assignment as blocked for human
 // attention when its terminal proposal cannot settle: the recorded
-// proposal stays inspectable through the accepted receipt.
+// proposal stays inspectable through the accepted status.
 func fenceMCPTerminal(assigned factory.Assignment, submission factory.MCPSubmission, now time.Time, detail string) factory.Assignment {
 	finished := assigned
 	result := synthesizePhased(assigned, "blocked",
@@ -308,7 +291,7 @@ func settleIncomplete(assigned factory.Assignment, submission factory.MCPSubmiss
 
 // driveMCPTerminals settles one bounded page of recorded terminal
 // proposals and reports how many settled. Individual failures keep
-// their recorded receipt for a later pass; parked proposals stay
+// their recorded status for a later pass; parked proposals stay
 // listed and visible. Best effort like the other progress drives.
 func driveMCPTerminals(ctx context.Context, st mcpDriveStore, now time.Time) int {
 	if st == nil {

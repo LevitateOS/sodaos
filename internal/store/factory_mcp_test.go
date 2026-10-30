@@ -36,7 +36,7 @@ func testMCPSubmissionRow(capability factory.MCPCapability, tool factory.MCPTool
 	return factory.MCPSubmission{
 		AssignmentID: capability.AssignmentID, SubmissionID: factory.NewID(),
 		CapabilityID: capability.ID, Tool: tool,
-		PayloadHash: factory.MCPInputDigest(payload), Payload: payload,
+		Payload: payload,
 	}
 }
 
@@ -199,22 +199,20 @@ func TestFactoryMCPTransactions(t *testing.T) {
 	}
 	changed := submission
 	changed.Payload = []byte(`{"outcome":"blocked"}`)
-	changed.PayloadHash = factory.MCPInputDigest(changed.Payload)
-	if _, err := db.RecordMCPSubmission(ctx, changed); !errors.Is(err, ErrMCPSubmissionConflict) {
-		t.Fatalf("changed bytes under recorded ID = %v, want conflict", err)
+	if same, err := db.RecordMCPSubmission(ctx, changed); err != nil || same != first {
+		t.Fatal("repeated post key changed the submitted result", same, err)
 	}
-	recovered, err := db.MCPReceipt(ctx, capability.AssignmentID, submission.SubmissionID)
+	recovered, err := db.MCPWorkStatus(ctx, capability.AssignmentID, submission.SubmissionID)
 	if err != nil {
 		t.Fatalf("receipt recovery: %v", err)
 	}
 	if recovered != first {
 		t.Fatal("recovered receipt differs from recorded receipt")
 	}
-	if _, err := db.MCPReceipt(ctx, capability.AssignmentID, factory.NewID()); err == nil {
+	if _, err := db.MCPWorkStatus(ctx, capability.AssignmentID, factory.NewID()); err == nil {
 		t.Fatal("unknown receipt disclosed")
 	}
-	// Terminal freezes new identities; same terminal content under
-	// another ID returns the existing receipt without another record.
+	// A terminal result prevents further work posts under new keys.
 	terminal, frozen, err := db.TerminalMCPProposal(ctx, capability.AssignmentID)
 	if err != nil || !frozen || terminal.SubmissionID != submission.SubmissionID {
 		t.Fatalf("terminal proposal = %v, frozen = %v, err = %v", terminal, frozen, err)
@@ -251,10 +249,10 @@ func TestFactoryMCPSubmissionConcurrentFreeze(t *testing.T) {
 
 	// runRace releases n goroutines at once and collects one result
 	// per goroutine after all finish.
-	runRace := func(n int, fn func(i int) (factory.MCPReceipt, error)) ([]factory.MCPReceipt, []error) {
+	runRace := func(n int, fn func(i int) (factory.MCPWorkStatus, error)) ([]factory.MCPWorkStatus, []error) {
 		start := make(chan struct{})
 		var wg sync.WaitGroup
-		receipts := make([]factory.MCPReceipt, n)
+		receipts := make([]factory.MCPWorkStatus, n)
 		errs := make([]error, n)
 		for i := 0; i < n; i++ {
 			wg.Add(1)
@@ -270,10 +268,10 @@ func TestFactoryMCPSubmissionConcurrentFreeze(t *testing.T) {
 	}
 	// liveAssignment activates a capability and returns it with a
 	// recorder bound to it.
-	liveAssignment := func(t *testing.T, ctx context.Context) (factory.MCPCapability, func(factory.MCPTool, []byte) (factory.MCPReceipt, error)) {
+	liveAssignment := func(t *testing.T, ctx context.Context) (factory.MCPCapability, func(factory.MCPTool, []byte) (factory.MCPWorkStatus, error)) {
 		t.Helper()
 		active := activateMCPCapability(t, ctx, db, testMCPCapabilityRow())
-		return active, func(tool factory.MCPTool, payload []byte) (factory.MCPReceipt, error) {
+		return active, func(tool factory.MCPTool, payload []byte) (factory.MCPWorkStatus, error) {
 			submission := testMCPSubmissionRow(active, tool, payload)
 			return db.RecordMCPSubmission(ctx, submission)
 		}
@@ -286,12 +284,12 @@ func TestFactoryMCPSubmissionConcurrentFreeze(t *testing.T) {
 		defer cancel()
 		active, record := liveAssignment(t, ctx)
 		const racers = 8
-		receipts, errs := runRace(racers, func(i int) (factory.MCPReceipt, error) {
+		receipts, errs := runRace(racers, func(i int) (factory.MCPWorkStatus, error) {
 			return record(factory.MCPToolFinishImplement,
 				[]byte(fmt.Sprintf(`{"candidate":"cand-%d"}`, i)))
 		})
 		wins := 0
-		var winner factory.MCPReceipt
+		var winner factory.MCPWorkStatus
 		for i := range errs {
 			if errs[i] == nil {
 				wins++
@@ -312,16 +310,16 @@ func TestFactoryMCPSubmissionConcurrentFreeze(t *testing.T) {
 		}
 	})
 
-	// Same terminal content under distinct IDs: every caller gets
-	// the identical receipt and exactly one row exists.
-	t.Run("same terminal content", func(t *testing.T) {
+	// Concurrent calls using the same post key create one post.
+	t.Run("same post key", func(t *testing.T) {
 		ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
 		defer cancel()
-		active, record := liveAssignment(t, ctx)
+		active, _ := liveAssignment(t, ctx)
 		payload := []byte(`{"candidate":"cand-1"}`)
+		submission := testMCPSubmissionRow(active, factory.MCPToolFinishImplement, payload)
 		const racers = 8
-		receipts, errs := runRace(racers, func(i int) (factory.MCPReceipt, error) {
-			return record(factory.MCPToolFinishImplement, payload)
+		receipts, errs := runRace(racers, func(i int) (factory.MCPWorkStatus, error) {
+			return db.RecordMCPSubmission(ctx, submission)
 		})
 		for i := range errs {
 			if errs[i] != nil {
@@ -430,7 +428,7 @@ func TestFactoryMCPSubmissionConcurrentFreeze(t *testing.T) {
 // time, so a submission queued past expiry records nothing. Ordered
 // pause->authority-change/expiry/stop->insert cases refuse with no
 // new rows, while already-recorded receipts stay readable through
-// the separate MCPReceipt route without granting new authority.
+// the separate MCPWorkStatus route without granting new authority.
 func TestFactoryMCPSubmissionExpiryAtInsert(t *testing.T) {
 	db, _ := postgresFixture(t)
 
@@ -493,7 +491,7 @@ func TestFactoryMCPSubmissionExpiryAtInsert(t *testing.T) {
 		if count, err := db.MCPSubmissionCount(ctx, active.AssignmentID); err != nil || count != 1 {
 			t.Fatalf("submission count = %d, err = %v, want the one pre-expiry row", count, err)
 		}
-		recovered, err := db.MCPReceipt(ctx, active.AssignmentID, early.SubmissionID)
+		recovered, err := db.MCPWorkStatus(ctx, active.AssignmentID, early.SubmissionID)
 		if err != nil {
 			t.Fatalf("post-expiry receipt read: %v", err)
 		}
@@ -532,7 +530,7 @@ func TestFactoryMCPSubmissionExpiryAtInsert(t *testing.T) {
 		if _, err := db.RecordMCPSubmission(ctx, fresh); err != nil {
 			t.Fatalf("new-authority record refused: %v", err)
 		}
-		recovered, err := db.MCPReceipt(ctx, old.AssignmentID, recorded.SubmissionID)
+		recovered, err := db.MCPWorkStatus(ctx, old.AssignmentID, recorded.SubmissionID)
 		if err != nil {
 			t.Fatalf("post-rotation receipt read: %v", err)
 		}
@@ -592,7 +590,7 @@ func TestTerminalMCPSubmissionRead(t *testing.T) {
 		t.Fatalf("terminal = %v, err = %v, want the recorded proposal", ok, err)
 	}
 	if got.SubmissionID != terminal.SubmissionID || got.Tool != factory.MCPToolFinishImplement ||
-		string(got.Payload) != string(payload) || got.PayloadHash != factory.MCPInputDigest(payload) {
+		string(got.Payload) != string(payload) {
 		t.Fatalf("terminal mismatch: %+v", got)
 	}
 	if _, ok, err := db.TerminalMCPSubmission(ctx, factory.NewID()); err != nil || ok {
@@ -600,49 +598,35 @@ func TestTerminalMCPSubmissionRead(t *testing.T) {
 	}
 }
 
-// TestEvidenceStatusReceiptReadsExplicitWithoutSideEffects proves the
-// R31.4 read contract against real PostgreSQL: inbox, discussion,
-// comment and receipt reads return current observed state and
-// original operation outcomes without recording anything — paging
-// answers never marks them incorporated. Missing receipts and posts
-// refuse explicitly instead of returning empty success.
+// TestEvidenceStatusReceiptReadsExplicitWithoutSideEffects reads actual posts
+// without recording dispositions or manufacturing queued work.
 func TestEvidenceStatusReceiptReadsExplicitWithoutSideEffects(t *testing.T) {
 	db, _ := postgresFixture(t)
 	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
 	defer cancel()
 	capability := activateMCPCapability(t, ctx, db, testMCPCapabilityRow())
-	post := func(tool factory.MCPTool, payload string) factory.MCPReceipt {
+	post := func(tool factory.MCPTool, payload string) string {
 		t.Helper()
-		submission := testMCPSubmissionRow(capability, tool, []byte(payload))
-		receipt, err := db.RecordMCPSubmission(ctx, submission)
+		result, err := db.RecordWorkerPost(ctx, testMCPSubmissionRow(capability, tool, []byte(payload)))
 		if err != nil {
-			t.Fatalf("%s: %v", tool, err)
+			t.Fatal(tool, err)
 		}
-		if !factory.ValidID(receipt.FeedPostID) {
-			t.Fatalf("%s recorded no post: %+v", tool, receipt)
-		}
-		return receipt
+		return result.Record.ID
 	}
 	ask := post(factory.MCPToolAsk, `{"title":"Who can view a task?","summary":"The owner policy needs clarification.","question":"May team members view?"}`)
-	answer := post(factory.MCPToolAnswer, `{"title":"Policy clarified","summary":"Only owners may view.","parent_id":"`+ask.FeedPostID+`"}`)
+	answer := post(factory.MCPToolAnswer, `{"title":"Policy clarified","summary":"Only owners may view.","parent_id":"`+ask+`"}`)
 	suggest := post(factory.MCPToolSuggest, `{"title":"Cache the policy","summary":"Reading the file is slow.","rationale":"Cache at dispatch."}`)
-	read := func() {
-		t.Helper()
+	for i := 0; i < 2; i++ {
 		if _, err := db.MCPInbox(ctx, capability, ""); err != nil {
-			t.Fatalf("inbox: %v", err)
+			t.Fatal(err)
 		}
-		if _, err := db.MCPDiscussion(ctx, capability, ask.FeedPostID, ""); err != nil {
-			t.Fatalf("discussion: %v", err)
+		if _, err := db.MCPDiscussion(ctx, capability, ask, ""); err != nil {
+			t.Fatal(err)
 		}
-		if _, err := db.FeedPost(ctx, ask.FeedPostID); err != nil {
-			t.Fatalf("comment: %v", err)
-		}
-		if _, err := db.FeedPostDetails(ctx, []string{answer.FeedPostID, suggest.FeedPostID}); err != nil {
-			t.Fatalf("details: %v", err)
+		if _, err := db.FeedPostDetails(ctx, []string{answer, suggest}); err != nil {
+			t.Fatal(err)
 		}
 	}
-	read()
-	read()
 	var resolutions int
 	if err := db.db.QueryRowContext(ctx, `SELECT COUNT(*) FROM factory_post_resolutions`).Scan(&resolutions); err != nil {
 		t.Fatal(err)
@@ -650,36 +634,20 @@ func TestEvidenceStatusReceiptReadsExplicitWithoutSideEffects(t *testing.T) {
 	if resolutions != 0 {
 		t.Fatalf("reads recorded dispositions: %d", resolutions)
 	}
-	question, err := db.FeedPost(ctx, ask.FeedPostID)
+	question, err := db.FeedPost(ctx, ask)
 	if err != nil || question.Payload.Communication.QuestionState != "answered" {
-		t.Fatalf("question state misreported: %+v %v", question, err)
+		t.Fatalf("question state: %+v %v", question, err)
 	}
-	if question.Payload.Communication.Disposition != "" {
-		t.Fatalf("unresolved question carries disposition: %+v", question)
-	}
-	for _, tc := range []struct {
-		name string
-		post string
-	}{
-		{"answer", answer.FeedPostID},
-		{"suggestion", suggest.FeedPostID},
-	} {
-		detail, err := db.FeedPost(ctx, tc.post)
+	for _, id := range []string{ask, answer, suggest} {
+		detail, err := db.FeedPost(ctx, id)
 		if err != nil || detail.Payload.Communication.Disposition != "" {
-			t.Fatalf("%s misreported: %+v %v", tc.name, detail, err)
+			t.Fatalf("post misreported: %+v %v", detail, err)
 		}
 	}
-	answerReceipt, err := db.MCPReceipt(ctx, capability.AssignmentID, answer.SubmissionID)
-	if err != nil || answerReceipt.State != factory.MCPReceiptRecorded || answerReceipt.FeedPostID != answer.FeedPostID {
-		t.Fatalf("receipt lost its original outcome: %+v %v", answerReceipt, err)
-	}
-	if _, err := db.MCPReceipt(ctx, capability.AssignmentID, factory.NewID()); !errors.Is(err, ErrNotFound) {
-		t.Fatalf("missing receipt not explicit: %v", err)
-	}
 	if _, err := db.FeedPost(ctx, factory.NewID()); !errors.Is(err, ErrNotFound) {
-		t.Fatalf("missing post not explicit: %v", err)
+		t.Fatalf("missing post: %v", err)
 	}
-	if _, err := db.MCPReceipt(ctx, factory.NewID(), answer.SubmissionID); !errors.Is(err, ErrNotFound) {
-		t.Fatalf("foreign receipt disclosed: %v", err)
+	if count, err := db.MCPSubmissionCount(ctx, capability.AssignmentID); err != nil || count != 0 {
+		t.Fatalf("communications created queued work: %d %v", count, err)
 	}
 }

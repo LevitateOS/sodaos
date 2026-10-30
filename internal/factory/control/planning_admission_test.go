@@ -179,21 +179,19 @@ func progressCheckpointsAuthenticatedOutputPG(t *testing.T, retired bool) {
 		t.Fatal(err)
 	}
 	submission := testMCPSubmission(capability, factory.MCPToolSubmitTaskOutput, factory.NewID(), payload)
-	if _, err := AdmitMCPSubmission(ctx, c.Store, capability, submission); err != nil {
-		t.Fatal(err)
-	}
+
 	if _, err := c.Store.RecordMCPSubmission(ctx, submission); err != nil {
 		t.Fatal(err)
 	}
 	c.advanceProgress(ctx) // Reserve request before lost native reply.
-	receipt, err := c.Store.MCPReceipt(ctx, assignment.ID, submission.SubmissionID)
-	if err != nil || calls != 1 || receipt.State != factory.MCPReceiptVerifying || receipt.Checkpoint == nil || receipt.Checkpoint.Request != exact {
+	receipt, err := c.Store.MCPWorkStatus(ctx, assignment.ID, submission.SubmissionID)
+	if err != nil || calls != 1 || receipt.State != factory.MCPWorkVerifying || receipt.Checkpoint == nil || receipt.Checkpoint.Request != exact {
 		t.Fatalf("lost reply reservation: %+v calls=%d err=%v", receipt, calls, err)
 	}
 	c.advanceProgress(ctx) // Import committed journal before receipt readback.
 	c.advanceProgress(ctx) // Read back the retained exact request, never nominate the newer head.
-	receipt, err = c.Store.MCPReceipt(ctx, assignment.ID, submission.SubmissionID)
-	if err != nil || calls != 2 || receipt.State != factory.MCPReceiptAccepted {
+	receipt, err = c.Store.MCPWorkStatus(ctx, assignment.ID, submission.SubmissionID)
+	if err != nil || calls != 2 || receipt.State != factory.MCPWorkAccepted {
 		t.Fatalf("checkpoint readback: %+v calls=%d err=%v", receipt, calls, err)
 	}
 	assignment.Result = &factory.AssignmentResult{Candidate: candidate}

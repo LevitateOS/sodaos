@@ -887,7 +887,7 @@ func TestIntentPlanConsumerLaunchesBoundDecompose(t *testing.T) {
 	if !catalogRefused(missing, missingErr) {
 		t.Fatal("new product planning accepted completion without authored walkthroughs")
 	}
-	if _, err := s.MCPReceipt(ctx, launched.ID, missingID); !errors.Is(err, store.ErrNotFound) {
+	if _, err := s.MCPWorkStatus(ctx, launched.ID, missingID); !errors.Is(err, store.ErrNotFound) {
 		t.Fatal("missing walkthrough froze a terminal receipt", err)
 	}
 	// The FJ-v3-538 finish-path rule: a walkthrough carrier whose nested
@@ -967,7 +967,7 @@ func TestIntentPlanConsumerLaunchesBoundDecompose(t *testing.T) {
 		if tc.wantErr != "" && !strings.Contains(refusalText(result, err), tc.wantErr) {
 			t.Fatalf("refused %s carried another message: %q", tc.name, refusalText(result, err))
 		}
-		if _, err := s.MCPReceipt(ctx, launched.ID, id); !errors.Is(err, store.ErrNotFound) {
+		if _, err := s.MCPWorkStatus(ctx, launched.ID, id); !errors.Is(err, store.ErrNotFound) {
 			t.Fatalf("refused %s wrote receipt: %v", tc.name, err)
 		}
 	}
@@ -979,7 +979,7 @@ func TestIntentPlanConsumerLaunchesBoundDecompose(t *testing.T) {
 	if !catalogRefused(outerResult, outerErr) {
 		t.Fatal("outer string payload admitted as finish arguments")
 	}
-	if _, err := s.MCPReceipt(ctx, launched.ID, outerID); !errors.Is(err, store.ErrNotFound) {
+	if _, err := s.MCPWorkStatus(ctx, launched.ID, outerID); !errors.Is(err, store.ErrNotFound) {
 		t.Fatalf("refused outer string payload wrote receipt: %v", err)
 	}
 	for _, fault := range []string{"catalog", "outcome", "artifact", "fixture", "missing-fixture", "parameter", "native-check"} {
@@ -1009,7 +1009,7 @@ func TestIntentPlanConsumerLaunchesBoundDecompose(t *testing.T) {
 		if !catalogRefused(result, err) {
 			t.Fatalf("new manifest admitted %s", fault)
 		}
-		if _, err := s.MCPReceipt(ctx, launched.ID, id); !errors.Is(err, store.ErrNotFound) {
+		if _, err := s.MCPWorkStatus(ctx, launched.ID, id); !errors.Is(err, store.ErrNotFound) {
 			t.Fatalf("refused %s wrote receipt: %v", fault, err)
 		}
 		stub.preparation.CheckExit = &zero
@@ -1378,7 +1378,7 @@ func settlePlanRun(t *testing.T, ctx context.Context, s *store.Store, runID, ans
 	if err != nil {
 		t.Fatal(err)
 	}
-	submission := factory.MCPSubmission{AssignmentID: launched.ID, CapabilityID: cap.ID, SubmissionID: factory.NewID(), Tool: tool, Payload: raw, PayloadHash: factory.MCPInputDigest(raw)}
+	submission := factory.MCPSubmission{AssignmentID: launched.ID, CapabilityID: cap.ID, SubmissionID: factory.NewID(), Tool: tool, Payload: raw}
 	if _, err := s.RecordMCPSubmission(ctx, submission); err != nil {
 		t.Fatal(err)
 	}

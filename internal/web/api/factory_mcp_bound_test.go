@@ -621,7 +621,7 @@ func TestFactoryBoundCurrentContextUsesRecordedScopeAndState(t *testing.T) {
 	for i := 1; i < factory.MaxVerificationJourneys; i++ {
 		observation.Name = "Retained observation " + strings.Repeat("x", i)
 		raw, _ := json.Marshal(observation)
-		sub := factory.MCPSubmission{AssignmentID: pilot.ID, CapabilityID: pilotCap.ID, SubmissionID: factory.NewID(), Tool: factory.MCPToolRecordJourneyResult, PayloadHash: factory.MCPInputDigest(raw), Payload: raw}
+		sub := factory.MCPSubmission{AssignmentID: pilot.ID, CapabilityID: pilotCap.ID, SubmissionID: factory.NewID(), Tool: factory.MCPToolRecordJourneyResult, Payload: raw}
 		if _, err := st.RecordWorkerPost(ctx, sub); err != nil {
 			t.Fatal("append retained journey observation", err)
 		}
@@ -701,21 +701,21 @@ func TestFactoryBoundCurrentContextUsesRecordedScopeAndState(t *testing.T) {
 	if !catalogRefused(result, err) || counts() != beforeVerification {
 		t.Fatal("finish against a foreign verification source was admitted", err)
 	}
-	// Store exercises new terminal reference admission; authenticated HTTP
-	// then recovers that exact receipt.
-	finishSub := factory.MCPSubmission{AssignmentID: pilot.ID, CapabilityID: pilotCap.ID, SubmissionID: finishID, Tool: factory.MCPToolFinishAppVerify, PayloadHash: factory.MCPInputDigest(finishJSON), Payload: finishJSON}
+	// The post writer checks terminal references. A recorded post does not
+	// bypass the authenticated endpoint's required-input gate.
+	finishSub := factory.MCPSubmission{AssignmentID: pilot.ID, CapabilityID: pilotCap.ID, SubmissionID: finishID, Tool: factory.MCPToolFinishAppVerify, Payload: finishJSON}
 	if _, err := st.RecordMCPSubmission(ctx, finishSub); err != nil {
 		t.Fatal("journey observations consumed terminal capacity", err)
 	}
-	result, err = pilotSession.CallTool(ctx, &mcp.CallToolParams{Name: string(factory.MCPToolFinishAppVerify), Arguments: finishArgs})
-	if catalogRefused(result, err) {
-		t.Fatal("HTTP finish dropped its canonical evidence refs", err, catalogText(t, result))
-	}
 	afterTerminal := counts()
+	result, err = pilotSession.CallTool(ctx, &mcp.CallToolParams{Name: string(factory.MCPToolFinishAppVerify), Arguments: finishArgs})
+	if !catalogRefused(result, err) || counts() != afterTerminal {
+		t.Fatal("recorded work bypassed invalid current verification inputs")
+	}
 	finishPayload["evidence_refs"] = []string{"journey:" + factory.NewID()}
 	result, err = pilotSession.CallTool(ctx, &mcp.CallToolParams{Name: string(factory.MCPToolFinishAppVerify), Arguments: finishArgs})
 	if !catalogRefused(result, err) || counts() != afterTerminal {
-		t.Fatal("finish replay replaced its original journey reference")
+		t.Fatal("repeated post key replaced its original journey reference")
 	}
 	result, err = pilotSession.CallTool(ctx, &mcp.CallToolParams{Name: string(factory.MCPToolRecordJourneyResult), Arguments: map[string]any{"submission_id": factory.NewID(), "payload": journeyPayload(observation)}})
 	if !catalogRefused(result, err) || counts() != afterTerminal {
@@ -881,13 +881,13 @@ func TestFactoryBoundCurrentContextUsesRecordedScopeAndState(t *testing.T) {
 	legacyFinishJSON, _ = json.Marshal(legacyFinishPayload)
 	legacyFinishID := factory.NewID()
 	legacyFinishArgs := map[string]any{"submission_id": legacyFinishID, "payload": legacyFinishPayload}
-	legacyFinishSub := factory.MCPSubmission{AssignmentID: legacyPilot.ID, CapabilityID: legacyPilotCap.ID, SubmissionID: legacyFinishID, Tool: factory.MCPToolFinishAppVerify, PayloadHash: factory.MCPInputDigest(legacyFinishJSON), Payload: legacyFinishJSON}
+	legacyFinishSub := factory.MCPSubmission{AssignmentID: legacyPilot.ID, CapabilityID: legacyPilotCap.ID, SubmissionID: legacyFinishID, Tool: factory.MCPToolFinishAppVerify, Payload: legacyFinishJSON}
 	if _, err := st.RecordMCPSubmission(ctx, legacyFinishSub); err != nil {
 		t.Fatal("legacy journey observation consumed terminal capacity", err)
 	}
 	result, err = decidedSession.CallTool(ctx, &mcp.CallToolParams{Name: string(factory.MCPToolFinishAppVerify), Arguments: legacyFinishArgs})
-	if catalogRefused(result, err) {
-		t.Fatal("HTTP finish dropped its canonical legacy evidence refs", err, catalogText(t, result))
+	if !catalogRefused(result, err) {
+		t.Fatal("recorded legacy work bypassed unavailable current inputs")
 	}
 	legacyAfterTerminal := counts()
 	legacyFinishPayload["evidence_refs"] = []string{"journey:" + factory.NewID()}
@@ -944,17 +944,12 @@ func TestFactoryBoundCurrentContextUsesRecordedScopeAndState(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		proposal.PayloadHash = factory.MCPInputDigest(proposal.Payload)
 	}
 	encodePlan()
 	catalog := &factoryCatalogServer{deps: FactoryMCPDeps{Submissions: st, Assignments: st}}
 	// The admission path: a retained identity replays, anything new runs
 	// the settler's own mapping before it can freeze the assignment.
 	validateFinish := func() error {
-		replay, err := control.AdmitMCPSubmission(ctx, st, architectCap, proposal)
-		if err != nil || replay {
-			return err
-		}
 		return catalog.checkNewFinish(ctx, architectCap, proposal, nil)
 	}
 	if err := validateFinish(); err == nil || !strings.Contains(err.Error(), "expected_plan_digest=") || !strings.Contains(err.Error(), "nothing recorded") {
@@ -977,15 +972,14 @@ func TestFactoryBoundCurrentContextUsesRecordedScopeAndState(t *testing.T) {
 	}
 	withdrawal, _ := json.Marshal(factory.Withdrawal{Repository: 7, Revision: 1, Cause: "fixture", ClosedBy: "fixture"})
 	write(`UPDATE factory_dispatch SET data=$1 WHERE repository=7`, string(withdrawal))
-	// A byte conflict under a retained identity still reaches the immutable
-	// store guard rather than being recast as a new validation failure.
+	// A malformed repeated call still gets the owning validator's error.
 	originalPlanID := plan.ID
 	plan.ID = "invalid-after-recording"
 	encodePlan()
-	if err := validateFinish(); err != nil {
-		t.Fatal("new validation prevented immutable replay/conflict recovery", err)
+	if err := validateFinish(); err == nil {
+		t.Fatal("malformed repeated finish passed validation")
 	}
-	if _, err := st.RecordMCPSubmission(ctx, proposal); err != store.ErrMCPSubmissionConflict {
+	if _, err := st.RecordMCPSubmission(ctx, proposal); err != nil {
 		t.Fatal("retained proposal bytes changed", err)
 	}
 	plan.ID = originalPlanID
@@ -993,11 +987,11 @@ func TestFactoryBoundCurrentContextUsesRecordedScopeAndState(t *testing.T) {
 	if settled, err := control.SettleMCPTerminalProposal(ctx, st, architect.ID, time.Now()); err != nil || !settled {
 		t.Fatal("correct typed plan did not settle", err)
 	}
-	settledReceipt, err := st.MCPReceipt(ctx, architect.ID, proposal.SubmissionID)
+	settledReceipt, err := st.MCPWorkStatus(ctx, architect.ID, proposal.SubmissionID)
 	if err != nil {
 		t.Fatal(err)
 	}
-	settledBody := catalog.receiptBody(ctx, architect.ID, settledReceipt)
+	settledBody := catalog.workStatusBody(ctx, architect.ID, settledReceipt)
 	settlement, ok := settledBody["settlement"].(map[string]any)
 	if !ok || settlement["outcome"] != factory.Outcome(factory.Succeeded) || settlement["reported"] != true {
 		t.Fatal("receipt hid the actual settled result", settledBody)

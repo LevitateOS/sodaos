@@ -318,8 +318,9 @@ Worker tool admission checks the authenticated run, role and tool authority.
 Result submission checks the result's required content through its owning
 consumer. Native task execution uses the native task controller's checks.
 Required work inputs are checked directly, without rendering context pages or
-revalidating the optional context-selection receipt. The existing submission
-admission result handles replay without a second receipt/terminal lookup.
+revalidating the optional context-selection receipt. There is no separate
+receipt-history admission pass or payload-hash comparison. Persistence handles
+the post key and enforces the assignment's single terminal result.
 Missing context remains visible in `factory.context`.
 
 Worker context does not carry a submission-receipt history; communications and
@@ -335,7 +336,10 @@ is read through `factory.status`. Submitted finishes, task outputs and post
 dispositions also live on their posts, under `data.work`. The controller updates
 processing state and native checkpoints there. There is no separate MCP
 submission journal or guard table; writes hold the active capability's row lock
-alongside revocation. The Store derives initial processing state.
+alongside revocation. The Store derives initial processing state. Reusing a post
+key returns the original work; a different key after finishing returns an error,
+even for identical content. Native checkpoint responses are checked by their
+controller, without a second receipt-envelope validator.
 
 Generic worker System One consultations call JEV directly and record the question
 and actual answer in the work discussion. They create no funding reservation or

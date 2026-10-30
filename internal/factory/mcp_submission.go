@@ -133,35 +133,26 @@ func DeriveMCPCapabilitySecret(key []byte, capability MCPCapability) (string, er
 	return hex.EncodeToString(mac.Sum(nil)), nil
 }
 
-// Receipt states. Transport/schema/authentication failure creates no
-// receipt; only admitted submissions record one.
+// Controller processing states on submitted work posts.
 const (
-	MCPReceiptRecorded  = "recorded"
-	MCPReceiptVerifying = "verifying"
-	MCPReceiptAccepted  = "accepted"
-	MCPReceiptRefused   = "refused"
+	MCPWorkRecorded  = "recorded"
+	MCPWorkVerifying = "verifying"
+	MCPWorkAccepted  = "accepted"
+	MCPWorkRefused   = "refused"
 )
 
-// MCPSubmission is one immutable tool call under one recorded
-// capability. Unique (assignment_id, submission_id) is the
-// idempotency key: exact replay returns the existing receipt,
-// changed bytes under that ID conflict. CapabilityID binds the
-// server-admitted capability: the transport carries the envelope's
-// capability ID here, admission checks it against the admitted
-// capability, and persistence locks and rechecks that capability
-// row inside the insert transaction.
+// MCPSubmission carries one worker's work to its post writer. The assignment
+// and submission ID form its post idempotency key. Persistence holds the
+// authorizing capability's row lock through the write.
 type MCPSubmission struct {
 	AssignmentID string  `json:"assignment_id"`
 	SubmissionID string  `json:"submission_id"`
 	CapabilityID string  `json:"capability_id"`
 	Tool         MCPTool `json:"tool"`
-	PayloadHash  string  `json:"payload_hash"`
 	Payload      []byte  `json:"payload,omitempty"`
 }
 
-// MCPInputDigest digests canonical tool payload bytes before
-// submission so admission can compare the caller's expectation
-// against the recorded hash without trusting caller prose.
+// MCPInputDigest identifies content used by native inputs and posts.
 func MCPInputDigest(payload []byte) string {
 	sum := sha256.Sum256(payload)
 	return hex.EncodeToString(sum[:])
@@ -169,9 +160,7 @@ func MCPInputDigest(payload []byte) string {
 
 // Validate checks submission shape and byte bounds. Tool/profile/
 // capability binding, scope freshness and terminal freezing are
-// admission checks, not shape. Shape keeps the identities and the
-// payload hash well-formed and the payload hash bound to the
-// payload bytes; persistence keeps the recorded digests immutable.
+// admission checks, not shape.
 func (s MCPSubmission) Validate() error {
 	if !ValidID(s.AssignmentID) {
 		return errors.New("invalid submission assignment: the run's assignment is not a 32-hex identity; reconnect to the assigned server")
@@ -185,56 +174,21 @@ func (s MCPSubmission) Validate() error {
 	if !MCPToolKnown(s.Tool) {
 		return errors.New("unknown submission tool: call one of the tools this server lists")
 	}
-	if !ValidDigest(s.PayloadHash) {
-		return errors.New("invalid submission payload hash")
-	}
 	if len(s.Payload) == 0 {
 		return errors.New("empty submission payload: payload must be an object with this tool's fields")
 	}
 	if len(s.Payload) > MCPMaxSubmissionPayload {
 		return errors.New("submission payload exceeds 64 KiB")
 	}
-	if MCPInputDigest(s.Payload) != s.PayloadHash {
-		return errors.New("submission payload hash mismatch")
-	}
 	return nil
 }
 
-// MCPReceipt is the durable terminal record for one submission.
-type MCPReceipt struct {
+// MCPWorkStatus projects the controller's processing state from a work post.
+type MCPWorkStatus struct {
 	Checkpoint   *project.FactoryTaskCheckpointState `json:"checkpoint,omitempty"`
 	FeedPostID   string                              `json:"feed_post_id,omitempty"`
 	SubmissionID string                              `json:"submission_id"`
 	Tool         MCPTool                             `json:"tool"`
 	State        string                              `json:"state"`
-	InputDigest  string                              `json:"input_digest"`
 	Reason       string                              `json:"reason,omitempty"`
-}
-
-// ValidateReceipt bounds refusal diagnostics: bounded reason text,
-// never unbounded new receipt rows.
-func (r MCPReceipt) Validate() error {
-	if r.Checkpoint != nil {
-		if r.Tool != MCPToolSubmitTaskOutput || r.Checkpoint.FinalCandidate || r.Checkpoint.ValidateFor(r.Checkpoint.Request, false) != nil {
-			return errors.New("invalid task checkpoint receipt")
-		}
-	}
-	if !ValidID(r.SubmissionID) {
-		return errors.New("invalid receipt submission")
-	}
-	if !MCPToolKnown(r.Tool) {
-		return errors.New("unknown receipt tool")
-	}
-	switch r.State {
-	case MCPReceiptRecorded, MCPReceiptVerifying, MCPReceiptAccepted, MCPReceiptRefused:
-	default:
-		return errors.New("unknown receipt state")
-	}
-	if !ValidDigest(r.InputDigest) {
-		return errors.New("invalid receipt input digest")
-	}
-	if len(r.Reason) > MCPMaxReasonChars {
-		return errors.New("receipt reason exceeds bound")
-	}
-	return nil
 }

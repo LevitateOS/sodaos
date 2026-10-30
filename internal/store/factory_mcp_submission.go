@@ -12,7 +12,6 @@ import (
 )
 
 var (
-	ErrMCPSubmissionConflict           = errors.New("factory submission conflicts with the recorded bytes: use a new request key for changed work")
 	ErrMCPSubmissionFrozen             = errors.New("assignment already submitted its result; read factory.status")
 	ErrMCPSubmissionCapabilityInactive = errors.New("factory capability is not active for this assignment")
 	ErrMCPSubmissionCapabilityExpired  = errors.New("factory capability is expired")
@@ -30,16 +29,16 @@ type mcpSubmittedWork struct {
 	Checkpoint *project.FactoryTaskCheckpointState `json:"checkpoint,omitempty"`
 }
 
-func decodeMCPWorkPost(assignment, key, id string, raw []byte) (factory.MCPSubmission, factory.MCPReceipt, error) {
+func decodeMCPWorkPost(assignment, key, id string, raw []byte) (factory.MCPSubmission, factory.MCPWorkStatus, error) {
 	var data struct {
 		Work mcpSubmittedWork `json:"work"`
 	}
 	if err := json.Unmarshal(raw, &data); err != nil {
-		return factory.MCPSubmission{}, factory.MCPReceipt{}, err
+		return factory.MCPSubmission{}, factory.MCPWorkStatus{}, err
 	}
 	payload := []byte(data.Work.Payload)
-	submission := factory.MCPSubmission{AssignmentID: assignment, SubmissionID: key, CapabilityID: data.Work.Capability, Tool: data.Work.Tool, Payload: payload, PayloadHash: factory.MCPInputDigest(payload)}
-	status := factory.MCPReceipt{SubmissionID: key, Tool: data.Work.Tool, State: data.Work.State, Reason: data.Work.Reason, InputDigest: submission.PayloadHash, FeedPostID: id, Checkpoint: data.Work.Checkpoint}
+	submission := factory.MCPSubmission{AssignmentID: assignment, SubmissionID: key, CapabilityID: data.Work.Capability, Tool: data.Work.Tool, Payload: payload}
+	status := factory.MCPWorkStatus{SubmissionID: key, Tool: data.Work.Tool, State: data.Work.State, Reason: data.Work.Reason, FeedPostID: id, Checkpoint: data.Work.Checkpoint}
 	return submission, status, nil
 }
 
@@ -47,74 +46,68 @@ const mcpWorkPostLookup = `SELECT id,idempotency,data FROM factory_feed_posts WH
 
 // RecordMCPSubmission records the work on its post. The capability row
 // serializes requests from the active run; no separate guard row is needed.
-func (s *Store) RecordMCPSubmission(ctx context.Context, submission factory.MCPSubmission) (factory.MCPReceipt, error) {
+func (s *Store) RecordMCPSubmission(ctx context.Context, submission factory.MCPSubmission) (factory.MCPWorkStatus, error) {
 	if err := submission.Validate(); err != nil {
-		return factory.MCPReceipt{}, err
+		return factory.MCPWorkStatus{}, err
 	}
 	tx, err := s.db.BeginTx(ctx, nil)
 	if err != nil {
-		return factory.MCPReceipt{}, err
+		return factory.MCPWorkStatus{}, err
 	}
 	defer tx.Rollback()
 	capability, err := lockMCPCapabilityTx(ctx, tx, submission.CapabilityID, submission.AssignmentID)
 	if err != nil {
-		return factory.MCPReceipt{}, err
+		return factory.MCPWorkStatus{}, err
 	}
 	var id, key string
 	var raw []byte
 	err = tx.QueryRowContext(ctx, mcpWorkPostLookup, submission.AssignmentID, submission.SubmissionID).Scan(&id, &key, &raw)
 	if err == nil {
-		stored, result, err := decodeMCPWorkPost(submission.AssignmentID, key, id, raw)
+		_, result, err := decodeMCPWorkPost(submission.AssignmentID, key, id, raw)
 		if err != nil {
 			return result, err
-		}
-		if stored.Tool != submission.Tool || stored.CapabilityID != submission.CapabilityID || stored.PayloadHash != submission.PayloadHash {
-			return result, ErrMCPSubmissionConflict
 		}
 		return result, tx.Commit()
 	}
 	if !errors.Is(err, sql.ErrNoRows) {
-		return factory.MCPReceipt{}, err
+		return factory.MCPWorkStatus{}, err
 	}
 	if terminal, frozen, err := terminalMCPProposalTx(ctx, tx, submission.AssignmentID); err != nil {
 		return terminal, err
 	} else if frozen {
-		if terminal.Tool == submission.Tool && terminal.InputDigest == submission.PayloadHash {
-			return terminal, tx.Commit()
-		}
 		return terminal, ErrMCPSubmissionFrozen
 	}
 	if finished, err := assignmentFinishedTx(ctx, tx, submission.AssignmentID); err != nil {
-		return factory.MCPReceipt{}, err
+		return factory.MCPWorkStatus{}, err
 	} else if finished {
-		return factory.MCPReceipt{}, ErrMCPSubmissionAssignmentFinished
+		return factory.MCPWorkStatus{}, ErrMCPSubmissionAssignmentFinished
 	}
 	if capability.Expired(time.Now()) {
-		return factory.MCPReceipt{}, ErrMCPSubmissionCapabilityExpired
+		return factory.MCPWorkStatus{}, ErrMCPSubmissionCapabilityExpired
 	}
 	if err := recordMCPVerificationJourneyReferencesTx(ctx, tx, capability, submission); err != nil {
-		return factory.MCPReceipt{}, err
+		return factory.MCPWorkStatus{}, err
 	}
 	if err := recordMCPPostResolutionTx(ctx, tx, capability, submission); err != nil {
-		return factory.MCPReceipt{}, err
+		return factory.MCPWorkStatus{}, err
 	}
-	work := mcpSubmittedWork{Capability: capability.ID, Tool: submission.Tool, Payload: string(submission.Payload), State: factory.MCPReceiptRecorded}
+	work := mcpSubmittedWork{Capability: capability.ID, Tool: submission.Tool, Payload: string(submission.Payload), State: factory.MCPWorkRecorded}
 	id = factory.MCPInputDigest([]byte(capability.AssignmentID + "\n" + submission.SubmissionID))[:32]
 	var issue int64
 	if err := tx.QueryRowContext(ctx, `SELECT COALESCE((SELECT issue FROM factory_assignments WHERE id=$1 AND repository=$2),0)`, capability.AssignmentID, capability.Repository).Scan(&issue); err != nil {
-		return factory.MCPReceipt{}, err
+		return factory.MCPWorkStatus{}, err
 	}
 	data := map[string]any{"issue": issue, "assignment": capability.AssignmentID, "run": capability.RunID, "project": capability.Project, "actor": string(capability.Profile), "author_name": recordPersona(capability.Profile), "parent_id": capability.AssignmentID, "at": time.Now().Unix(), "work": work}
 	raw, err = json.Marshal(data)
 	if err != nil {
-		return factory.MCPReceipt{}, err
+		return factory.MCPWorkStatus{}, err
 	}
 	body := recordPersona(capability.Profile) + " submitted work for Factory to process."
 	if submission.Tool == factory.MCPToolResolvePost {
 		body = recordPersona(capability.Profile) + " recorded a post disposition."
 	}
 	if _, err := tx.ExecContext(ctx, `INSERT INTO factory_feed_posts(id,repository,revision,author,body,idempotency,data) VALUES($1,$2,0,$3,$4,$5,$6)`, id, capability.Repository, "worker:"+capability.AssignmentID, body, submission.SubmissionID, string(raw)); err != nil {
-		return factory.MCPReceipt{}, err
+		return factory.MCPWorkStatus{}, err
 	}
 	_, result, err := decodeMCPWorkPost(submission.AssignmentID, submission.SubmissionID, id, raw)
 	if err != nil {
@@ -167,23 +160,23 @@ func assignmentFinishedTx(ctx context.Context, tx *sql.Tx, assignmentID string) 
 	return stage != "" && stage != string(factory.AssignmentAssigned), nil
 }
 
-func (s *Store) MCPReceipt(ctx context.Context, assignmentID, submissionID string) (factory.MCPReceipt, error) {
+func (s *Store) MCPWorkStatus(ctx context.Context, assignmentID, submissionID string) (factory.MCPWorkStatus, error) {
 	var id, key string
 	var raw []byte
 	if err := s.db.QueryRowContext(ctx, mcpWorkPostLookup, assignmentID, submissionID).Scan(&id, &key, &raw); err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
-			return factory.MCPReceipt{}, ErrNotFound
+			return factory.MCPWorkStatus{}, ErrNotFound
 		}
-		return factory.MCPReceipt{}, err
+		return factory.MCPWorkStatus{}, err
 	}
 	_, result, err := decodeMCPWorkPost(assignmentID, key, id, raw)
 	return result, err
 }
 
-func (s *Store) TerminalMCPProposal(ctx context.Context, assignmentID string) (factory.MCPReceipt, bool, error) {
+func (s *Store) TerminalMCPProposal(ctx context.Context, assignmentID string) (factory.MCPWorkStatus, bool, error) {
 	tx, err := s.db.BeginTx(ctx, &sql.TxOptions{ReadOnly: true})
 	if err != nil {
-		return factory.MCPReceipt{}, false, err
+		return factory.MCPWorkStatus{}, false, err
 	}
 	defer tx.Rollback()
 	return terminalMCPProposalTx(ctx, tx, assignmentID)
@@ -191,15 +184,15 @@ func (s *Store) TerminalMCPProposal(ctx context.Context, assignmentID string) (f
 
 const terminalMCPWorkQuery = `SELECT id,idempotency,data FROM factory_feed_posts WHERE data->>'assignment'=$1 AND starts_with(data->'work'->>'tool','factory.finish_') ORDER BY seq LIMIT 1`
 
-func terminalMCPProposalTx(ctx context.Context, tx *sql.Tx, assignmentID string) (factory.MCPReceipt, bool, error) {
+func terminalMCPProposalTx(ctx context.Context, tx *sql.Tx, assignmentID string) (factory.MCPWorkStatus, bool, error) {
 	var id, key string
 	var raw []byte
 	err := tx.QueryRowContext(ctx, terminalMCPWorkQuery, assignmentID).Scan(&id, &key, &raw)
 	if errors.Is(err, sql.ErrNoRows) {
-		return factory.MCPReceipt{}, false, nil
+		return factory.MCPWorkStatus{}, false, nil
 	}
 	if err != nil {
-		return factory.MCPReceipt{}, false, err
+		return factory.MCPWorkStatus{}, false, err
 	}
 	_, status, err := decodeMCPWorkPost(assignmentID, key, id, raw)
 	return status, err == nil, err
@@ -225,9 +218,9 @@ func (s *Store) MCPSubmissionCount(ctx context.Context, assignmentID string) (in
 	return count, err
 }
 
-// AdvanceMCPReceipt updates processing state on the original post. It never
+// AdvanceMCPWork updates processing state on the original post. It never
 // writes another status envelope or copies the submitted payload.
-func (s *Store) AdvanceMCPReceipt(ctx context.Context, assignmentID, submissionID, expectedState string, result factory.MCPReceipt) error {
+func (s *Store) AdvanceMCPWork(ctx context.Context, assignmentID, submissionID, expectedState string, result factory.MCPWorkStatus) error {
 	raw, err := json.Marshal(result.Checkpoint)
 	if err != nil {
 		return err
