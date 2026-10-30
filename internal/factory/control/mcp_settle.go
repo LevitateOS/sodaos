@@ -24,7 +24,6 @@ import (
 type MCPTerminalSettleStore interface {
 	FactoryRun(ctx context.Context, id string) (factory.Run, error)
 	Assignment(ctx context.Context, id string) (factory.Assignment, error)
-	AssignmentByRun(ctx context.Context, runID string) (factory.Assignment, error)
 	TerminalMCPSubmission(ctx context.Context, assignmentID string) (factory.MCPSubmission, bool, error)
 	TerminalMCPProposal(ctx context.Context, assignmentID string) (factory.MCPWorkStatus, bool, error)
 	AdvanceMCPWork(ctx context.Context, assignmentID, submissionID, expectedState string, status factory.MCPWorkStatus) error
@@ -123,13 +122,6 @@ func SettleMCPTerminalProposal(ctx context.Context, st MCPTerminalSettleStore, a
 	if err := checkSettledArtifactRefs(ctx, st, finished); err != nil {
 		finished = fenceMCPTerminal(assigned, submission, now, err.Error())
 		note = "unresolvable verification artifact fenced for human attention"
-	}
-	// The delivery-repair chain binds before persistence, exactly as
-	// on the run-output path: a proven miss fences the repair, a load
-	// failure retries on a later pass with the status untouched.
-	finished, err = settleRepairChain(ctx, st, finished, now)
-	if err != nil {
-		return false, err
 	}
 	if err := st.FinishAssignment(ctx, finished); err != nil {
 		if errors.Is(err, store.ErrNotFound) {

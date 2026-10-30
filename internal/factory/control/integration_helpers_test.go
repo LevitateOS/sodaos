@@ -359,7 +359,7 @@ func buildRunFinish(t *testing.T, a factory.Assignment, run factory.Run, finish 
 }
 
 // finishRunWith finishes one assigned assignment from its settled run and
-// the worker's finish, persisting through the repair chain like settlement.
+// the worker's finish through the normal result binding and persistence.
 func finishRunWith(t *testing.T, ctx context.Context, db *store.Store, a factory.Assignment, run factory.Run, finish string, now time.Time) (factory.Assignment, error) {
 	t.Helper()
 	current, err := db.Assignment(ctx, a.ID)
@@ -368,9 +368,6 @@ func finishRunWith(t *testing.T, ctx context.Context, db *store.Store, a factory
 	}
 	finished, err := buildRunFinish(t, current, run, finish, now)
 	if err != nil {
-		return factory.Assignment{}, err
-	}
-	if finished, err = settleRepairChain(ctx, db, finished, now); err != nil {
 		return factory.Assignment{}, err
 	}
 	return finished, db.FinishAssignment(ctx, finished)
