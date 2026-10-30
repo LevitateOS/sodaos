@@ -145,7 +145,7 @@ func (s *Store) RecordImplementationRetryCommand(ctx context.Context, cmd factor
 	if _, err = implementationRetryFactsTx(ctx, tx, decision.Prior, repository, issue, acceptance, now); err != nil {
 		return factory.Command{}, false, err
 	}
-	if err = finishFactoryCommandTx(ctx, tx, cmd.ID, "", now); err != nil {
+	if err = finishFactoryCommandTx(ctx, tx, cmd.ID, now); err != nil {
 		return factory.Command{}, false, err
 	}
 	stored.Finished = now.UTC().Format(time.RFC3339Nano)

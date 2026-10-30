@@ -102,7 +102,7 @@ func admitRepairGrantCommand(cmd factory.Command, grant factory.RepairGrant) err
 
 // finishGrantCommandTx marks the grant admitted in the same transaction.
 func finishGrantCommandTx(ctx context.Context, tx *sql.Tx, stored factory.Command, now time.Time) (factory.Command, bool, error) {
-	if err := finishFactoryCommandTx(ctx, tx, stored.ID, "", now); err != nil {
+	if err := finishFactoryCommandTx(ctx, tx, stored.ID, now); err != nil {
 		return factory.Command{}, false, err
 	}
 	stored.Finished = now.UTC().Format(time.RFC3339Nano)
@@ -285,7 +285,7 @@ func admitRepairChargeTx(ctx context.Context, tx *sql.Tx, repository int64, char
 		return false, err
 	}
 	if created {
-		if err = finishFactoryCommandTx(ctx, tx, cmd.ID, "", now); err != nil {
+		if err = finishFactoryCommandTx(ctx, tx, cmd.ID, now); err != nil {
 			return false, err
 		}
 	}

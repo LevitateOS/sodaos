@@ -2,7 +2,6 @@ package store
 
 import (
 	"context"
-	"errors"
 	"strings"
 	"testing"
 	"time"
@@ -78,34 +77,5 @@ func TestFactoryRunsListNewestFirst(t *testing.T) {
 	got, err = s.FactoryRuns(ctx, 2)
 	if err != nil || len(got) != 2 {
 		t.Fatal("run list bound ignored")
-	}
-}
-
-func TestFactoryCommandIdentityConflictsOnChangedPayload(t *testing.T) {
-	s, now := factoryFixture(t)
-	ctx := context.Background()
-	target, payload := "7/9", `{"reason":"retry"}`
-	c := factory.Command{ID: factory.NewID(), Type: factory.CommandRetry, Target: target, Payload: payload, Principal: "os-uid:0", Digest: factory.SettingsDigest(factory.CommandRetry, target, payload)}
-	stored, created, err := s.RecordFactoryCommand(ctx, c, now)
-	if err != nil || !created || stored.Finished != "" {
-		t.Fatal(stored, created, err)
-	}
-	replay, created, err := s.RecordFactoryCommand(ctx, c, now)
-	if err != nil || created || replay.ID != c.ID {
-		t.Fatal(replay, created, err)
-	}
-	c.Target = factory.NewID()
-	if _, _, err = s.RecordFactoryCommand(ctx, c, now); err == nil {
-		t.Fatal("changed command payload reused its identity")
-	}
-	if err = s.FinishFactoryCommand(ctx, stored.ID, `{"paused":true}`, now); err != nil {
-		t.Fatal(err)
-	}
-	finished, err := s.FactoryCommand(ctx, stored.ID)
-	if err != nil || finished.Outcome != `{"paused":true}` || finished.Finished == "" {
-		t.Fatal(finished, err)
-	}
-	if err = s.FinishFactoryCommand(ctx, stored.ID, `{"paused":false}`, now); !errors.Is(err, ErrNotFound) {
-		t.Fatal("durable outcome rewritten")
 	}
 }

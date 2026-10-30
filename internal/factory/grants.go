@@ -43,11 +43,6 @@ const (
 	CommandRetry                 = "retry"
 	CommandRetryImplementation   = "retry_implementation"
 	CommandVerificationAllowance = "verification-allowance"
-	// CommandPlanIntent authorizes planning of a draft intent whose
-	// effective ideas are accepted and attributed. It records the command,
-	// assignment, root allowance, reservation and run together; it never
-	// funds execution by itself and never escapes a terminal attempt.
-	CommandPlanIntent = "plan-intent"
 	// CommandRepairGrant authorizes one repository's finite D15 stall
 	// repair scope: the explicit sponsor, revision chain and run,
 	// judgment and active-minute bounds. Repair funding never silently
@@ -69,7 +64,7 @@ const (
 // command. Pause, resume and stop operate directly on their current state.
 func SettingsCommandType(typ string) bool {
 	switch typ {
-	case CommandRetry, CommandRetryImplementation, CommandPlanIntent, CommandCompletionRetry,
+	case CommandRetry, CommandRetryImplementation, CommandCompletionRetry,
 		CommandRepairGrant, CommandIntentExecutionLimit, CommandRepairCharge, CommandVerificationAllowance, CommandDeliveryRepair:
 		return true
 	default:

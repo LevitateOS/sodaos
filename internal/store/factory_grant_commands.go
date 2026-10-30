@@ -389,11 +389,8 @@ func recordFactoryCommandTx(ctx context.Context, tx *sql.Tx, cmd factory.Command
 	return stored, n == 1, nil
 }
 
-func finishFactoryCommandTx(ctx context.Context, tx *sql.Tx, id, outcome string, now time.Time) error {
-	if len(outcome) > 64<<10 {
-		return errors.New("command outcome exceeds retained output limit")
-	}
+func finishFactoryCommandTx(ctx context.Context, tx *sql.Tx, id string, now time.Time) error {
 	finished := now.UTC().Format(time.RFC3339Nano)
-	result, err := tx.ExecContext(ctx, `UPDATE factory_commands SET outcome=$1,finished=$2 WHERE id=$3 AND finished=''`, outcome, finished, id)
+	result, err := tx.ExecContext(ctx, `UPDATE factory_commands SET finished=$1 WHERE id=$2 AND finished=''`, finished, id)
 	return checkGrantRowsAffected(result, err, "factory command finish failed")
 }

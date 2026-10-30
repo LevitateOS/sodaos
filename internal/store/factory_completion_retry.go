@@ -42,7 +42,7 @@ func (s *Store) RecordCompletionRetryCommand(ctx context.Context, cmd factory.Co
 	if _, err = startReassessmentRetryTx(ctx, tx, retry, repository); err != nil {
 		return zero, err
 	}
-	if err := finishFactoryCommandTx(ctx, tx, cmd.ID, "", now); err != nil {
+	if err := finishFactoryCommandTx(ctx, tx, cmd.ID, now); err != nil {
 		return zero, err
 	}
 	return decision, tx.Commit()

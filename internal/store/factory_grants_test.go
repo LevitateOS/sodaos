@@ -201,30 +201,6 @@ func TestProjectStopCauseComposesAfterExistingPause(t *testing.T) {
 	}
 }
 
-func TestQueuedCommandIdentityReplay(t *testing.T) {
-	db := grantStoreFixture(t)
-	ctx := context.Background()
-	payload := `{"enabled":true}`
-	cmd := factory.Command{
-		ID: factory.NewID(), Type: factory.CommandRetry, Target: "repository/42/policy",
-		Principal: "native:7", Payload: payload, Digest: factory.SettingsDigest(factory.CommandRetry, "repository/42/policy", payload),
-	}
-	stored, created, err := db.RecordFactoryCommand(ctx, cmd, grantTestTime())
-	if err != nil || !created || stored.Payload != payload {
-		t.Fatalf("command: %+v %v %v", stored, created, err)
-	}
-	again, created, err := db.RecordFactoryCommand(ctx, cmd, grantTestTime())
-	if err != nil || created || again.ID != cmd.ID {
-		t.Fatalf("replay: %+v %v %v", again, created, err)
-	}
-	changed := cmd
-	changed.Payload = `{"enabled":false}`
-	changed.Digest = factory.SettingsDigest(changed.Type, changed.Target, changed.Payload)
-	if _, _, err = db.RecordFactoryCommand(ctx, changed, grantTestTime()); !errors.Is(err, ErrCommandConflict) {
-		t.Fatal("changed payload reused the command identity", err)
-	}
-}
-
 func TestPolicyWithdrawalCommitsWithCancellationIntents(t *testing.T) {
 	db := grantStoreFixture(t)
 	ctx := context.Background()

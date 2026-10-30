@@ -53,7 +53,7 @@ func (s *Store) RecordDeliveryRetryCommand(ctx context.Context, cmd factory.Comm
 	if occupied {
 		return factory.Command{}, false, ErrExplicitRetryIneligible
 	}
-	if err = finishFactoryCommandTx(ctx, tx, cmd.ID, "", now); err != nil {
+	if err = finishFactoryCommandTx(ctx, tx, cmd.ID, now); err != nil {
 		return factory.Command{}, false, err
 	}
 	stored.Finished = now.UTC().Format(time.RFC3339Nano)

@@ -194,7 +194,7 @@ func (s *Store) IncreaseAppVerificationAllowance(ctx context.Context, intent str
 		if !verificationLimitsIncrease(view.Limits, change.Limits) {
 			return none, factory.ErrVerificationAllowanceIncrease
 		}
-		if err = finishFactoryCommandTx(ctx, tx, cmd.ID, "", now); err != nil {
+		if err = finishFactoryCommandTx(ctx, tx, cmd.ID, now); err != nil {
 			return none, err
 		}
 		view.Revision, view.Limits = cmd.ID, change.Limits

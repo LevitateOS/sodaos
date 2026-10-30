@@ -434,35 +434,6 @@ func (s *Store) FactoryRuns(ctx context.Context, limit int) ([]factory.Run, erro
 	return runs, rows.Err()
 }
 
-// RecordFactoryCommand stores an owner command exactly once. The same ID
-// with the same digest returns the stored outcome; a changed payload
-// conflicts instead of executing twice.
-func (s *Store) RecordFactoryCommand(ctx context.Context, c factory.Command, now time.Time) (factory.Command, bool, error) {
-	if err := c.Validate(); err != nil {
-		return factory.Command{}, false, err
-	}
-	if c.Outcome != "" {
-		return factory.Command{}, false, errors.New("new command must not carry an outcome")
-	}
-	created := now.UTC().Format(time.RFC3339Nano)
-	result, err := s.db.ExecContext(ctx, `INSERT INTO factory_commands(id,type,target,principal,digest,payload,created) VALUES($1,$2,$3,$4,$5,$6,$7) ON CONFLICT(id) DO NOTHING`, c.ID, c.Type, c.Target, c.Principal, c.Digest, c.Payload, created)
-	if err != nil {
-		return factory.Command{}, false, fmt.Errorf("factory command record failed: %w", err)
-	}
-	n, err := result.RowsAffected()
-	if err != nil {
-		return factory.Command{}, false, err
-	}
-	stored, err := s.FactoryCommand(ctx, c.ID)
-	if err != nil {
-		return factory.Command{}, false, err
-	}
-	if stored.Digest != c.Digest {
-		return factory.Command{}, false, ErrCommandConflict
-	}
-	return stored, n == 1, nil
-}
-
 func (s *Store) FactoryCommand(ctx context.Context, id string) (factory.Command, error) {
 	var c factory.Command
 	var created, finished string
@@ -472,25 +443,4 @@ func (s *Store) FactoryCommand(ctx context.Context, id string) (factory.Command,
 	}
 	c.Created, c.Finished = created, finished
 	return c, nil
-}
-
-// FinishFactoryCommand records the durable outcome exactly once. A lost reply
-// replays the stored outcome; it never re-executes the command.
-func (s *Store) FinishFactoryCommand(ctx context.Context, id, outcome string, now time.Time) error {
-	if len(outcome) > 64<<10 {
-		return errors.New("command outcome exceeds retained output limit")
-	}
-	finished := now.UTC().Format(time.RFC3339Nano)
-	result, err := s.db.ExecContext(ctx, `UPDATE factory_commands SET outcome=$1,finished=$2 WHERE id=$3 AND finished=''`, outcome, finished, id)
-	if err != nil {
-		return err
-	}
-	n, err := result.RowsAffected()
-	if err != nil {
-		return err
-	}
-	if n != 1 {
-		return ErrNotFound
-	}
-	return nil
 }

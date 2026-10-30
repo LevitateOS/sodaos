@@ -757,7 +757,7 @@ func TestFactoryIssueJourneyRefusals(t *testing.T) {
 	record := store.DeliveryRepairRecord{Cause: cause, Subject: factory.DeliveryRepairSubject{DeliveryID: delivery.DeliveryID, FailedVerificationRunID: verifier.Run, FailureDigest: cause.FailureDigest, CycleID: factory.DeliveryRepairCycleID(verifier.Run)}, Cycle: factory.StallRepairCycle{ID: factory.DeliveryRepairCycleID(verifier.Run), Number: 1, State: factory.RepairCollecting}}
 	journal := factory.Command{ID: factory.DeliveryRepairCauseID(verifier.Run), Type: factory.CommandDeliveryRepair, Target: "repository/7/delivery-repair/" + verifier.Run, Principal: "factory-delivery-repair", Payload: `{"failure_digest":"` + cause.FailureDigest + `"}`}
 	journal.Digest = factory.SettingsDigest(journal.Type, journal.Target, journal.Payload)
-	if _, _, err = fx.db.RecordFactoryCommand(ctx, journal, time.Now()); err != nil {
+	if _, err = fx.raw.Exec(`INSERT INTO factory_commands(id,type,target,principal,digest,payload,created) VALUES($1,$2,$3,$4,$5,$6,$7)`, journal.ID, journal.Type, journal.Target, journal.Principal, journal.Digest, journal.Payload, time.Now().UTC().Format(time.RFC3339Nano)); err != nil {
 		t.Fatal(err)
 	}
 	for _, state := range []string{factory.RepairCollecting, factory.RepairInvestigating, factory.RepairAttention, factory.RepairAdopted} {

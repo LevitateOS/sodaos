@@ -90,7 +90,7 @@ func (s *Store) RecordExplicitRetryCommand(ctx context.Context, cmd factory.Comm
 	if err = validateExplicitRetryFactsTx(ctx, tx, decision.Prior, repository, issue, acceptance, admitted.priorOutcome); err != nil {
 		return factory.Command{}, false, err
 	}
-	if err = finishFactoryCommandTx(ctx, tx, cmd.ID, "", now); err != nil {
+	if err = finishFactoryCommandTx(ctx, tx, cmd.ID, now); err != nil {
 		return factory.Command{}, false, err
 	}
 	stored.Finished = now.UTC().Format(time.RFC3339Nano)
