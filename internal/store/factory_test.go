@@ -84,8 +84,8 @@ func TestFactoryRunsListNewestFirst(t *testing.T) {
 func TestFactoryCommandIdentityConflictsOnChangedPayload(t *testing.T) {
 	s, now := factoryFixture(t)
 	ctx := context.Background()
-	run := factory.NewID()
-	c := factory.Command{ID: factory.NewID(), Type: factory.CommandStop, Target: run, Principal: "os-uid:0", Digest: factory.CommandDigest(factory.CommandStop, run)}
+	target, payload := "dispatch/7", `{"cause":"control-paused"}`
+	c := factory.Command{ID: factory.NewID(), Type: factory.CommandPause, Target: target, Payload: payload, Principal: "os-uid:0", Digest: factory.SettingsDigest(factory.CommandPause, target, payload)}
 	stored, created, err := s.RecordFactoryCommand(ctx, c, now)
 	if err != nil || !created || stored.Finished != "" {
 		t.Fatal(stored, created, err)
@@ -98,14 +98,14 @@ func TestFactoryCommandIdentityConflictsOnChangedPayload(t *testing.T) {
 	if _, _, err = s.RecordFactoryCommand(ctx, c, now); err == nil {
 		t.Fatal("changed command payload reused its identity")
 	}
-	if err = s.FinishFactoryCommand(ctx, stored.ID, `{"stopped":true}`, now); err != nil {
+	if err = s.FinishFactoryCommand(ctx, stored.ID, `{"paused":true}`, now); err != nil {
 		t.Fatal(err)
 	}
 	finished, err := s.FactoryCommand(ctx, stored.ID)
-	if err != nil || finished.Outcome != `{"stopped":true}` || finished.Finished == "" {
+	if err != nil || finished.Outcome != `{"paused":true}` || finished.Finished == "" {
 		t.Fatal(finished, err)
 	}
-	if err = s.FinishFactoryCommand(ctx, stored.ID, `{"stopped":false}`, now); !errors.Is(err, ErrNotFound) {
+	if err = s.FinishFactoryCommand(ctx, stored.ID, `{"paused":false}`, now); !errors.Is(err, ErrNotFound) {
 		t.Fatal("durable outcome rewritten")
 	}
 }

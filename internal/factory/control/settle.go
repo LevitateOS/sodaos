@@ -2,7 +2,6 @@ package control
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"time"
 
@@ -11,9 +10,9 @@ import (
 	"github.com/levitateos/sodaos/internal/project"
 )
 
-// StopReceipt is the durable outcome of one stop command. Uncertain stays
+// StopResult reports the observed outcome of stopping a run. Uncertain stays
 // fenced: the run keeps its unsettled state for reconcile to settle.
-type StopReceipt struct {
+type StopResult struct {
 	RunID     string `json:"run_id"`
 	Outcome   string `json:"outcome,omitempty"`
 	Reason    string `json:"reason,omitempty"`
@@ -27,108 +26,51 @@ type FencedRun struct {
 	Reason string `json:"reason"`
 }
 
-// ReconcileReceipt is the durable outcome of one reconcile command.
-type ReconcileReceipt struct {
+// ReconcileResult reports the runs settled or left fenced by reconciliation.
+type ReconcileResult struct {
 	Settled []string    `json:"settled"`
 	Fenced  []FencedRun `json:"fenced,omitempty"`
 }
 
 // Stop retires one recorded run and settles it when retirement and broker
-// closure confirm. A lost reply replays the durable outcome; it never
-// re-executes the stop.
-func (c *Coordinator) Stop(ctx context.Context, cmd factory.Command) (StopReceipt, error) {
+// closure confirm. An already settled run returns its recorded outcome.
+func (c *Coordinator) Stop(ctx context.Context, runID string) (StopResult, error) {
 	ctx, ownsPass, cancelPass := c.readinessPass(ctx)
 	defer cancelPass()
-	if cmd.Type != factory.CommandStop {
-		return StopReceipt{}, errors.New("command is not a stop")
-	}
 	bounded, stop := context.WithTimeout(ctx, 3*time.Minute)
 	defer stop()
-	run, err := c.Store.FactoryRun(bounded, cmd.Target)
+	run, err := c.Store.FactoryRun(bounded, runID)
 	if err != nil {
-		return StopReceipt{}, ErrNotFound
+		return StopResult{}, ErrNotFound
 	}
-	stored, created, err := c.Store.RecordFactoryCommand(bounded, cmd, time.Now())
-	if err != nil {
-		return StopReceipt{}, err
-	}
-	if !created {
-		return replayStop(stored)
-	}
-	receipt := c.settleRun(bounded, run)
-	outcome, err := json.Marshal(receipt)
-	if err != nil {
-		return StopReceipt{}, err
-	}
-	if err = c.Store.FinishFactoryCommand(bounded, cmd.ID, string(outcome), time.Now()); err != nil {
-		return StopReceipt{}, err
-	}
+	result := c.settleRun(bounded, run)
 	if ownsPass {
 		_, _ = c.drainReadinessWork(ctx, "")
 	}
-	return receipt, nil
-}
-
-func replayStop(stored factory.Command) (StopReceipt, error) {
-	if stored.Finished == "" {
-		return StopReceipt{}, ErrCommandRunning
-	}
-	var receipt StopReceipt
-	if err := json.Unmarshal([]byte(stored.Outcome), &receipt); err != nil {
-		return StopReceipt{}, err
-	}
-	return receipt, nil
+	return result, nil
 }
 
 // Reconcile retires outstanding native runs and settles each one whose
 // retirement, credential return and broker closure confirm. Unobserved
 // pre-launch context holds retain their admitted packet; unresolved native
 // effects stay fenced for a later command.
-func (c *Coordinator) Reconcile(ctx context.Context, cmd factory.Command) (ReconcileReceipt, error) {
+func (c *Coordinator) Reconcile(ctx context.Context) (ReconcileResult, error) {
 	ctx, ownsPass, cancelPass := c.readinessPass(ctx)
 	defer cancelPass()
-	if cmd.Type != factory.CommandReconcile {
-		return ReconcileReceipt{}, errors.New("command is not a reconcile")
-	}
 	bounded, stop := context.WithTimeout(ctx, 10*time.Minute)
 	defer stop()
-	stored, created, err := c.Store.RecordFactoryCommand(bounded, cmd, time.Now())
+	result, err := c.reconcileRuns(bounded)
 	if err != nil {
-		return ReconcileReceipt{}, err
-	}
-	if !created {
-		return replayReconcile(stored)
-	}
-	receipt, err := c.reconcileRuns(bounded)
-	if err != nil {
-		return ReconcileReceipt{}, err
-	}
-	outcome, err := json.Marshal(receipt)
-	if err != nil {
-		return ReconcileReceipt{}, err
-	}
-	if err = c.Store.FinishFactoryCommand(bounded, cmd.ID, string(outcome), time.Now()); err != nil {
-		return ReconcileReceipt{}, err
+		return ReconcileResult{}, err
 	}
 	if ownsPass {
 		_, _ = c.drainReadinessWork(ctx, "")
 	}
-	return receipt, nil
+	return result, nil
 }
 
-func replayReconcile(stored factory.Command) (ReconcileReceipt, error) {
-	if stored.Finished == "" {
-		return ReconcileReceipt{}, ErrCommandRunning
-	}
-	var receipt ReconcileReceipt
-	if err := json.Unmarshal([]byte(stored.Outcome), &receipt); err != nil {
-		return ReconcileReceipt{}, err
-	}
-	return receipt, nil
-}
-
-func (c *Coordinator) reconcileRuns(ctx context.Context) (ReconcileReceipt, error) {
-	receipt := ReconcileReceipt{Settled: []string{}}
+func (c *Coordinator) reconcileRuns(ctx context.Context) (ReconcileResult, error) {
+	receipt := ReconcileResult{Settled: []string{}}
 	// Outstanding work first, in progressing batches: settled history
 	// never displaces an unresolved run no matter how many settled rows
 	// exist. Fenced runs stay unsettled, so visited identities bound the
@@ -167,8 +109,8 @@ func (c *Coordinator) reconcileRuns(ctx context.Context) (ReconcileReceipt, erro
 // settleRun drives one recorded run to its settled state: host stop, broker
 // closure, then the durable record. A settled run never reopens; anything
 // unconfirmed stays fenced with its observed facts saved.
-func (c *Coordinator) settleRun(ctx context.Context, run factory.Run) StopReceipt {
-	receipt := StopReceipt{RunID: run.ID}
+func (c *Coordinator) settleRun(ctx context.Context, run factory.Run) StopResult {
+	receipt := StopResult{RunID: run.ID}
 	if run.Reconciled {
 		receipt.Confirmed, receipt.Outcome, receipt.Reason = true, string(run.Outcome), run.Summary
 		return receipt

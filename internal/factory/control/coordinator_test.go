@@ -122,10 +122,6 @@ func recordRun(t *testing.T, c *Coordinator, mutate func(*factory.Run)) factory.
 	return r
 }
 
-func stopCommand(runID string) factory.Command {
-	return factory.Command{ID: factory.NewID(), Type: factory.CommandStop, Target: runID, Principal: "os-uid:0", Digest: factory.CommandDigest(factory.CommandStop, runID)}
-}
-
 func TestStatusRedactsCredentialPaths(t *testing.T) {
 	c := coordinatorFixture(t, nil, nil)
 	r := recordRun(t, c, func(r *factory.Run) {
@@ -144,7 +140,7 @@ func TestStatusRedactsCredentialPaths(t *testing.T) {
 	}
 }
 
-func TestStopSettlesAndReplays(t *testing.T) {
+func TestStopUsesSettledRunState(t *testing.T) {
 	host := &stubHost{}
 	broker := &stubBroker{}
 	c := coordinatorFixture(t, host, broker)
@@ -165,8 +161,7 @@ func TestStopSettlesAndReplays(t *testing.T) {
 	broker.get = func(kind, id string) (identity.Execution, error) {
 		return identity.Execution{Kind: identity.Factory, ExecutionID: r.ID, State: identity.ExecutionTerminal, Digest: "digest", LeaseID: "lease", Binding: &binding}, nil
 	}
-	cmd := stopCommand(r.ID)
-	receipt, err := c.Stop(context.Background(), cmd)
+	receipt, err := c.Stop(context.Background(), r.ID)
 	if err != nil || !receipt.Confirmed || receipt.Uncertain || receipt.Outcome != string(factory.Cancelled) {
 		t.Fatal(receipt, err)
 	}
@@ -174,17 +169,13 @@ func TestStopSettlesAndReplays(t *testing.T) {
 	if err != nil || !settled.Reconciled || settled.Outcome != factory.Cancelled || !settled.CredentialDelegated || !settled.CredentialReturned || settled.IdentityBinding == nil {
 		t.Fatal(settled, err)
 	}
-	replay, err := c.Stop(context.Background(), cmd)
+	replay, err := c.Stop(context.Background(), r.ID)
 	if err != nil || replay != receipt || host.calls != 1 {
-		t.Fatal("duplicate command re-executed instead of replaying", replay, err)
-	}
-	again, err := c.Stop(context.Background(), stopCommand(r.ID))
-	if err != nil || !again.Confirmed || host.calls != 1 {
-		t.Fatal("settled stop re-executed its host call", again, err)
+		t.Fatal("settled run was stopped again", replay, err)
 	}
 }
 
-func TestStopReplaysDurableOutcome(t *testing.T) {
+func TestStopUsesLatestRunState(t *testing.T) {
 	host := &stubHost{}
 	c := coordinatorFixture(t, host, &stubBroker{
 		get:   func(string, string) (identity.Execution, error) { return identity.Execution{}, identity.ErrNotFound },
@@ -192,36 +183,29 @@ func TestStopReplaysDurableOutcome(t *testing.T) {
 	})
 	r := recordRun(t, c, nil)
 	host.stop = func(project.FactoryStop) (project.FactoryState, error) {
+		if host.calls == 1 {
+			return project.FactoryState{}, errors.New("stop not confirmed")
+		}
 		return project.FactoryState{ID: r.ID, Phase: project.FactoryStopped, Retirement: "confirmed", Reason: "stop-before-start"}, nil
 	}
-	cmd := stopCommand(r.ID)
-	first, err := c.Stop(context.Background(), cmd)
-	if err != nil || !first.Confirmed {
+	first, err := c.Stop(context.Background(), r.ID)
+	if err != nil || first.Confirmed || !first.Uncertain {
 		t.Fatal(first, err)
 	}
-	second, err := c.Stop(context.Background(), cmd)
-	if err != nil || second != first || host.calls != 1 {
-		t.Fatal("duplicate command re-executed instead of replaying", second, err)
-	}
-	other := recordRun(t, c, nil)
-	changed := factory.Command{ID: cmd.ID, Type: factory.CommandStop, Target: other.ID, Principal: "os-uid:0", Digest: factory.CommandDigest(factory.CommandStop, other.ID)}
-	if _, err = c.Stop(context.Background(), changed); !errors.Is(err, store.ErrCommandConflict) {
-		t.Fatal("command identity reused for different content", err)
+	second, err := c.Stop(context.Background(), r.ID)
+	if err != nil || !second.Confirmed || second.Uncertain || host.calls != 2 {
+		t.Fatal("new stop did not establish the current run state", second, err)
 	}
 }
 
 func TestStopUnknownRunRecordsNothing(t *testing.T) {
 	host := &stubHost{}
 	c := coordinatorFixture(t, host, nil)
-	cmd := stopCommand(factory.NewID())
-	if _, err := c.Stop(context.Background(), cmd); !errors.Is(err, ErrNotFound) {
+	if _, err := c.Stop(context.Background(), factory.NewID()); !errors.Is(err, ErrNotFound) {
 		t.Fatal("unknown run stopped")
 	}
 	if host.calls != 0 {
 		t.Fatal("unknown run reached the host")
-	}
-	if _, err := c.Store.FactoryCommand(context.Background(), cmd.ID); !errors.Is(err, store.ErrNotFound) {
-		t.Fatal("unknown run recorded a command")
 	}
 }
 
@@ -234,7 +218,7 @@ func TestStopFencesUncertainRetirement(t *testing.T) {
 		close: func(string, string) error { return nil },
 	})
 	r := recordRun(t, c, nil)
-	receipt, err := c.Stop(context.Background(), stopCommand(r.ID))
+	receipt, err := c.Stop(context.Background(), r.ID)
 	if err != nil || !receipt.Uncertain || receipt.Confirmed {
 		t.Fatal(receipt, err)
 	}
@@ -254,8 +238,7 @@ func TestReconcileSettlesCompletedRun(t *testing.T) {
 	host.stop = func(project.FactoryStop) (project.FactoryState, error) {
 		return project.FactoryState{ID: r.ID, Phase: project.FactoryCompleted, Retirement: "confirmed", Output: "candidate ready"}, nil
 	}
-	cmd := factory.Command{ID: factory.NewID(), Type: factory.CommandReconcile, Principal: "os-uid:0", Digest: factory.CommandDigest(factory.CommandReconcile, "")}
-	receipt, err := c.Reconcile(context.Background(), cmd)
+	receipt, err := c.Reconcile(context.Background())
 	if err != nil || len(receipt.Settled) != 1 || len(receipt.Fenced) != 0 {
 		t.Fatal(receipt, err)
 	}
@@ -278,8 +261,7 @@ func TestReconcileFencesBrokerFailure(t *testing.T) {
 		},
 	})
 	r := recordRun(t, c, nil)
-	cmd := factory.Command{ID: factory.NewID(), Type: factory.CommandReconcile, Principal: "os-uid:0", Digest: factory.CommandDigest(factory.CommandReconcile, "")}
-	receipt, err := c.Reconcile(context.Background(), cmd)
+	receipt, err := c.Reconcile(context.Background())
 	if err != nil || len(receipt.Settled) != 0 || len(receipt.Fenced) != 1 || receipt.Fenced[0].ID != r.ID {
 		t.Fatal(receipt, err)
 	}
@@ -346,7 +328,7 @@ func TestCloseRetainsCoordinatorOwnershipUntilAdmittedOperatorStops(t *testing.T
 	requestDone := make(chan struct{})
 	go func() {
 		defer close(requestDone)
-		body := fmt.Sprintf(`{"type":"stop","command_id":%q,"target":%q}`, factory.NewID(), run.ID)
+		body := fmt.Sprintf(`{"type":"stop","target":%q}`, run.ID)
 		response, requestErr := http.Post("http://"+listener.Addr().String()+OperatorPath, "application/json", strings.NewReader(body))
 		if requestErr == nil {
 			_ = response.Body.Close()
@@ -404,8 +386,7 @@ func TestCloseRetainsCoordinatorOwnershipUntilAdmittedOperatorStops(t *testing.T
 }
 
 // restartCoordinatorAfterCrash reopens the database and starts a fresh
-// coordinator over the crash prefix: recorded but unfinished commands
-// plus whatever run state the crash left behind.
+// coordinator over the recorded run state.
 func restartCoordinatorAfterCrash(t *testing.T, dsn string, host HostFactory, broker BrokerExecution) *Coordinator {
 	t.Helper()
 	reopened, err := store.Open(dsn)
@@ -433,11 +414,6 @@ func TestRestartedStopUsesEstablishedRunState(t *testing.T) {
 	db, dsn := postgresFixture(t)
 	c := NewCoordinator(db, &stubHost{}, &stubBroker{})
 	r := recordRun(t, c, nil)
-	cmd := stopCommand(r.ID)
-	if _, created, err := db.RecordFactoryCommand(ctx, cmd, time.Now()); err != nil || !created {
-		t.Fatalf("command prefix unrecorded: %v", err)
-	}
-	// Crash before the finish lands: close without finishing.
 	if err := db.Close(); err != nil {
 		t.Fatal(err)
 	}
@@ -446,21 +422,16 @@ func TestRestartedStopUsesEstablishedRunState(t *testing.T) {
 		return project.FactoryState{ID: r.ID, Phase: project.FactoryStopped, Retirement: "confirmed", Reason: "stop-before-start"}, nil
 	}
 	restarted := restartCoordinatorAfterCrash(t, dsn, host, settledStopBroker())
-	stored, err := restarted.Store.FactoryCommand(ctx, cmd.ID)
-	if err != nil || stored.Finished != "" {
-		t.Fatalf("startup manufactured a command outcome: %+v %v", stored, err)
-	}
 	run, err := restarted.Store.FactoryRun(ctx, r.ID)
 	if err != nil || !run.Reconciled || run.Outcome != factory.Cancelled {
 		t.Fatalf("startup did not settle the actual run: %+v %v", run, err)
 	}
 	calls := host.calls
-	cmd = stopCommand(r.ID)
-	receipt, err := restarted.Stop(ctx, cmd)
+	receipt, err := restarted.Stop(ctx, r.ID)
 	if err != nil || !receipt.Confirmed || receipt.Uncertain {
 		t.Fatalf("explicit stop after restart: %+v %v", receipt, err)
 	}
-	again, err := restarted.Stop(ctx, cmd)
+	again, err := restarted.Stop(ctx, r.ID)
 	if err != nil || again != receipt {
 		t.Fatalf("second replay after restart: %+v %v", again, err)
 	}
@@ -474,10 +445,6 @@ func TestRestartedStopPreservesUncertainty(t *testing.T) {
 	db, dsn := postgresFixture(t)
 	c := NewCoordinator(db, &stubHost{}, &stubBroker{})
 	r := recordRun(t, c, nil)
-	cmd := stopCommand(r.ID)
-	if _, created, err := db.RecordFactoryCommand(ctx, cmd, time.Now()); err != nil || !created {
-		t.Fatalf("command prefix unrecorded: %v", err)
-	}
 	if err := db.Close(); err != nil {
 		t.Fatal(err)
 	}
@@ -486,11 +453,7 @@ func TestRestartedStopPreservesUncertainty(t *testing.T) {
 		return project.FactoryState{}, errors.New("synthetic host outage")
 	}
 	restarted := restartCoordinatorAfterCrash(t, dsn, host, settledStopBroker())
-	stored, err := restarted.Store.FactoryCommand(ctx, cmd.ID)
-	if err != nil || stored.Finished != "" {
-		t.Fatalf("startup manufactured a command outcome: %+v %v", stored, err)
-	}
-	receipt, err := restarted.Stop(ctx, stopCommand(r.ID))
+	receipt, err := restarted.Stop(ctx, r.ID)
 	if err != nil {
 		t.Fatalf("explicit stop errored: %v", err)
 	}
@@ -508,10 +471,6 @@ func TestRestartedReconcileUsesActualRunState(t *testing.T) {
 	db, dsn := postgresFixture(t)
 	c := NewCoordinator(db, &stubHost{}, &stubBroker{})
 	r := recordRun(t, c, nil)
-	cmd := factory.Command{ID: factory.NewID(), Type: factory.CommandReconcile, Principal: "os-uid:0", Digest: factory.CommandDigest(factory.CommandReconcile, "")}
-	if _, created, err := db.RecordFactoryCommand(ctx, cmd, time.Now()); err != nil || !created {
-		t.Fatalf("command prefix unrecorded: %v", err)
-	}
 	if err := db.Close(); err != nil {
 		t.Fatal(err)
 	}
@@ -520,16 +479,11 @@ func TestRestartedReconcileUsesActualRunState(t *testing.T) {
 		return project.FactoryState{ID: r.ID, Phase: project.FactoryCompleted, Reason: "done"}, nil
 	}
 	restarted := restartCoordinatorAfterCrash(t, dsn, host, settledStopBroker())
-	stored, err := restarted.Store.FactoryCommand(ctx, cmd.ID)
-	if err != nil || stored.Finished != "" {
-		t.Fatalf("startup manufactured a command outcome: %+v %v", stored, err)
-	}
 	run, err := restarted.Store.FactoryRun(ctx, r.ID)
 	if err != nil || !run.Reconciled || run.Outcome != factory.Succeeded {
 		t.Fatalf("startup did not settle the actual run: %+v %v", run, err)
 	}
-	cmd.ID = factory.NewID()
-	receipt, err := restarted.Reconcile(ctx, cmd)
+	receipt, err := restarted.Reconcile(ctx)
 	if err != nil {
 		t.Fatalf("explicit reconcile after restart: %v", err)
 	}

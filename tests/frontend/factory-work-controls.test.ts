@@ -794,8 +794,22 @@ test('work detail retries the same completion command after lost replies and run
   assert.equal(pause?.path, 'repositories/7/factory/actions');
   const stop = posts.find((call) => (call.body as {action?: string}).action === 'stop');
   assert.equal(stop?.path, `factory/runs/${RUN}/actions`);
+  assert.deepEqual(stop?.body, {action: 'stop'});
   const projectStop = posts.find((call) => call.path === `environments/${ENVIRONMENT}/lifecycle`);
   assert.deepEqual(projectStop?.body, {action: 'stop', confirm_stop: true});
+
+  await page.evaluate(
+    (run) => window.factoryWork.setRoutes([{
+      method: 'POST', path: `factory/runs/${run}/actions`, action: 'stop',
+      status: 200, json: {run_id: run, confirmed: true, uncertain: false}, loseReply: true,
+    }]),
+    RUN
+  );
+  await detail.getByRole('button', {name: 'Stop run'}).click();
+  await detail.getByText('No reply was confirmed. Refresh before acting again.').waitFor();
+  const afterLostStop = await workCalls(page);
+  assert.equal(afterLostStop.filter((call) => call.path.startsWith('factory/commands/')).length, 0);
+  assert.deepEqual(afterLostStop.at(-1)?.body, {action: 'stop'});
 });
 
 test('held context refresh with the same run ID enables use-current from the new selection', async (t) => {

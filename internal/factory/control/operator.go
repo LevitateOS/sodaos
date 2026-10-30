@@ -9,7 +9,6 @@ import (
 	"net/http"
 
 	"github.com/levitateos/sodaos/internal/factory"
-	"github.com/levitateos/sodaos/internal/store"
 	"github.com/levitateos/sodaos/internal/strictjson"
 )
 
@@ -32,18 +31,14 @@ func operatorPrincipal(r *http.Request) (string, bool) {
 	return principal, ok && principal != ""
 }
 
-// OperatorRequest is the command envelope. Status is a read without a
-// durable command; stop and reconcile carry a client-generated command ID
-// for idempotent replay.
+// OperatorRequest names an action on recorded runs.
 type OperatorRequest struct {
-	CommandID string `json:"command_id,omitempty"`
-	Type      string `json:"type"`
-	Target    string `json:"target,omitempty"`
+	Type   string `json:"type"`
+	Target string `json:"target,omitempty"`
 }
 
 // OperatorHandler admits private operator commands into the coordinator.
-// Unknown runs report 404, reused command identities conflict with 409, and
-// a duplicated unfinished command returns 202 for the caller to refresh.
+// Unknown runs report 404.
 func (c *Coordinator) OperatorHandler() http.Handler {
 	mux := http.NewServeMux()
 	mux.HandleFunc(OperatorPath, c.serveOperator)
@@ -55,7 +50,7 @@ func (c *Coordinator) serveOperator(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "POST required", http.StatusMethodNotAllowed)
 		return
 	}
-	principal, ok := operatorPrincipal(r)
+	_, ok := operatorPrincipal(r)
 	if !ok {
 		http.Error(w, "operator principal unavailable", http.StatusInternalServerError)
 		return
@@ -74,19 +69,15 @@ func (c *Coordinator) serveOperator(w http.ResponseWriter, r *http.Request) {
 	case factory.CommandStatus:
 		c.serveStatus(w, r, in)
 	case factory.CommandStop:
-		c.serveStop(w, r, in, principal)
+		c.serveStop(w, r, in)
 	case factory.CommandReconcile:
-		c.serveReconcile(w, r, in, principal)
+		c.serveReconcile(w, r, in)
 	default:
 		http.Error(w, "unknown operator command", http.StatusBadRequest)
 	}
 }
 
 func (c *Coordinator) serveStatus(w http.ResponseWriter, r *http.Request, in OperatorRequest) {
-	if in.CommandID != "" {
-		http.Error(w, "status carries no durable command", http.StatusBadRequest)
-		return
-	}
 	if in.Target != "" && !factory.ValidID(in.Target) {
 		http.Error(w, "invalid run identity", http.StatusBadRequest)
 		return
@@ -103,44 +94,36 @@ func (c *Coordinator) serveStatus(w http.ResponseWriter, r *http.Request, in Ope
 	writeOperator(w, map[string]any{"runs": runs})
 }
 
-func (c *Coordinator) serveStop(w http.ResponseWriter, r *http.Request, in OperatorRequest, principal string) {
-	if !factory.ValidID(in.CommandID) || !factory.ValidID(in.Target) {
-		http.Error(w, "stop requires a command identity and its recorded run", http.StatusBadRequest)
+func (c *Coordinator) serveStop(w http.ResponseWriter, r *http.Request, in OperatorRequest) {
+	if !factory.ValidID(in.Target) {
+		http.Error(w, "stop requires its recorded run", http.StatusBadRequest)
 		return
 	}
-	cmd := factory.Command{ID: in.CommandID, Type: factory.CommandStop, Target: in.Target, Principal: principal, Digest: factory.CommandDigest(factory.CommandStop, in.Target)}
-	receipt, err := c.Stop(r.Context(), cmd)
+	result, err := c.Stop(r.Context(), in.Target)
 	if err != nil {
-		writeCommandError(w, err)
+		writeOperatorError(w, err)
 		return
 	}
-	writeOperator(w, receipt)
+	writeOperator(w, result)
 }
 
-func (c *Coordinator) serveReconcile(w http.ResponseWriter, r *http.Request, in OperatorRequest, principal string) {
-	if !factory.ValidID(in.CommandID) || in.Target != "" {
-		http.Error(w, "reconcile requires a command identity and no target", http.StatusBadRequest)
+func (c *Coordinator) serveReconcile(w http.ResponseWriter, r *http.Request, in OperatorRequest) {
+	if in.Target != "" {
+		http.Error(w, "reconcile takes no target", http.StatusBadRequest)
 		return
 	}
-	cmd := factory.Command{ID: in.CommandID, Type: factory.CommandReconcile, Principal: principal, Digest: factory.CommandDigest(factory.CommandReconcile, "")}
-	receipt, err := c.Reconcile(r.Context(), cmd)
+	result, err := c.Reconcile(r.Context())
 	if err != nil {
-		writeCommandError(w, err)
+		writeOperatorError(w, err)
 		return
 	}
-	writeOperator(w, receipt)
+	writeOperator(w, result)
 }
 
-func writeCommandError(w http.ResponseWriter, err error) {
+func writeOperatorError(w http.ResponseWriter, err error) {
 	switch {
 	case errors.Is(err, ErrNotFound):
 		http.Error(w, "factory run not found", http.StatusNotFound)
-	case errors.Is(err, store.ErrCommandConflict):
-		http.Error(w, "command identity reused for different content", http.StatusConflict)
-	case errors.Is(err, ErrCommandRunning):
-		w.Header().Set("Content-Type", "application/json")
-		w.WriteHeader(http.StatusAccepted)
-		_ = json.NewEncoder(w).Encode(map[string]any{"running": true})
 	default:
 		http.Error(w, "operator command unavailable", http.StatusInternalServerError)
 	}

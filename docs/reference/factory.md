@@ -17,10 +17,10 @@ belong to [architecture](../architecture/overview.md), and authority to
 ## Operator endpoint
 
 The `factory/control` coordinator runs inside the dashboard backend and owns
-the factory run/command ledger in that service's database. Operator commands
+the factory run records in that service's database. Operator commands
 reach it through `POST /operator/factory` on a private Unix socket that is
 not reachable through the public HTTP mux. The listener admits only its
-configured OS peer UID and records that peer as the command principal; no
+configured OS peer UID; no
 command can supply a human native identity, accept requirements, change
 repository policy, enlarge sponsorship or clear a native reservation.
 
@@ -30,19 +30,15 @@ Build the operator binary from the pinned Cargo workspace:
 cargo build --locked -p soda-factory
 target/debug/soda-factory --socket /run/soda/operator/operator.sock status
 target/debug/soda-factory --socket /run/soda/operator/operator.sock status RUN_ID
-target/debug/soda-factory --socket /run/soda/operator/operator.sock --command COMMAND_ID stop RUN_ID
-target/debug/soda-factory --socket /run/soda/operator/operator.sock --command COMMAND_ID reconcile
+target/debug/soda-factory --socket /run/soda/operator/operator.sock stop RUN_ID
+target/debug/soda-factory --socket /run/soda/operator/operator.sock reconcile
 ```
 
 Status is a read without a durable command and returns bounded recorded run
-metadata with credential-adjacent paths redacted. Stop and reconcile carry a
-client-generated command ID: the same ID with the same payload replays its
-stored outcome, and reuse for different content conflicts. A duplicated
-unfinished command returns 202 so the caller refreshes instead of executing
-twice.
-
-Startup reconciles recorded runs; it does not reconstruct unfinished command
-responses. A fresh stop or reconcile command uses the current run state.
+metadata with credential-adjacent paths redacted. Stop and reconcile use current
+run state directly and return their observed results. They keep no separate
+command record. An already settled run returns its recorded outcome without
+another host stop. Startup reconciles recorded runs through the same path.
 
 ## Stop and reconcile
 
@@ -50,7 +46,7 @@ Stop retires one recorded run through the host's exact run boundary and seals
 its broker execution, then settles the run when retirement and closure
 confirm. A completed run reports `succeeded`, a failed run `failed`, and a
 retired run `cancelled`. Uncertain retirement or broker closure stays fenced:
-the run keeps its unsettled state and the command outcome records the
+the run keeps its unsettled state and the response reports the
 uncertainty. No control reports `cancelled` while the native effect or
 process retirement is still unresolved.
 

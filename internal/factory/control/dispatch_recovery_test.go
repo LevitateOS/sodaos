@@ -581,11 +581,7 @@ func TestReportedAssignmentReadinessRootDrainsOnDispatch(t *testing.T) {
 	// not an installed native report; the report below remains a substituted
 	// host boundary response.
 	passCtx, _, cancelPass := coord.readinessPass(ctx)
-	command := factory.Command{
-		ID: factory.NewID(), Type: factory.CommandReconcile, Principal: "os-uid:0",
-		Digest: factory.CommandDigest(factory.CommandReconcile, ""),
-	}
-	reconcile, err := coord.Reconcile(passCtx, command)
+	reconcile, err := coord.Reconcile(passCtx)
 	cancelPass()
 	if err != nil || len(reconcile.Settled) != 1 || len(reconcile.Fenced) != 0 {
 		t.Fatalf("successful report settlement: %+v, %v", reconcile, err)

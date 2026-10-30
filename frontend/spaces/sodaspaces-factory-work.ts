@@ -723,7 +723,7 @@ export class SodaFactoryWorkDetail extends LitElement {
       return;
     }
     const serial = this.serial;
-    const commandID = factoryCommandId();
+    const commandID = kind === 'stop' || kind === 'project_stop' ? '' : factoryCommandId();
     this.acting = kind;
     this.setMark(kind, 'pending', 'Requested; awaiting confirmation.');
     await this.executeIntervention(context, kind, commandID, serial, runID);
@@ -743,6 +743,10 @@ export class SodaFactoryWorkDetail extends LitElement {
       if (refreshesDetail(kind)) void this.load();
     } catch {
       if (serial !== this.serial) return;
+      if (kind === 'stop' || kind === 'project_stop') {
+        this.setMark(kind, 'pending', 'No reply was confirmed. Refresh before acting again.');
+        return;
+      }
       await this.readBack(context, kind, commandID, serial);
     }
   }
@@ -762,10 +766,6 @@ export class SodaFactoryWorkDetail extends LitElement {
     }
   }
   private async readBack(context: WorkDetailContext, kind: InterventionKind, commandID: string, serial: number) {
-    if (kind === 'project_stop') {
-      this.setMark(kind, 'pending', 'No reply was confirmed. Inspect the project before acting again.');
-      return;
-    }
     try {
       const record = factoryCommandRecord(await getJSON(context.transport, `factory/commands/${commandID}`), commandID);
       if (serial !== this.serial) return;
@@ -921,7 +921,9 @@ async function postIntervention(
       action: 'stop',
       confirm_stop: true,
     });
-  if ((kind === 'stop' || kind === 'retry' || kind === 'takeover') && runID)
+  if (kind === 'stop' && runID)
+    return postJSON(context.transport, `factory/runs/${runID}/actions`, {action: kind});
+  if ((kind === 'retry' || kind === 'takeover') && runID)
     return postJSON(context.transport, `factory/runs/${runID}/actions`, {command_id: commandID, action: kind});
   throw Error('Intervention target is not available in this context.');
 }

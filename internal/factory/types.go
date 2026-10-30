@@ -6,7 +6,6 @@ package factory
 
 import (
 	"crypto/rand"
-	"crypto/sha256"
 	"encoding/hex"
 	"errors"
 	"regexp"
@@ -47,8 +46,7 @@ func validOutcome(outcome Outcome) bool {
 	return outcome == "" || outcome == Succeeded || outcome == Failed || outcome == Cancelled || outcome == NeedsHuman
 }
 
-// Command types served by the private operator endpoint. Status is a read;
-// stop and reconcile are durable idempotent mutations.
+// Command types served by the private operator endpoint.
 const (
 	CommandStatus    = "status"
 	CommandStop      = "stop"
@@ -57,9 +55,8 @@ const (
 
 // Command is one admitted command. The client generates ID; the coordinator
 // records the normalized digest and durable outcome. Same ID with a changed
-// payload conflicts instead of executing twice. Operator commands cannot
-// supply a human native identity, accept requirements or change policy;
-// settings commands carry the admitted grant fields as their payload.
+// payload conflicts instead of executing twice. Its payload carries the
+// admitted settings or owner-action fields.
 type Command struct {
 	ID        string `json:"id"`
 	Type      string `json:"type"`
@@ -76,42 +73,20 @@ func (c Command) Validate() error {
 	if !ValidID(c.ID) {
 		return errors.New("invalid command identity")
 	}
-	switch c.Type {
-	case CommandStop:
-		if !ValidID(c.Target) || c.Payload != "" {
-			return errors.New("stop requires its recorded run")
-		}
-	case CommandReconcile:
-		if c.Target != "" || c.Payload != "" {
-			return errors.New("reconcile addresses all recorded runs")
-		}
-	default:
-		if !SettingsCommandType(c.Type) {
-			return errors.New("command is not a durable mutation")
-		}
-		if c.Target == "" || len(c.Target) > 256 || c.Payload == "" || len(c.Payload) > 8192 {
-			return errors.New("settings command requires its target and normalized payload")
-		}
+	if !SettingsCommandType(c.Type) {
+		return errors.New("command is not a durable mutation")
+	}
+	if c.Target == "" || len(c.Target) > 256 || c.Payload == "" || len(c.Payload) > 8192 {
+		return errors.New("settings command requires its target and normalized payload")
 	}
 	if c.Principal == "" || len(c.Principal) > 128 {
 		return errors.New("invalid command principal")
 	}
-	if c.Payload == "" {
-		if c.Digest != CommandDigest(c.Type, c.Target) {
-			return errors.New("command digest differs from its payload")
-		}
-	} else if c.Digest != SettingsDigest(c.Type, c.Target, c.Payload) {
+	if c.Digest != SettingsDigest(c.Type, c.Target, c.Payload) {
 		return errors.New("command digest differs from its payload")
 	}
 	if len(c.Outcome) > 64<<10 {
 		return errors.New("command outcome exceeds retained output limit")
 	}
 	return nil
-}
-
-// CommandDigest binds a command ID to its exact payload. Status reads carry
-// no durable command and never use this digest.
-func CommandDigest(typ, target string) string {
-	sum := sha256.Sum256([]byte(typ + "\x00" + target))
-	return hex.EncodeToString(sum[:])
 }

@@ -17,29 +17,28 @@ record families include:
 | Records | Purpose |
 | --- | --- |
 | `Run`, `RunAdmission`, `Outcome` | Execution identity, captured authority/profile, provenance and settlement. |
-| `Command` | Idempotent operator and settings mutations. |
+| `Command` | Settings changes and queued owner actions such as Retry. |
 | `RepositoryPolicy`, `Capacity`, `OperatorGrant`, `Sponsorship` | Explicit operating authority and resource limits. |
 | `Acceptance`, `IssueControl`, readiness records | Accepted native issue inputs and eligibility observations. |
 | `Assignment`, result and allowance records | Bounded dispatch, attempts and reported work. |
 | `Publication`, review, check and merge records | Persisted native-operation intent and outcome evidence. |
 
 Construct records using admitted inputs and call their `Validate` methods before
-crossing persistence or execution boundaries. For example, validating a stop
-record performs no stop:
+crossing persistence or execution boundaries. For example, validating a pause
+command performs no pause:
 
 ```go
-cmd := factory.Command{
-    ID: factory.NewID(), Type: factory.CommandStop,
-    Target: runID, Principal: principal,
-    Digest: factory.CommandDigest(factory.CommandStop, runID),
-}
+target, payload := "dispatch/7", `{"cause":"control-paused"}`
+cmd := factory.Command{ID: factory.NewID(), Type: factory.CommandPause,
+    Target: target, Principal: principal, Payload: payload,
+    Digest: factory.SettingsDigest(factory.CommandPause, target, payload)}
 err := cmd.Validate()
 ```
 
-Here `runID` is a recorded run and `principal` comes from the admitting service.
+Here `principal` comes from the admitting service.
 `NewID` creates a random 32-character lowercase hexadecimal identity. Reuse the
 recorded command ID for an identical replay; changed content requires a new ID.
-Status reads carry no durable command.
+Status, Stop and Reconcile use run state directly and carry no durable command.
 
 ## Constraints
 

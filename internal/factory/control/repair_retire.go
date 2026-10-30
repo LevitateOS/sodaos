@@ -36,8 +36,7 @@ func (c *Coordinator) retireReadyStallRepairs(ctx context.Context, repositories 
 			if e != nil || run.Reconciled {
 				continue
 			}
-			cmd := factory.Command{ID: factory.RepairCycleID(cycle.ID, 0), Type: factory.CommandStop, Target: cycle.RunID, Principal: "factory-repair", Digest: factory.CommandDigest(factory.CommandStop, cycle.RunID)}
-			_, _ = c.Stop(ctx, cmd)
+			c.settleRun(ctx, run)
 		}
 	}
 }

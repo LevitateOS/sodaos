@@ -434,7 +434,7 @@ func (s *Store) FactoryRuns(ctx context.Context, limit int) ([]factory.Run, erro
 	return runs, rows.Err()
 }
 
-// RecordFactoryCommand stores an operator command exactly once. The same ID
+// RecordFactoryCommand stores an owner command exactly once. The same ID
 // with the same digest returns the stored outcome; a changed payload
 // conflicts instead of executing twice.
 func (s *Store) RecordFactoryCommand(ctx context.Context, c factory.Command, now time.Time) (factory.Command, bool, error) {

@@ -937,6 +937,27 @@ func TestFactoryIssueJourneyRefusals(t *testing.T) {
 	if err = fx.raw.QueryRow(`SELECT (SELECT count(*) FROM factory_commands),(SELECT count(*) FROM factory_attempt_allowances),(SELECT count(*) FROM factory_usage)`).Scan(&commands, &allowances, &usage); err != nil || commands != 4 || allowances != 0 || usage != 0 {
 		t.Fatal("repair progress reads admitted or spent work", commands, allowances, usage, err)
 	}
+	// A settled run needs no command identity or separate outcome record to stop.
+	// The native stop itself is exercised by the controller integration tests.
+	if _, err := fx.raw.Exec(`UPDATE factory_runs SET active=false,settled=true,
+		data=jsonb_set(jsonb_set(data,'{reconciled}','true'),'{outcome}','"cancelled"') WHERE id=$1`, run.ID); err != nil {
+		t.Fatal(err)
+	}
+	fx.permission.Store("read")
+	if code, _ := call(http.MethodPost, actionPath, `{"action":"stop"}`); code != 403 {
+		t.Fatal("read-only actor stopped a run", code)
+	}
+	fx.permission.Store("admin")
+	for range 2 {
+		code, reply := call(http.MethodPost, actionPath, `{"action":"stop"}`)
+		var result control.StopResult
+		if code != 200 || json.Unmarshal(reply, &result) != nil || result.RunID != run.ID || !result.Confirmed || result.Uncertain || result.Outcome != string(factory.Cancelled) {
+			t.Fatalf("direct stop result: %d %s", code, reply)
+		}
+	}
+	if err := fx.raw.QueryRow(`SELECT count(*) FROM factory_commands`).Scan(&commands); err != nil || commands != 4 {
+		t.Fatal("stop recorded a separate command receipt", commands, err)
+	}
 }
 
 func TestFactoryIssueJourneyNoAttempt(t *testing.T) {

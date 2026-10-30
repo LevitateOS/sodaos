@@ -152,11 +152,14 @@ func (s *API) apiFactoryRunActions(w http.ResponseWriter, r *http.Request, v sto
 		return
 	}
 	var in factoryRunActionsRequest
-	if !auth.DecodeAPIObject(w, r, &in) || !settingsCommandID(w, in.CommandID) {
+	if !auth.DecodeAPIObject(w, r, &in) {
 		return
 	}
 	if !factory.ValidRunAction(in.Action) && in.Action != factory.ActionContextCurrent {
 		auth.JSONError(w, 400, "invalid_action", "Choose stop, retry, delivery repair or takeover.")
+		return
+	}
+	if in.Action != factory.ActionStop && !settingsCommandID(w, in.CommandID) {
 		return
 	}
 	if (in.Action == factory.ActionContextCurrent) != (in.Context != nil) {
@@ -176,13 +179,12 @@ func (s *API) apiFactoryRunActions(w http.ResponseWriter, r *http.Request, v sto
 		}
 		auth.JSONResponse(w, 200, receipt)
 	case factory.ActionStop:
-		cmd := factory.Command{ID: in.CommandID, Type: factory.CommandStop, Target: run.ID, Principal: factoryPrincipal(v), Digest: factory.CommandDigest(factory.CommandStop, run.ID)}
-		receipt, err := s.Coordinator.Stop(r.Context(), cmd)
+		result, err := s.Coordinator.Stop(r.Context(), run.ID)
 		if err != nil {
 			lifecycleControlError(w, err)
 			return
 		}
-		auth.JSONResponse(w, 200, receipt)
+		auth.JSONResponse(w, 200, result)
 	case factory.ActionRetry:
 		decision, err := s.Coordinator.RetryRun(r.Context(), in.CommandID, factoryPrincipal(v), run.ID)
 		if err != nil {

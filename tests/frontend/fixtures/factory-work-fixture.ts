@@ -97,17 +97,19 @@ function stubTransport(): PreparedExtensionMount {
               head: (body as Record<string, unknown>).decision_id,
             }
           : json;
-      if (hit.loseReply && typeof body === 'object' && body !== null && 'command_id' in body) {
-        const id = String((body as Record<string, unknown>).command_id);
-        if (!receipts.has(id)) {
-          const outcome = acceptance as Record<string, unknown>;
-          receipts.set(id, {
-            outcome: acceptance,
-            target: `repository/${outcome.repository}/completion/${outcome.event_id}`,
-            pending: hit.receiptPending === true,
-          });
+      if (hit.loseReply) {
+        if (typeof body === 'object' && body !== null && 'command_id' in body) {
+          const id = String((body as Record<string, unknown>).command_id);
+          if (!receipts.has(id)) {
+            const outcome = acceptance as Record<string, unknown>;
+            receipts.set(id, {
+              outcome: acceptance,
+              target: `repository/${outcome.repository}/completion/${outcome.event_id}`,
+              pending: hit.receiptPending === true,
+            });
+          }
         }
-        throw new TypeError('The recorded command reply was lost.');
+        throw new TypeError('The action reply was lost.');
       }
       return Response.json(acceptance, {status: hit.status});
     }) as PreparedExtensionMount['request'],

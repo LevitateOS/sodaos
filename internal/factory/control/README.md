@@ -49,8 +49,8 @@ redacted; it does not query the host or broker. The private operator endpoint
 accepts only status, stop and reconcile. Its listener supplies the principal;
 request bodies cannot supply human identity or policy authority.
 
-Mutating commands use durable IDs: identical replay returns the recorded result,
-changed content conflicts, and an unfinished duplicate returns accepted status.
+Stop and Reconcile use current run state directly. Queued owner actions and
+settings commands retain their command identities and recorded results.
 Unknown termination, credential return or native effects remain fenced. A failed
 observation does not authorize a new execution or erase earlier effects.
 

@@ -8,8 +8,7 @@ use std::io::{self, Write};
 use std::path::Path;
 use std::time::Duration;
 
-const USAGE: &str =
-    "usage: soda-factory --socket PATH [--command ID] status [RUN] / stop RUN / reconcile";
+const USAGE: &str = "usage: soda-factory --socket PATH status [RUN] / stop RUN / reconcile";
 const OPERATOR_PATH: &str = "/operator/factory";
 const OPERATOR_HOST: &str = "soda-operator";
 const RESPONSE_LIMIT: usize = 256 * 1024;
@@ -27,24 +26,22 @@ fn main() {
 
 fn run(args: &[String], out: &mut dyn Write) -> Result<(), String> {
     let parsed = parse_args(args)?;
-    dispatch(&parsed.socket, &parsed.command, &parsed.positional, out)
+    dispatch(&parsed.socket, &parsed.positional, out)
 }
 
 struct ParsedArgs {
     socket: String,
-    command: String,
     positional: Vec<String>,
 }
 
 fn print_usage() {
     eprint!(
-        "Usage of soda-factory:\n  -command string\n    \tclient-generated command identity for stop and reconcile\n  -socket string\n    \tprivate backend operator Unix socket\n"
+        "Usage of soda-factory:\n  -socket string\n    \tprivate backend operator Unix socket\n"
     );
 }
 
 fn parse_args(args: &[String]) -> Result<ParsedArgs, String> {
     let mut socket = String::new();
-    let mut command = String::new();
     let mut positional: Vec<String> = Vec::new();
     let mut i = 0;
     let mut end_of_flags = false;
@@ -84,7 +81,6 @@ fn parse_args(args: &[String]) -> Result<ParsedArgs, String> {
         };
         match name {
             "socket" => socket = value,
-            "command" => command = value,
             _ => {
                 let msg = format!("flag provided but not defined: -{name}");
                 eprintln!("{msg}");
@@ -97,19 +93,10 @@ fn parse_args(args: &[String]) -> Result<ParsedArgs, String> {
     if socket.is_empty() {
         return Err(USAGE.to_string());
     }
-    Ok(ParsedArgs {
-        socket,
-        command,
-        positional,
-    })
+    Ok(ParsedArgs { socket, positional })
 }
 
-fn dispatch(
-    socket: &str,
-    command: &str,
-    args: &[String],
-    out: &mut dyn Write,
-) -> Result<(), String> {
+fn dispatch(socket: &str, args: &[String], out: &mut dyn Write) -> Result<(), String> {
     if args.is_empty() {
         return Err(USAGE.to_string());
     }
@@ -119,28 +106,23 @@ fn dispatch(
             if args.len() > 2 || (args.len() == 2 && args[1].is_empty()) {
                 return Err("status takes an optional run identity".to_string());
             }
-            if !command.is_empty() {
-                return Err("status carries no durable command".to_string());
-            }
             envelope.push(("type", "status"));
             if args.len() == 2 {
                 envelope.push(("target", &args[1]));
             }
         }
         "stop" => {
-            if args.len() != 2 || command.is_empty() {
-                return Err("stop requires --command ID and one recorded run".to_string());
+            if args.len() != 2 {
+                return Err("stop requires one recorded run".to_string());
             }
             envelope.push(("type", "stop"));
-            envelope.push(("command_id", command));
             envelope.push(("target", &args[1]));
         }
         "reconcile" => {
-            if args.len() != 1 || command.is_empty() {
-                return Err("reconcile requires --command ID and no target".to_string());
+            if args.len() != 1 {
+                return Err("reconcile takes no target".to_string());
             }
             envelope.push(("type", "reconcile"));
-            envelope.push(("command_id", command));
         }
         _ => return Err("unknown factory command".to_string()),
     }
@@ -223,7 +205,7 @@ fn send(socket: &str, envelope: &[(&str, &str)], out: &mut dyn Write) -> Result<
     let status = response.status;
     let data = response.body;
     match status {
-        200 | 202 => {
+        200 => {
             out.write_all(&data)
                 .map_err(|e| format!("write response: {e}"))?;
             if data.is_empty() || data[data.len() - 1] != b'\n' {
@@ -233,7 +215,6 @@ fn send(socket: &str, envelope: &[(&str, &str)], out: &mut dyn Write) -> Result<
             Ok(())
         }
         404 => Err("factory run not found".to_string()),
-        409 => Err("command identity reused for different content".to_string()),
         code => Err(format!("operator command failed (HTTP {code})")),
     }
 }

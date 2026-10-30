@@ -2,7 +2,7 @@
 
 Inspect and retire supervised factory runs through the dashboard backend's
 private operator interface. This command is for an operator whose OS identity
-is admitted by that endpoint. The backend owns the durable run and command
+is admitted by that endpoint. The backend owns the durable run
 records; this CLI keeps no database.
 
 The [Factory reference](../../docs/reference/factory.md) owns the complete
@@ -30,21 +30,17 @@ target/debug/soda-factory --socket /run/soda/operator/operator.sock status RUN_I
 
 Replace `RUN_ID` with a recorded run identity. Status returns the backend's
 bounded recorded metadata, with credential-adjacent paths redacted. It carries
-no durable command, so omit `--command` for status.
+no durable command.
 
 ## Retire or reconcile runs
 
 ```sh
-target/debug/soda-factory --socket /run/soda/operator/operator.sock \
-  --command STOP_COMMAND_ID stop RUN_ID
-target/debug/soda-factory --socket /run/soda/operator/operator.sock \
-  --command RECONCILE_COMMAND_ID reconcile
+target/debug/soda-factory --socket /run/soda/operator/operator.sock stop RUN_ID
+target/debug/soda-factory --socket /run/soda/operator/operator.sock reconcile
 ```
 
-Supply a distinct client-generated `COMMAND_ID` for each new action. Repeating
-the same ID and payload retrieves its recorded outcome; using that ID for
-different content conflicts. An unfinished repeated command can return an
-accepted response; refresh its recorded state.
+Each action uses the current recorded run state. An already settled run returns
+its outcome without another host stop. No separate command receipt is stored.
 
 `stop` retires one recorded run and closes its broker execution. `reconcile`
 settles outstanding runs through the same retirement path. Unconfirmed effects,
@@ -53,5 +49,5 @@ commands do not admit, launch, retry or publish work.
 
 Successful backend responses are written to standard output. Errors go to
 standard error with exit status `1`, including unavailable endpoints, missing
-runs and command identity conflicts. The client's request timeout is eleven
+runs. The client's request timeout is eleven
 minutes; an observation failure does not prove the backend action was undone.
