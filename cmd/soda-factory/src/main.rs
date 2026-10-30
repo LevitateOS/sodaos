@@ -3,6 +3,7 @@
 // outstanding runs. It addresses the dashboard backend's operator endpoint
 // over a restricted Unix socket and keeps no database of its own.
 
+use std::collections::BTreeMap;
 use std::env;
 use std::io::{self, Write};
 use std::path::Path;
@@ -129,63 +130,9 @@ fn dispatch(socket: &str, args: &[String], out: &mut dyn Write) -> Result<(), St
     send(socket, &envelope, out)
 }
 
-/// Encode the fixed string envelope with Go-compatible sorted keys and escapes.
-fn encode_envelope(envelope: &[(&str, &str)]) -> Vec<u8> {
-    use serde::Serialize;
-    use serde_json::ser::{CharEscape, CompactFormatter, Formatter, Serializer};
-    use std::collections::BTreeMap;
-    use std::io;
-
-    struct GoFormatter;
-    impl Formatter for GoFormatter {
-        fn write_string_fragment<W: ?Sized + io::Write>(
-            &mut self,
-            writer: &mut W,
-            fragment: &str,
-        ) -> io::Result<()> {
-            let mut start = 0;
-            for (index, ch) in fragment.char_indices() {
-                let escaped = match ch {
-                    '<' => Some("\\u003c"),
-                    '>' => Some("\\u003e"),
-                    '&' => Some("\\u0026"),
-                    '\u{2028}' => Some("\\u2028"),
-                    '\u{2029}' => Some("\\u2029"),
-                    _ => None,
-                };
-                if let Some(escaped) = escaped {
-                    writer.write_all(fragment[start..index].as_bytes())?;
-                    writer.write_all(escaped.as_bytes())?;
-                    start = index + ch.len_utf8();
-                }
-            }
-            writer.write_all(fragment[start..].as_bytes())
-        }
-
-        fn write_char_escape<W: ?Sized + io::Write>(
-            &mut self,
-            writer: &mut W,
-            escape: CharEscape,
-        ) -> io::Result<()> {
-            CompactFormatter.write_char_escape(writer, escape)
-        }
-    }
-
-    let mut object = BTreeMap::new();
-    for (key, value) in envelope {
-        object.insert(*key, *value);
-    }
-    let mut body = Vec::new();
-    let mut serializer = Serializer::with_formatter(&mut body, GoFormatter);
-    object
-        .serialize(&mut serializer)
-        .expect("writing to Vec cannot fail");
-    body.push(b'\n');
-    body
-}
-
 fn send(socket: &str, envelope: &[(&str, &str)], out: &mut dyn Write) -> Result<(), String> {
-    let body = encode_envelope(envelope);
+    let object: BTreeMap<_, _> = envelope.iter().copied().collect();
+    let body = serde_json::to_vec(&object).expect("string envelope serializes");
     let response = soda_unix_http::request(
         Path::new(socket),
         "POST",
