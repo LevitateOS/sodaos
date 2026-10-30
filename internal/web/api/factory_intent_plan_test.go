@@ -329,6 +329,14 @@ func TestIssueMakerBoundMCPPublishesIssuesDuringItsOwnRun(t *testing.T) {
 	call("factory.create_issue", "notifications", "notifications", "Notification preferences", "Allow the user to select notification preferences.")
 	call("factory.create_issue", "notifications", "notifications", "Notification preferences", "Allow the user to select notification preferences.")
 	call("factory.refine_issue", "refine-login", "request", "Login screen", "Provide a login screen. Acceptance: valid credentials open the app.")
+	message, err := session.CallTool(ctx, &mcp.CallToolParams{Name: string(factory.MCPToolPartial), Arguments: map[string]any{"submission_id": "intake-progress", "payload": map[string]any{"title": "Issues captured", "summary": "Login and notification issues are ready for their own work.", "completed": []string{"Captured login and notification issues"}}}})
+	if catalogRefused(message, err) {
+		t.Fatal("worker message did not write its post", err, catalogText(t, message))
+	}
+	var posted map[string]any
+	if err := json.Unmarshal([]byte(catalogText(t, message)), &posted); err != nil || posted["post_id"] == nil || posted["receipt"] != nil || posted["submission_id"] != nil {
+		t.Fatal("worker message did not return the post directly", posted, err)
+	}
 	if count, err := s.MCPSubmissionCount(ctx, attempt.ID); err != nil || count != 0 {
 		t.Fatal("issue posts acquired a duplicate submission journal", count, err)
 	}
@@ -337,7 +345,7 @@ func TestIssueMakerBoundMCPPublishesIssuesDuringItsOwnRun(t *testing.T) {
 		t.Fatal(err)
 	}
 	replies, _, err := s.FeedReplyIDs(ctx, 7, "post", post.Scope.Post, 0)
-	if err != nil || len(replies) != 2 || len(graph.issues) != 2 || graph.issues[1].Title != "Login screen" {
+	if err != nil || len(replies) != 3 || len(graph.issues) != 2 || graph.issues[1].Title != "Login screen" {
 		t.Fatal("live MCP writes did not publish one comment per issue", replies, len(graph.issues), err)
 	}
 	if attempt, err = s.Assignment(ctx, attempt.ID); err != nil || attempt.Stage != factory.AssignmentAssigned {

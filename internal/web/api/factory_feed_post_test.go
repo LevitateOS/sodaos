@@ -932,14 +932,14 @@ func TestRecordInvitationThreadReachesOriginalAssignment(t *testing.T) {
 	if err != nil || resolved.ID != sourceID {
 		t.Fatalf("record source unresolved: %+v %v", resolved, err)
 	}
-	submit := func(tool factory.MCPTool, payload []byte) factory.MCPReceipt {
+	submit := func(tool factory.MCPTool, payload []byte) store.FeedPostDetail {
 		t.Helper()
 		submission := factory.MCPSubmission{
 			AssignmentID: capability.AssignmentID, SubmissionID: factory.NewID(),
 			CapabilityID: capability.ID, Tool: tool,
 			PayloadHash: factory.MCPInputDigest(payload), Payload: payload,
 		}
-		receipt, err := s.RecordMCPSubmission(ctx, submission)
+		receipt, err := s.RecordWorkerPost(ctx, submission)
 		if err != nil {
 			t.Fatalf("%s: %v", tool, err)
 		}
@@ -947,11 +947,11 @@ func TestRecordInvitationThreadReachesOriginalAssignment(t *testing.T) {
 	}
 	receipt := submit(factory.MCPToolReply, []byte(`{"title":"Approval boundary","summary":"I checked the delivery guard and the self-approval case still fails before changing code.","parent_id":"`+invitation+`"}`))
 	thread, _, err := s.FeedReplyIDs(ctx, 7, "record", sourceID, 0)
-	if err != nil || len(thread) != 2 || thread[0] != receipt.FeedPostID || thread[1] != invitation {
+	if err != nil || len(thread) != 2 || thread[0] != receipt.Record.ID || thread[1] != invitation {
 		t.Fatalf("reply missed original record thread: %v %v", thread, err)
 	}
 	page, err := s.MCPDiscussion(ctx, capability, invitation, "")
-	if err != nil || len(page.Items) != 2 || page.Items[0].ID != receipt.FeedPostID {
+	if err != nil || len(page.Items) != 2 || page.Items[0].ID != receipt.Record.ID {
 		t.Fatalf("invited thread unreadable: %+v %v", page, err)
 	}
 	duplicate := factory.MCPSubmission{
@@ -960,7 +960,7 @@ func TestRecordInvitationThreadReachesOriginalAssignment(t *testing.T) {
 		PayloadHash: factory.MCPInputDigest([]byte(`{"title":"Again","summary":"Second reply.","parent_id":"` + invitation + `"}`)),
 		Payload:     []byte(`{"title":"Again","summary":"Second reply.","parent_id":"` + invitation + `"}`),
 	}
-	if _, err := s.RecordMCPSubmission(ctx, duplicate); err == nil {
+	if _, err := s.RecordWorkerPost(ctx, duplicate); err == nil {
 		t.Fatal("record invitation admitted a second reply")
 	}
 }

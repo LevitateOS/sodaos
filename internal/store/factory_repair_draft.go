@@ -77,5 +77,6 @@ func recordMCPRepairDraftTx(ctx context.Context, tx *sql.Tx, cap factory.MCPCapa
 	if abbreviated {
 		content.Remaining = append(content.Remaining, "Long text or prerequisite lists are abbreviated in this preview; the recorded draft retains every byte.")
 	}
-	return recordMCPFeedContentTx(ctx, tx, cap, sub, content, receipt)
+	receipt.FeedPostID, err = recordWorkerPostTx(ctx, tx, cap, sub, content)
+	return err
 }

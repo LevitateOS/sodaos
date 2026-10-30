@@ -50,5 +50,6 @@ func recordMCPRepairDiagnosisTx(ctx context.Context, tx *sql.Tx, cap factory.MCP
 	if err := resolveCommunicationArtifactsTx(ctx, tx, cap.Repository, &content); err != nil {
 		return err
 	}
-	return recordMCPFeedContentTx(ctx, tx, cap, sub, content, receipt)
+	receipt.FeedPostID, err = recordWorkerPostTx(ctx, tx, cap, sub, content)
+	return err
 }

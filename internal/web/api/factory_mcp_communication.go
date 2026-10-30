@@ -1,12 +1,40 @@
 package api
 
 import (
+	"context"
 	"encoding/json"
+	"errors"
 
 	"github.com/google/jsonschema-go/jsonschema"
 	"github.com/levitateos/sodaos/internal/factory"
 	"github.com/levitateos/sodaos/internal/store"
+	"github.com/modelcontextprotocol/go-sdk/mcp"
 )
+
+type factoryMCPPostWriter interface {
+	RecordWorkerPost(context.Context, factory.MCPSubmission) (store.FeedPostDetail, error)
+}
+
+func (s *factoryCatalogServer) serveWorkerPost(ctx context.Context, tool factory.MCPTool, args mcpCallArgs) (*mcp.CallToolResult, any, error) {
+	cap, release, err := s.admitCall(ctx, tool, args)
+	if err != nil {
+		return nil, nil, err
+	}
+	defer release()
+	writer, ok := s.deps.Submissions.(factoryMCPPostWriter)
+	if !ok {
+		return nil, nil, errors.New("worker posts are unavailable")
+	}
+	raw, err := json.Marshal(args.Payload)
+	if err != nil {
+		return nil, nil, err
+	}
+	post, err := writer.RecordWorkerPost(ctx, factory.MCPSubmission{AssignmentID: cap.AssignmentID, CapabilityID: cap.ID, SubmissionID: args.SubmissionID, Tool: tool, Payload: raw})
+	if err != nil {
+		return nil, nil, err
+	}
+	return mcpJSONResult(feedWorkerPostResponse(post))
+}
 
 // communicationPayloadSchema exposes the usable structured payload in tool
 // discovery; server decoding enforces the same bounds on direct calls.
@@ -48,15 +76,6 @@ func communicationPayloadSchema(tool factory.MCPTool) *jsonschema.Schema {
 		required = append(required, "decision", "rationale")
 	}
 	return &jsonschema.Schema{Type: "object", Properties: props, Required: required, AdditionalProperties: &jsonschema.Schema{Not: &jsonschema.Schema{}}}
-}
-
-func checkCommunicationPayload(tool factory.MCPTool, payload map[string]any) error {
-	raw, err := json.Marshal(payload)
-	if err != nil {
-		return err
-	}
-	_, err = factory.DecodeMCPCommunication(tool, raw)
-	return err
 }
 
 // Worker communications are recorded content; no human comment routing request

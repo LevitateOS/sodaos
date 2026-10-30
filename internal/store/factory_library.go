@@ -12,7 +12,7 @@ import (
 )
 
 // The library adds its own tables without rewriting the existing appliance data.
-// Its current projection and immutable revisions commit with the MCP receipt.
+// Its current projection and immutable revisions commit with the worker post.
 func initializeLibrarySchema(ctx context.Context, db *sql.DB) error {
 	_, err := db.ExecContext(ctx, `CREATE TABLE IF NOT EXISTS factory_library_items(id TEXT PRIMARY KEY,repository BIGINT NOT NULL,revision BIGINT NOT NULL,kind TEXT NOT NULL,removed BOOLEAN NOT NULL DEFAULT FALSE,data JSONB NOT NULL);
 CREATE INDEX IF NOT EXISTS factory_library_repository ON factory_library_items(repository,id);
@@ -105,7 +105,7 @@ func (s *Store) LibraryRead(ctx context.Context, repository int64, id string, in
 	return out, rows.Err()
 }
 
-func writeLibraryRevision(ctx context.Context, tx *sql.Tx, item factory.LibraryItem, reason, actor, submission string) error {
+func writeLibraryRevision(ctx context.Context, tx *sql.Tx, item factory.LibraryItem, reason, actor string) error {
 	item.UpdatedAt = time.Now().Unix()
 	raw, err := json.Marshal(item)
 	if err != nil {
@@ -115,7 +115,7 @@ func writeLibraryRevision(ctx context.Context, tx *sql.Tx, item factory.LibraryI
 	if err != nil {
 		return err
 	}
-	revision, err := json.Marshal(factory.LibraryRevision{Item: item, Reason: reason, Actor: actor, Submission: submission})
+	revision, err := json.Marshal(factory.LibraryRevision{Item: item, Reason: reason, Actor: actor})
 	if err != nil {
 		return err
 	}
@@ -123,15 +123,15 @@ func writeLibraryRevision(ctx context.Context, tx *sql.Tx, item factory.LibraryI
 	return err
 }
 
-func createCommunicationLibraryTx(ctx context.Context, tx *sql.Tx, cap factory.MCPCapability, submission factory.MCPSubmission, content *factory.FeedCommunication, postID string, receipt *factory.MCPReceipt) error {
-	if submission.Tool != factory.MCPToolLearned && submission.Tool != factory.MCPToolRecordDecision {
+func createCommunicationLibraryTx(ctx context.Context, tx *sql.Tx, cap factory.MCPCapability, tool factory.MCPTool, content *factory.FeedCommunication, postID string) error {
+	if tool != factory.MCPToolLearned && tool != factory.MCPToolRecordDecision {
 		return nil
 	}
 	if content.RevisesItem != "" {
-		return amendCommunicationLibraryTx(ctx, tx, cap, submission, content, postID, receipt)
+		return amendCommunicationLibraryTx(ctx, tx, cap, content, postID)
 	}
 	item := factory.LibraryItem{ID: factory.MCPInputDigest([]byte("library\n" + postID))[:32], Repository: cap.Repository, Revision: 1, Kind: "knowledge", Title: content.Title, Body: content.Summary, Scope: content.Scope, EvidenceRefs: content.EvidenceRefs, OwnerRole: string(cap.Profile), Assignment: cap.AssignmentID, SourcePost: postID, State: "observed"}
-	if submission.Tool == factory.MCPToolRecordDecision {
+	if tool == factory.MCPToolRecordDecision {
 		item.Kind = "decision"
 		item.State = "current"
 		item.Decision = content.Decision
@@ -148,12 +148,11 @@ func createCommunicationLibraryTx(ctx context.Context, tx *sql.Tx, cap factory.M
 			item.Scope = cap.Subject
 		}
 	}
-	if err := writeLibraryRevision(ctx, tx, item, "Recorded by "+string(cap.Profile), "worker:"+cap.AssignmentID, submission.SubmissionID); err != nil {
+	if err := writeLibraryRevision(ctx, tx, item, "Recorded by "+string(cap.Profile), "worker:"+cap.AssignmentID); err != nil {
 		return err
 	}
 	content.LibraryItemID = item.ID
 	content.LibraryRevision = 1
-	receipt.LibraryItemID = item.ID
 	return nil
 }
 
@@ -162,10 +161,10 @@ func createCommunicationLibraryTx(ctx context.Context, tx *sql.Tx, cap factory.M
 // so concurrent amendments serialize instead of silently overwriting.
 // An amendment replaces the entry body and restores the observed
 // state; a challenge keeps the body and marks it contested. Either
-// records a full revision with its actor and submission, preserving
+// records a full revision with its actor and source post, preserving
 // one identity across work, feed and retrieval. Removed entries and
 // decisions (R32.5) refuse here.
-func amendCommunicationLibraryTx(ctx context.Context, tx *sql.Tx, cap factory.MCPCapability, submission factory.MCPSubmission, content *factory.FeedCommunication, postID string, receipt *factory.MCPReceipt) error {
+func amendCommunicationLibraryTx(ctx context.Context, tx *sql.Tx, cap factory.MCPCapability, content *factory.FeedCommunication, postID string) error {
 	item, err := readLibraryItem(ctx, tx, cap.Repository, content.RevisesItem, true)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
@@ -194,11 +193,11 @@ func amendCommunicationLibraryTx(ctx context.Context, tx *sql.Tx, cap factory.MC
 		item.State = "observed"
 	}
 	item.Revision++
-	if err := writeLibraryRevision(ctx, tx, item, verb+" by "+string(cap.Profile)+": "+content.Title, "worker:"+cap.AssignmentID, submission.SubmissionID); err != nil {
+	item.SourcePost = postID
+	if err := writeLibraryRevision(ctx, tx, item, verb+" by "+string(cap.Profile)+": "+content.Title, "worker:"+cap.AssignmentID); err != nil {
 		return err
 	}
 	content.LibraryItemID = item.ID
 	content.LibraryRevision = item.Revision
-	receipt.LibraryItemID = item.ID
 	return nil
 }

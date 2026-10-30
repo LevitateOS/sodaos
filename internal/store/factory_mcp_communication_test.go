@@ -120,15 +120,15 @@ func TestMCPInvitedContributionUsesCurrentSourceOnce(t *testing.T) {
 	}
 	payload, _ := json.Marshal(map[string]string{"title": "Approval boundary", "summary": replySummary, "parent_id": post})
 	submission := testMCPSubmissionRow(cap, factory.MCPToolReply, payload)
-	receipt, err := s.RecordMCPSubmission(ctx, submission)
+	receipt, err := s.RecordWorkerPost(ctx, submission)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if replay, err := s.RecordMCPSubmission(ctx, submission); err != nil || replay != receipt {
+	if replay, err := s.RecordWorkerPost(ctx, submission); err != nil || replay.Record.ID != receipt.Record.ID {
 		t.Fatalf("reply replay: %+v %v", replay, err)
 	}
 	again := testMCPSubmissionRow(cap, factory.MCPToolReply, payload)
-	if _, err := s.RecordMCPSubmission(ctx, again); err == nil {
+	if _, err := s.RecordWorkerPost(ctx, again); err == nil {
 		t.Fatal("invitation admitted a second reply")
 	}
 	if sources, err := s.ContributionSources(ctx); err != nil || len(sources) != 0 {
@@ -139,7 +139,7 @@ func TestMCPInvitedContributionUsesCurrentSourceOnce(t *testing.T) {
 		t.Fatal(err)
 	}
 	descendant := testMCPSubmissionRow(cap, factory.MCPToolReply, []byte(`{"title":"Another reply","summary":"An invitation cannot recursively admit replies to another descendant.","parent_id":"`+child+`"}`))
-	if _, err := s.RecordMCPSubmission(ctx, descendant); err == nil {
+	if _, err := s.RecordWorkerPost(ctx, descendant); err == nil {
 		t.Fatal("invitation widened through descendants")
 	}
 	if _, err := s.EditFeedPost(ctx, post, "7", "Revised request: inspect Finance decline as well as delivery.", 0, time.Now().Unix()); err != nil {
@@ -204,29 +204,32 @@ func TestMCPCommunicationPersistsFeedAndReplay(t *testing.T) {
 	cap = activateMCPCapability(t, ctx, s, cap)
 	payload := []byte(`{"title":"Who can view a task?","summary":"The owner policy needs clarification.","question":"May team members view other people's tasks?","options":["Only owners","All team members"]}`)
 	submission := testMCPSubmissionRow(cap, factory.MCPToolAsk, payload)
-	receipt, err := s.RecordMCPSubmission(ctx, submission)
+	receipt, err := s.RecordWorkerPost(ctx, submission)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !factory.ValidID(receipt.FeedPostID) {
+	if !factory.ValidID(receipt.Record.ID) {
 		t.Fatalf("missing feed identity: %+v", receipt)
 	}
-	replay, err := s.RecordMCPSubmission(ctx, submission)
-	if err != nil || replay != receipt {
+	if count, err := s.MCPSubmissionCount(ctx, cap.AssignmentID); err != nil || count != 0 {
+		t.Fatal("worker post acquired a duplicate submission record", count, err)
+	}
+	replay, err := s.RecordWorkerPost(ctx, submission)
+	if err != nil || replay.Record.ID != receipt.Record.ID {
 		t.Fatalf("replay=%+v err=%v", replay, err)
 	}
 	page, _, _, err := s.SubscribedFeed(ctx, factory.FeedQuery{Repositories: []int64{7}, Limit: 10})
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(page) != 2 || page[0].ID != receipt.FeedPostID {
+	if len(page) != 2 || page[0].ID != receipt.Record.ID {
 		t.Fatalf("feed order/replay: %+v", page)
 	}
-	details, err := s.FeedPostDetails(ctx, []string{receipt.FeedPostID})
+	details, err := s.FeedPostDetails(ctx, []string{receipt.Record.ID})
 	if err != nil {
 		t.Fatal(err)
 	}
-	detail := details[receipt.FeedPostID]
+	detail := details[receipt.Record.ID]
 	if detail.Actor != "builder" || detail.AuthorName != "Builder" || detail.Assignment != cap.AssignmentID || detail.Record.Issue != 42 || detail.Status != "ask" || detail.Payload.Communication.Question == "" {
 		t.Fatalf("lost bound metadata/content: %+v", detail)
 	}
@@ -234,34 +237,34 @@ func TestMCPCommunicationPersistsFeedAndReplay(t *testing.T) {
 	if detail.Payload.Communication.QuestionState != "open" {
 		t.Fatal("new question is not open")
 	}
-	if _, _, err := s.SaveFeedPost(ctx, factory.PostRequest{Repository: 7, Body: "The intended policy is owner-only.", ParentID: receipt.FeedPostID, IdempotencyKey: "question-reply"}, "7", "Owner", 1); err != nil {
+	if _, _, err := s.SaveFeedPost(ctx, factory.PostRequest{Repository: 7, Body: "The intended policy is owner-only.", ParentID: receipt.Record.ID, IdempotencyKey: "question-reply"}, "7", "Owner", 1); err != nil {
 		t.Fatal(err)
 	}
-	question, err := s.FeedPost(ctx, receipt.FeedPostID)
+	question, err := s.FeedPost(ctx, receipt.Record.ID)
 	if err != nil || question.Payload.Communication.QuestionState != "replied" {
 		t.Fatalf("human reply not reflected: %+v %v", question, err)
 	}
 	// Answer uses the same authentic identity and is a durable thread reply.
-	answer := testMCPSubmissionRow(cap, factory.MCPToolAnswer, []byte(`{"title":"Policy clarified","summary":"Only task owners may view their tasks.","parent_id":"`+receipt.FeedPostID+`"}`))
-	answered, err := s.RecordMCPSubmission(ctx, answer)
+	answer := testMCPSubmissionRow(cap, factory.MCPToolAnswer, []byte(`{"title":"Policy clarified","summary":"Only task owners may view their tasks.","parent_id":"`+receipt.Record.ID+`"}`))
+	answered, err := s.RecordWorkerPost(ctx, answer)
 	if err != nil {
 		t.Fatal(err)
 	}
-	replies, _, err := s.FeedReplyIDs(ctx, 7, "post", receipt.FeedPostID, 0)
-	if err != nil || len(replies) != 2 || replies[0] != answered.FeedPostID {
+	replies, _, err := s.FeedReplyIDs(ctx, 7, "post", receipt.Record.ID, 0)
+	if err != nil || len(replies) != 2 || replies[0] != answered.Record.ID {
 		t.Fatalf("replies=%v err=%v", replies, err)
 	}
-	question, err = s.FeedPost(ctx, receipt.FeedPostID)
+	question, err = s.FeedPost(ctx, receipt.Record.ID)
 	if err != nil || question.Payload.Communication.QuestionState != "answered" {
 		t.Fatalf("explicit answer not reflected: %+v %v", question, err)
 	}
 	// No model/judgment request is invented for an authored worker report.
-	if _, err = s.PostIntake(ctx, receipt.FeedPostID); !errors.Is(err, ErrNotFound) {
+	if _, err = s.PostIntake(ctx, receipt.Record.ID); !errors.Is(err, ErrNotFound) {
 		t.Fatalf("worker communication opened pipeline: %v", err)
 	}
 	// Unknown/spoofed identity fields refuse atomically without a receipt or post.
 	bad := testMCPSubmissionRow(cap, factory.MCPToolAsk, []byte(`{"title":"Spoof","summary":"Try another identity","question":"Who?","actor":"inspector"}`))
-	if _, err = s.RecordMCPSubmission(ctx, bad); err == nil {
+	if _, err = s.RecordWorkerPost(ctx, bad); err == nil {
 		t.Fatal("spoofed actor admitted")
 	}
 	if _, err = s.MCPReceipt(ctx, cap.AssignmentID, bad.SubmissionID); !errors.Is(err, ErrNotFound) {
@@ -269,11 +272,11 @@ func TestMCPCommunicationPersistsFeedAndReplay(t *testing.T) {
 	}
 	// A caller-selected Factory event ID is ignored, so it cannot become a trusted card.
 	stray := testMCPSubmissionRow(cap, factory.MCPToolPartial, []byte(`{"title":"Merged","summary":"An untrusted report","completed":["claimed merge"],"component_id":"F04"}`))
-	strayReceipt, err := s.RecordMCPSubmission(ctx, stray)
+	strayReceipt, err := s.RecordWorkerPost(ctx, stray)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if post, err := s.FeedPost(ctx, strayReceipt.FeedPostID); err != nil || post.Payload == nil || post.Payload.Communication == nil || post.Payload.Communication.ComponentID != "" {
+	if post, err := s.FeedPost(ctx, strayReceipt.Record.ID); err != nil || post.Payload == nil || post.Payload.Communication == nil || post.Payload.Communication.ComponentID != "" {
 		t.Fatalf("stray component kept: %+v %v", post, err)
 	}
 }
@@ -285,12 +288,12 @@ func TestMCPCommunicationBoundPreservesFinish(t *testing.T) {
 	payload := []byte(`{"title":"Progress","summary":"Working on the assigned task.","remaining":["Finish the task"]}`)
 	for i := 0; i < factory.MCPMaxCommunications; i++ {
 		submission := testMCPSubmissionRow(cap, factory.MCPToolPartial, payload)
-		if _, err := s.RecordMCPSubmission(ctx, submission); err != nil {
+		if _, err := s.RecordWorkerPost(ctx, submission); err != nil {
 			t.Fatal(err)
 		}
 	}
 	over := testMCPSubmissionRow(cap, factory.MCPToolPartial, payload)
-	if _, err := s.RecordMCPSubmission(ctx, over); !errors.Is(err, ErrMCPCommunicationCap) {
+	if _, err := s.RecordWorkerPost(ctx, over); !errors.Is(err, ErrMCPCommunicationCap) {
 		t.Fatalf("communication bound=%v", err)
 	}
 	terminal := testMCPSubmissionRow(cap, factory.MCPToolFinishIncomplete, []byte(`{"outcome":"blocked","cause":"question","evidence_refs":[],"affected_task_ids":[],"requested_resolution":"Need owner input"}`))
@@ -330,14 +333,14 @@ func TestMCPCommunicationEveryOutlet(t *testing.T) {
 		}
 		raw, _ := json.Marshal(payload)
 		submission := testMCPSubmissionRow(cap, tool, raw)
-		receipt, err := s.RecordMCPSubmission(ctx, submission)
+		receipt, err := s.RecordWorkerPost(ctx, submission)
 		if err != nil {
 			t.Fatalf("%s: %v", tool, err)
 		}
 		if tool == factory.MCPToolAsk {
-			question = receipt.FeedPostID
+			question = receipt.Record.ID
 		}
-		detail, err := s.FeedPost(ctx, receipt.FeedPostID)
+		detail, err := s.FeedPost(ctx, receipt.Record.ID)
 		if err != nil || detail.Payload == nil || detail.Payload.Communication.Kind != strings.TrimPrefix(string(tool), "factory.") {
 			t.Fatalf("%s absent from stored feed: %+v %v", tool, detail, err)
 		}
@@ -385,21 +388,21 @@ func TestPostResolutionDispositionPersistsAndExposes(t *testing.T) {
 	assignment := journeyAssignment(cap.AssignmentID, strings.Repeat("1", 32), "d"+strings.Repeat("a", 24), cap.Repository, 42, true)
 	insertJourneyAssignment(t, journeySQL(t, dsn), assignment, "assigned", 1)
 	cap = activateMCPCapability(t, ctx, s, cap)
-	post := func(tool factory.MCPTool, payload string) factory.MCPReceipt {
+	post := func(tool factory.MCPTool, payload string) FeedPostDetail {
 		t.Helper()
 		submission := testMCPSubmissionRow(cap, tool, []byte(payload))
-		receipt, err := s.RecordMCPSubmission(ctx, submission)
+		receipt, err := s.RecordWorkerPost(ctx, submission)
 		if err != nil {
 			t.Fatalf("%s: %v", tool, err)
 		}
-		if !factory.ValidID(receipt.FeedPostID) {
+		if !factory.ValidID(receipt.Record.ID) {
 			t.Fatalf("%s recorded no post: %+v", tool, receipt)
 		}
 		return receipt
 	}
 	ask := post(factory.MCPToolAsk, `{"title":"Who can view a task?","summary":"The owner policy needs clarification.","question":"May team members view other people's tasks?"}`)
-	answer := post(factory.MCPToolAnswer, `{"title":"Policy clarified","summary":"Only task owners may view their tasks.","parent_id":"`+ask.FeedPostID+`"}`)
-	question, err := s.FeedPost(ctx, ask.FeedPostID)
+	answer := post(factory.MCPToolAnswer, `{"title":"Policy clarified","summary":"Only task owners may view their tasks.","parent_id":"`+ask.Record.ID+`"}`)
+	question, err := s.FeedPost(ctx, ask.Record.ID)
 	if err != nil || question.Payload.Communication.QuestionState != "answered" {
 		t.Fatalf("answer not reflected: %+v %v", question, err)
 	}
@@ -409,46 +412,46 @@ func TestPostResolutionDispositionPersistsAndExposes(t *testing.T) {
 		_, err := s.RecordMCPSubmission(ctx, submission)
 		return err
 	}
-	if err := resolve(`{"post":"` + answer.FeedPostID + `","resolution":"incorporated"} {}`); err == nil {
+	if err := resolve(`{"post":"` + answer.Record.ID + `","resolution":"incorporated"} {}`); err == nil {
 		t.Fatal("trailing resolution object accepted")
 	}
-	if err := resolve(`{"post":"` + answer.FeedPostID + `","resolution":"incorporated"}`); err != nil {
+	if err := resolve(`{"post":"` + answer.Record.ID + `","resolution":"incorporated"}`); err != nil {
 		t.Fatalf("incorporate: %v", err)
 	}
-	adopted, err := s.FeedPost(ctx, answer.FeedPostID)
+	adopted, err := s.FeedPost(ctx, answer.Record.ID)
 	if err != nil || adopted.Payload.Communication.Disposition != "incorporated" {
 		t.Fatalf("incorporation not exposed: %+v %v", adopted, err)
 	}
-	question, err = s.FeedPost(ctx, ask.FeedPostID)
+	question, err = s.FeedPost(ctx, ask.Record.ID)
 	if err != nil || question.Payload.Communication.QuestionState != "incorporated" {
 		t.Fatalf("question hid its adoption: %+v %v", question, err)
 	}
 	suggest := post(factory.MCPToolSuggest, `{"title":"Cache the policy","summary":"Reading the policy file on every task is slow.","rationale":"Cache ownership at assignment start."}`)
-	if err := resolve(`{"post":"` + suggest.FeedPostID + `","resolution":"applied","reason":"Cached at dispatch"}`); err != nil {
+	if err := resolve(`{"post":"` + suggest.Record.ID + `","resolution":"applied","reason":"Cached at dispatch"}`); err != nil {
 		t.Fatalf("apply: %v", err)
 	}
-	applied, err := s.FeedPost(ctx, suggest.FeedPostID)
+	applied, err := s.FeedPost(ctx, suggest.Record.ID)
 	if err != nil || applied.Payload.Communication.Disposition != "applied" || applied.Payload.Communication.DispositionReason != "Cached at dispatch" {
 		t.Fatalf("applied disposition lost: %+v %v", applied, err)
 	}
-	if err := resolve(`{"post":"` + suggest.FeedPostID + `","resolution":"refused","reason":"Second thoughts"}`); err == nil {
+	if err := resolve(`{"post":"` + suggest.Record.ID + `","resolution":"refused","reason":"Second thoughts"}`); err == nil {
 		t.Fatal("second disposition accepted")
 	}
 	other := post(factory.MCPToolSuggest, `{"title":"Skip the cache","summary":"Caching adds staleness risk.","rationale":"Read the file every time."}`)
-	if err := resolve(`{"post":"` + other.FeedPostID + `","resolution":"refused"}`); err == nil {
+	if err := resolve(`{"post":"` + other.Record.ID + `","resolution":"refused"}`); err == nil {
 		t.Fatal("unexplained refusal accepted")
 	}
-	if err := resolve(`{"post":"` + other.FeedPostID + `","resolution":"incorporated"}`); err == nil {
+	if err := resolve(`{"post":"` + other.Record.ID + `","resolution":"incorporated"}`); err == nil {
 		t.Fatal("suggestion incorporated")
 	}
-	if err := resolve(`{"post":"` + answer.FeedPostID + `","resolution":"applied","reason":"Wrong kind"}`); err == nil {
+	if err := resolve(`{"post":"` + answer.Record.ID + `","resolution":"applied","reason":"Wrong kind"}`); err == nil {
 		t.Fatal("answer applied")
 	}
-	if err := resolve(`{"post":"` + ask.FeedPostID + `","resolution":"applied","reason":"Answering is not resolving"}`); err == nil {
+	if err := resolve(`{"post":"` + ask.Record.ID + `","resolution":"applied","reason":"Answering is not resolving"}`); err == nil {
 		t.Fatal("question resolved")
 	}
 	partial := post(factory.MCPToolPartial, `{"title":"Halfway","summary":"First half done.","completed":["Read the policy"],"remaining":["Apply it"]}`)
-	if err := resolve(`{"post":"` + partial.FeedPostID + `","resolution":"applied","reason":"Status is not a proposal"}`); err == nil {
+	if err := resolve(`{"post":"` + partial.Record.ID + `","resolution":"applied","reason":"Status is not a proposal"}`); err == nil {
 		t.Fatal("status signal resolved")
 	}
 	if err := resolve(`{"post":"` + factory.NewID() + `","resolution":"applied","reason":"Ghost post"}`); err == nil {
@@ -461,7 +464,7 @@ func TestPostResolutionDispositionPersistsAndExposes(t *testing.T) {
 	if err != nil || still.Result != nil {
 		t.Fatalf("discussion traffic finished the role: %+v %v", still, err)
 	}
-	again, err := s.FeedPost(ctx, other.FeedPostID)
+	again, err := s.FeedPost(ctx, other.Record.ID)
 	if err != nil || again.Payload.Communication.Disposition != "" {
 		t.Fatalf("refused dispositions leaked state: %+v %v", again, err)
 	}
@@ -596,22 +599,22 @@ func TestMCPInvitedContributionOnAssignmentRecord(t *testing.T) {
 	}
 	payload, _ := json.Marshal(map[string]string{"title": "Approval boundary", "summary": replySummary, "parent_id": invitation})
 	submission := testMCPSubmissionRow(eligible, factory.MCPToolReply, payload)
-	receipt, err := s.RecordMCPSubmission(ctx, submission)
+	receipt, err := s.RecordWorkerPost(ctx, submission)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if replay, err := s.RecordMCPSubmission(ctx, submission); err != nil || replay != receipt {
+	if replay, err := s.RecordWorkerPost(ctx, submission); err != nil || replay.Record.ID != receipt.Record.ID {
 		t.Fatalf("record reply replay: %+v %v", replay, err)
 	}
 	again := testMCPSubmissionRow(eligible, factory.MCPToolReply, payload)
-	if _, err := s.RecordMCPSubmission(ctx, again); err == nil {
+	if _, err := s.RecordWorkerPost(ctx, again); err == nil {
 		t.Fatal("record invitation admitted a second reply")
 	}
 	if sources, err := s.ContributionSources(ctx); err != nil || len(sources) != 0 {
 		t.Fatalf("record reply restarted discovery: %v %v", sources, err)
 	}
 	thread, _, err := s.FeedReplyIDs(ctx, eligible.Repository, "record", sourceID, 0)
-	if err != nil || len(thread) != 2 || thread[0] != receipt.FeedPostID || thread[1] != invitation {
+	if err != nil || len(thread) != 2 || thread[0] != receipt.Record.ID || thread[1] != invitation {
 		t.Fatalf("reply missed original record thread: %v %v", thread, err)
 	}
 	resolved, err := s.ResolvePostSource(ctx, eligible.Repository, factory.PostSourceRecord, sourceID)
@@ -623,7 +626,7 @@ func TestMCPInvitedContributionOnAssignmentRecord(t *testing.T) {
 		t.Fatal(err)
 	}
 	descendant := testMCPSubmissionRow(eligible, factory.MCPToolReply, []byte(`{"title":"Another reply","summary":"An invitation cannot recursively admit replies to another descendant.","parent_id":"`+child+`"}`))
-	if _, err := s.RecordMCPSubmission(ctx, descendant); err == nil {
+	if _, err := s.RecordWorkerPost(ctx, descendant); err == nil {
 		t.Fatal("record invitation widened through descendants")
 	}
 	consultSnapshot := strings.Repeat("c", 64)
@@ -641,7 +644,7 @@ func TestMCPInvitedContributionOnAssignmentRecord(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	for _, excluded := range []string{receipt.FeedPostID, factory.FeedConsultationPostID(consultSnapshot), sourceID} {
+	for _, excluded := range []string{receipt.Record.ID, factory.FeedConsultationPostID(consultSnapshot), sourceID} {
 		for _, found := range loopSources {
 			if found == excluded {
 				t.Fatalf("loop source rediscovered: %v in %v", excluded, loopSources)
@@ -679,7 +682,7 @@ func TestMCPInvitedContributionOnAssignmentRecord(t *testing.T) {
 		t.Fatalf("no-invitation not retained: %+v %v", stored, err)
 	}
 	nuisance := testMCPSubmissionRow(eligible, factory.MCPToolReply, []byte(`{"title":"Courtesy","summary":"Acknowledged.","parent_id":"`+secondInvitation+`"}`))
-	if _, err := s.RecordMCPSubmission(ctx, nuisance); err == nil {
+	if _, err := s.RecordWorkerPost(ctx, nuisance); err == nil {
 		t.Fatal("no-invitation assessment admitted a reply")
 	}
 	settledSources, err := s.ContributionSources(ctx)
@@ -762,7 +765,7 @@ func TestMCPPostInvitationDirectRefusesStaleSource(t *testing.T) {
 	before := countComments()
 	livePayload := []byte(`{"title":"Approval boundary","summary":"Live invitation-direct reply against the current revision.","parent_id":"` + liveInvite + `"}`)
 	liveSubmission := testMCPSubmissionRow(cap, factory.MCPToolReply, livePayload)
-	if _, err := s.RecordMCPSubmission(ctx, liveSubmission); err != nil {
+	if _, err := s.RecordWorkerPost(ctx, liveSubmission); err != nil {
 		t.Fatalf("live invitation-direct refused: %v", err)
 	}
 	if got := countComments(); got != before+1 {
@@ -774,7 +777,7 @@ func TestMCPPostInvitationDirectRefusesStaleSource(t *testing.T) {
 	// Second live invitation-direct must refuse with no new comment.
 	before = countComments()
 	again := testMCPSubmissionRow(cap, factory.MCPToolReply, []byte(`{"title":"Again","summary":"Second live invitation-direct.","parent_id":"`+liveInvite+`"}`))
-	if _, err := s.RecordMCPSubmission(ctx, again); err == nil {
+	if _, err := s.RecordWorkerPost(ctx, again); err == nil {
 		t.Fatal("live invitation admitted a second reply")
 	}
 	if got := countComments(); got != before {
@@ -789,7 +792,7 @@ func TestMCPPostInvitationDirectRefusesStaleSource(t *testing.T) {
 	}
 	before = countComments()
 	stale := testMCPSubmissionRow(cap, factory.MCPToolReply, []byte(`{"title":"Stale","summary":"Edited source invitation-direct.","parent_id":"`+editedInvite+`"}`))
-	if _, err := s.RecordMCPSubmission(ctx, stale); err == nil {
+	if _, err := s.RecordWorkerPost(ctx, stale); err == nil {
 		t.Fatal("edited source admitted an invitation-target reply")
 	}
 	if got := countComments(); got != before {
@@ -801,7 +804,7 @@ func TestMCPPostInvitationDirectRefusesStaleSource(t *testing.T) {
 	// Source-direct against the edited revision also refuses.
 	before = countComments()
 	staleSource := testMCPSubmissionRow(cap, factory.MCPToolReply, []byte(`{"title":"Stale","summary":"Edited source-direct.","parent_id":"`+editedPost+`"}`))
-	if _, err := s.RecordMCPSubmission(ctx, staleSource); err == nil {
+	if _, err := s.RecordWorkerPost(ctx, staleSource); err == nil {
 		t.Fatal("edited source admitted a source-direct reply")
 	}
 	if got := countComments(); got != before {
@@ -815,7 +818,7 @@ func TestMCPPostInvitationDirectRefusesStaleSource(t *testing.T) {
 	}
 	before = countComments()
 	deleted := testMCPSubmissionRow(cap, factory.MCPToolReply, []byte(`{"title":"Stale","summary":"Deleted source invitation-direct.","parent_id":"`+deletedInvite+`"}`))
-	if _, err := s.RecordMCPSubmission(ctx, deleted); err == nil {
+	if _, err := s.RecordWorkerPost(ctx, deleted); err == nil {
 		t.Fatal("deleted source admitted an invitation-target reply")
 	}
 	if got := countComments(); got != before {
@@ -884,7 +887,7 @@ func TestMCPRecordInvitationDirectRefusesStaleRevision(t *testing.T) {
 		t.Fatal(err)
 	}
 	stale := testMCPSubmissionRow(eligible, factory.MCPToolReply, []byte(`{"title":"Stale","summary":"Edited record invitation-direct.","parent_id":"`+invitation+`"}`))
-	if _, err := s.RecordMCPSubmission(ctx, stale); err == nil {
+	if _, err := s.RecordWorkerPost(ctx, stale); err == nil {
 		t.Fatal("edited record admitted an invitation-target reply")
 	}
 	var after int
@@ -1005,7 +1008,7 @@ func TestMCPInvitationAtomicityHoldsSourceThroughReply(t *testing.T) {
 		t.Fatal(err)
 	}
 	stale := testMCPSubmissionRow(cap, factory.MCPToolReply, []byte(`{"title":"Stale","summary":"Edited source invitation-direct between admission and consumption.","parent_id":"`+invitation+`"}`))
-	if _, err := s.RecordMCPSubmission(ctx, stale); err == nil {
+	if _, err := s.RecordWorkerPost(ctx, stale); err == nil {
 		t.Fatal("edited source admitted an invitation-target reply")
 	}
 	var after int
@@ -1026,12 +1029,12 @@ func TestMCPInvitationAtomicityHoldsSourceThroughReply(t *testing.T) {
 	// worker asks in its own thread and answers it without any claim.
 	askPayload := []byte(`{"title":"Who can view a task?","summary":"The owner policy needs clarification.","question":"May team members view other people's tasks?"}`)
 	askSubmission := testMCPSubmissionRow(cap, factory.MCPToolAsk, askPayload)
-	askReceipt, err := s.RecordMCPSubmission(ctx, askSubmission)
+	askReceipt, err := s.RecordWorkerPost(ctx, askSubmission)
 	if err != nil {
 		t.Fatalf("own ask refused: %v", err)
 	}
-	answerSubmission := testMCPSubmissionRow(cap, factory.MCPToolAnswer, []byte(`{"title":"Policy clarified","summary":"Only task owners may view their tasks.","parent_id":"`+askReceipt.FeedPostID+`"}`))
-	if _, err := s.RecordMCPSubmission(ctx, answerSubmission); err != nil {
+	answerSubmission := testMCPSubmissionRow(cap, factory.MCPToolAnswer, []byte(`{"title":"Policy clarified","summary":"Only task owners may view their tasks.","parent_id":"`+askReceipt.Record.ID+`"}`))
+	if _, err := s.RecordWorkerPost(ctx, answerSubmission); err != nil {
 		t.Fatalf("own-discussion reply refused: %v", err)
 	}
 }

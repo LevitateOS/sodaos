@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"encoding/json"
 	"errors"
+	"slices"
 	"strings"
 	"time"
 
@@ -13,74 +14,109 @@ import (
 
 var ErrMCPCommunicationCap = errors.New("assignment communication bound reached; finish remains available")
 
-// recordMCPCommunicationTx shares the immutable submission transaction, so a
-// durable receipt can never claim a feed post that was not recorded. The
-// canonical communication table already owns identity, thread and feed order.
-func recordMCPCommunicationTx(ctx context.Context, tx *sql.Tx, capability factory.MCPCapability, submission factory.MCPSubmission, receipt *factory.MCPReceipt) error {
-	if !factory.MCPIsCommunication(submission.Tool) || submission.Tool == factory.MCPToolRecordJourneyResult || submission.Tool == factory.MCPToolRecordDiagnosis || submission.Tool == factory.MCPToolDraftRepair {
-		return nil
+// RecordWorkerPost records a worker message and its library effects directly
+// in the post transaction. The post's normal idempotency key owns repeat calls;
+// there is no second submission record or receipt to recover.
+func (s *Store) RecordWorkerPost(ctx context.Context, submission factory.MCPSubmission) (FeedPostDetail, error) {
+	var out FeedPostDetail
+	if !slices.Contains(factory.MCPCommunicationTools, submission.Tool) || !factory.ValidID(submission.SubmissionID) {
+		return out, errors.New("worker post needs a communication tool and stable identity")
 	}
 	content, err := factory.DecodeMCPCommunication(submission.Tool, submission.Payload)
 	if err != nil {
-		return err
+		return out, err
+	}
+	tx, err := s.db.BeginTx(ctx, nil)
+	if err != nil {
+		return out, err
+	}
+	defer tx.Rollback()
+	capability, err := lockMCPCapabilityTx(ctx, tx, submission)
+	if err != nil {
+		return out, err
 	}
 	if !factory.MCPToolAdmitted(capability.Profile, submission.Tool) {
-		return errors.New("communication outlet not admitted for this worker")
+		return out, errors.New("communication outlet not admitted for this worker")
+	}
+	if capability.Expired(time.Now()) {
+		return out, ErrMCPSubmissionCapabilityExpired
+	}
+	if finished, err := assignmentFinishedTx(ctx, tx, capability.AssignmentID); err != nil {
+		return out, err
+	} else if finished {
+		return out, ErrMCPSubmissionAssignmentFinished
+	}
+	postID := factory.MCPInputDigest([]byte(capability.AssignmentID + "\n" + submission.SubmissionID))[:32]
+	var exists bool
+	if err := tx.QueryRowContext(ctx, `SELECT EXISTS(SELECT 1 FROM factory_feed_posts WHERE id=$1 AND repository=$2 AND author=$3)`, postID, capability.Repository, "worker:"+capability.AssignmentID).Scan(&exists); err != nil {
+		return out, err
+	}
+	if exists {
+		if err := tx.Commit(); err != nil {
+			return out, err
+		}
+		return s.FeedPost(ctx, postID)
 	}
 	var count int
-	if err = tx.QueryRowContext(ctx, `SELECT count(*) FROM factory_mcp_submissions WHERE assignment=$1 AND tool = ANY($2)`, submission.AssignmentID, communicationToolNames()).Scan(&count); err != nil {
-		return err
+	if err = tx.QueryRowContext(ctx, `SELECT count(*) FROM factory_feed_posts WHERE data->>'assignment'=$1 AND ('factory.' || (data->'communication'->>'kind')) = ANY($2)`, submission.AssignmentID, communicationToolNames()).Scan(&count); err != nil {
+		return out, err
 	}
 	if count >= factory.MCPMaxCommunications {
-		return ErrMCPCommunicationCap
+		return out, ErrMCPCommunicationCap
 	}
 	if content.ParentID != "" {
 		var parentKind string
 		if err = tx.QueryRowContext(ctx, `SELECT COALESCE(data->'communication'->>'kind','') FROM factory_feed_posts WHERE id=$1 AND repository=$2 AND NOT COALESCE((data->>'deleted')::boolean,false) AND NOT COALESCE((data->>'revoked')::boolean,false) FOR SHARE`, content.ParentID, capability.Repository).Scan(&parentKind); err != nil {
 			if errors.Is(err, sql.ErrNoRows) {
-				return errors.New("reply target is not available in this project")
+				return out, errors.New("reply target is not available in this project")
 			}
-			return err
+			return out, err
 		}
 		if err := admitWorkerDiscussionReplyTx(ctx, tx, capability, content.ParentID); err != nil {
-			return err
+			return out, err
 		}
 		if submission.Tool == factory.MCPToolAnswer && parentKind != "ask" {
-			return errors.New("answer must refer to an ask post")
+			return out, errors.New("answer must refer to an ask post")
 		}
 	}
 	if err := resolveCommunicationArtifactsTx(ctx, tx, capability.Repository, &content); err != nil {
-		return err
+		return out, err
 	}
-	return recordMCPFeedContentTx(ctx, tx, capability, submission, content, receipt)
+	if _, err := recordWorkerPostTx(ctx, tx, capability, submission, content); err != nil {
+		return out, err
+	}
+	if err := tx.Commit(); err != nil {
+		return out, err
+	}
+	return s.FeedPost(ctx, postID)
 }
 
-func recordMCPFeedContentTx(ctx context.Context, tx *sql.Tx, capability factory.MCPCapability, submission factory.MCPSubmission, content factory.FeedCommunication, receipt *factory.MCPReceipt) error {
+func recordWorkerPostTx(ctx context.Context, tx *sql.Tx, capability factory.MCPCapability, submission factory.MCPSubmission, content factory.FeedCommunication) (string, error) {
 	if capability.Profile == factory.MCPProfileIssueMaker && content.ParentID == "" {
 		if err := tx.QueryRowContext(ctx, `SELECT data->'planning_context'->'IssueMaker'->>'post' FROM factory_assignments WHERE id=$1`, capability.AssignmentID).Scan(&content.ParentID); err != nil {
-			return err
+			return "", err
 		}
 	}
 	var issue int64
 	var err error
 	if err = tx.QueryRowContext(ctx, `SELECT COALESCE((SELECT issue FROM factory_assignments WHERE id=$1 AND repository=$2),0)`, capability.AssignmentID, capability.Repository).Scan(&issue); err != nil {
-		return err
+		return "", err
 	}
 	postID := factory.MCPInputDigest([]byte(capability.AssignmentID + "\n" + submission.SubmissionID))[:32]
-	if err = createCommunicationLibraryTx(ctx, tx, capability, submission, &content, postID, receipt); err != nil {
-		return err
+	if err = createCommunicationLibraryTx(ctx, tx, capability, submission.Tool, &content, postID); err != nil {
+		return "", err
 	}
 	fields := map[string]any{
 		"issue": issue, "parent_id": content.ParentID, "at": time.Now().Unix(), "author_name": recordPersona(capability.Profile),
 		"actor": string(capability.Profile), "assignment": capability.AssignmentID, "run": capability.RunID,
-		"project": capability.Project, "submission": submission.SubmissionID, "communication": content,
+		"project": capability.Project, "communication": content,
 	}
 	if content.ParentID == "" && (content.Kind == "partial" || content.Kind == "reply") {
 		fields["source"] = factory.PostSource{Kind: factory.PostSourceRecord, ID: capability.AssignmentID, Issue: issue, Ref: capability.AcceptedRevision}
 	}
 	data, err := json.Marshal(fields)
 	if err != nil {
-		return err
+		return "", err
 	}
 	// The full typed content lives in data; body is the concise textual equivalent
 	// used by existing reply/JEV source readers, within their canonical body bound.
@@ -93,13 +129,12 @@ func recordMCPFeedContentTx(ctx context.Context, tx *sql.Tx, capability factory.
 	}
 	_, err = tx.ExecContext(ctx, `INSERT INTO factory_feed_posts(id,repository,revision,author,body,idempotency,data) VALUES($1,$2,0,$3,$4,$5,$6)`, postID, capability.Repository, "worker:"+capability.AssignmentID, body, submission.SubmissionID, string(data))
 	if err != nil {
-		return err
+		return "", err
 	}
-	receipt.FeedPostID = postID
 	if content.ParentID != "" {
-		return contributionReplyTx(ctx, tx, capability, content.ParentID, postID)
+		return postID, contributionReplyTx(ctx, tx, capability, content.ParentID, postID)
 	}
-	return nil
+	return postID, nil
 }
 
 func communicationToolNames() []string {
@@ -119,7 +154,7 @@ func applyFeedCommunicationDetail(detail *FeedPostDetail, raw []byte) error {
 		Communication *factory.FeedCommunication  `json:"communication"`
 		Consultation  *factory.FeedConsultation   `json:"consultation"`
 		Contribution  *factory.ContributionReview `json:"contribution"`
-		Source        *factory.PostSource      `json:"source"`
+		Source        *factory.PostSource         `json:"source"`
 	}
 	if err := json.Unmarshal(raw, &data); err != nil {
 		return err

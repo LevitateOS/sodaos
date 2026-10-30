@@ -16,11 +16,11 @@ func TestLibraryDecisionAuthorityAndCreationAtomicity(t *testing.T) {
 	decision := func(choice string) factory.LibraryItem {
 		raw, _ := json.Marshal(map[string]any{"title": "Task visibility", "summary": "The task policy was recorded.", "scope": "task access", "decision": choice, "rationale": "Product request"})
 		submission := testMCPSubmissionRow(cap, factory.MCPToolRecordDecision, raw)
-		receipt, err := s.RecordMCPSubmission(ctx, submission)
+		receipt, err := s.RecordWorkerPost(ctx, submission)
 		if err != nil {
 			t.Fatal(err)
 		}
-		item, err := s.LibraryRead(ctx, cap.Repository, receipt.LibraryItemID, false)
+		item, err := s.LibraryRead(ctx, cap.Repository, receipt.Payload.Communication.LibraryItemID, false)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -31,7 +31,7 @@ func TestLibraryDecisionAuthorityAndCreationAtomicity(t *testing.T) {
 	before, _ := s.LibrarySearch(ctx, cap.Repository, "", "", "", false, false)
 	raw := []byte(`{"title":"Unscoped learning","summary":"Missing source evidence","scope":"all tasks"}`)
 	submission := testMCPSubmissionRow(cap, factory.MCPToolLearned, raw)
-	if _, err := s.RecordMCPSubmission(ctx, submission); err == nil {
+	if _, err := s.RecordWorkerPost(ctx, submission); err == nil {
 		t.Fatal("invalid learning accepted")
 	}
 	after, _ := s.LibrarySearch(ctx, cap.Repository, "", "", "", false, false)
@@ -55,11 +55,11 @@ func TestRecordDecisionSeparatesOwnerFromLogger(t *testing.T) {
 			t.Fatal(err)
 		}
 		submission := testMCPSubmissionRow(worker, factory.MCPToolRecordDecision, raw)
-		receipt, err := s.RecordMCPSubmission(ctx, submission)
+		receipt, err := s.RecordWorkerPost(ctx, submission)
 		if err != nil {
 			return factory.LibraryItem{}, factory.LibraryRevision{}, err
 		}
-		read, err := s.LibraryRead(ctx, worker.Repository, receipt.LibraryItemID, false)
+		read, err := s.LibraryRead(ctx, worker.Repository, receipt.Payload.Communication.LibraryItemID, false)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -107,7 +107,7 @@ func TestRecordDecisionSeparatesOwnerFromLogger(t *testing.T) {
 	learned := map[string]any{"title": "T", "summary": "S", "scope": "task access", "evidence_refs": []string{"src/x.go:1"}, "decision_owner": "controller"}
 	raw, _ := json.Marshal(learned)
 	learnedSubmission := testMCPSubmissionRow(worker, factory.MCPToolLearned, raw)
-	if _, err := s.RecordMCPSubmission(ctx, learnedSubmission); err == nil {
+	if _, err := s.RecordWorkerPost(ctx, learnedSubmission); err == nil {
 		t.Fatal("learned post named a decision owner")
 	}
 }
@@ -122,20 +122,20 @@ func TestLearnedAmendAndChallengeCAS(t *testing.T) {
 	s, _ := postgresFixture(t)
 	ctx := context.Background()
 	worker := activateMCPCapability(t, ctx, s, testMCPCapabilityRow())
-	submit := func(tool factory.MCPTool, payload map[string]any) (factory.MCPReceipt, error) {
+	submit := func(tool factory.MCPTool, payload map[string]any) (FeedPostDetail, error) {
 		raw, err := json.Marshal(payload)
 		if err != nil {
 			t.Fatal(err)
 		}
 		submission := testMCPSubmissionRow(worker, tool, raw)
-		return s.RecordMCPSubmission(ctx, submission)
+		return s.RecordWorkerPost(ctx, submission)
 	}
 	learned := map[string]any{"title": "Task ownership", "summary": "Keep ownership checks at the boundary.", "scope": "task access", "evidence_refs": []string{"src/access.go:12"}}
 	receipt, err := submit(factory.MCPToolLearned, learned)
 	if err != nil {
 		t.Fatalf("learn: %v", err)
 	}
-	id := receipt.LibraryItemID
+	id := receipt.Payload.Communication.LibraryItemID
 	read := func() factory.LibraryItem {
 		out, err := s.LibraryRead(ctx, worker.Repository, id, false)
 		if err != nil {
@@ -151,10 +151,10 @@ func TestLearnedAmendAndChallengeCAS(t *testing.T) {
 	if err != nil {
 		t.Fatalf("amend: %v", err)
 	}
-	if areceipt.LibraryItemID != id || areceipt.FeedPostID == "" {
+	if areceipt.Payload.Communication.LibraryItemID != id || areceipt.Record.ID == "" {
 		t.Fatalf("amend lost identity: %+v", areceipt)
 	}
-	if item := read(); item.Revision != 2 || item.State != "observed" || !strings.Contains(item.Body, "and in review") {
+	if item := read(); item.Revision != 2 || item.State != "observed" || item.SourcePost != areceipt.Record.ID || !strings.Contains(item.Body, "and in review") {
 		t.Fatalf("amended: %+v", item)
 	}
 	if _, err := submit(factory.MCPToolLearned, amend); err == nil {

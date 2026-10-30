@@ -52,11 +52,11 @@ func TestFactoryArtifactChunksPublishOnlyWhenComplete(t *testing.T) {
 	}
 	raw, _ := json.Marshal(map[string]any{"title": "Screenshot", "summary": "Attached output", "completed": []string{"preview"}, "artifacts": []map[string]any{{"id": a.ID, "href": "https://untrusted.invalid/a", "name": "forged"}}})
 	sub := testMCPSubmissionRow(cap, factory.MCPToolPartial, raw)
-	linked, err := s.RecordMCPSubmission(ctx, sub)
+	linked, err := s.RecordWorkerPost(ctx, sub)
 	if err != nil {
 		t.Fatal(err)
 	}
-	detail, err = s.FeedPost(ctx, linked.FeedPostID)
+	detail, err = s.FeedPost(ctx, linked.Record.ID)
 	if err != nil || detail.Payload.Communication.Artifacts[0].Href != a.Href || detail.Payload.Communication.Artifacts[0].Name != "sample.txt" {
 		t.Fatal("artifact metadata not server-resolved")
 	}

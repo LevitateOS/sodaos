@@ -33,10 +33,9 @@ type LibraryRelation struct {
 	Evidence []string `json:"evidence,omitempty"`
 }
 type LibraryRevision struct {
-	Item       LibraryItem `json:"item"`
-	Reason     string      `json:"reason"`
-	Actor      string      `json:"actor"`
-	Submission string      `json:"submission"`
+	Item   LibraryItem `json:"item"`
+	Reason string      `json:"reason"`
+	Actor  string      `json:"actor"`
 }
 type LibraryPage struct {
 	Items      []LibraryItem `json:"items"`

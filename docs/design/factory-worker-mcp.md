@@ -323,7 +323,12 @@ admission result handles replay without a second receipt/terminal lookup.
 Missing context remains visible in `factory.context`.
 
 Worker context does not carry a submission-receipt history; communications and
-results are available through the work posts and discussion. Issue Maker creates
+results are available through the work posts and discussion. Ordinary worker
+communications write directly to posts and return the post representation.
+Their post idempotency key handles repeated calls; they do not write a second
+`factory_mcp_submissions` row, store payload hashes or consult receipt-based
+terminal freezes. Reply authorization, communication limits and atomic library
+updates use the posts themselves. Issue Maker creates
 and refines issues through the native writer and returns the issue and post
 identities directly, without a second MCP submission record. Checkpoint progress
 is read through `factory.status`. Other submission callers supply only the

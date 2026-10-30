@@ -88,7 +88,8 @@ func recordMCPArtifactTx(ctx context.Context, tx *sql.Tx, cap factory.MCPCapabil
 		if err != nil {
 			return err
 		}
-		return recordMCPFeedContentTx(ctx, tx, cap, sub, *feedContent, receipt)
+		receipt.FeedPostID, err = recordWorkerPostTx(ctx, tx, cap, sub, *feedContent)
+		return err
 	}
 	return nil
 }

@@ -41,7 +41,7 @@ func (s *factoryCatalogServer) checkNewFinish(ctx context.Context, capability fa
 func (s *factoryCatalogServer) receiptBody(ctx context.Context, assignment string, receipt factory.MCPReceipt) map[string]any {
 	body := map[string]any{
 		"submission_id": receipt.SubmissionID, "state": receipt.State, "reason": receipt.Reason,
-		"feed_post_id": receipt.FeedPostID, "library_item_id": receipt.LibraryItemID, "artifact_id": receipt.ArtifactID,
+		"feed_post_id": receipt.FeedPostID, "artifact_id": receipt.ArtifactID,
 	}
 	if factory.MCPIsTerminal(receipt.Tool) && receipt.State == factory.MCPReceiptAccepted && s.deps.Assignments != nil {
 		body["settlement"] = map[string]any{"availability": "unavailable"}

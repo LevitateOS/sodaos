@@ -141,14 +141,14 @@ func TestFactoryMCPSubmissionRefusesFinishedAssignment(t *testing.T) {
 
 	capability := activateMCPCapability(t, ctx, db, testMCPCapabilityRow())
 	seedAssignment(capability.AssignmentID, string(factory.AssignmentFinished))
-	late := testMCPSubmissionRow(capability, factory.MCPToolFlag, []byte(`{"title":"Late flag","summary":"Arrived after the finish.","severity":"critical"}`))
+	late := testMCPSubmissionRow(capability, factory.MCPToolSubmitTaskOutput, []byte(`{"task_id":"t-1"}`))
 	if _, err := db.RecordMCPSubmission(ctx, late); !errors.Is(err, ErrMCPSubmissionAssignmentFinished) {
 		t.Fatalf("late submission recorded: %v", err)
 	}
 
 	live := activateMCPCapability(t, ctx, db, testMCPCapabilityRow())
 	seedAssignment(live.AssignmentID, string(factory.AssignmentAssigned))
-	early := testMCPSubmissionRow(live, factory.MCPToolFlag, []byte(`{"title":"Early flag","summary":"Recorded while assigned.","severity":"info"}`))
+	early := testMCPSubmissionRow(live, factory.MCPToolSubmitTaskOutput, []byte(`{"task_id":"t-1"}`))
 	recorded, err := db.RecordMCPSubmission(ctx, early)
 	if err != nil {
 		t.Fatalf("record before finish: %v", err)

@@ -80,7 +80,8 @@ func recordMCPVerificationJourneyTx(ctx context.Context, tx *sql.Tx, cap factory
 	if err := resolveCommunicationArtifactsTx(ctx, tx, cap.Repository, &content); err != nil {
 		return err
 	}
-	return recordMCPFeedContentTx(ctx, tx, cap, sub, content, receipt)
+	receipt.FeedPostID, err = recordWorkerPostTx(ctx, tx, cap, sub, content)
+	return err
 }
 
 // Validate new references only after immutable submission/terminal replay has

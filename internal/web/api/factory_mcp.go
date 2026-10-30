@@ -15,6 +15,7 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"slices"
 	"strings"
 	"sync"
 	"time"
@@ -417,9 +418,6 @@ func (s *factoryCatalogServer) checkPayload(tool factory.MCPTool, payload map[st
 	if tool == factory.MCPToolPublishArtifact {
 		return checkArtifactPayload(payload)
 	}
-	if factory.MCPIsCommunication(tool) {
-		return checkCommunicationPayload(tool, payload)
-	}
 	spec, ok := mcpMutationPayloads[tool]
 	if !ok {
 		return fmt.Errorf("unsupported factory tool %q: call one of the tools this server lists", tool)
@@ -557,6 +555,9 @@ func (s *factoryCatalogServer) serve(ctx context.Context, tool factory.MCPTool, 
 	args.SubmissionID = mcpSubmissionID(args.SubmissionID, mcpTakesSubmission(tool))
 	if factory.MCPIsLibraryRead(tool) {
 		return s.serveLibraryRead(ctx, tool, args)
+	}
+	if slices.Contains(factory.MCPCommunicationTools, tool) {
+		return s.serveWorkerPost(ctx, tool, args)
 	}
 	switch tool {
 	case factory.MCPToolCreateIssue, factory.MCPToolRefineIssue:

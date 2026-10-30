@@ -174,9 +174,6 @@ func (s *Store) RecordMCPSubmission(ctx context.Context, submission factory.MCPS
 	if err = recordMCPPostResolutionTx(ctx, tx, capability, submission, &receipt); err != nil {
 		return factory.MCPReceipt{}, err
 	}
-	if err = recordMCPCommunicationTx(ctx, tx, capability, submission, &receipt); err != nil {
-		return factory.MCPReceipt{}, err
-	}
 	raw, err := json.Marshal(receipt)
 	if err != nil {
 		return factory.MCPReceipt{}, err
@@ -456,7 +453,7 @@ func (s *Store) AdvanceMCPReceipt(ctx context.Context, assignmentID, submissionI
 	if err = json.Unmarshal(storedRaw, &stored); err != nil {
 		return err
 	}
-	receipt.FeedPostID, receipt.LibraryItemID = stored.FeedPostID, stored.LibraryItemID
+	receipt.FeedPostID = stored.FeedPostID
 	receipt.ArtifactID = stored.ArtifactID
 	raw, err = json.Marshal(receipt)
 	if err != nil {
