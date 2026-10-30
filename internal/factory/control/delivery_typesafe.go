@@ -38,5 +38,5 @@ func (p *TypeSafePriority) SelectDelivery(ctx context.Context, state any, questi
 		return factory.DeliveryAnswer{}, err
 	}
 	result := factory.DeliveryAnswer{Fingerprint: fingerprint, Selected: answer.Selected, Model: material.Input.Model, ProviderModel: answer.Model, Probabilities: answer.Probabilities, Probability: answer.Probabilities[answer.Selected], Confidence: answer.Confidence}
-	return result, result.Validate()
+	return result, nil
 }

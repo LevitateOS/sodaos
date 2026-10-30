@@ -294,7 +294,6 @@ type DeliveryAnswer struct {
 	Selected      string             `json:"selected"`
 	Model         string             `json:"model"`
 	ProviderModel string             `json:"provider_model,omitempty"`
-	Failure       string             `json:"failure,omitempty"`
 	Probability   float64            `json:"probability"`
 	Confidence    float64            `json:"confidence"`
 }
@@ -309,9 +308,6 @@ func validDeliveryModel(model string) bool {
 }
 
 func (a DeliveryAnswer) validateShape() error {
-	if a.Failure != "" {
-		return errors.New("delivery answer carries its provider failure")
-	}
 	switch a.Selected {
 	case DeliveryReviewAgain, DeliveryReadyToMerge:
 	default:
@@ -366,13 +362,10 @@ func (a DeliveryAnswer) Validate() error {
 // option. A tie or a threshold failure waits with judgment_attention,
 // never an automatic review. review_again additionally needs remaining
 // review allowance (ReviewRounds plus the unchanged-head discretionary
-// counter); exhaustion gives review_allowance_exhausted. Malformed or
-// failed answers are unavailable however much allowance remains. A clean
+// counter); exhaustion gives review_allowance_exhausted. The JEV client
+// validates answers before this calculation. A clean
 // first review still consults: no finding state bypasses this function.
 func (a DeliveryAnswer) EffectiveAction(reviewsFit bool) string {
-	if a.Validate() != nil {
-		return DeliveryUnavailable
-	}
 	if a.Selected == DeliveryReadyToMerge && a.Probability >= DeliveryReadyMinProbability &&
 		a.Confidence >= DeliveryReadyMinConfidence &&
 		a.Probabilities[DeliveryReadyToMerge] > a.Probabilities[DeliveryReviewAgain] {
@@ -401,11 +394,6 @@ type DeliveryDecision struct {
 func (d DeliveryDecision) Validate() error {
 	if err := d.Answer.Validate(); err != nil {
 		return err
-	}
-	switch d.Effective {
-	case DeliveryEffectiveReady, DeliveryEffectiveReview, DeliveryEffectiveExhausted, DeliveryEffectiveAttention, DeliveryUnavailable:
-	default:
-		return errors.New("invalid delivery effective action")
 	}
 	if d.Effective != d.Answer.EffectiveAction(d.ReviewsFit) {
 		return errors.New("delivery effective action differs from its raw answer")

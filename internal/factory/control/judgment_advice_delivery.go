@@ -62,11 +62,6 @@ func (c *Coordinator) AdviseDelivery(ctx context.Context, advice DeliveryAdvice)
 	if state == nil {
 		state = advice.Input
 	}
-	if validator, ok := advice.Chooser.(interface{ ValidateDeliveryState(any) error }); ok {
-		if err := validator.ValidateDeliveryState(state); err != nil {
-			return factory.DeliveryDecision{}, false, err
-		}
-	}
 	fingerprint, err := factory.DeliveryFingerprint(advice.Input)
 	if err != nil {
 		return factory.DeliveryDecision{}, false, err
@@ -95,9 +90,6 @@ func (c *Coordinator) AdviseDelivery(ctx context.Context, advice DeliveryAdvice)
 	bounded, cancel := context.WithTimeout(ctx, 30*time.Second)
 	answer, callErr := advice.Chooser.SelectDelivery(bounded, state, factory.DeliveryRubric, options)
 	cancel()
-	if callErr == nil {
-		callErr = answer.Validate()
-	}
 	if callErr == nil && (answer.Fingerprint != fingerprint || answer.Model != advice.Input.Model) {
 		callErr = errors.New("delivery answer judged different evidence")
 	}
@@ -105,10 +97,7 @@ func (c *Coordinator) AdviseDelivery(ctx context.Context, advice DeliveryAdvice)
 		// Nothing is recorded, so the next pass asks again.
 		return factory.DeliveryDecision{}, false, ErrDeliveryUnavailable
 	}
-	receipt, err := factory.NewDeliveryReceipt(advice.Input, fingerprint, answer, advice.ReviewsFit, advice.ObservedNativeRevision)
-	if err != nil {
-		return factory.DeliveryDecision{}, false, err
-	}
+	receipt := factory.NewDeliveryReceipt(advice.Input, fingerprint, answer, advice.ReviewsFit, advice.ObservedNativeRevision)
 	if err := advice.Funding.RecordDeliveryJudgment(ctx, receipt); err != nil {
 		return factory.DeliveryDecision{}, false, err
 	}

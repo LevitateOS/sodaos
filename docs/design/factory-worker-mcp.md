@@ -376,6 +376,14 @@ without a cleanup write for bytes that were never saved.
 Post reads also use saved source and authoring fields directly; repository,
 deletion, revocation and revision checks still govern access to referenced work.
 
+Delivery judgments retain one JEV answer with its effective action and complete
+evidence input. They do not mirror that answer in a call-history envelope or
+store a synthetic unavailable-result variant. The JEV adapter validates the
+response; creating, writing and reading the judgment do not validate copies of
+that result. Current-evidence fingerprint matching and the native merge
+authorization's answer/policy check remain in force, including confidence and
+probability cutoffs and review allowance.
+
 `factory.context` supplies typed required role inputs independently of optional
 history selection. Large role fields travel as ordered UTF-8 JSON fragments in
 `current_role_page`: concatenate a field's parts and decode its JSON. The complete

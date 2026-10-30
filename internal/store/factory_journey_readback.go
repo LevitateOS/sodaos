@@ -369,9 +369,6 @@ func (s *Store) DeliveryJudgmentsForPublication(ctx context.Context, publication
 		if err = json.Unmarshal(raw, &receipt); err != nil {
 			return nil, false, err
 		}
-		if err = receipt.Validate(); err != nil {
-			return nil, false, err
-		}
 		if receipt.Input.PublicationID != publicationID || receipt.Input.AttemptRoot != attemptRoot {
 			return nil, false, errors.New("delivery judgment scope mismatch")
 		}

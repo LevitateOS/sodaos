@@ -1237,13 +1237,10 @@ func (s *Store) ReserveDeliveryJudgment(ctx context.Context, repository, issue i
 	return true, tx.Commit()
 }
 
-// RecordDeliveryJudgment persists one validated delivery receipt over its
+// RecordDeliveryJudgment persists the delivery decision over its
 // reserved fingerprint. Recording is append-only: a missing reservation
 // or an already recorded receipt conflicts instead of rewriting history.
 func (s *Store) RecordDeliveryJudgment(ctx context.Context, r factory.DeliveryReceipt) error {
-	if err := r.Validate(); err != nil {
-		return err
-	}
 	raw, err := json.Marshal(r)
 	if err != nil {
 		return err
@@ -1264,7 +1261,7 @@ func (s *Store) RecordDeliveryJudgment(ctx context.Context, r factory.DeliveryRe
 
 // DeliveryJudgment reads one recorded delivery receipt by its evidence
 // fingerprint. Unreserved fingerprints and non-delivery journal rows
-// report ErrNotFound; a present but invalid receipt is a storage fault.
+// report ErrNotFound.
 func (s *Store) DeliveryJudgment(ctx context.Context, fingerprint string) (factory.DeliveryReceipt, error) {
 	var r factory.DeliveryReceipt
 	if !factory.ValidDigest(fingerprint) {
@@ -1280,9 +1277,6 @@ func (s *Store) DeliveryJudgment(ctx context.Context, fingerprint string) (facto
 	}
 	if r.Kind != factory.DeliveryReceiptKind || r.Fingerprint != fingerprint {
 		return factory.DeliveryReceipt{}, ErrNotFound
-	}
-	if err = r.Validate(); err != nil {
-		return factory.DeliveryReceipt{}, err
 	}
 	return r, nil
 }

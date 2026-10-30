@@ -1813,10 +1813,7 @@ func seedJourneyDeliveryReceipt(t *testing.T, fx *journeyHTTPFixture, root facto
 		Probabilities: map[string]float64{factory.DeliveryReadyToMerge: 0.9, factory.DeliveryReviewAgain: 0.1},
 		Model:         "test-delivery-model", Fingerprint: fingerprint,
 	}
-	receipt, err := factory.NewDeliveryReceipt(in, fingerprint, answer, true, 41)
-	if err != nil {
-		t.Fatal(err)
-	}
+	receipt := factory.NewDeliveryReceipt(in, fingerprint, answer, true, 41)
 	raw, err := json.Marshal(receipt)
 	if err != nil {
 		t.Fatal(err)

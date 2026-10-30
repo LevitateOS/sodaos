@@ -1,10 +1,6 @@
 package factory
 
-import (
-	"errors"
-	"reflect"
-	"time"
-)
+import "time"
 
 // DeliveryRubric is the fixed Jev criterion for the delivery-review-v1
 // purpose (D08). Ready_to_merge means the supplied evidence adequately
@@ -24,101 +20,24 @@ func DeliveryOptions() map[string]any {
 	}
 }
 
-// DeliveryCall is one funded delivery consultation over the exact
-// semantic fingerprint, with its answer or its provider failure. A call
-// carrying a failure never authorizes merge.
-type DeliveryCall struct {
-	Fingerprint string         `json:"fingerprint"`
-	Answer      DeliveryAnswer `json:"answer"`
-	Failure     string         `json:"failure,omitempty"`
-}
-
 // DeliveryReceiptKind identifies durable funded delivery judgments in the
 // shared judgment journal.
 const DeliveryReceiptKind = "delivery-v1"
 
-// DeliveryOutcome names the two durable delivery states. Decided retains
-// the raw answer with its effective action; unavailable retains a
-// reserved fingerprint without a completed answer. An unavailable receipt
-// stays charged and is never automatically retried.
-const (
-	DeliveryOutcomeDecided     = "decided"
-	DeliveryOutcomeUnavailable = "unavailable"
-)
+const DeliveryOutcomeDecided = "decided"
 
 // DeliveryReceipt is the durable funded delivery judgment for one exact
-// semantic fingerprint. Input is the complete semantic evidence the
-// fingerprint binds; Decision retains the raw answer with its derived
-// effective action. ObservedNativeRevision is the raw native revision
-// observed alongside the evidence, kept separately for native mutation
-// guards; it never enters the fingerprint. FW22 owns wiring this receipt
-// into real correction/cycle paths.
+// semantic fingerprint. Decision holds the answer once, alongside its derived
+// action. ObservedNativeRevision supports native mutation guards and does not
+// enter the evidence fingerprint.
 type DeliveryReceipt struct {
 	Kind                   string                   `json:"kind"`
 	Fingerprint            string                   `json:"fingerprint"`
 	Input                  DeliveryFingerprintInput `json:"input"`
-	Calls                  []DeliveryCall           `json:"calls"`
 	Decision               DeliveryDecision         `json:"decision"`
 	Outcome                string                   `json:"outcome"`
 	ObservedNativeRevision int64                    `json:"observed_native_revision"`
 	CreatedUnix            int64                    `json:"created_unix"`
-}
-
-// Validate checks the receipt shape and its evidence binding, not the
-// model's factual accuracy. The stored fingerprint must be exactly the
-// fingerprint of the stored input, so a receipt is reusable only while
-// its evidence still matches.
-func (r DeliveryReceipt) Validate() error {
-	if r.Kind != DeliveryReceiptKind {
-		return errors.New("invalid delivery receipt kind")
-	}
-	if !ValidDigest(r.Fingerprint) {
-		return errors.New("delivery receipt lacks its evidence fingerprint")
-	}
-	if err := r.Input.Validate(); err != nil {
-		return err
-	}
-	bound, err := DeliveryFingerprint(r.Input)
-	if err != nil {
-		return err
-	}
-	if bound != r.Fingerprint {
-		return errors.New("delivery receipt evidence differs from its fingerprint")
-	}
-	if len(r.Calls) != 1 || r.Calls[0].Fingerprint != r.Fingerprint {
-		return errors.New("delivery receipt lacks its single bound call")
-	}
-	switch r.Outcome {
-	case DeliveryOutcomeDecided:
-		if r.Calls[0].Failure != "" {
-			return errors.New("decided delivery receipt carries its provider failure")
-		}
-		if err := r.Calls[0].Answer.Validate(); err != nil {
-			return err
-		}
-		if r.Calls[0].Answer.Fingerprint != r.Fingerprint {
-			return errors.New("delivery answer judged different evidence")
-		}
-		if !reflect.DeepEqual(r.Decision.Answer, r.Calls[0].Answer) {
-			return errors.New("delivery decision differs from its raw answer")
-		}
-		if err := r.Decision.Validate(); err != nil {
-			return err
-		}
-	case DeliveryOutcomeUnavailable:
-		if r.Calls[0].Failure == "" {
-			return errors.New("unavailable delivery receipt lacks its provider failure")
-		}
-		if !reflect.DeepEqual(r.Decision, DeliveryDecision{}) {
-			return errors.New("unavailable delivery receipt carries a decision")
-		}
-	default:
-		return errors.New("invalid delivery receipt outcome")
-	}
-	if r.ObservedNativeRevision < 0 || r.CreatedUnix <= 0 {
-		return errors.New("invalid delivery receipt observation")
-	}
-	return nil
 }
 
 // CurrentFor reports whether this receipt authorizes reuse for the given
@@ -128,41 +47,17 @@ func (r DeliveryReceipt) Validate() error {
 // decision; timestamp or native-revision-only changes never enter the
 // fingerprint and therefore never invalidate it.
 func (r DeliveryReceipt) CurrentFor(fingerprint string) bool {
-	return r.Validate() == nil && r.Outcome == DeliveryOutcomeDecided && r.Fingerprint == fingerprint
-}
-
-// ConfirmExpectedResolution advances the observed native revision after
-// an exact expected-resolution readback. Expected resolutions are named
-// consequences of the acceptance: their exact confirmed effects may
-// advance the native revision without buying another judgment, so this
-// pure readback consumes no funded call. It refuses anything but a
-// decided receipt and a monotone revision; any unexpected reply,
-// content, state, head, base, policy, scope or check-outcome change
-// invalidates the acceptance instead of advancing it.
-func (r DeliveryReceipt) ConfirmExpectedResolution(revision int64) (DeliveryReceipt, error) {
-	if err := r.Validate(); err != nil {
-		return DeliveryReceipt{}, err
-	}
-	if r.Outcome != DeliveryOutcomeDecided {
-		return DeliveryReceipt{}, errors.New("unavailable delivery judgment has no expected resolution")
-	}
-	if revision < r.ObservedNativeRevision {
-		return DeliveryReceipt{}, errors.New("expected resolution readback moved backwards")
-	}
-	next := r
-	next.ObservedNativeRevision = revision
-	return next, nil
+	return r.Outcome == DeliveryOutcomeDecided && r.Fingerprint == fingerprint
 }
 
 // NewDeliveryReceipt builds the decided receipt for one completed funded
 // answer. The answer must judge exactly the fingerprinted evidence; its
 // effective action derives from the remaining review allowance.
-func NewDeliveryReceipt(in DeliveryFingerprintInput, fingerprint string, answer DeliveryAnswer, reviewsFit bool, observedRevision int64) (DeliveryReceipt, error) {
-	r := DeliveryReceipt{
+func NewDeliveryReceipt(in DeliveryFingerprintInput, fingerprint string, answer DeliveryAnswer, reviewsFit bool, observedRevision int64) DeliveryReceipt {
+	return DeliveryReceipt{
 		Kind:        DeliveryReceiptKind,
 		Fingerprint: fingerprint,
 		Input:       in,
-		Calls:       []DeliveryCall{{Fingerprint: fingerprint, Answer: answer}},
 		Decision: DeliveryDecision{
 			Answer:     answer,
 			Effective:  answer.EffectiveAction(reviewsFit),
@@ -172,8 +67,4 @@ func NewDeliveryReceipt(in DeliveryFingerprintInput, fingerprint string, answer 
 		ObservedNativeRevision: observedRevision,
 		CreatedUnix:            time.Now().Unix(),
 	}
-	if err := r.Validate(); err != nil {
-		return DeliveryReceipt{}, err
-	}
-	return r, nil
 }

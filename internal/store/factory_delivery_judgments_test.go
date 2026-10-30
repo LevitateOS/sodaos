@@ -73,10 +73,7 @@ func TestDeliveryJudgmentReserveRecordRead(t *testing.T) {
 	if err != nil || !ok {
 		t.Fatalf("retry reserve=%v err=%v", ok, err)
 	}
-	receipt, err := factory.NewDeliveryReceipt(in, fingerprint, deliveryStoreAnswer(fingerprint), true, 41)
-	if err != nil {
-		t.Fatal(err)
-	}
+	receipt := factory.NewDeliveryReceipt(in, fingerprint, deliveryStoreAnswer(fingerprint), true, 41)
 	if err := db.RecordDeliveryJudgment(ctx, receipt); err != nil {
 		t.Fatalf("record: %v", err)
 	}
@@ -97,10 +94,7 @@ func TestDeliveryJudgmentReserveRecordRead(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	unreserved, err := factory.NewDeliveryReceipt(other, otherPrint, deliveryStoreAnswer(otherPrint), true, 41)
-	if err != nil {
-		t.Fatal(err)
-	}
+	unreserved := factory.NewDeliveryReceipt(other, otherPrint, deliveryStoreAnswer(otherPrint), true, 41)
 	if err := db.RecordDeliveryJudgment(ctx, unreserved); !errors.Is(err, ErrCommandConflict) {
 		t.Fatalf("unreserved record error=%v", err)
 	}

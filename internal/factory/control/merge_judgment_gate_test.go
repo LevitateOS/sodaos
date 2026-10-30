@@ -222,6 +222,15 @@ func TestAuthorizeMergeBindsFirstGeneration(t *testing.T) {
 		if err := fx.publish.coord.AuthorizeMerge(ctx, p.ID, auth); err == nil {
 			t.Fatal("unconfirmed resolutions bound")
 		}
+		auth = unionAuthForBind(t, m, acceptance, decision, fingerprint, true)
+		auth.Decision.Answer.Confidence = factory.DeliveryReadyMinConfidence - 0.01
+		auth.Decision.Effective = auth.Decision.Answer.EffectiveAction(true)
+		if auth.Decision.Effective != factory.DeliveryEffectiveAttention {
+			t.Fatal("low-confidence answer bypassed the delivery cutoff")
+		}
+		if err := fx.publish.coord.AuthorizeMerge(ctx, p.ID, auth); err == nil {
+			t.Fatal("low-confidence decision bound a merge")
+		}
 	})
 	t.Run("refuses a binding without its union", func(t *testing.T) {
 		fx, p, m, _, _, _ := unionSeedForBind(t, ctx, 57)
