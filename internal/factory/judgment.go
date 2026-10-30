@@ -56,17 +56,13 @@ type PriorityCall struct {
 }
 
 type PriorityReceipt struct {
-	Snapshot   string              `json:"snapshot"`
-	Purpose    JudgmentPurpose     `json:"purpose,omitempty"`
-	Candidates []PriorityCandidate `json:"candidates"`
-	Calls      []PriorityCall      `json:"calls"`
-	Selected   string              `json:"selected,omitempty"`
-	Outcome    string              `json:"outcome"`
-	// Answer carries one recorded generic consultation answer for
-	// replay (worker System One calls): the tournament fields stay
-	// empty there, and tournament receipts leave this empty.
-	Answer      map[string]any `json:"answer,omitempty"`
-	CreatedUnix int64          `json:"created_unix"`
+	Snapshot    string              `json:"snapshot"`
+	Purpose     JudgmentPurpose     `json:"purpose,omitempty"`
+	Candidates  []PriorityCandidate `json:"candidates"`
+	Calls       []PriorityCall      `json:"calls"`
+	Selected    string              `json:"selected,omitempty"`
+	Outcome     string              `json:"outcome"`
+	CreatedUnix int64               `json:"created_unix"`
 }
 
 // SystemOneMaxBatchQuestions bounds one batched worker consultation:

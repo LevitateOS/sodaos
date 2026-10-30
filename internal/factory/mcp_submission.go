@@ -158,31 +158,6 @@ func MCPInputDigest(payload []byte) string {
 	return hex.EncodeToString(sum[:])
 }
 
-// Validate checks submission shape and byte bounds. Tool/profile/
-// capability binding, scope freshness and terminal freezing are
-// admission checks, not shape.
-func (s MCPSubmission) Validate() error {
-	if !ValidID(s.AssignmentID) {
-		return errors.New("invalid submission assignment: the run's assignment is not a 32-hex identity; reconnect to the assigned server")
-	}
-	if !ValidID(s.SubmissionID) {
-		return errors.New("invalid submission identity: submission identity is missing; omit submission_id or send any string")
-	}
-	if !ValidID(s.CapabilityID) {
-		return errors.New("invalid submission capability: capability_id must be the 32-hex capability_id from factory.context")
-	}
-	if !MCPToolKnown(s.Tool) {
-		return errors.New("unknown submission tool: call one of the tools this server lists")
-	}
-	if len(s.Payload) == 0 {
-		return errors.New("empty submission payload: payload must be an object with this tool's fields")
-	}
-	if len(s.Payload) > MCPMaxSubmissionPayload {
-		return errors.New("submission payload exceeds 64 KiB")
-	}
-	return nil
-}
-
 // MCPWorkStatus projects the controller's processing state from a work post.
 type MCPWorkStatus struct {
 	Checkpoint   *project.FactoryTaskCheckpointState `json:"checkpoint,omitempty"`

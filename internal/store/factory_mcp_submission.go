@@ -47,9 +47,6 @@ const mcpWorkPostLookup = `SELECT id,idempotency,data FROM factory_feed_posts WH
 // RecordMCPSubmission records the work on its post. The capability row
 // serializes requests from the active run; no separate guard row is needed.
 func (s *Store) RecordMCPSubmission(ctx context.Context, submission factory.MCPSubmission) (factory.MCPWorkStatus, error) {
-	if err := submission.Validate(); err != nil {
-		return factory.MCPWorkStatus{}, err
-	}
 	tx, err := s.db.BeginTx(ctx, nil)
 	if err != nil {
 		return factory.MCPWorkStatus{}, err
@@ -72,7 +69,7 @@ func (s *Store) RecordMCPSubmission(ctx context.Context, submission factory.MCPS
 	if !errors.Is(err, sql.ErrNoRows) {
 		return factory.MCPWorkStatus{}, err
 	}
-	if terminal, frozen, err := terminalMCPProposalTx(ctx, tx, submission.AssignmentID); err != nil {
+	if terminal, frozen, err := terminalMCPWorkStatus(submission.AssignmentID, tx.QueryRowContext(ctx, terminalMCPWorkQuery, submission.AssignmentID)); err != nil {
 		return terminal, err
 	} else if frozen {
 		return terminal, ErrMCPSubmissionFrozen
@@ -136,7 +133,7 @@ func lockMCPCapabilityTx(ctx context.Context, tx *sql.Tx, capabilityID, assignme
 			return capability, err
 		}
 	}
-	if capability.Validate() != nil || capability.State != factory.MCPCapabilityActive || capability.AssignmentID != assignmentID {
+	if capability.State != factory.MCPCapabilityActive || capability.AssignmentID != assignmentID {
 		return capability, ErrMCPSubmissionCapabilityInactive
 	}
 	return capability, nil
@@ -168,20 +165,15 @@ func (s *Store) MCPWorkStatus(ctx context.Context, assignmentID, submissionID st
 }
 
 func (s *Store) TerminalMCPProposal(ctx context.Context, assignmentID string) (factory.MCPWorkStatus, bool, error) {
-	tx, err := s.db.BeginTx(ctx, &sql.TxOptions{ReadOnly: true})
-	if err != nil {
-		return factory.MCPWorkStatus{}, false, err
-	}
-	defer tx.Rollback()
-	return terminalMCPProposalTx(ctx, tx, assignmentID)
+	return terminalMCPWorkStatus(assignmentID, s.db.QueryRowContext(ctx, terminalMCPWorkQuery, assignmentID))
 }
 
 const terminalMCPWorkQuery = `SELECT id,idempotency,data FROM factory_feed_posts WHERE data->>'assignment'=$1 AND starts_with(data->'work'->>'tool','factory.finish_') ORDER BY seq LIMIT 1`
 
-func terminalMCPProposalTx(ctx context.Context, tx *sql.Tx, assignmentID string) (factory.MCPWorkStatus, bool, error) {
+func terminalMCPWorkStatus(assignmentID string, row *sql.Row) (factory.MCPWorkStatus, bool, error) {
 	var id, key string
 	var raw []byte
-	err := tx.QueryRowContext(ctx, terminalMCPWorkQuery, assignmentID).Scan(&id, &key, &raw)
+	err := row.Scan(&id, &key, &raw)
 	if errors.Is(err, sql.ErrNoRows) {
 		return factory.MCPWorkStatus{}, false, nil
 	}

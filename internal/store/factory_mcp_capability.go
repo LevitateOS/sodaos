@@ -22,11 +22,6 @@ import (
 	"github.com/levitateos/sodaos/internal/factory"
 )
 
-const (
-	// TableFactoryMCPCapabilities is the run-authority owner.
-	TableFactoryMCPCapabilities = "factory_mcp_capabilities"
-)
-
 // FactoryMCPCapabilitiesDDL creates the capability table. data
 // carries the factory.MCPCapability; authority_digest binds the
 // scope without storing secret bytes.

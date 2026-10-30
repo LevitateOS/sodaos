@@ -322,6 +322,9 @@ revalidating the optional context-selection receipt. There is no separate
 receipt-history admission pass or payload-hash comparison. Persistence handles
 the post key and enforces the assignment's single terminal result.
 Missing context remains visible in `factory.context`.
+The API validates worker content and its size before constructing the internal
+submission. The writer checks current authority under the capability lock; it
+does not repeat shape validation on server-generated identities or saved scope.
 
 Worker context does not carry a submission-receipt history; communications and
 results are available through the work posts and discussion. Ordinary worker
