@@ -73,27 +73,6 @@ type PauseReceipt struct {
 	Paused     bool             `json:"paused"`
 }
 
-func (r PauseReceipt) Validate() error {
-	if !ValidID(r.CommandID) || !r.Paused {
-		return errors.New("invalid pause receipt")
-	}
-	if err := r.Withdrawal.Validate(); err != nil {
-		return err
-	}
-	if r.Runs == nil {
-		return errors.New("pause receipt must list stopped runs")
-	}
-	for _, outcome := range r.Runs {
-		if !ValidID(outcome.ID) || len(outcome.Reason) > 256 || len(outcome.Outcome) > 32 {
-			return errors.New("invalid pause run outcome")
-		}
-		if outcome.Confirmed == outcome.Uncertain {
-			return errors.New("pause run outcome must confirm exactly one effect state")
-		}
-	}
-	return nil
-}
-
 // ResumeReceipt is the durable outcome of one resume command: the reopened
 // gate revision and the visible effective authority afterwards. Queued work
 // stays queued; resume launches nothing.
@@ -102,13 +81,6 @@ type ResumeReceipt struct {
 	CommandID string             `json:"command_id"`
 	Revision  int64              `json:"revision"`
 	Reopened  bool               `json:"reopened"`
-}
-
-func (r ResumeReceipt) Validate() error {
-	if !ValidID(r.CommandID) || r.Revision < 0 || (r.Reopened && !r.Effective.DispatchOpen) {
-		return errors.New("invalid resume receipt")
-	}
-	return nil
 }
 
 // RetryDecision is the durable outcome of one retry command. The prior run

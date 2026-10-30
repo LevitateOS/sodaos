@@ -58,9 +58,6 @@ func (c *Coordinator) PauseRepository(ctx context.Context, commandID, principal 
 		return factory.PauseReceipt{}, err
 	}
 	receipt := factory.PauseReceipt{Withdrawal: withdrawal, Runs: outcomes, CommandID: cmd.ID, Paused: true}
-	if err = receipt.Validate(); err != nil {
-		return factory.PauseReceipt{}, err
-	}
 	outcome, err := json.Marshal(receipt)
 	if err != nil {
 		return factory.PauseReceipt{}, err
@@ -297,9 +294,6 @@ func (c *Coordinator) ResumeRepository(ctx context.Context, commandID, principal
 		return factory.ResumeReceipt{}, err
 	}
 	receipt := factory.ResumeReceipt{Effective: reopened.Effective, CommandID: cmd.ID, Revision: reopened.Revision, Reopened: reopened.Effective.DispatchOpen}
-	if err = receipt.Validate(); err != nil {
-		return factory.ResumeReceipt{}, err
-	}
 	outcome, err := json.Marshal(receipt)
 	if err != nil {
 		return factory.ResumeReceipt{}, err
