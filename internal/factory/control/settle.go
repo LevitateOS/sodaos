@@ -9,7 +9,6 @@ import (
 	"github.com/levitateos/sodaos/internal/factory"
 	"github.com/levitateos/sodaos/internal/identity"
 	"github.com/levitateos/sodaos/internal/project"
-	"github.com/levitateos/sodaos/internal/store"
 )
 
 // StopReceipt is the durable outcome of one stop command. Uncertain stays
@@ -128,76 +127,6 @@ func replayReconcile(stored factory.Command) (ReconcileReceipt, error) {
 	return receipt, nil
 }
 
-// settleAbandonedCommands finishes stop and reconcile commands that a
-// crash left recorded but unfinished. Start just reconciled every run,
-// so each command settles from durable target state through the existing
-// settle path: an established outcome replays from the record without
-// host calls, and an unconfirmed effect finishes uncertain instead of
-// timing out into success. Other command types stay running; their
-// effects have no durable derivation here. Visited identities bound the
-// walk so commands that stay running never spin recovery.
-func (c *Coordinator) settleAbandonedCommands(ctx context.Context, settle ReconcileReceipt) error {
-	visited := map[string]bool{}
-	for {
-		batch, err := c.Store.UnfinishedCommands(ctx, 100)
-		if err != nil {
-			return err
-		}
-		progress := false
-		for _, cmd := range batch {
-			if visited[cmd.ID] {
-				continue
-			}
-			visited[cmd.ID] = true
-			progress = true
-			if err := c.settleAbandonedCommand(ctx, cmd, settle); err != nil {
-				return err
-			}
-		}
-		if !progress || len(batch) < 100 {
-			return nil
-		}
-	}
-}
-
-func (c *Coordinator) settleAbandonedCommand(ctx context.Context, cmd factory.Command, settle ReconcileReceipt) error {
-	switch cmd.Type {
-	case factory.CommandStop:
-		run, err := c.Store.FactoryRun(ctx, cmd.Target)
-		if err != nil {
-			if !errors.Is(err, store.ErrNotFound) {
-				return err
-			}
-			return c.finishAbandonedCommand(ctx, cmd.ID, StopReceipt{RunID: cmd.Target, Uncertain: true, Reason: "stop target missing"})
-		}
-		bounded, stop := context.WithTimeout(ctx, 2*time.Minute)
-		receipt := c.settleRun(bounded, run)
-		stop()
-		return c.finishAbandonedCommand(ctx, cmd.ID, receipt)
-	case factory.CommandReconcile:
-		return c.finishAbandonedCommand(ctx, cmd.ID, ReconcileReceipt{Settled: settle.Settled, Fenced: settle.Fenced})
-	case factory.CommandWithdrawal:
-		return c.recoverAbandonedWithdrawal(ctx, cmd)
-	default:
-		return nil
-	}
-}
-
-func (c *Coordinator) finishAbandonedCommand(ctx context.Context, id string, receipt any) error {
-	outcome, err := json.Marshal(receipt)
-	if err != nil {
-		return err
-	}
-	if err = c.Store.FinishFactoryCommand(ctx, id, string(outcome), time.Now()); err != nil {
-		// A concurrent executor finished first; its receipt stands.
-		if errors.Is(err, store.ErrNotFound) {
-			return nil
-		}
-		return err
-	}
-	return nil
-}
-
 func (c *Coordinator) reconcileRuns(ctx context.Context) (ReconcileReceipt, error) {
 	receipt := ReconcileReceipt{Settled: []string{}}
 	// Outstanding work first, in progressing batches: settled history
@@ -249,22 +178,7 @@ func (c *Coordinator) settleRun(ctx context.Context, run factory.Run) StopReceip
 		receipt.Uncertain, receipt.Reason = true, "host stop unconfirmed"
 		return receipt
 	}
-	// The broker fence is idempotent: ride out a transient close
-	// failure before fencing the run.
-	var closeErr error
-	for attempt := 0; attempt < 3; attempt++ {
-		if attempt > 0 {
-			select {
-			case <-ctx.Done():
-				break
-			case <-time.After(time.Second):
-			}
-		}
-		if closeErr = c.Broker.CloseExecution(ctx, identity.Factory, run.ID); closeErr == nil {
-			break
-		}
-	}
-	if closeErr != nil {
+	if err := c.Broker.CloseExecution(ctx, identity.Factory, run.ID); err != nil {
 		receipt.Uncertain, receipt.Reason = true, "broker closure unconfirmed"
 		return receipt
 	}

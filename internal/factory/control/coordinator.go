@@ -168,7 +168,7 @@ func (c *Coordinator) Start(ctx context.Context, lockPath string) error {
 	}
 	c.lock = file
 	c.ownerMu.Unlock()
-	settle, err := c.reconcileRuns(ctx)
+	_, err = c.reconcileRuns(ctx)
 	if err != nil {
 		c.requestGate.RUnlock()
 		return errors.Join(err, c.Close())
@@ -177,13 +177,7 @@ func (c *Coordinator) Start(ctx context.Context, lockPath string) error {
 		c.requestGate.RUnlock()
 		return errors.Join(errors.New("factory dispatch recovery failed"), c.Close())
 	}
-	if err = c.settleAbandonedCommands(ctx, settle); err != nil {
-		c.requestGate.RUnlock()
-		return errors.Join(err, c.Close())
-	}
-	// Recorded MCP terminals settle before publication so a crash
-	// between FinishAssignment and its receipt CAS recovers here and
-	// fresh typed finishes can publish in this same startup pass.
+	// Apply queued terminal posts before publication.
 	_ = c.settleMCPTerminals(ctx)
 	// Stored comment requests resume service-side at startup: a
 	// restart picks up the same durable rows instead of waiting for a

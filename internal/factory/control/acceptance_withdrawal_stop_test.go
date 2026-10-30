@@ -99,7 +99,7 @@ func TestWithdrawAcceptanceStopsAdmittedRun(t *testing.T) {
 	}
 }
 
-func TestAbandonedAcceptanceWithdrawalRecoversExactDecision(t *testing.T) {
+func TestAcceptanceWithdrawalSurvivesRunReconciliation(t *testing.T) {
 	ctx := context.Background()
 	db, _ := dispatchTestDB(t)
 	fx := dispatchSeed(t, db)
@@ -145,27 +145,27 @@ func TestAbandonedAcceptanceWithdrawalRecoversExactDecision(t *testing.T) {
 	if err := db.AdmitAcceptanceDecision(ctx, newHead); err != nil {
 		t.Fatal(err)
 	}
-	if err := coord.settleAbandonedCommand(ctx, command, ReconcileReceipt{}); err != nil {
+	if _, err := coord.reconcileRuns(ctx); err != nil {
 		t.Fatal(err)
 	}
 	command, err = db.FactoryCommand(ctx, commandID)
-	if err != nil || command.Finished == "" {
-		t.Fatalf("recovered withdrawal command did not finish: %+v, %v", command, err)
+	if err != nil || command.Finished != "" {
+		t.Fatalf("reconciliation manufactured a command outcome: %+v, %v", command, err)
 	}
 	if stopCalls != 2 {
-		t.Fatalf("recovery stop calls = %d, want retry of the exact unfinished target", stopCalls)
+		t.Fatalf("stop calls = %d, want initial withdrawal and actual run reconciliation", stopCalls)
 	}
 	oldWithdrawn, _, err := db.AcceptanceWithdrawn(ctx, fx.repo, 3, decision.ID)
 	if err != nil || !oldWithdrawn {
-		t.Fatalf("original decision latch lost during recovery: withdrawn=%v err=%v", oldWithdrawn, err)
+		t.Fatalf("original decision latch lost during reconciliation: withdrawn=%v err=%v", oldWithdrawn, err)
 	}
 	head, err := db.AcceptanceHead(ctx, fx.repo, 3)
 	if err != nil || head != newHead.ID {
-		t.Fatalf("recovery changed newer acceptance head: %q, %v", head, err)
+		t.Fatalf("reconciliation changed newer acceptance head: %q, %v", head, err)
 	}
 	run, err := db.FactoryRun(ctx, runID)
 	if err != nil || !run.Reconciled || run.Outcome != factory.Cancelled {
-		t.Fatalf("recovered run = %+v, %v", run, err)
+		t.Fatalf("reconciled run = %+v, %v", run, err)
 	}
 }
 

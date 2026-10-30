@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
-	"fmt"
 	"strconv"
 	"time"
 
@@ -282,27 +281,6 @@ func (c *Coordinator) resumeWithdrawal(ctx context.Context, cmd factory.Command,
 		}
 	}
 	return c.finishWithdrawal(ctx, cmd.ID, repository, issue, decision, ownsPass)
-}
-
-func (c *Coordinator) recoverAbandonedWithdrawal(ctx context.Context, cmd factory.Command) error {
-	bounded, stop := context.WithTimeout(ctx, 30*time.Second)
-	defer stop()
-	var payload struct {
-		Decision   string `json:"decision"`
-		Withdrawer int64  `json:"withdrawer"`
-	}
-	if err := json.Unmarshal([]byte(cmd.Payload), &payload); err != nil || payload.Decision == "" || payload.Withdrawer <= 0 {
-		return errors.New("invalid abandoned withdrawal command")
-	}
-	var repository, issue int64
-	if _, err := fmt.Sscanf(cmd.Target, "repository/%d/issue/%d/withdrawal", &repository, &issue); err != nil || repository <= 0 || issue <= 0 || cmd.Target != "repository/"+strconv.FormatInt(repository, 10)+"/issue/"+strconv.FormatInt(issue, 10)+"/withdrawal" {
-		return errors.New("invalid abandoned withdrawal target")
-	}
-	_, err := c.resumeWithdrawal(bounded, cmd, repository, issue, payload.Decision, payload.Withdrawer, false)
-	if errors.Is(err, ErrCommandRunning) || errors.Is(err, store.ErrStaleRevision) || errors.Is(err, store.ErrReadinessCapacity) {
-		return nil
-	}
-	return err
 }
 
 func (c *Coordinator) finishWithdrawal(ctx context.Context, commandID string, repository, issue int64, decision string, ownsPass bool) (WithdrawalReceipt, error) {

@@ -476,28 +476,6 @@ func (s *Store) FactoryCommand(ctx context.Context, id string) (factory.Command,
 
 // FinishFactoryCommand records the durable outcome exactly once. A lost reply
 // replays the stored outcome; it never re-executes the command.
-// UnfinishedCommands lists recorded commands without a finish, oldest
-// first, for restart recovery. A crash between record and finish leaves
-// exactly this state; the coordinator settles what it can from durable
-// target state and leaves the rest running.
-func (s *Store) UnfinishedCommands(ctx context.Context, limit int) ([]factory.Command, error) {
-	rows, err := s.db.QueryContext(ctx, `SELECT id,type,target,principal,digest,payload,outcome,created,finished FROM factory_commands WHERE finished='' AND type<>$2 ORDER BY created,id LIMIT $1`,
-		min(max(limit, 1), 101), factory.CommandDeliveryRepair)
-	if err != nil {
-		return nil, err
-	}
-	defer func() { _ = rows.Close() }()
-	var out []factory.Command
-	for rows.Next() {
-		var c factory.Command
-		if err = rows.Scan(&c.ID, &c.Type, &c.Target, &c.Principal, &c.Digest, &c.Payload, &c.Outcome, &c.Created, &c.Finished); err != nil {
-			return nil, err
-		}
-		out = append(out, c)
-	}
-	return out, rows.Err()
-}
-
 func (s *Store) FinishFactoryCommand(ctx context.Context, id, outcome string, now time.Time) error {
 	if len(outcome) > 64<<10 {
 		return errors.New("command outcome exceeds retained output limit")

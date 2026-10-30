@@ -41,6 +41,9 @@ stored outcome, and reuse for different content conflicts. A duplicated
 unfinished command returns 202 so the caller refreshes instead of executing
 twice.
 
+Startup reconciles recorded runs; it does not reconstruct unfinished command
+responses. A fresh stop or reconcile command uses the current run state.
+
 ## Stop and reconcile
 
 Stop retires one recorded run through the host's exact run boundary and seals
