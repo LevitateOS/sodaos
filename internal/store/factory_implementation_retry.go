@@ -110,7 +110,7 @@ func implementationRetryFactsTx(ctx context.Context, tx *sql.Tx, priorRun string
 	if err != nil || json.Unmarshal(manifest.Plan, &bound) != nil || !reflect.DeepEqual(bound, plan) || manifest.Run != run.ID || manifest.Phase != project.ExecutionImplement {
 		return facts, ErrExplicitRetryIneligible
 	}
-	if err = tx.QueryRowContext(ctx, `SELECT EXISTS(SELECT 1 FROM factory_plan_tasks WHERE attempt_root=$1 AND plan_id=$2) OR EXISTS(SELECT 1 FROM factory_mcp_submissions WHERE assignment=$3)`, parent.ID, plan.ID, prior.ID).Scan(&unsettled); err != nil {
+	if err = tx.QueryRowContext(ctx, `SELECT EXISTS(SELECT 1 FROM factory_plan_tasks WHERE attempt_root=$1 AND plan_id=$2) OR EXISTS(SELECT 1 FROM factory_feed_posts WHERE data->>'assignment'=$3 AND data ? 'work')`, parent.ID, plan.ID, prior.ID).Scan(&unsettled); err != nil {
 		return facts, err
 	}
 	if unsettled {

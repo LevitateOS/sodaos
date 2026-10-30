@@ -25,7 +25,7 @@ func (s *Store) RecordedTerminalMCPAssignments(ctx context.Context, limit int) (
 	if limit <= 0 || limit > storeAssignedLimit {
 		return nil, errors.New("invalid recorded terminal listing limit")
 	}
-	rows, err := s.db.QueryContext(ctx, `SELECT assignment,tool FROM factory_mcp_submissions WHERE state=$1 ORDER BY assignment,tool`, factory.MCPReceiptRecorded)
+	rows, err := s.db.QueryContext(ctx, `SELECT data->>'assignment',data->'work'->>'tool' FROM factory_feed_posts WHERE data->'work'->>'state'=$1 ORDER BY data->>'assignment',data->'work'->>'tool'`, factory.MCPReceiptRecorded)
 	if err != nil {
 		return nil, err
 	}

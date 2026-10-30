@@ -23,7 +23,7 @@ func initializePostResolutionSchema(ctx context.Context, db *sql.DB) error {
 // The target must be a live suggestion or answer in this repository
 // and match its resolution; a second disposition for the same post
 // refuses so recorded states survive exactly as written.
-func recordMCPPostResolutionTx(ctx context.Context, tx *sql.Tx, cap factory.MCPCapability, submission factory.MCPSubmission, receipt *factory.MCPReceipt) error {
+func recordMCPPostResolutionTx(ctx context.Context, tx *sql.Tx, cap factory.MCPCapability, submission factory.MCPSubmission) error {
 	if submission.Tool != factory.MCPToolResolvePost {
 		return nil
 	}

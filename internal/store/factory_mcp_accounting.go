@@ -23,8 +23,8 @@ JOIN factory_run_views v ON v.run=r.id JOIN factory_assignments a ON a.id=v.atte
 JOIN factory_reservations p ON p.assignment=a.id
 WHERE r.settled AND NOT r.active AND r.data->>'reconciled'='true'
 AND a.stage='finished' AND a.run=r.id AND p.state='held'
-AND EXISTS(SELECT 1 FROM factory_mcp_submissions m WHERE m.assignment=a.id
-AND starts_with(m.tool,'factory.finish_') AND m.state IN ('recorded','accepted'))
+AND EXISTS(SELECT 1 FROM factory_feed_posts m WHERE m.data->>'assignment'=a.id
+AND starts_with(m.data->'work'->>'tool','factory.finish_') AND m.data->'work'->>'state' IN ('recorded','accepted'))
 ORDER BY r.seq LIMIT $1`, limit)
 	if err != nil {
 		return nil, err

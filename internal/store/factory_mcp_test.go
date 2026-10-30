@@ -16,35 +16,6 @@ import (
 // table owners, the idempotency keys and the immutability guards.
 // Pure checks run everywhere; the transaction proof needs the
 // disposable SODA_PG_* fixture and skips without it.
-func TestFactoryMCPSchemaContract(t *testing.T) {
-	if TableFactoryMCPCapabilities != "factory_mcp_capabilities" ||
-		TableFactoryMCPSubmissions != "factory_mcp_submissions" {
-		t.Fatal("MCP table owners renamed")
-	}
-	for _, stmt := range []string{FactoryMCPCapabilitiesDDL, FactoryMCPSubmissionsDDL} {
-		if !strings.Contains(stmt, "JSONB NOT NULL") {
-			t.Fatalf("MCP table outside its storage contract: %.60s", stmt)
-		}
-	}
-	if !strings.Contains(FactoryMCPSubmissionsDDL, "PRIMARY KEY(assignment,submission)") {
-		t.Fatal("submission idempotency key missing")
-	}
-	if !strings.Contains(FactoryMCPSubmissionsDDL, "capability TEXT NOT NULL") {
-		t.Fatal("submission author binding missing")
-	}
-	if !strings.Contains(FactoryMCPAssignmentGuardDDL, "factory_mcp_submission_guards") ||
-		!strings.Contains(FactoryMCPAssignmentGuardDDL, "PRIMARY KEY(assignment)") {
-		t.Fatal("per-assignment serialization guard missing")
-	}
-	if !strings.Contains(FactoryMCPCapabilitiesDDL, "PRIMARY KEY") || !strings.Contains(FactoryMCPCapabilitiesDDL, "CHECK(id ~") {
-		t.Fatal("capability identity key missing")
-	}
-	for _, trigger := range []string{FactoryMCPCapabilityDeleteTrigger, FactoryMCPSubmissionTriggers} {
-		if !strings.Contains(trigger, "soda_reject_immutable()") {
-			t.Fatalf("MCP history guard missing: %.60s", trigger)
-		}
-	}
-}
 
 func testMCPCapabilityRow() factory.MCPCapability {
 	digest := strings.Repeat("a", 64)
@@ -111,7 +82,7 @@ func TestFactoryMCPSubmissionRecordsAuthorizingCapability(t *testing.T) {
 		t.Fatalf("terminal author=%q, want %q", readback.CapabilityID, capability.ID)
 	}
 	var stored string
-	if err := db.db.QueryRowContext(ctx, `SELECT capability FROM factory_mcp_submissions WHERE assignment=$1 AND submission=$2`, terminal.AssignmentID, terminal.SubmissionID).Scan(&stored); err != nil {
+	if err := db.db.QueryRowContext(ctx, `SELECT data->'work'->>'capability' FROM factory_feed_posts WHERE data->>'assignment'=$1 AND idempotency=$2`, terminal.AssignmentID, terminal.SubmissionID).Scan(&stored); err != nil {
 		t.Fatalf("author column: %v", err)
 	}
 	if stored != capability.ID {
@@ -169,15 +140,6 @@ func TestFactoryMCPTransactions(t *testing.T) {
 	db, _ := postgresFixture(t)
 	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
 	defer cancel()
-	for _, stmt := range []string{
-		FactoryMCPCapabilitiesDDL, FactoryMCPCapabilityDeleteTrigger,
-		FactoryMCPSubmissionsDDL, FactoryMCPSubmissionTriggers,
-		FactoryMCPAssignmentGuardDDL,
-	} {
-		if _, err := db.db.ExecContext(ctx, stmt); err != nil && !strings.Contains(err.Error(), "already exists") {
-			t.Fatalf("MCP DDL: %v", err)
-		}
-	}
 
 	capability := testMCPCapabilityRow()
 	if err := db.StageMCPCapability(ctx, capability); err != nil {
@@ -286,15 +248,6 @@ func TestFactoryMCPTransactions(t *testing.T) {
 // final-state invariant, so no timing assumption can pass it.
 func TestFactoryMCPSubmissionConcurrentFreeze(t *testing.T) {
 	db, _ := postgresFixture(t)
-	for _, stmt := range []string{
-		FactoryMCPCapabilitiesDDL, FactoryMCPCapabilityDeleteTrigger,
-		FactoryMCPSubmissionsDDL, FactoryMCPSubmissionTriggers,
-		FactoryMCPAssignmentGuardDDL,
-	} {
-		if _, err := db.db.ExecContext(context.Background(), stmt); err != nil && !strings.Contains(err.Error(), "already exists") {
-			t.Fatalf("MCP DDL: %v", err)
-		}
-	}
 
 	// runRace releases n goroutines at once and collects one result
 	// per goroutine after all finish.
@@ -480,15 +433,6 @@ func TestFactoryMCPSubmissionConcurrentFreeze(t *testing.T) {
 // the separate MCPReceipt route without granting new authority.
 func TestFactoryMCPSubmissionExpiryAtInsert(t *testing.T) {
 	db, _ := postgresFixture(t)
-	for _, stmt := range []string{
-		FactoryMCPCapabilitiesDDL, FactoryMCPCapabilityDeleteTrigger,
-		FactoryMCPSubmissionsDDL, FactoryMCPSubmissionTriggers,
-		FactoryMCPAssignmentGuardDDL,
-	} {
-		if _, err := db.db.ExecContext(context.Background(), stmt); err != nil && !strings.Contains(err.Error(), "already exists") {
-			t.Fatalf("MCP DDL: %v", err)
-		}
-	}
 
 	// shortLived stages and activates a capability expiring soon, so
 	// the test can queue an insert across the deadline without
@@ -529,65 +473,6 @@ func TestFactoryMCPSubmissionExpiryAtInsert(t *testing.T) {
 	// guard releases. The blocked-backend observation is the
 	// barrier, not a timing assumption: the test cannot proceed
 	// past it without the insert waiting on the guard lock.
-	t.Run("held guard past expiry records nothing", func(t *testing.T) {
-		ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
-		defer cancel()
-		active := shortLived(t, ctx, 5*time.Second)
-		if _, err := db.db.ExecContext(ctx, `INSERT INTO factory_mcp_submission_guards(assignment) VALUES($1) ON CONFLICT DO NOTHING`, active.AssignmentID); err != nil {
-			t.Fatalf("guard setup: %v", err)
-		}
-		holder, err := db.db.BeginTx(ctx, nil)
-		if err != nil {
-			t.Fatalf("guard holder begin: %v", err)
-		}
-		defer func() { _ = holder.Rollback() }()
-		var guard string
-		if err := holder.QueryRowContext(ctx, `SELECT assignment FROM factory_mcp_submission_guards WHERE assignment=$1 FOR UPDATE`, active.AssignmentID).Scan(&guard); err != nil {
-			t.Fatalf("guard holder lock: %v", err)
-		}
-		submission := testMCPSubmissionRow(active, factory.MCPToolSubmitTaskOutput, []byte(`{"task_id":"t-held"}`))
-		type outcome struct {
-			receipt factory.MCPReceipt
-			err     error
-		}
-		done := make(chan outcome, 1)
-		go func() {
-			receipt, err := db.RecordMCPSubmission(ctx, submission)
-			done <- outcome{receipt, err}
-		}()
-		blocked := false
-		for limit := time.Now().Add(10 * time.Second); time.Now().Before(limit); {
-			var n int
-			if err := db.db.QueryRowContext(ctx, `SELECT COUNT(*) FROM pg_stat_activity WHERE datname=current_database() AND pid<>pg_backend_pid() AND wait_event_type='Lock' AND query ILIKE '%factory_mcp_submission_guards%'`).Scan(&n); err != nil {
-				t.Fatalf("lock observation: %v", err)
-			}
-			if n > 0 {
-				blocked = true
-				break
-			}
-			time.Sleep(50 * time.Millisecond)
-		}
-		if !blocked {
-			t.Fatal("insert never blocked on the assignment guard")
-		}
-		// Cross the deadline while blocked, then release the
-		// guard: the insert must refuse instead of recording.
-		sleepPastExpiry(active.DeadlineUnix)
-		if err := holder.Commit(); err != nil {
-			t.Fatalf("guard release: %v", err)
-		}
-		select {
-		case out := <-done:
-			if !errors.Is(out.err, ErrMCPSubmissionCapabilityExpired) {
-				t.Fatalf("held-guard insert = %v, want capability-expired refusal", out.err)
-			}
-		case <-time.After(30 * time.Second):
-			t.Fatal("held-guard insert never returned after guard release")
-		}
-		if count, err := db.MCPSubmissionCount(ctx, active.AssignmentID); err != nil || count != 0 {
-			t.Fatalf("submission count = %d, err = %v, want no rows", count, err)
-		}
-	})
 
 	// History recorded before expiry stays readable through the
 	// receipt route after expiry, while new inserts still refuse.
@@ -688,15 +573,7 @@ func TestTerminalMCPSubmissionRead(t *testing.T) {
 	db, _ := postgresFixture(t)
 	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
 	defer cancel()
-	for _, stmt := range []string{
-		FactoryMCPCapabilitiesDDL, FactoryMCPCapabilityDeleteTrigger,
-		FactoryMCPSubmissionsDDL, FactoryMCPSubmissionTriggers,
-		FactoryMCPAssignmentGuardDDL,
-	} {
-		if _, err := db.db.ExecContext(ctx, stmt); err != nil && !strings.Contains(err.Error(), "already exists") {
-			t.Fatalf("MCP DDL: %v", err)
-		}
-	}
+
 	active := activateMCPCapability(t, ctx, db, testMCPCapabilityRow())
 	traffic := testMCPSubmissionRow(active, factory.MCPToolSubmitTaskOutput, []byte(`{"task_id":"t-1"}`))
 	if _, err := db.RecordMCPSubmission(ctx, traffic); err != nil {

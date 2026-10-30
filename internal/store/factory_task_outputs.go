@@ -12,19 +12,20 @@ import (
 // MCPTaskOutputSubmissions reads the immutable authenticated parent proposals.
 // Journal sequence, rather than submission identity, orders their checkpoints.
 func (s *Store) MCPTaskOutputSubmissions(ctx context.Context, assignment string) ([]factory.MCPSubmission, error) {
-	rows, err := s.db.QueryContext(ctx, `SELECT submission,capability,input_digest,payload_hash,payload FROM factory_mcp_submissions WHERE assignment=$1 AND tool=$2 ORDER BY submission LIMIT 257`, assignment, string(factory.MCPToolSubmitTaskOutput))
+	rows, err := s.db.QueryContext(ctx, `SELECT id,idempotency,data FROM factory_feed_posts WHERE data->>'assignment'=$1 AND data->'work'->>'tool'=$2 ORDER BY seq LIMIT 257`, assignment, string(factory.MCPToolSubmitTaskOutput))
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
 	var result []factory.MCPSubmission
 	for rows.Next() {
-		submission := factory.MCPSubmission{AssignmentID: assignment, Tool: factory.MCPToolSubmitTaskOutput}
-		var inputDigest string
-		if err := rows.Scan(&submission.SubmissionID, &submission.CapabilityID, &inputDigest, &submission.PayloadHash, &submission.Payload); err != nil {
+		var id, key string
+		var raw []byte
+		if err := rows.Scan(&id, &key, &raw); err != nil {
 			return nil, err
 		}
-		if err := submission.Validate(); err != nil {
+		submission, _, err := decodeMCPWorkPost(assignment, key, id, raw)
+		if err != nil {
 			return nil, err
 		}
 		result = append(result, submission)

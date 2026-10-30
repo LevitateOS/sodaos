@@ -177,6 +177,7 @@ func applyFeedCommunicationDetail(detail *FeedPostDetail, raw []byte) error {
 		Consultation  *factory.FeedConsultation   `json:"consultation"`
 		Contribution  *factory.ContributionReview `json:"contribution"`
 		Source        *factory.PostSource         `json:"source"`
+		Work          *mcpSubmittedWork           `json:"work"`
 	}
 	if err := json.Unmarshal(raw, &data); err != nil {
 		return err
@@ -186,6 +187,9 @@ func applyFeedCommunicationDetail(detail *FeedPostDetail, raw []byte) error {
 		if detail.Record.ParentID == "" && data.Source.Kind == factory.PostSourcePost {
 			detail.Record.ParentID = data.Source.ID
 		}
+	}
+	if data.Work != nil {
+		detail.Actor, detail.Assignment, detail.Status = data.Actor, data.Assignment, data.Work.State
 	}
 	if data.Communication != nil {
 		if data.Actor == "factory" {

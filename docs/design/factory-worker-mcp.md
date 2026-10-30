@@ -331,9 +331,11 @@ terminal freezes. Reply authorization, communication limits and atomic library
 updates use the posts themselves. Issue Maker creates
 and refines issues through the native writer and returns the issue and post
 identities directly, without a second MCP submission record. Checkpoint progress
-is read through `factory.status`. Other submission callers supply only the
-submission; the Store derives its initial recorded state instead of accepting
-and validating a second envelope copying the same identity and digest.
+is read through `factory.status`. Submitted finishes, task outputs and post
+dispositions also live on their posts, under `data.work`. The controller updates
+processing state and native checkpoints there. There is no separate MCP
+submission journal or guard table; writes hold the active capability's row lock
+alongside revocation. The Store derives initial processing state.
 
 Generic worker System One consultations call JEV directly and record the question
 and actual answer in the work discussion. They create no funding reservation or

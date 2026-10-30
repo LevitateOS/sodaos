@@ -17,15 +17,7 @@ func TestRecordedTerminalMCPAssignments(t *testing.T) {
 	db, _ := postgresFixture(t)
 	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
 	defer cancel()
-	for _, stmt := range []string{
-		FactoryMCPCapabilitiesDDL, FactoryMCPCapabilityDeleteTrigger,
-		FactoryMCPSubmissionsDDL, FactoryMCPSubmissionTriggers,
-		FactoryMCPAssignmentGuardDDL,
-	} {
-		if _, err := db.db.ExecContext(ctx, stmt); err != nil && !strings.Contains(err.Error(), "already exists") {
-			t.Fatalf("MCP DDL: %v", err)
-		}
-	}
+
 	active := activateMCPCapability(t, ctx, db, testMCPCapabilityRow())
 	traffic := testMCPSubmissionRow(active, factory.MCPToolSubmitTaskOutput, []byte(`{"task_id":"t-1"}`))
 	if _, err := db.RecordMCPSubmission(ctx, traffic); err != nil {
