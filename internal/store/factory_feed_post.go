@@ -78,11 +78,16 @@ func (s *Store) PostIssueContext(ctx context.Context, id string, revision int64)
 
 // FeedReplyIDs lists the actual conversation, including replies from other
 // browsers. The caller authorizes the repository and source before this read.
+// Posts retain direct-reply paging; work records include their discussion threads.
 func (s *Store) FeedReplyIDs(ctx context.Context, repository int64, kind, source string, before int64) ([]string, int64, error) {
-	rows, err := s.db.QueryContext(ctx, `SELECT id,seq FROM (
+	rows, err := s.db.QueryContext(ctx, `WITH RECURSIVE discussion AS (
  SELECT id,seq FROM factory_feed_posts
  WHERE repository=$1 AND data->>'parent_id'=$3
  AND NOT COALESCE((data->>'deleted')::boolean,false) AND NOT COALESCE((data->>'revoked')::boolean,false)
+ UNION ALL SELECT c.id,c.seq FROM factory_feed_posts c JOIN discussion p ON c.data->>'parent_id'=p.id
+ WHERE $2::text='record' AND c.repository=$1 AND NOT COALESCE((c.data->>'deleted')::boolean,false) AND NOT COALESCE((c.data->>'revoked')::boolean,false)
+ ) SELECT id,seq FROM (
+ SELECT id,seq FROM discussion
  UNION ALL SELECT id,seq FROM factory_assignments WHERE repository=$1
  AND COALESCE(NULLIF(data->>'parent_assignment',''),data->'planning_context'->'IssueMaker'->>'source_post',data->'planning_context'->'IssueMaker'->>'comment')=$3
  AND COALESCE(data->'planning_context'->'IssueMaker','null'::jsonb)='null'::jsonb

@@ -571,8 +571,8 @@ func TestMCPInvitedContributionOnAssignmentRecord(t *testing.T) {
 	if !strings.Contains(inviteMsg.Contribution.Body, "delivery guard") || !strings.Contains(inviteMsg.Source.Summary, "delivery guard") {
 		t.Fatalf("record invitation hides its original result/context: %+v %+v", inviteMsg.Contribution, inviteMsg.Source)
 	}
-	if inviteMsg.ParentID != "" {
-		t.Fatalf("record invitation misdirects its reply target: %+v", inviteMsg)
+	if inviteMsg.ParentID != sourceID {
+		t.Fatalf("record invitation lost its source thread: %+v", inviteMsg)
 	}
 	recordPage, err := s.MCPDiscussion(ctx, eligible, sourceID, "")
 	if err != nil || len(recordPage.Items) < 1 {

@@ -302,9 +302,8 @@ func (s *Store) contributionRoles(ctx context.Context, review factory.Contributi
 // ClaimContributionReview publishes the real pending assessment before calls.
 // The source revision lock and existing comment idempotency key make a repeated
 // service wake, model timeout or browser refresh unable to dispatch twice.
-// Record sources persist the resolved record snapshot beside the assessment
-// (the ResolvePostSource owner); post sources keep the existing parent_id
-// thread link. No separate authored post is created in either leg.
+// Record sources retain the resolved source snapshot beside the assessment.
+// Every assessment uses the normal parent_id thread link.
 func (s *Store) ClaimContributionReview(ctx context.Context, review factory.ContributionReview) (bool, error) {
 	if len(review.Roles) == 0 || !factory.ValidDigest(review.Snapshot) {
 		return false, errors.New("contribution requires eligible roles and snapshot")
@@ -325,11 +324,9 @@ func (s *Store) ClaimContributionReview(ctx context.Context, review factory.Cont
 	if err := lockContributionSource(ctx, tx, review); err != nil {
 		return false, err
 	}
-	fields := map[string]any{"actor": "factory", "author_name": "Factory", "at": time.Now().Unix(), "contribution": review, "status": "contribution:pending"}
+	fields := map[string]any{"actor": "factory", "author_name": "Factory", "at": time.Now().Unix(), "contribution": review, "status": "contribution:pending", "parent_id": review.Source}
 	if recordSource != nil {
 		fields["source"] = recordSource
-	} else {
-		fields["parent_id"] = review.Source
 	}
 	raw, err := json.Marshal(fields)
 	if err != nil {
@@ -542,7 +539,8 @@ func isOwnDiscussionReplyTx(ctx context.Context, tx *sql.Tx, cap factory.MCPCapa
  WHERE p.repository=$1 AND a.depth<32
  ) SELECT EXISTS(SELECT 1 FROM ancestors WHERE
  (data->'source'->>'kind'='record' AND data->'source'->>'id'=$3)
- OR (data->>'assignment'=$3 AND COALESCE(data->>'parent_id','')=''))`, cap.Repository, post, cap.AssignmentID).Scan(&own)
+ OR (data->>'assignment'=$3 AND COALESCE(data->>'parent_id','')='')
+ OR EXISTS(SELECT 1 FROM factory_assignments a WHERE a.id=$3 AND a.data->'planning_context'->'IssueMaker'->>'post'=ancestors.id))`, cap.Repository, post, cap.AssignmentID).Scan(&own)
 	if err != nil {
 		return false, err
 	}
