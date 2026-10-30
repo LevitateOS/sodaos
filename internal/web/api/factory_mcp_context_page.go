@@ -1,15 +1,12 @@
 package api
 
 import (
-	"crypto/hmac"
 	"crypto/sha256"
 	"encoding/base64"
 	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"sort"
-	"strings"
-	"time"
 	"unicode/utf8"
 
 	"github.com/google/jsonschema-go/jsonschema"
@@ -25,12 +22,8 @@ const (
 var errCurrentContextBound = errors.New("required current collection exceeds its finite bound")
 
 type currentContextCursor struct {
-	Version  string `json:"version"`
-	Scope    string `json:"scope"`
-	Stream   string `json:"stream"`
 	Snapshot string `json:"snapshot"`
 	Offset   int    `json:"offset"`
-	Expires  int64  `json:"expires"`
 }
 
 type currentContextRecord struct {
@@ -55,7 +48,7 @@ type currentContextPage struct {
 }
 
 func contextPayloadSchema() *jsonschema.Schema {
-	return &jsonschema.Schema{Type: "object", Properties: map[string]*jsonschema.Schema{"cursor": {Type: "string", MaxLength: ptrInt(1024), Description: "Authenticated continuation from current_role_page.next_cursor. Bound to your exact scope/input snapshot and expires within five minutes; stale pages require a fresh context read."}}, AdditionalProperties: &jsonschema.Schema{Not: &jsonschema.Schema{}}}
+	return &jsonschema.Schema{Type: "object", Properties: map[string]*jsonschema.Schema{"cursor": {Type: "string", MaxLength: ptrInt(1024), Description: "Continuation from current_role_page.next_cursor for the same input snapshot. If the context changes, begin a fresh context read."}}, AdditionalProperties: &jsonschema.Schema{Not: &jsonschema.Schema{}}}
 }
 
 // Large typed fields use UTF-8-safe JSON fragments: concatenate a field's
@@ -118,14 +111,7 @@ func contextPageEnd(records []currentContextRecord, offset int) int {
 	return offset
 }
 
-func contextCursorMAC(key, payload []byte) []byte {
-	mac := hmac.New(sha256.New, key)
-	_, _ = mac.Write([]byte("soda-factory-required-context-v1\x00"))
-	_, _ = mac.Write(payload)
-	return mac.Sum(nil)
-}
-
-func pageCurrentRole(cap factory.MCPCapability, role factory.CurrentRoleContext, args mcpCallArgs, key []byte, now time.Time) (currentContextPage, error) {
+func pageCurrentRole(role factory.CurrentRoleContext, args mcpCallArgs) (currentContextPage, error) {
 	page := currentContextPage{Version: "context-page-v1", Stream: "required_current", Records: []currentContextRecord{}, Availability: "available"}
 	records, snapshot, err := currentRoleRecords(role)
 	if err != nil {
@@ -150,30 +136,21 @@ func pageCurrentRole(cap factory.MCPCapability, role factory.CurrentRoleContext,
 			return page, errors.New("invalid context cursor")
 		}
 	}
-	if cursor != "" && len(key) < 32 {
-		return page, errors.New("context cursor signing is unavailable")
-	}
 	offset := 0
-	expires := min(cap.DeadlineUnix, now.Add(5*time.Minute).Unix())
 	if cursor != "" {
-		payload, signature, ok := strings.Cut(cursor, ".")
-		raw, decodeErr := base64.RawURLEncoding.DecodeString(payload)
-		mac, macErr := base64.RawURLEncoding.DecodeString(signature)
+		raw, decodeErr := base64.RawURLEncoding.DecodeString(cursor)
 		var position currentContextCursor
-		if !ok || decodeErr != nil || macErr != nil || !hmac.Equal(mac, contextCursorMAC(key, raw)) || json.Unmarshal(raw, &position) != nil || position.Version != page.Version || position.Scope != cap.ScopeDigest() || position.Stream != page.Stream || position.Snapshot != snapshot || position.Offset < 0 || position.Offset >= len(records) || position.Expires > cap.DeadlineUnix || now.Unix() >= position.Expires {
+		if decodeErr != nil || json.Unmarshal(raw, &position) != nil || position.Snapshot != snapshot || position.Offset < 0 || position.Offset >= len(records) {
 			return page, errors.New("context cursor is stale or unavailable")
 		}
-		offset, expires = position.Offset, position.Expires
+		offset = position.Offset
 	}
 	end := contextPageEnd(records, offset)
 	page.Records = records[offset:end]
 	page.PageComplete = true
 	if end < len(records) {
-		if len(key) < 32 {
-			return page, errors.New("context cursor signing is unavailable")
-		}
-		payload, _ := json.Marshal(currentContextCursor{Version: page.Version, Scope: cap.ScopeDigest(), Stream: page.Stream, Snapshot: snapshot, Offset: end, Expires: expires})
-		page.NextCursor = base64.RawURLEncoding.EncodeToString(payload) + "." + base64.RawURLEncoding.EncodeToString(contextCursorMAC(key, payload))
+		payload, _ := json.Marshal(currentContextCursor{Snapshot: snapshot, Offset: end})
+		page.NextCursor = base64.RawURLEncoding.EncodeToString(payload)
 	} else {
 		page.CollectionComplete = true
 	}

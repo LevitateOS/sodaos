@@ -65,8 +65,7 @@ type FactoryMCPRunSource interface {
 // D16 proposal validation from the authenticated capability's approved
 // preparation; nil keeps the catalog unavailable.
 type FactoryMCPDeps struct {
-	IssueMaker       func(context.Context, factory.MCPCapability, factory.MCPTool, map[string]any, string) (map[string]any, error)
-	ContextCursorKey []byte
+	IssueMaker func(context.Context, factory.MCPCapability, factory.MCPTool, map[string]any, string) (map[string]any, error)
 	// BoundCapability is supplied by the authenticated transport, never tool
 	// arguments. Its immutable scope supplies identity and default revisions.
 	BoundCapability      *factory.MCPCapability

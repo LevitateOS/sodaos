@@ -60,7 +60,7 @@ func (s *factoryCatalogServer) addCurrentContext(ctx context.Context, read *read
 			}
 		}
 	}
-	page, err := pageCurrentRole(read.capability, current.Role, args, s.deps.ContextCursorKey, s.now())
+	page, err := pageCurrentRole(current.Role, args)
 	if errors.Is(err, errCurrentContextBound) {
 		current.Role = factory.CurrentRoleContext{Kind: read.capability.Profile}
 		current.Evidence.Availability = "incomplete"

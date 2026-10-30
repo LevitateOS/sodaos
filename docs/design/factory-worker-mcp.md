@@ -408,10 +408,10 @@ history selection. Large role fields travel as ordered UTF-8 JSON fragments in
 `current_role_page`: concatenate a field's parts and decode its JSON. The complete
 collection is bounded to 1 MiB, 512 records and 64 pages; exceeding a bound is
 explicitly unavailable and never clipped. Each page is at most 32 KiB and 50
-records. Continuations use the private worker MCP key for authentication, bind
-the capability, stream and complete input snapshot, and expire at the earlier
-of five minutes or the capability deadline. Every page repeats the source grant
-checks. Current SQL activity is distinct from confirmed native observation, and
+records. A continuation contains the input snapshot and record offset; it
+refuses a changed snapshot. The authenticated MCP request establishes source
+grants and checks the capability deadline on every page. Current SQL activity is
+distinct from confirmed native observation, and
 the admitted integration commit is distinct from a committed native final
 checkpoint's verified integration commit.
 
