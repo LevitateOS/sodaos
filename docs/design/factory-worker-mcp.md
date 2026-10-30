@@ -339,6 +339,8 @@ checkpoints still establish candidate ancestry, the clean tree and integration c
 Dispatch admission and pause share the repository gate lock. Assignments own the
 outstanding work; pausing records the cause and current assignment count in its
 Feed post, without a parallel dispatch-registration ledger or a history-size limit.
+Pending launches use their admitted tool bundle; a missing recorded identity
+does not trigger reconstruction from the current host selection.
 
 Worker context does not carry a submission-receipt history; communications and
 results are available through the work posts and discussion. Ordinary worker

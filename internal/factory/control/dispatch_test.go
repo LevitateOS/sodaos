@@ -130,6 +130,25 @@ func TestDispatchPassLaunchesOldestWithinShortLimit(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	// A pending launch uses its admitted bundle even after the host selection
+	// changes. Missing admitted identity must not be rebuilt from that selection.
+	currentHarness := fx.host.harness
+	fx.host.harness = func(string) (project.FactoryHarnessPin, error) {
+		t.Fatal("pending launch consulted the current tool selection")
+		return project.FactoryHarnessPin{}, nil
+	}
+	pending, wait, terminal := pendingContextLaunch(ctx, guarded, a, run)
+	if wait != nil || terminal || pending.HarnessSHA256 != run.Admission.Tool.SHA256 {
+		t.Fatalf("pending launch changed its admitted bundle: %+v wait=%+v terminal=%t", pending.Run, wait, terminal)
+	}
+	missing := run
+	admission := *run.Admission
+	admission.Tool = project.FactoryHarnessPin{}
+	missing.Admission = &admission
+	if _, wait, terminal = pendingContextLaunch(ctx, guarded, a, missing); wait == nil || wait.Reason != WaitHarness || terminal {
+		t.Fatalf("missing tool identity was reconstructed: wait=%+v terminal=%t", wait, terminal)
+	}
+	fx.host.harness = currentHarness
 	if err := db.ActivateObservedMCPCapability(ctx, capability); err != nil {
 		t.Fatal(err)
 	}
