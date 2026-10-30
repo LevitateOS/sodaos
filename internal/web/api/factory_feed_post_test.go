@@ -5,9 +5,14 @@ import (
 	"database/sql"
 	"encoding/json"
 	"errors"
+	"net"
+	"net/http"
 	"net/http/httptest"
+	"os"
+	"path/filepath"
 	"strconv"
 	"strings"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -917,17 +922,58 @@ func TestRecordInvitationThreadReachesOriginalAssignment(t *testing.T) {
 	if claimed, err := s.ClaimContributionReview(ctx, review); err != nil || !claimed {
 		t.Fatalf("record claim: %v %v", claimed, err)
 	}
-	for _, question := range factory.ContributionQuestions {
-		review.Calls = append(review.Calls, factory.ContributionCall{Assignment: capability.AssignmentID, Question: question, Answer: factory.PriorityAnswer{Model: "fixture-jev", Selected: "contribute", Probabilities: map[string]float64{"contribute": .95, "no_contribution": .05}, Confidence: .9}})
+	// Exercise the actual assessment path through a declared HTTPS JEV peer.
+	// Only the assessment post retains its questions, answers and decision.
+	var judged atomic.Int32
+	var weakConfidence atomic.Bool
+	provider := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		var input struct {
+			State struct {
+				Role factory.ContributionRole `json:"eligible_running_role"`
+			} `json:"state"`
+		}
+		if err := json.NewDecoder(r.Body).Decode(&input); err != nil || input.State.Role.Assignment != capability.AssignmentID {
+			t.Error("assessment omitted the eligible role", err)
+			http.Error(w, "missing role", http.StatusBadRequest)
+			return
+		}
+		judged.Add(1)
+		confidence := 0.9
+		if weakConfidence.Load() {
+			confidence = 0.2
+		}
+		w.Header().Set("Content-Type", "application/json")
+		_ = json.NewEncoder(w).Encode(map[string]any{"model": "fixture-jev", "answers": map[string]any{"priority": map[string]any{"type": "choice", "choice": "contribute", "confidence": confidence, "probabilities": map[string]float64{"contribute": 0.95, "no_contribution": 0.05}}}})
+	}))
+	t.Cleanup(provider.Close)
+	wire := provider.Client().Transport.(*http.Transport).Clone()
+	wire.TLSClientConfig.ServerName = provider.Certificate().DNSNames[0]
+	wire.DialContext = func(ctx context.Context, network, _ string) (net.Conn, error) {
+		return (&net.Dialer{}).DialContext(ctx, network, provider.Listener.Addr().String())
 	}
-	factory.SelectContribution(&review)
+	previousTransport := http.DefaultTransport
+	http.DefaultTransport = wire
+	t.Cleanup(func() {
+		http.DefaultTransport = previousTransport
+		wire.CloseIdleConnections()
+	})
+	keyfile := filepath.Join(t.TempDir(), "jev.key")
+	if err := os.WriteFile(keyfile, []byte("fixture-jev-key"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	product := &API{Store: s, Config: &config.Config{TypeSafeAPIKeyFile: keyfile, TypeSafeModel: "fixture-jev"}}
+	product.assessContribution(ctx, &review)
 	if review.State != "invited" {
 		t.Fatalf("record not invited: %+v", review)
 	}
-	if err := s.SettleContributionReview(ctx, review); err != nil {
-		t.Fatal(err)
+	if judged.Load() != int32(len(factory.ContributionQuestions)) {
+		t.Fatalf("independent contribution calls = %d", judged.Load())
 	}
 	invitation := factory.ContributionReviewInvitationID(review)
+	assessment, err := s.FeedPost(ctx, invitation)
+	if err != nil || assessment.Contribution == nil || len(assessment.Contribution.Calls) != len(factory.ContributionQuestions) || assessment.Contribution.Assignment != capability.AssignmentID {
+		t.Fatalf("assessment post lost its calls or decision: %+v %v", assessment, err)
+	}
 	resolved, err := s.ResolvePostSource(ctx, 7, factory.PostSourceRecord, sourceID)
 	if err != nil || resolved.ID != sourceID {
 		t.Fatalf("record source unresolved: %+v %v", resolved, err)
@@ -962,5 +1008,28 @@ func TestRecordInvitationThreadReachesOriginalAssignment(t *testing.T) {
 	}
 	if _, err := s.RecordWorkerPost(ctx, duplicate); err == nil {
 		t.Fatal("record invitation admitted a second reply")
+	}
+
+	// A new source revision still requires confident JEV agreement, even when
+	// the provider strongly favors contributing. Its real post records refusal.
+	weakConfidence.Store(true)
+	if _, err := raw.ExecContext(ctx, `UPDATE factory_assignments SET revision=2 WHERE id=$1`, sourceID); err != nil {
+		t.Fatal(err)
+	}
+	uncertain, err := s.ContributionContext(ctx, sourceID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if claimed, err := s.ClaimContributionReview(ctx, uncertain); err != nil || !claimed {
+		t.Fatal("new source revision was not assessed", claimed, err)
+	}
+	product.assessContribution(ctx, &uncertain)
+	assessment, err = s.FeedPost(ctx, factory.ContributionReviewInvitationID(uncertain))
+	if err != nil || assessment.Contribution == nil || assessment.Contribution.State != "not_invited" || assessment.Contribution.Assignment != "" {
+		t.Fatalf("uncertain judgment bypassed the confidence cutoff: %+v %v", assessment, err)
+	}
+	var journalRows int
+	if err := raw.QueryRowContext(ctx, `SELECT count(*) FROM factory_priority_judgments`).Scan(&journalRows); err != nil || journalRows != 0 {
+		t.Fatalf("contributions wrote duplicate judgments: %d %v", journalRows, err)
 	}
 }

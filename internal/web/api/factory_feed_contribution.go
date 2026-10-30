@@ -18,9 +18,6 @@ type contributionAnswer struct {
 // GET, browser timer or separate worker loop. It judges one source per pass and
 // only considers roles already running under native admission.
 func (s *API) driveContributions(ctx context.Context) {
-	if err := s.Store.ExpireContributionReviews(ctx); err != nil {
-		return
-	}
 	if !s.jevConnected() {
 		return
 	}
@@ -43,35 +40,19 @@ func (s *API) driveContributions(ctx context.Context) {
 }
 
 func (s *API) assessContribution(ctx context.Context, review *factory.ContributionReview) {
-	funded, err := s.Store.ReservePriorityJudgment(ctx, review.Snapshot, len(review.Roles)*len(factory.ContributionQuestions))
-	if err != nil || !funded {
-		review.State = "unavailable"
-		_ = s.Store.SettleContributionReview(ctx, *review)
-		return
-	}
 	judge := &control.TypeSafePriority{APIKeyFile: s.Config.TypeSafeAPIKeyFile, Model: s.Config.TypeSafeModel}
 	callctx, cancel := context.WithTimeout(ctx, 15*time.Second)
 	defer cancel()
-	review.Calls, err = judgeContributions(callctx, judge, *review)
+	calls, err := judgeContributions(callctx, judge, *review)
+	review.Calls = calls
 	if err == nil {
 		factory.SelectContribution(review)
 	} else {
 		review.State = "unavailable"
 	}
-	receipt := factory.PriorityReceipt{Snapshot: review.Snapshot, Outcome: review.State, CreatedUnix: time.Now().Unix(), Selected: review.Assignment}
-	for _, call := range review.Calls {
-		receipt.Calls = append(receipt.Calls, factory.PriorityCall{Request: contributionRequest(review.Snapshot, call.Question), Answer: call.Answer})
-	}
 	settlectx, settleCancel := context.WithTimeout(context.WithoutCancel(ctx), 5*time.Second)
 	defer settleCancel()
-	if err := s.Store.RecordPriorityJudgment(settlectx, receipt); err != nil {
-		review.State, review.Assignment = "unavailable", ""
-	}
 	_ = s.Store.SettleContributionReview(settlectx, *review)
-}
-
-func contributionRequest(snapshot, question string) factory.PriorityRequest {
-	return factory.PriorityRequest{Snapshot: snapshot, Rubric: question, Candidates: []factory.PriorityCandidate{{ID: "contribute"}, {ID: "no_contribution"}}}
 }
 
 func judgeContributions(ctx context.Context, judge *control.TypeSafePriority, review factory.ContributionReview) ([]factory.ContributionCall, error) {
@@ -100,9 +81,6 @@ func judgeContributions(ctx context.Context, judge *control.TypeSafePriority, re
 				"contribute":      "This role can add a specific useful missing correction, risk or evidence within its admitted work.",
 				"no_contribution": "A reply would be redundant, courtesy, ambiguous, already answered, irrelevant or outside its admitted work.",
 			})
-			if err == nil {
-				err = answer.Validate(contributionRequest(review.Snapshot, input.question))
-			}
 			results[index] = contributionAnswer{factory.ContributionCall{Assignment: input.role.Assignment, Question: input.question, Answer: answer}, err}
 		}(index, input)
 	}

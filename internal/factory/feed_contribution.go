@@ -46,7 +46,6 @@ type ContributionReview struct {
 	State                string              `json:"state"`
 	Assignment           string              `json:"assignment,omitempty"`
 	Profile              MCPProfile          `json:"profile,omitempty"`
-	Snapshot             string              `json:"snapshot"`
 	Calls                []ContributionCall  `json:"calls,omitempty"`
 	Reply                string              `json:"reply,omitempty"`
 	Probability          float64             `json:"minimum_probability"`
@@ -87,6 +86,7 @@ func ContributionReviewInvitationID(review ContributionReview) string {
 // SelectContribution requires agreement across all independent formulations.
 // It keeps a single role with the strongest conservative probability, retaining
 // original candidate order as the deterministic tie-breaker.
+// The fixed question loop supplies calls validated by the JEV client.
 func SelectContribution(review *ContributionReview) {
 	review.State = "not_invited"
 	review.Assignment, review.Profile, review.Probability, review.Confidence = "", "", 0, 0
@@ -95,27 +95,10 @@ func SelectContribution(review *ContributionReview) {
 	}
 	for _, role := range review.Roles {
 		probability, confidence, count := 1.0, 1.0, 0
-		questions := map[string]bool{}
 		for _, call := range review.Calls {
 			if call.Assignment != role.Assignment {
 				continue
 			}
-			request := PriorityRequest{Candidates: []PriorityCandidate{{ID: "contribute"}, {ID: "no_contribution"}}}
-			if questions[call.Question] || call.Answer.Validate(request) != nil {
-				probability = 0
-				continue
-			}
-			known := false
-			for _, question := range ContributionQuestions {
-				if question == call.Question {
-					known = true
-				}
-			}
-			if !known {
-				probability = 0
-				continue
-			}
-			questions[call.Question] = true
 			count++
 			if call.Answer.Selected != "contribute" {
 				probability = 0

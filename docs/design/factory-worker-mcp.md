@@ -360,6 +360,13 @@ JEV judgments, confidence cutoffs, roles and stage transitions are unchanged.
 The unused global judgment-credit counter and planning-call ledger are no
 longer created. JEV decisions and the actual work grants retain their owners.
 
+Contribution assessments keep their independent JEV questions, answers and
+selected role on the assessment post. They create no priority-journal
+reservation, mirrored judgment or snapshot hash. The JEV client validates each
+answer once; selection applies the existing probability and confidence cutoffs.
+Calls record their actual outcomes; a service pass does not infer a failed
+assessment from the post's age.
+
 `factory.context` supplies typed required role inputs independently of optional
 history selection. Large role fields travel as ordered UTF-8 JSON fragments in
 `current_role_page`: concatenate a field's parts and decode its JSON. The complete

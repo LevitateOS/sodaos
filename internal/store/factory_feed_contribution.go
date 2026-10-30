@@ -261,11 +261,6 @@ func (s *Store) finishContributionContext(ctx context.Context, review factory.Co
 	if err != nil {
 		return review, err
 	}
-	raw, err := json.Marshal(review)
-	if err != nil {
-		return review, err
-	}
-	review.Snapshot = factory.MCPInputDigest(append([]byte("role-contribution-v1\n"), raw...))
 	return review, nil
 }
 
@@ -305,8 +300,8 @@ func (s *Store) contributionRoles(ctx context.Context, review factory.Contributi
 // Record sources retain the resolved source snapshot beside the assessment.
 // Every assessment uses the normal parent_id thread link.
 func (s *Store) ClaimContributionReview(ctx context.Context, review factory.ContributionReview) (bool, error) {
-	if len(review.Roles) == 0 || !factory.ValidDigest(review.Snapshot) {
-		return false, errors.New("contribution requires eligible roles and snapshot")
+	if len(review.Roles) == 0 {
+		return false, errors.New("contribution requires eligible roles")
 	}
 	var recordSource *factory.PostSource
 	if review.SourceKind == factory.PostSourceRecord {
@@ -431,16 +426,6 @@ func contributionRepliesVersion(ctx context.Context, query contributionQuery, re
 		return "", err
 	}
 	return factory.MCPInputDigest([]byte(version)), nil
-}
-
-// A crash may lose a model response, but must not leave an endless "checking"
-// state or repeat its calls. The existing service continuation closes that
-// uncertainty without creating an invitation or replenishing the reservation.
-func (s *Store) ExpireContributionReviews(ctx context.Context) error {
-	_, err := s.db.ExecContext(ctx, `UPDATE factory_feed_posts SET body='The contribution assessment was interrupted or timed out. No agent was invited.',
- data=jsonb_set(data,'{contribution}',data->'contribution'||'{"state":"unavailable"}'::jsonb)||'{"status":"contribution:unavailable"}'::jsonb
- WHERE data->'contribution'->>'state'='pending' AND (data->>'at')::bigint<$1`, time.Now().Add(-90*time.Second).Unix())
-	return err
 }
 
 func settleContributionReviewTx(ctx context.Context, tx *sql.Tx, review factory.ContributionReview) error {
