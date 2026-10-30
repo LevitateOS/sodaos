@@ -38,6 +38,10 @@ are required; constructing a client does not authorize the requested operation.
 - [`TailnetSettings`](tailnet.go) and related methods: native Tailnet policy,
   enrollment and project operations.
 
+Factory methods send requests and decode bounded native responses. The daemon
+validates requests; controllers check execution and context evidence against
+the records they own.
+
 Ordinary HTTP calls have a four-minute timeout; streaming lifetime is explicit.
 Mutating methods can create accounts, change containers, alter keys or start
 execution. An unavailable reply does not confirm absence or rollback. Identity

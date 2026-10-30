@@ -29,7 +29,7 @@ func factoryNotFound(err error) error {
 	return err
 }
 
-func factoryOutputError(in project.FactoryOutput, out project.FactoryOutputState, err error) error {
+func factoryOutputError(err error) error {
 	var httpErr nativeHTTPError
 	if errors.As(err, &httpErr) {
 		if httpErr.status == http.StatusNotFound {
@@ -39,68 +39,39 @@ func factoryOutputError(in project.FactoryOutput, out project.FactoryOutputState
 			return ErrRunStale
 		}
 	}
-	if err == nil && (out.ID != in.ID || out.Project != in.Project || !project.ValidFactoryPhase(out.Phase)) {
-		return errors.New("native factory output does not match its identity")
-	}
 	return err
-}
-
-func factoryStateConfirmed(in project.FactoryRun, out project.FactoryState) bool {
-	return out.ID == in.ID && out.Project == in.Project && out.Role == in.Role && project.ValidFactoryPhase(out.Phase)
 }
 
 func (c *Client) FactoryLaunch(ctx context.Context, in project.FactoryLaunch) (project.FactoryState, error) {
 	var out project.FactoryState
-	// The manifest/phase/digest rule is enforced before the daemon ever
-	// sees the request: implement runs stage their exact manifest bytes,
-	// every other phase stages none.
-	if err := in.Validate(); err != nil {
-		return out, err
-	}
 	err := c.callLimit(ctx, "/factory-launch", in, &out, factoryResponseLimit)
-	if err == nil && !factoryStateConfirmed(in.Run, out) {
-		err = errors.New("native factory launch did not return the admitted run")
-	}
 	return out, err
 }
 
 func (c *Client) FactoryInspect(ctx context.Context, in project.FactoryInspect) (project.FactoryState, error) {
 	var out project.FactoryState
 	err := c.callLimit(ctx, "/factory-inspect", in, &out, factoryResponseLimit)
-	if err == nil && (out.ID != in.ID || out.Project != in.Project || !project.ValidFactoryPhase(out.Phase)) {
-		err = errors.New("native factory observation does not match its identity")
-	}
 	return out, factoryNotFound(err)
 }
 
 func (c *Client) FactoryHarness(ctx context.Context, family string) (project.FactoryHarnessPin, error) {
 	var out project.FactoryHarnessPin
-	if !project.ValidHarnessFamily(family) {
-		return out, errors.New("unsupported factory harness family")
-	}
 	err := c.callLimit(ctx, "/factory-harness", struct {
 		Harness string `json:"harness"`
 	}{Harness: family}, &out, factoryResponseLimit)
-	if err == nil && (out.Validate() != nil || out.Harness != family) {
-		err = errors.New("native factory harness pin is not usable")
-	}
 	return out, err
 }
 
 func (c *Client) FactoryStop(ctx context.Context, in project.FactoryStop) (project.FactoryState, error) {
 	var out project.FactoryState
 	err := c.callLimit(ctx, "/factory-stop", in, &out, factoryResponseLimit)
-	if err == nil && (out.ID != in.ID || out.Project != in.Project || !project.ValidFactoryPhase(out.Phase) ||
-		(out.Retirement != "" && out.Retirement != "confirmed" && out.Retirement != "uncertain")) {
-		err = errors.New("native factory stop was not confirmed")
-	}
 	return out, err
 }
 
 func (c *Client) FactoryOutput(ctx context.Context, in project.FactoryOutput) (project.FactoryOutputState, error) {
 	var out project.FactoryOutputState
 	err := c.callLimit(ctx, "/factory-output", in, &out, factoryResponseLimit)
-	return out, factoryOutputError(in, out, err)
+	return out, factoryOutputError(err)
 }
 
 // factoryTaskEventsResponseLimit bounds one paged task journal response:
@@ -109,29 +80,8 @@ const factoryTaskEventsResponseLimit = 64 << 10
 
 func (c *Client) FactoryTaskEvents(ctx context.Context, in project.FactoryTaskEvents) (project.FactoryTaskEventsState, error) {
 	var out project.FactoryTaskEventsState
-	// The cursor/read-bound rule is enforced before the daemon ever sees
-	// the request: an unbounded or misaddressed page never reaches the
-	// host boundary. Polling is read-only; it never mutates checkpoints.
-	if err := in.Validate(); err != nil {
-		return out, err
-	}
 	err := c.callLimit(ctx, "/factory-task-events", in, &out, factoryTaskEventsResponseLimit)
-	if err == nil {
-		if err = out.Validate(); err == nil {
-			err = factoryTaskEventsConfirmed(in, out)
-		}
-	}
 	return out, factoryNotFound(err)
-}
-
-func factoryTaskEventsConfirmed(in project.FactoryTaskEvents, out project.FactoryTaskEventsState) error {
-	if out.ID != in.ID || out.Project != in.Project {
-		return errors.New("native factory task events do not match their identity")
-	}
-	if out.NextSequence <= in.AfterSequence {
-		return errors.New("native factory task events did not advance")
-	}
-	return nil
 }
 
 // factoryExportResponseLimit bounds one export response: the base64
@@ -140,14 +90,11 @@ const factoryExportResponseLimit = 8 << 20
 
 func (c *Client) FactoryExport(ctx context.Context, in project.FactoryExport) (project.FactoryExportState, error) {
 	var out project.FactoryExportState
-	if err := in.Validate(); err != nil {
-		return out, err
-	}
 	err := c.callLimit(ctx, "/factory-export", in, &out, factoryExportResponseLimit)
-	return out, factoryExportError(in, out, err)
+	return out, factoryExportError(err)
 }
 
-func factoryExportError(in project.FactoryExport, out project.FactoryExportState, err error) error {
+func factoryExportError(err error) error {
 	var httpErr nativeHTTPError
 	if errors.As(err, &httpErr) {
 		if httpErr.status == http.StatusNotFound {
@@ -163,18 +110,11 @@ func factoryExportError(in project.FactoryExport, out project.FactoryExportState
 			return project.ErrFactoryExportBounds
 		}
 	}
-	if err == nil && (out.ID != in.ID || out.Project != in.Project || out.Candidate != in.Candidate ||
-		!project.ValidFactoryPhase(out.Phase) || len(out.Bundle) == 0 || len(out.Bundle) > 8<<20) {
-		return errors.New("native factory export does not match its identity")
-	}
 	return err
 }
 
 func (c *Client) FactoryTakeover(ctx context.Context, in project.FactoryTakeover) (project.TakeoverResult, error) {
 	var out project.TakeoverResult
 	err := c.callLimit(ctx, "/factory-takeover", in, &out, factoryResponseLimit)
-	if err == nil && (out.Validate() != nil || out.ID != in.ID || out.Project != in.Project || out.Member != in.Member) {
-		err = errors.New("native factory takeover did not return the admitted destination")
-	}
 	return out, factoryNotFound(err)
 }
