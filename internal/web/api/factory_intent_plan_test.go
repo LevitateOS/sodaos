@@ -3,6 +3,7 @@ package api
 import (
 	"context"
 	"crypto/sha256"
+	"encoding/base64"
 	"encoding/hex"
 	"encoding/json"
 	"errors"
@@ -337,9 +338,6 @@ func TestIssueMakerBoundMCPPublishesIssuesDuringItsOwnRun(t *testing.T) {
 	if err := json.Unmarshal([]byte(catalogText(t, message)), &posted); err != nil || posted["post_id"] == nil || posted["receipt"] != nil || posted["submission_id"] != nil {
 		t.Fatal("worker message did not return the post directly", posted, err)
 	}
-	if count, err := s.MCPSubmissionCount(ctx, attempt.ID); err != nil || count != 0 {
-		t.Fatal("issue posts acquired a duplicate submission journal", count, err)
-	}
 	post, err := s.PostIssueMaker(ctx, id, revision)
 	if err != nil {
 		t.Fatal(err)
@@ -362,6 +360,26 @@ func TestIssueMakerBoundMCPPublishesIssuesDuringItsOwnRun(t *testing.T) {
 		if entry.ID == attempt.ID {
 			t.Fatal("internal intake run became a second feed post")
 		}
+	}
+	artifactBody := "Captured issue context."
+	artifactResult, err := session.CallTool(ctx, &mcp.CallToolParams{Name: string(factory.MCPToolPublishArtifact), Arguments: map[string]any{"payload": factory.ArtifactUpload{UploadID: factory.NewID(), Name: "intake.txt", MediaType: "text/plain", ContentBase64: base64.StdEncoding.EncodeToString([]byte(artifactBody)), Final: true}}})
+	if catalogRefused(artifactResult, err) {
+		t.Fatal("artifact upload required a submission receipt", err, catalogText(t, artifactResult))
+	}
+	var uploaded struct {
+		Artifact   factory.FeedArtifact `json:"artifact"`
+		PostID     string               `json:"post_id"`
+		NextOffset int                  `json:"next_offset"`
+		Complete   bool                 `json:"complete"`
+	}
+	if err := json.Unmarshal([]byte(catalogText(t, artifactResult)), &uploaded); err != nil || uploaded.PostID == "" || uploaded.Artifact.Digest == "" || !uploaded.Complete || uploaded.NextOffset != len(artifactBody) {
+		t.Fatal("artifact upload lost its file or post", uploaded, err)
+	}
+	if _, content, err := s.FeedArtifact(ctx, cap.Repository, uploaded.Artifact.ID); err != nil || string(content) != artifactBody {
+		t.Fatal("uploaded artifact bytes differ", err)
+	}
+	if count, err := s.MCPSubmissionCount(ctx, attempt.ID); err != nil || count != 0 {
+		t.Fatal("worker actions acquired a duplicate submission journal", count, err)
 	}
 }
 

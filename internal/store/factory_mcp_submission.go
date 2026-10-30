@@ -122,7 +122,7 @@ func (s *Store) RecordMCPSubmission(ctx context.Context, submission factory.MCPS
 		return factory.MCPReceipt{}, err
 	}
 	defer func() { _ = tx.Rollback() }()
-	capability, err := lockMCPCapabilityTx(ctx, tx, submission)
+	capability, err := lockMCPCapabilityTx(ctx, tx, submission.CapabilityID, submission.AssignmentID)
 	if err != nil {
 		return factory.MCPReceipt{}, err
 	}
@@ -156,9 +156,6 @@ func (s *Store) RecordMCPSubmission(ctx context.Context, submission factory.MCPS
 	if capability.Expired(time.Now()) {
 		return factory.MCPReceipt{}, ErrMCPSubmissionCapabilityExpired
 	}
-	if err = recordMCPArtifactTx(ctx, tx, capability, submission, &receipt); err != nil {
-		return factory.MCPReceipt{}, err
-	}
 	if err = recordMCPVerificationJourneyReferencesTx(ctx, tx, capability, submission); err != nil {
 		return factory.MCPReceipt{}, err
 	}
@@ -184,12 +181,12 @@ func (s *Store) RecordMCPSubmission(ctx context.Context, submission factory.MCPS
 // scope admits the insert. Admission checked the same facts earlier;
 // this recheck closes the revoke-vs-insert race inside the
 // transaction.
-func lockMCPCapabilityTx(ctx context.Context, tx *sql.Tx, submission factory.MCPSubmission) (factory.MCPCapability, error) {
+func lockMCPCapabilityTx(ctx context.Context, tx *sql.Tx, capabilityID, assignmentID string) (factory.MCPCapability, error) {
 	var capability factory.MCPCapability
 	var capState string
 	var capRaw []byte
 	if err := tx.QueryRowContext(ctx, `SELECT state,data FROM factory_mcp_capabilities WHERE id=$1 FOR UPDATE`,
-		submission.CapabilityID).Scan(&capState, &capRaw); err != nil {
+		capabilityID).Scan(&capState, &capRaw); err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return capability, ErrMCPSubmissionCapabilityInactive
 		}
@@ -214,7 +211,7 @@ func lockMCPCapabilityTx(ctx context.Context, tx *sql.Tx, submission factory.MCP
 		return capability, ErrMCPSubmissionCapabilityInactive
 	}
 	if capability.State != factory.MCPCapabilityActive ||
-		capability.AssignmentID != submission.AssignmentID {
+		capability.AssignmentID != assignmentID {
 		return capability, ErrMCPSubmissionCapabilityInactive
 	}
 	return capability, nil
@@ -445,7 +442,6 @@ func (s *Store) AdvanceMCPReceipt(ctx context.Context, assignmentID, submissionI
 		return err
 	}
 	receipt.FeedPostID = stored.FeedPostID
-	receipt.ArtifactID = stored.ArtifactID
 	raw, err = json.Marshal(receipt)
 	if err != nil {
 		return err

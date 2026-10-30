@@ -456,18 +456,17 @@ func TestSettleVerifyArtifactRefsResolvedPGDrive(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		submission := testMCPSubmission(capability, factory.MCPToolPublishArtifact, factory.NewID(), raw)
-		receipt, err := db.RecordMCPSubmission(ctx, submission)
+		artifact, _, err := db.UploadWorkerArtifact(ctx, capability, raw)
 		if err != nil {
 			t.Fatalf("upload: %v", err)
 		}
-		if receipt.ArtifactDigest == "" {
+		if artifact.Digest == "" {
 			t.Fatal("final upload returned no attested digest")
 		}
-		if _, err := db.ResolveArtifactDigest(ctx, capability.Repository, capability.AssignmentID, receipt.ArtifactDigest); err != nil {
+		if _, err := db.ResolveArtifactDigest(ctx, capability.Repository, capability.AssignmentID, artifact.Digest); err != nil {
 			t.Fatalf("resolve attested digest: %v", err)
 		}
-		return receipt.ArtifactDigest
+		return artifact.Digest
 	}
 	finish := func(t *testing.T, capability factory.MCPCapability, deliveryID string, refs []string) factory.MCPSubmission {
 		t.Helper()

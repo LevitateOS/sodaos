@@ -163,6 +163,7 @@ func mcpEnvelopeSchema(tool factory.MCPTool) *mcp.Tool {
 	}
 	if tool == factory.MCPToolPublishArtifact {
 		definition.InputSchema.(*jsonschema.Schema).Properties["payload"] = artifactPayloadSchema()
+		delete(definition.InputSchema.(*jsonschema.Schema).Properties, "submission_id")
 	}
 	if isNativeTaskTool(tool) {
 		definition.InputSchema.(*jsonschema.Schema).Properties["payload"] = &jsonschema.Schema{
@@ -404,9 +405,6 @@ func (s *factoryCatalogServer) checkPayload(tool factory.MCPTool, payload map[st
 	}
 	if tool == factory.MCPToolResolvePost {
 		return checkResolvePostPayload(tool, payload)
-	}
-	if tool == factory.MCPToolPublishArtifact {
-		return checkArtifactPayload(payload)
 	}
 	spec, ok := mcpMutationPayloads[tool]
 	if !ok {

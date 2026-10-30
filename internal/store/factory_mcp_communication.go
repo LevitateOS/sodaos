@@ -26,7 +26,7 @@ func (s *Store) RecordWorkerPost(ctx context.Context, submission factory.MCPSubm
 		return out, err
 	}
 	defer tx.Rollback()
-	capability, err := lockMCPCapabilityTx(ctx, tx, submission)
+	capability, err := lockMCPCapabilityTx(ctx, tx, submission.CapabilityID, submission.AssignmentID)
 	if err != nil {
 		return out, err
 	}
