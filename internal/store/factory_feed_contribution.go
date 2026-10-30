@@ -32,8 +32,8 @@ func contributionReplyProfiles() []string {
 // ContributionSources is a bounded read for the existing service continuation.
 // System receipts, consultation comments and worker replies cannot recursively
 // trigger invitations. Assignment records with a recorded result are eligible
-// alongside human and worker posts; finish creates no communication post, so
-// without the record leg ordinary AI results could never be invited.
+// alongside human and worker posts. Submitted work posts stay in their
+// assignment's discussion; completed results are invited through the record leg.
 // A record whose reassessment cycle was superseded by an accepted successor
 // retry is replaced history, never a source; that currentness predicate, the
 // role-scope predicate and the source-profile exclusion (the record's own

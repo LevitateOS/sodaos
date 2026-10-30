@@ -352,8 +352,23 @@ func TestMCPFinishUsesCanonicalRecord(t *testing.T) {
 	insertJourneyAssignment(t, journeySQL(t, dsn), a, "assigned", 1)
 	cap = activateMCPCapability(t, ctx, s, cap)
 	submission := testMCPSubmissionRow(cap, factory.MCPToolFinishIncomplete, []byte(`{"component_id":"S12","outcome":"blocked","cause":"question","evidence_refs":[],"affected_task_ids":[],"requested_resolution":"Need owner input"}`))
-	if _, err := s.RecordMCPSubmission(ctx, submission); err != nil {
+	work, err := s.RecordMCPSubmission(ctx, submission)
+	if err != nil {
 		t.Fatal(err)
+	}
+	if !factory.ValidID(work.FeedPostID) || work.State != factory.MCPWorkRecorded {
+		t.Fatalf("finish has no recorded work post: %+v", work)
+	}
+	if replay, err := s.RecordMCPSubmission(ctx, submission); err != nil || replay.FeedPostID != work.FeedPostID {
+		t.Fatalf("finish repeat created another post: %+v %v", replay, err)
+	}
+	post, err := s.FeedPost(ctx, work.FeedPostID)
+	if err != nil || post.Record.ParentID != a.ID || post.Assignment != a.ID {
+		t.Fatalf("work post lost its assignment: %+v %v", post, err)
+	}
+	stored, found, err := s.TerminalMCPSubmission(ctx, a.ID)
+	if err != nil || !found || stored.SubmissionID != submission.SubmissionID || string(stored.Payload) != string(submission.Payload) {
+		t.Fatalf("work post lost the submitted result: %+v %v %v", stored, found, err)
 	}
 	details, err := s.FeedRecordDetails(ctx, []string{a.ID})
 	if err != nil {
@@ -364,8 +379,8 @@ func TestMCPFinishUsesCanonicalRecord(t *testing.T) {
 		t.Fatalf("submission invented completion: %s", detail.Status)
 	}
 	page, _, _, err := s.SubscribedFeed(ctx, factory.FeedQuery{Repositories: []int64{7}, Limit: 10})
-	if err != nil || len(page) != 1 {
-		t.Fatalf("finish duplicated canonical record: %+v %v", page, err)
+	if err != nil || len(page) != 2 || page[0].Kind != "post" || page[0].ID != work.FeedPostID || page[1].Kind != "record" || page[1].ID != a.ID {
+		t.Fatalf("finish must expose its single post beside the assignment: %+v %v", page, err)
 	}
 }
 
