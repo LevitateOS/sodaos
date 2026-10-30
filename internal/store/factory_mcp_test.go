@@ -628,7 +628,7 @@ func TestEvidenceStatusReceiptReadsExplicitWithoutSideEffects(t *testing.T) {
 		}
 	}
 	var resolutions int
-	if err := db.db.QueryRowContext(ctx, `SELECT COUNT(*) FROM factory_post_resolutions`).Scan(&resolutions); err != nil {
+	if err := db.db.QueryRowContext(ctx, `SELECT COUNT(*) FROM factory_feed_posts WHERE data ? 'resolution'`).Scan(&resolutions); err != nil {
 		t.Fatal(err)
 	}
 	if resolutions != 0 {

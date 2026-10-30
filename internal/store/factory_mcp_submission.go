@@ -88,9 +88,6 @@ func (s *Store) RecordMCPSubmission(ctx context.Context, submission factory.MCPS
 	if err := recordMCPVerificationJourneyReferencesTx(ctx, tx, capability, submission); err != nil {
 		return factory.MCPWorkStatus{}, err
 	}
-	if err := recordMCPPostResolutionTx(ctx, tx, capability, submission); err != nil {
-		return factory.MCPWorkStatus{}, err
-	}
 	work := mcpSubmittedWork{Capability: capability.ID, Tool: submission.Tool, Payload: string(submission.Payload), State: factory.MCPWorkRecorded}
 	id = factory.MCPInputDigest([]byte(capability.AssignmentID + "\n" + submission.SubmissionID))[:32]
 	var issue int64
@@ -103,9 +100,6 @@ func (s *Store) RecordMCPSubmission(ctx context.Context, submission factory.MCPS
 		return factory.MCPWorkStatus{}, err
 	}
 	body := recordPersona(capability.Profile) + " submitted work for Factory to process."
-	if submission.Tool == factory.MCPToolResolvePost {
-		body = recordPersona(capability.Profile) + " recorded a post disposition."
-	}
 	if _, err := tx.ExecContext(ctx, `INSERT INTO factory_feed_posts(id,repository,revision,author,body,idempotency,data) VALUES($1,$2,0,$3,$4,$5,$6)`, id, capability.Repository, "worker:"+capability.AssignmentID, body, submission.SubmissionID, string(raw)); err != nil {
 		return factory.MCPWorkStatus{}, err
 	}

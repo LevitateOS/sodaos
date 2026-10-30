@@ -4,38 +4,21 @@ import (
 	"context"
 	"database/sql"
 	"errors"
-	"time"
 
 	"github.com/levitateos/sodaos/internal/factory"
 )
 
-// Post dispositions persist beside the immutable posts they resolve:
-// one row per suggestion or answer, carrying its applied, refused or
-// incorporated state with the actor and reason behind it. Reads
-// attach the recorded disposition; the pending state is the absence
-// of a row.
-func initializePostResolutionSchema(ctx context.Context, db *sql.DB) error {
-	_, err := db.ExecContext(ctx, `CREATE TABLE IF NOT EXISTS factory_post_resolutions(post TEXT PRIMARY KEY,repository BIGINT NOT NULL,resolution TEXT NOT NULL,reason TEXT NOT NULL DEFAULT '',actor TEXT NOT NULL,assignment TEXT NOT NULL,submission TEXT NOT NULL,at BIGINT NOT NULL);`)
-	return err
-}
-
-// recordMCPPostResolutionTx persists one resolve_post disposition.
+// recordPostResolutionTx posts one resolve_post disposition.
 // The target must be a live suggestion or answer in this repository
 // and match its resolution; a second disposition for the same post
 // refuses so recorded states survive exactly as written.
-func recordMCPPostResolutionTx(ctx context.Context, tx *sql.Tx, cap factory.MCPCapability, submission factory.MCPSubmission) error {
-	if submission.Tool != factory.MCPToolResolvePost {
-		return nil
-	}
-	if !factory.MCPToolAdmitted(cap.Profile, submission.Tool) {
-		return errors.New("post resolution is not admitted for this worker")
-	}
+func recordPostResolutionTx(ctx context.Context, tx *sql.Tx, cap factory.MCPCapability, submission factory.MCPSubmission) error {
 	resolution, err := factory.DecodePostResolution(submission.Tool, submission.Payload)
 	if err != nil {
 		return err
 	}
 	var kind string
-	if err = tx.QueryRowContext(ctx, `SELECT COALESCE(data->'communication'->>'kind','') FROM factory_feed_posts WHERE id=$1 AND repository=$2 AND NOT COALESCE((data->>'deleted')::boolean,false) AND NOT COALESCE((data->>'revoked')::boolean,false)`, resolution.Post, cap.Repository).Scan(&kind); err != nil {
+	if err = tx.QueryRowContext(ctx, `SELECT COALESCE(data->'communication'->>'kind','') FROM factory_feed_posts WHERE id=$1 AND repository=$2 AND NOT COALESCE((data->>'deleted')::boolean,false) AND NOT COALESCE((data->>'revoked')::boolean,false) FOR UPDATE`, resolution.Post, cap.Repository).Scan(&kind); err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return errors.New("resolution target is not available in this project")
 		}
@@ -45,14 +28,13 @@ func recordMCPPostResolutionTx(ctx context.Context, tx *sql.Tx, cap factory.MCPC
 		return err
 	}
 	var exists bool
-	if err = tx.QueryRowContext(ctx, `SELECT EXISTS(SELECT 1 FROM factory_post_resolutions WHERE post=$1)`, resolution.Post).Scan(&exists); err != nil {
+	if err = tx.QueryRowContext(ctx, `SELECT EXISTS(SELECT 1 FROM factory_feed_posts WHERE repository=$1 AND data->'resolution'->>'post'=$2)`, cap.Repository, resolution.Post).Scan(&exists); err != nil {
 		return err
 	}
 	if exists {
 		return errors.New("post resolution already recorded")
 	}
-	_, err = tx.ExecContext(ctx, `INSERT INTO factory_post_resolutions(post,repository,resolution,reason,actor,assignment,submission,at) VALUES($1,$2,$3,$4,$5,$6,$7,$8)`,
-		resolution.Post, cap.Repository, resolution.Resolution, resolution.Reason, string(cap.Profile), submission.AssignmentID, submission.SubmissionID, time.Now().Unix())
+	_, err = recordWorkerPostTx(ctx, tx, cap, submission, factory.FeedCommunication{Kind: "resolution", ParentID: resolution.Post, Title: "Post " + resolution.Resolution, Summary: resolution.Reason})
 	return err
 }
 
@@ -70,7 +52,7 @@ func (s *Store) feedPostResolutions(ctx context.Context, details map[string]Feed
 	// Post IDs are globally unique content digests and the details
 	// only exist when their posts passed the repository-scoped read,
 	// so matching IDs is exact without another repository filter.
-	rows, err := s.db.QueryContext(ctx, `SELECT post,resolution,reason FROM factory_post_resolutions WHERE post=ANY($1)`, ids)
+	rows, err := s.db.QueryContext(ctx, `SELECT data->'resolution'->>'post',data->'resolution'->>'resolution',COALESCE(data->'resolution'->>'reason','') FROM factory_feed_posts WHERE data->'resolution'->>'post'=ANY($1)`, ids)
 	if err != nil {
 		return err
 	}

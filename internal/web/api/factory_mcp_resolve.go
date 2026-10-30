@@ -1,8 +1,6 @@
 package api
 
 import (
-	"encoding/json"
-
 	"github.com/google/jsonschema-go/jsonschema"
 	"github.com/levitateos/sodaos/internal/factory"
 )
@@ -23,13 +21,4 @@ func resolvePostPayloadSchema(tool factory.MCPTool) *jsonschema.Schema {
 		"resolution": {Type: "string", Enum: []any{"applied", "refused", "incorporated"}},
 		"reason":     {Type: "string"},
 	}, Required: []string{"post", "resolution"}, AdditionalProperties: &jsonschema.Schema{Not: &jsonschema.Schema{}}}
-}
-
-func checkResolvePostPayload(tool factory.MCPTool, payload map[string]any) error {
-	raw, err := json.Marshal(payload)
-	if err != nil {
-		return err
-	}
-	_, err = factory.DecodePostResolution(tool, raw)
-	return err
 }

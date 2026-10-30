@@ -406,10 +406,25 @@ func TestPostResolutionDispositionPersistsAndExposes(t *testing.T) {
 	if err != nil || question.Payload.Communication.QuestionState != "answered" {
 		t.Fatalf("answer not reflected: %+v %v", question, err)
 	}
+	attention := func(want bool) {
+		t.Helper()
+		entries, _, _, err := s.SubscribedFeed(ctx, factory.FeedQuery{Repositories: []int64{cap.Repository}, View: "attention", Limit: 100})
+		if err != nil {
+			t.Fatal(err)
+		}
+		found := false
+		for _, entry := range entries {
+			found = found || entry.ID == ask.Record.ID
+		}
+		if found != want {
+			t.Fatalf("question attention = %v, want %v", found, want)
+		}
+	}
+	attention(true)
 	resolve := func(payload string) error {
 		t.Helper()
 		submission := testMCPSubmissionRow(cap, factory.MCPToolResolvePost, []byte(payload))
-		_, err := s.RecordMCPSubmission(ctx, submission)
+		_, err := s.RecordWorkerPost(ctx, submission)
 		return err
 	}
 	if err := resolve(`{"post":"` + answer.Record.ID + `","resolution":"incorporated"} {}`); err == nil {
@@ -426,6 +441,7 @@ func TestPostResolutionDispositionPersistsAndExposes(t *testing.T) {
 	if err != nil || question.Payload.Communication.QuestionState != "incorporated" {
 		t.Fatalf("question hid its adoption: %+v %v", question, err)
 	}
+	attention(false)
 	suggest := post(factory.MCPToolSuggest, `{"title":"Cache the policy","summary":"Reading the policy file on every task is slow.","rationale":"Cache ownership at assignment start."}`)
 	if err := resolve(`{"post":"` + suggest.Record.ID + `","resolution":"applied","reason":"Cached at dispatch"}`); err != nil {
 		t.Fatalf("apply: %v", err)
@@ -467,6 +483,9 @@ func TestPostResolutionDispositionPersistsAndExposes(t *testing.T) {
 	again, err := s.FeedPost(ctx, other.Record.ID)
 	if err != nil || again.Payload.Communication.Disposition != "" {
 		t.Fatalf("refused dispositions leaked state: %+v %v", again, err)
+	}
+	if count, err := s.MCPSubmissionCount(ctx, cap.AssignmentID); err != nil || count != 0 {
+		t.Fatalf("synchronous discussion actions created queued work: %d %v", count, err)
 	}
 }
 

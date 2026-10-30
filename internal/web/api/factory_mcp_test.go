@@ -169,16 +169,6 @@ func (f *fakeCatalogSink) RecordWorkerPost(_ context.Context, submission factory
 	return store.FeedPostDetail{Record: factory.PostRecord{ID: id}, Assignment: submission.AssignmentID, Actor: string(f.capability.Profile)}, nil
 }
 
-func (f *fakeCatalogSink) MCPWorkStatus(_ context.Context, assignmentID, submissionID string) (factory.MCPWorkStatus, error) {
-	f.mu.Lock()
-	defer f.mu.Unlock()
-	current, ok := f.submissions[assignmentID+"/"+submissionID]
-	if !ok {
-		return factory.MCPWorkStatus{}, store.ErrNotFound
-	}
-	return current.receipt, nil
-}
-
 func (f *fakeCatalogSink) TerminalMCPProposal(_ context.Context, assignmentID string) (factory.MCPWorkStatus, bool, error) {
 	f.mu.Lock()
 	defer f.mu.Unlock()

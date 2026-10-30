@@ -402,9 +402,6 @@ func (s *factoryCatalogServer) checkPayload(tool factory.MCPTool, payload map[st
 	if isIssueMakerTool(tool) {
 		return checkIssueMakerPayload(payload)
 	}
-	if tool == factory.MCPToolResolvePost {
-		return checkResolvePostPayload(tool, payload)
-	}
 	spec, ok := mcpMutationPayloads[tool]
 	if !ok {
 		return fmt.Errorf("unsupported factory tool %q: call one of the tools this server lists", tool)
@@ -472,7 +469,7 @@ func (s *factoryCatalogServer) admitMutation(ctx context.Context, tool factory.M
 		Payload:      raw,
 	}
 	err = s.checkNewFinish(ctx, capability, submission, args.Payload)
-	if err == nil && tool != factory.MCPToolFinishIncomplete && tool != factory.MCPToolResolvePost {
+	if err == nil && tool != factory.MCPToolFinishIncomplete {
 		err = s.requireCurrentWork(ctx, capability)
 	}
 	if err != nil {
@@ -538,7 +535,7 @@ func (s *factoryCatalogServer) serve(ctx context.Context, tool factory.MCPTool, 
 	if factory.MCPIsLibraryRead(tool) {
 		return s.serveLibraryRead(ctx, tool, args)
 	}
-	if factory.MCPIsCommunication(tool) {
+	if factory.MCPIsCommunication(tool) || tool == factory.MCPToolResolvePost {
 		return s.serveWorkerPost(ctx, tool, args)
 	}
 	switch tool {

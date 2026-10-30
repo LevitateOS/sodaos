@@ -18,7 +18,7 @@ var ErrMCPCommunicationCap = errors.New("assignment communication bound reached;
 // there is no second submission record or receipt to recover.
 func (s *Store) RecordWorkerPost(ctx context.Context, submission factory.MCPSubmission) (FeedPostDetail, error) {
 	var out FeedPostDetail
-	if !factory.MCPIsCommunication(submission.Tool) || !factory.ValidID(submission.SubmissionID) {
+	if (!factory.MCPIsCommunication(submission.Tool) && submission.Tool != factory.MCPToolResolvePost) || !factory.ValidID(submission.SubmissionID) {
 		return out, errors.New("worker post needs a communication tool and stable identity")
 	}
 	tx, err := s.db.BeginTx(ctx, nil)
@@ -53,6 +53,10 @@ func (s *Store) RecordWorkerPost(ctx context.Context, submission factory.MCPSubm
 		return s.FeedPost(ctx, postID)
 	}
 	switch submission.Tool {
+	case factory.MCPToolResolvePost:
+		if err := recordPostResolutionTx(ctx, tx, capability, submission); err != nil {
+			return out, err
+		}
 	case factory.MCPToolRecordJourneyResult:
 		if _, err := recordVerificationJourneyPostTx(ctx, tx, capability, submission); err != nil {
 			return out, err
@@ -126,6 +130,8 @@ func recordWorkerPostTx(ctx context.Context, tx *sql.Tx, capability factory.MCPC
 		"project": capability.Project, "communication": content,
 	}
 	switch submission.Tool {
+	case factory.MCPToolResolvePost:
+		fields["resolution"] = json.RawMessage(submission.Payload)
 	case factory.MCPToolRecordJourneyResult:
 		fields["journey"] = json.RawMessage(submission.Payload)
 	case factory.MCPToolRecordDiagnosis:
@@ -153,7 +159,7 @@ func recordWorkerPostTx(ctx context.Context, tx *sql.Tx, capability factory.MCPC
 	if err != nil {
 		return "", err
 	}
-	if content.ParentID != "" {
+	if content.ParentID != "" && submission.Tool != factory.MCPToolResolvePost {
 		return postID, contributionReplyTx(ctx, tx, capability, content.ParentID, postID)
 	}
 	return postID, nil
@@ -231,10 +237,10 @@ func (s *Store) feedQuestionStates(ctx context.Context, details map[string]FeedP
 	// worker adopted moves its question past answered without
 	// claiming anything about unrecorded replies.
 	rows, err := s.db.QueryContext(ctx, `SELECT p.id,bool_or(c.data->'communication'->>'kind'='answer'),
- bool_or(c.data->'communication'->>'kind'='answer' AND r.resolution='incorporated')
+ bool_or(c.data->'communication'->>'kind'='answer' AND r.data->'resolution'->>'resolution'='incorporated')
  FROM factory_feed_posts p JOIN factory_feed_posts c ON c.repository=p.repository
  AND (c.data->>'parent_id'=p.id OR (c.data->'source'->>'kind'='post' AND c.data->'source'->>'id'=p.id))
- LEFT JOIN factory_post_resolutions r ON r.post=c.id
+ LEFT JOIN factory_feed_posts r ON r.repository=c.repository AND r.data->'resolution'->>'post'=c.id
  WHERE p.id=ANY($1) AND NOT COALESCE((c.data->>'deleted')::boolean,false) AND NOT COALESCE((c.data->>'revoked')::boolean,false)
  GROUP BY p.id`, ids)
 	if err != nil {
