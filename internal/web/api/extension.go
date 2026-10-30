@@ -149,13 +149,19 @@ func extensionDevelopmentKeyRoute(parts []string, method string) bool {
 
 func extensionQueryRoute(route string) bool {
 	switch route {
-	case "/repositories", "/environments", "/me/forgejo-keys", "/factory/intents", "/factory/feed", "/factory/feed/replies", "/factory/library", "/factory/library/item", "/spaces":
+	case "/repositories", "/environments", "/me/forgejo-keys", "/factory/intents", "/factory/feed", "/factory/library", "/factory/library/item", "/spaces":
 		return true
 	default:
 		if extensionArtifactRoute(route) {
 			return true
 		}
 		parts := strings.Split(strings.TrimPrefix(route, "/"), "/")
+		if len(parts) == 3 && parts[0] == "repositories" && extensionProductID(parts[1]) && parts[2] == "application-builds" {
+			return true
+		}
+		if len(parts) == 5 && parts[0] == "factory" && parts[1] == "feed" && parts[2] == "posts" && parts[3] != "" && parts[4] == "replies" {
+			return true
+		}
 		if len(parts) == 6 && parts[0] == "repositories" && extensionProductID(parts[1]) &&
 			parts[2] == "factory" && parts[3] == "issues" && extensionProductID(parts[4]) {
 			return parts[5] == "acceptance-preview" || parts[5] == "plan"
@@ -238,6 +244,10 @@ func extensionIntentsMutationRoute(parts []string, method string) (admitted, han
 }
 
 func extensionRepositoryRoute(parts []string, method string) bool {
+	if len(parts) >= 3 && extensionProductID(parts[1]) && parts[2] == "application-builds" {
+		return len(parts) == 3 && (method == http.MethodGet || method == http.MethodPost) ||
+			len(parts) == 5 && extensionProductID(parts[3]) && parts[4] == "setup" && method == http.MethodPost
+	}
 	switch len(parts) {
 	case 1:
 		return method == http.MethodGet
@@ -327,11 +337,13 @@ func extensionFactoryRoute(parts []string, method string) bool {
 			return method == http.MethodGet
 		case 3:
 			return parts[2] == "subscription" && (method == http.MethodGet || method == http.MethodPut) ||
-				parts[2] == "comments" && method == http.MethodPost || parts[2] == "replies" && method == http.MethodGet
+				parts[2] == "posts" && method == http.MethodPost
 		case 4:
-			return parts[2] == "comments" && extensionProductID(parts[3]) && method == http.MethodGet
+			return parts[2] == "posts" && extensionProductID(parts[3]) && method == http.MethodGet
 		case 5:
-			return parts[2] == "comments" && extensionProductID(parts[3]) && (parts[4] == "retry" || parts[4] == "review") && method == http.MethodPost
+			return parts[2] == "posts" && extensionProductID(parts[3]) &&
+				(parts[4] == "replies" && method == http.MethodGet ||
+					(parts[4] == "retry" || parts[4] == "review") && method == http.MethodPost)
 		}
 		return false
 	}
@@ -413,6 +425,11 @@ func extensionIdentityRoute(parts []string, method string) bool {
 		return false
 	}
 	switch parts[1] {
+	case "jev":
+		if len(parts) == 2 {
+			return method == http.MethodGet || method == http.MethodPost
+		}
+		return len(parts) == 3 && parts[2] == "disconnect" && method == http.MethodPost
 	case "connections":
 		return extensionIdentityConnectionsRoute(parts, method)
 	case "enrollments":

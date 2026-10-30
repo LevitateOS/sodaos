@@ -964,28 +964,28 @@ func TestFinanceCommentReviewGeneratesOnlyNewWorkAndKeepsDeliveredHistory(t *tes
 	key := fmt.Sprintf("factory:%d:F11:intent-revision:%s", accepted.Repository, accepted.ID)
 	sum := sha256.Sum256([]byte(key))
 	post := hex.EncodeToString(sum[:16])
-	source, err := c.Store.ResolveCommentSource(ctx, accepted.Repository, factory.CommentSourcePost, post)
+	source, err := c.Store.ResolvePostSource(ctx, accepted.Repository, factory.PostSourcePost, post)
 	if err != nil || source.Product == nil {
 		t.Fatalf("canonical product source: %+v %v", source, err)
 	}
-	comment, _, err := c.Store.SaveFeedCommentWithSource(ctx, factory.CommentRequest{Repository: accepted.Repository, Body: "Require Finance approval above EUR 1000 and retain existing requests.", SourceKind: source.Kind, SourceID: source.ID, IdempotencyKey: "finance-change"}, "43", "Robin", 2, source)
+	comment, _, err := c.Store.SaveFeedPostWithSource(ctx, factory.PostRequest{Repository: accepted.Repository, Body: "Require Finance approval above EUR 1000 and retain existing requests.", SourceKind: source.Kind, SourceID: source.ID, IdempotencyKey: "finance-change"}, "43", "Robin", 2, source)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err = c.Store.RecordCommentIntake(ctx, comment, 0); err != nil {
+	if err = c.Store.RecordPostIntake(ctx, comment, 0); err != nil {
 		t.Fatal(err)
 	}
-	pipe, err := c.Store.CommentPipeline(ctx, comment)
+	pipe, err := c.Store.PostIntake(ctx, comment)
 	if err != nil {
 		t.Fatal(err)
 	}
 	routed := pipe
-	routed.Judgment = factory.CommentJudgmentApplied
-	routed.Route = factory.CommentRouteNewIssue
-	if err = c.Store.AdvanceCommentPipeline(ctx, pipe, routed); err != nil {
+	routed.Judgment = factory.PostJudgmentApplied
+	routed.Route = factory.PostRouteNewIssue
+	if err = c.Store.AdvancePostIntake(ctx, pipe, routed); err != nil {
 		t.Fatal(err)
 	}
-	draft, err := c.Store.ReviewCommentProductChange(ctx, comment, 0, accepted.Owner, 3)
+	draft, err := c.Store.ReviewPostProductChange(ctx, comment, 0, accepted.Owner, 3)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -1002,7 +1002,7 @@ func TestFinanceCommentReviewGeneratesOnlyNewWorkAndKeepsDeliveredHistory(t *tes
 	// ideas, effective outcomes and recorded task keys in a new draft before
 	// planning. No exploration remints a baseline graph here.
 	previousDraft := draft
-	draft.ID = factory.CommentDecisionID("finance-bounds", comment, 0)
+	draft.ID = factory.PostDecisionID("finance-bounds", comment, 0)
 	draft.Predecessor = previousDraft.ID
 	draft.MaxIssues = len(draft.Tasks) + 1
 	draft.CreatedUnix = 4
@@ -1031,7 +1031,7 @@ func TestFinanceCommentReviewGeneratesOnlyNewWorkAndKeepsDeliveredHistory(t *tes
 	}
 	seedChoiceWalkthroughReview(t, ctx, c, draft, financeWalkthroughs)
 	next := draft
-	next.ID = factory.CommentDecisionID("finance-accept", comment, 0)
+	next.ID = factory.PostDecisionID("finance-accept", comment, 0)
 	next.Predecessor = draft.ID
 	next.State = "accepted"
 	next.Tasks = tasks
@@ -1120,11 +1120,11 @@ func TestFinanceCommentReviewGeneratesOnlyNewWorkAndKeepsDeliveredHistory(t *tes
 	if err != nil || wait != nil || replay.OperationID != second.OperationID || f.submissions != 2 {
 		t.Fatal("retry duplicated the change graph", err)
 	}
-	detail, err := c.Store.FeedComment(ctx, comment)
+	detail, err := c.Store.FeedPost(ctx, comment)
 	if err != nil {
 		t.Fatal(err)
 	}
-	view, err := c.Store.CommentProductChange(ctx, detail, routed, next.Owner)
+	view, err := c.Store.PostProductChange(ctx, detail, routed, next.Owner)
 	if err != nil || view.State != "accepted" || view.AcceptedRevision != accepted.ID || view.DraftRevision != previousDraft.ID {
 		t.Fatalf("comment lost exact adopted lineage: %+v %v", view, err)
 	}

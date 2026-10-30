@@ -46,7 +46,7 @@ func TestFactoryArtifactChunksPublishOnlyWhenComplete(t *testing.T) {
 	if _, _, err = s.FeedArtifact(ctx, cap.Repository+1, done.ArtifactID); err == nil {
 		t.Fatal("foreign repo artifact visible")
 	}
-	detail, err := s.FeedComment(ctx, done.FeedPostID)
+	detail, err := s.FeedPost(ctx, done.FeedPostID)
 	if err != nil || len(detail.Payload.Communication.Artifacts) != 1 || detail.Payload.Communication.Artifacts[0].Href != a.Href {
 		t.Fatalf("artifact feed: %+v %v", detail, err)
 	}
@@ -56,7 +56,7 @@ func TestFactoryArtifactChunksPublishOnlyWhenComplete(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	detail, err = s.FeedComment(ctx, linked.FeedPostID)
+	detail, err = s.FeedPost(ctx, linked.FeedPostID)
 	if err != nil || detail.Payload.Communication.Artifacts[0].Href != a.Href || detail.Payload.Communication.Artifacts[0].Name != "sample.txt" {
 		t.Fatal("artifact metadata not server-resolved")
 	}

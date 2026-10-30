@@ -90,7 +90,7 @@ func TestSaveInvestigationPlanRoundTripAndRefusals(t *testing.T) {
 	if err != nil || len(posts) != 1 {
 		t.Fatalf("plan revision did not publish exactly one decision: %+v %v", posts, err)
 	}
-	post, err := s.FeedComment(ctx, posts[0].ID)
+	post, err := s.FeedPost(ctx, posts[0].ID)
 	if err != nil || post.Payload == nil || post.Payload.Communication == nil || post.Payload.Communication.PlanSource == nil || post.Payload.Communication.PlanSource.Plan != plan.ID || post.Payload.Communication.PlanSource.Digest != plan.Digest {
 		t.Fatalf("plan post lost its native revision: %+v %v", post, err)
 	}

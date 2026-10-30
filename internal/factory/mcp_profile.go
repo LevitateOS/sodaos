@@ -2,7 +2,7 @@ package factory
 
 // D14 canonical profile/tool DTOs (FW38).
 //
-// One Factory MCP implementation serves seven role profiles with shared
+// One Factory MCP implementation serves role profiles with shared
 // communication outlets and role-specific result tools. This file freezes the canonical names, the execution phase
 // each profile serves, and which profile may call which tool. Admission
 // (control), persistence (store) and transport (web/api) enforce this
@@ -14,6 +14,7 @@ package factory
 type MCPProfile string
 
 const (
+	MCPProfileIssueMaker  MCPProfile = "issue_maker"
 	MCPProfileProductLead MCPProfile = "product_lead"
 	MCPProfileArchitect   MCPProfile = "architect"
 	MCPProfileBuilder     MCPProfile = "builder"
@@ -23,7 +24,7 @@ const (
 	MCPProfileTestPilot   MCPProfile = "test_pilot"
 )
 
-// MCPProfiles lists the seven admitted profiles in contract order.
+// MCPProfiles lists the admitted profiles in contract order.
 var MCPProfiles = []MCPProfile{
 	MCPProfileProductLead,
 	MCPProfileArchitect,
@@ -32,6 +33,24 @@ var MCPProfiles = []MCPProfile{
 	MCPProfileFixer,
 	MCPProfileStrategist,
 	MCPProfileTestPilot,
+	MCPProfileIssueMaker,
+}
+
+// MCPProfileOfAssignment distinguishes intake from product planning while
+// both use the existing funded, supervised decompose execution transport.
+func MCPProfileOfAssignment(a Assignment) MCPProfile {
+	if a.Phase == "decompose" && a.PlanningContext != nil && a.PlanningContext.IssueMaker != nil {
+		return MCPProfileIssueMaker
+	}
+	if a.Phase == "repair" {
+		return MCPProfileStrategist
+	}
+	for _, profile := range MCPProfiles {
+		if MCPPhaseOf(profile) == a.Phase {
+			return profile
+		}
+	}
+	return ""
 }
 
 // MCPPhaseOf returns the execution phase a profile serves. Strategist
@@ -39,6 +58,8 @@ var MCPProfiles = []MCPProfile{
 // phases share the profile.
 func MCPPhaseOf(profile MCPProfile) string {
 	switch profile {
+	case MCPProfileIssueMaker:
+		return "decompose"
 	case MCPProfileProductLead:
 		return "decompose"
 	case MCPProfileArchitect:
@@ -62,6 +83,8 @@ func MCPPhaseOf(profile MCPProfile) string {
 // result. Every profile may also end with finish_incomplete.
 func MCPFinishToolOf(profile MCPProfile) MCPTool {
 	switch profile {
+	case MCPProfileIssueMaker:
+		return MCPToolFinishProductPlan
 	case MCPProfileProductLead:
 		return MCPToolFinishProductPlan
 	case MCPProfileArchitect:
@@ -85,6 +108,8 @@ func MCPFinishToolOf(profile MCPProfile) MCPTool {
 type MCPTool string
 
 const (
+	MCPToolCreateIssue          MCPTool = "factory.create_issue"
+	MCPToolRefineIssue          MCPTool = "factory.refine_issue"
 	MCPToolVerificationEvidence MCPTool = "factory.verification_evidence"
 	MCPToolSearchLibrary        MCPTool = "factory.search_library"
 	MCPToolReadLibraryItem      MCPTool = "factory.read_library_item"
@@ -130,6 +155,8 @@ const (
 
 // MCPTools lists shared reads and communication before role work/results.
 var MCPTools = []MCPTool{
+	MCPToolCreateIssue,
+	MCPToolRefineIssue,
 	MCPToolContext,
 	MCPToolEvidence,
 	MCPToolStatus,
@@ -229,10 +256,12 @@ var mcpTerminalTools = map[MCPTool]bool{
 // MCPIsTerminal reports whether the tool records a terminal proposal.
 func MCPIsTerminal(tool MCPTool) bool { return mcpTerminalTools[tool] }
 
-// mcpToolProfiles is the admitted caller set per tool. All seven
+// mcpToolProfiles is the admitted caller set per tool. All
 // profiles read; finish_incomplete is the every-parent terminal;
 // typed finishes and task output stay with their role.
 var mcpToolProfiles = map[MCPTool]map[MCPProfile]bool{
+	MCPToolCreateIssue:          singleMCPProfile(MCPProfileIssueMaker),
+	MCPToolRefineIssue:          singleMCPProfile(MCPProfileIssueMaker),
 	MCPToolVerificationEvidence: singleMCPProfile(MCPProfileTestPilot),
 	MCPToolVerificationScope:    singleMCPProfile(MCPProfileTestPilot),
 	MCPToolRecordJourneyResult:  singleMCPProfile(MCPProfileTestPilot),
@@ -259,7 +288,7 @@ var mcpToolProfiles = map[MCPTool]map[MCPProfile]bool{
 	MCPToolStuck:                allMCPProfiles(),
 	MCPToolRecordDecision:       allMCPProfiles(),
 	MCPToolFinishIncomplete:     allMCPProfiles(),
-	MCPToolFinishProductPlan:    singleMCPProfile(MCPProfileProductLead),
+	MCPToolFinishProductPlan:    {MCPProfileProductLead: true, MCPProfileIssueMaker: true},
 	MCPToolFinishIssuePlan:      singleMCPProfile(MCPProfileArchitect),
 	MCPToolFinishImplement:      singleMCPProfile(MCPProfileBuilder),
 	MCPToolFinishReview:         singleMCPProfile(MCPProfileInspector),

@@ -1961,7 +1961,7 @@ func seedJourneyVerifiedApp(t *testing.T, raw *sql.DB, intent, revision string) 
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err := raw.Exec(`INSERT INTO factory_feed_comments(id,repository,revision,author,body,idempotency,data) VALUES($1,$2,0,'factory',$3,$4,$5)`,
+	if _, err := raw.Exec(`INSERT INTO factory_feed_posts(id,repository,revision,author,body,idempotency,data) VALUES($1,$2,0,'factory',$3,$4,$5)`,
 		subject.DeliveryID, journeyRepo,
 		content.Title+"\n\n"+content.Summary, subject.DeliveryID, string(feed)); err != nil {
 		t.Fatal(err)
@@ -2082,7 +2082,7 @@ func TestFactoryIssueJourneyVerifiedRefusesWrongAssignment(t *testing.T) {
 	fx, call := journeyMux(t, fake)
 	seedJourneyWithDelivery(t, fx, fake, factory.AcceptanceJevAcceptance, true)
 	delivery := journeyVerifiedDeliveryID(t, fx.raw)
-	if _, err := fx.raw.Exec(`UPDATE factory_feed_comments SET data=jsonb_set(data,'{assignment}',$1) WHERE id=$2`,
+	if _, err := fx.raw.Exec(`UPDATE factory_feed_posts SET data=jsonb_set(data,'{assignment}',$1) WHERE id=$2`,
 		`"00000000000000000000000000000000"`, delivery); err != nil {
 		t.Fatal(err)
 	}
@@ -2124,7 +2124,7 @@ func TestFactoryIssueJourneyVerifiedRefusesWrongScope(t *testing.T) {
 	}
 	// Keep the event join valid: the F10 event follows the tampered
 	// delivery identity, so only the scope guard can refuse.
-	res, err := fx.raw.Exec(`UPDATE factory_feed_comments SET data=jsonb_set(data,'{event_identity}',$1) WHERE id=$2`,
+	res, err := fx.raw.Exec(`UPDATE factory_feed_posts SET data=jsonb_set(data,'{event_identity}',$1) WHERE id=$2`,
 		`"`+stored.Subject.Delivery.DeliveryID+`"`, old)
 	if err != nil {
 		t.Fatal(err)
@@ -2155,7 +2155,7 @@ func TestFactoryIssueJourneyVerifiedRefusesManifestMismatch(t *testing.T) {
 	// F10) and vary only the observed manifest: a well-formed but
 	// foreign digest is an explicit storage failure, never a verified
 	// application.
-	res, err := fx.raw.Exec(`UPDATE factory_feed_comments SET data=jsonb_set(data,'{communication,evidence_refs,1}',$1) WHERE id=$2`,
+	res, err := fx.raw.Exec(`UPDATE factory_feed_posts SET data=jsonb_set(data,'{communication,evidence_refs,1}',$1) WHERE id=$2`,
 		`"`+strings.Repeat("2", 64)+`"`, delivery)
 	if err != nil {
 		t.Fatal(err)
@@ -2210,7 +2210,7 @@ func TestFactoryIssueJourneyVerifiedRefusesMissingF10(t *testing.T) {
 	fx, call := journeyMux(t, fake)
 	seedJourneyWithDelivery(t, fx, fake, factory.AcceptanceJevAcceptance, true)
 	delivery := journeyVerifiedDeliveryID(t, fx.raw)
-	if _, err := fx.raw.Exec(`DELETE FROM factory_feed_comments WHERE id=$1`, delivery); err != nil {
+	if _, err := fx.raw.Exec(`DELETE FROM factory_feed_posts WHERE id=$1`, delivery); err != nil {
 		t.Fatal(err)
 	}
 	code, body := call(http.MethodGet, "/api/repositories/7/factory/issues/3", "")
@@ -2295,7 +2295,7 @@ func TestFactoryIssueJourneyVerifiedIgnoresUnrelatedNewer(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err := fx.raw.Exec(`INSERT INTO factory_feed_comments(id,repository,revision,author,body,idempotency,data) VALUES($1,$2,0,'factory',$3,$4,$5)`,
+	if _, err := fx.raw.Exec(`INSERT INTO factory_feed_posts(id,repository,revision,author,body,idempotency,data) VALUES($1,$2,0,'factory',$3,$4,$5)`,
 		unrelated.DeliveryID, journeyRepo, content.Title+"\n\n"+content.Summary, unrelated.DeliveryID, string(feed)); err != nil {
 		t.Fatal(err)
 	}

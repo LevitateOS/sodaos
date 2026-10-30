@@ -2,6 +2,7 @@ package store
 
 import (
 	"context"
+	"database/sql"
 	"encoding/json"
 	"fmt"
 	"strings"
@@ -76,7 +77,8 @@ func (s *Store) FeedRecordDetails(ctx context.Context, ids []string) (map[string
 			CASE WHEN jsonb_typeof(a.data->'result'->'findings')='array' THEN jsonb_array_length(a.data->'result'->'findings') ELSE 0 END,
 			CASE WHEN jsonb_typeof(a.data->'result'->'phase_result'->'output'->'correction'->'findings')='array' THEN jsonb_array_length(a.data->'result'->'phase_result'->'output'->'correction'->'findings') ELSE 0 END),
 		CASE WHEN jsonb_typeof(a.data->'result'->'phase_result'->'output'->'verification'->'check_receipts')='array' THEN jsonb_array_length(a.data->'result'->'phase_result'->'output'->'verification'->'check_receipts') ELSE 0 END,
-		CASE WHEN jsonb_typeof(a.data->'result'->'phase_result'->'output'->'verification'->'failures')='array' THEN jsonb_array_length(a.data->'result'->'phase_result'->'output'->'verification'->'failures') ELSE 0 END
+		CASE WHEN jsonb_typeof(a.data->'result'->'phase_result'->'output'->'verification'->'failures')='array' THEN jsonb_array_length(a.data->'result'->'phase_result'->'output'->'verification'->'failures') ELSE 0 END,
+		(a.data->'planning_context'->'IssueMaker' IS NOT NULL AND a.data->'planning_context'->'IssueMaker'<>'null'::jsonb)
 		FROM factory_assignments a
 		LEFT JOIN factory_publications p ON p.assignment=a.id
 		LEFT JOIN factory_merges m ON m.publication=(p.data->>'id')
@@ -94,9 +96,10 @@ func (s *Store) FeedRecordDetails(ctx context.Context, ids []string) (map[string
 		var created, finished int64
 		var findings, checks, failures int
 		var completed bool
+		var issueMaker sql.NullBool
 		if err := rows.Scan(&detail.ID, &stage, &detail.Issue, &rawResult, &attemptRoot, &phase, &role, &outcome,
 			&created, &finished, &pubStage, &mergeStage, &completed, &detail.PR,
-			&detail.Summary, &verdict, &detail.Ref, &findings, &checks, &failures); err != nil {
+			&detail.Summary, &verdict, &detail.Ref, &findings, &checks, &failures, &issueMaker); err != nil {
 			return nil, err
 		}
 		detail.Payload = feedResultPayload(rawResult)
@@ -104,6 +107,9 @@ func (s *Store) FeedRecordDetails(ctx context.Context, ids []string) (map[string
 			taskRoots[attemptRoot] = append(taskRoots[attemptRoot], detail.ID)
 		}
 		detail.Actor, detail.Author = RecordAuthor(phase, role)
+		if issueMaker.Valid && issueMaker.Bool {
+			detail.Actor, detail.Author = "issue_maker", "Issue Maker"
+		}
 		detail.At = created
 		if stage == factory.AssignmentFinished && finished > 0 {
 			detail.At = finished
@@ -233,9 +239,11 @@ func recordProfile(phase string) factory.MCPProfile {
 }
 
 // recordPersona names one canonical profile the way the feed design
-// presents its seven role authors.
+// presents its role authors.
 func recordPersona(profile factory.MCPProfile) string {
 	switch profile {
+	case factory.MCPProfileIssueMaker:
+		return "Issue Maker"
 	case factory.MCPProfileProductLead:
 		return "Product Lead"
 	case factory.MCPProfileArchitect:

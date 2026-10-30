@@ -31,16 +31,16 @@ export interface FeedCardLinks {
 export interface FactoryEvent {
   readonly presentation: string;
   readonly caption: string;
-  readonly level: 'post' | 'update' | 'comment';
+  readonly level: 'post' | 'update' | 'reply';
 }
 const factoryEvents: Readonly<Record<string, FactoryEvent>> = {
-  F01: {presentation: 'checks', caption: 'Preparation', level: 'comment'},
+  F01: {presentation: 'checks', caption: 'Preparation', level: 'reply'},
   F02: {presentation: 'progress', caption: 'Work started', level: 'update'},
-  F03: {presentation: 'decision', caption: 'Why this work is next', level: 'comment'},
+  F03: {presentation: 'decision', caption: 'Why this work is next', level: 'reply'},
   F04: {presentation: 'decision', caption: 'JEV assessment', level: 'post'},
   F05: {presentation: 'result', caption: 'Work created', level: 'post'},
   F06: {presentation: 'result', caption: 'Merged', level: 'post'},
-  F07: {presentation: 'progress', caption: 'Ready', level: 'comment'},
+  F07: {presentation: 'progress', caption: 'Ready', level: 'reply'},
   F08: {presentation: 'progress', caption: 'Pause, stop and takeover', level: 'post'},
   F09: {presentation: 'blocker', caption: 'Run problem', level: 'post'},
   F10: {presentation: 'result', caption: 'App ready', level: 'post'},

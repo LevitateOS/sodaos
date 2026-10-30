@@ -34,15 +34,15 @@ func recordMCPCommunicationTx(ctx context.Context, tx *sql.Tx, capability factor
 	if count >= factory.MCPMaxCommunications {
 		return ErrMCPCommunicationCap
 	}
-	if content.ReplyTo != "" {
+	if content.ParentID != "" {
 		var parentKind string
-		if err = tx.QueryRowContext(ctx, `SELECT COALESCE(data->'communication'->>'kind','') FROM factory_feed_comments WHERE id=$1 AND repository=$2 AND NOT COALESCE((data->>'deleted')::boolean,false) AND NOT COALESCE((data->>'revoked')::boolean,false) FOR SHARE`, content.ReplyTo, capability.Repository).Scan(&parentKind); err != nil {
+		if err = tx.QueryRowContext(ctx, `SELECT COALESCE(data->'communication'->>'kind','') FROM factory_feed_posts WHERE id=$1 AND repository=$2 AND NOT COALESCE((data->>'deleted')::boolean,false) AND NOT COALESCE((data->>'revoked')::boolean,false) FOR SHARE`, content.ParentID, capability.Repository).Scan(&parentKind); err != nil {
 			if errors.Is(err, sql.ErrNoRows) {
 				return errors.New("reply target is not available in this project")
 			}
 			return err
 		}
-		if err := admitWorkerDiscussionReplyTx(ctx, tx, capability, content.ReplyTo); err != nil {
+		if err := admitWorkerDiscussionReplyTx(ctx, tx, capability, content.ParentID); err != nil {
 			return err
 		}
 		if submission.Tool == factory.MCPToolAnswer && parentKind != "ask" {
@@ -56,6 +56,11 @@ func recordMCPCommunicationTx(ctx context.Context, tx *sql.Tx, capability factor
 }
 
 func recordMCPFeedContentTx(ctx context.Context, tx *sql.Tx, capability factory.MCPCapability, submission factory.MCPSubmission, content factory.FeedCommunication, receipt *factory.MCPReceipt) error {
+	if capability.Profile == factory.MCPProfileIssueMaker && content.ParentID == "" {
+		if err := tx.QueryRowContext(ctx, `SELECT data->'planning_context'->'IssueMaker'->>'post' FROM factory_assignments WHERE id=$1`, capability.AssignmentID).Scan(&content.ParentID); err != nil {
+			return err
+		}
+	}
 	var issue int64
 	var err error
 	if err = tx.QueryRowContext(ctx, `SELECT COALESCE((SELECT issue FROM factory_assignments WHERE id=$1 AND repository=$2),0)`, capability.AssignmentID, capability.Repository).Scan(&issue); err != nil {
@@ -66,12 +71,12 @@ func recordMCPFeedContentTx(ctx context.Context, tx *sql.Tx, capability factory.
 		return err
 	}
 	fields := map[string]any{
-		"issue": issue, "reply_to": content.ReplyTo, "at": time.Now().Unix(), "author_name": recordPersona(capability.Profile),
+		"issue": issue, "parent_id": content.ParentID, "at": time.Now().Unix(), "author_name": recordPersona(capability.Profile),
 		"actor": string(capability.Profile), "assignment": capability.AssignmentID, "run": capability.RunID,
 		"project": capability.Project, "submission": submission.SubmissionID, "communication": content,
 	}
-	if content.ReplyTo == "" && (content.Kind == "partial" || content.Kind == "reply") {
-		fields["source"] = factory.CommentSource{Kind: factory.CommentSourceRecord, ID: capability.AssignmentID, Issue: issue, Ref: capability.AcceptedRevision}
+	if content.ParentID == "" && (content.Kind == "partial" || content.Kind == "reply") {
+		fields["source"] = factory.PostSource{Kind: factory.PostSourceRecord, ID: capability.AssignmentID, Issue: issue, Ref: capability.AcceptedRevision}
 	}
 	data, err := json.Marshal(fields)
 	if err != nil {
@@ -83,16 +88,16 @@ func recordMCPFeedContentTx(ctx context.Context, tx *sql.Tx, capability factory.
 	if content.Question != "" && !strings.Contains(body, content.Question) {
 		body += "\n\n" + content.Question
 	}
-	if len([]rune(body)) > factory.CommentBodyLimit {
-		body = string([]rune(body)[:factory.CommentBodyLimit])
+	if len([]rune(body)) > factory.PostBodyLimit {
+		body = string([]rune(body)[:factory.PostBodyLimit])
 	}
-	_, err = tx.ExecContext(ctx, `INSERT INTO factory_feed_comments(id,repository,revision,author,body,idempotency,data) VALUES($1,$2,0,$3,$4,$5,$6)`, postID, capability.Repository, "worker:"+capability.AssignmentID, body, submission.SubmissionID, string(data))
+	_, err = tx.ExecContext(ctx, `INSERT INTO factory_feed_posts(id,repository,revision,author,body,idempotency,data) VALUES($1,$2,0,$3,$4,$5,$6)`, postID, capability.Repository, "worker:"+capability.AssignmentID, body, submission.SubmissionID, string(data))
 	if err != nil {
 		return err
 	}
 	receipt.FeedPostID = postID
-	if content.ReplyTo != "" {
-		return contributionReplyTx(ctx, tx, capability, content.ReplyTo, postID)
+	if content.ParentID != "" {
+		return contributionReplyTx(ctx, tx, capability, content.ParentID, postID)
 	}
 	return nil
 }
@@ -105,7 +110,7 @@ func communicationToolNames() []string {
 	return names
 }
 
-func applyFeedCommunicationDetail(detail *FeedCommentDetail, raw []byte) error {
+func applyFeedCommunicationDetail(detail *FeedPostDetail, raw []byte) error {
 	var data struct {
 		Actor         string                      `json:"actor"`
 		Status        string                      `json:"status"`
@@ -114,15 +119,15 @@ func applyFeedCommunicationDetail(detail *FeedCommentDetail, raw []byte) error {
 		Communication *factory.FeedCommunication  `json:"communication"`
 		Consultation  *factory.FeedConsultation   `json:"consultation"`
 		Contribution  *factory.ContributionReview `json:"contribution"`
-		Source        *factory.CommentSource      `json:"source"`
+		Source        *factory.PostSource      `json:"source"`
 	}
 	if err := json.Unmarshal(raw, &data); err != nil {
 		return err
 	}
 	if data.Source != nil {
 		detail.Source = data.Source
-		if detail.Record.ReplyTo == "" && data.Source.Kind == factory.CommentSourcePost {
-			detail.Record.ReplyTo = data.Source.ID
+		if detail.Record.ParentID == "" && data.Source.Kind == factory.PostSourcePost {
+			detail.Record.ParentID = data.Source.ID
 		}
 	}
 	if data.Communication != nil {
@@ -132,7 +137,7 @@ func applyFeedCommunicationDetail(detail *FeedCommentDetail, raw []byte) error {
 		detail.Actor = data.Actor
 		detail.Assignment = data.Assignment
 		detail.Status = data.Communication.Kind
-		if data.Actor == "factory" && data.Status != "" {
+		if (data.Actor == "factory" || data.Actor == "issue_maker") && data.Status != "" {
 			detail.Status = data.Status
 		}
 		detail.Payload = &factory.FeedPayload{Communication: data.Communication}
@@ -150,7 +155,7 @@ func applyFeedCommunicationDetail(detail *FeedCommentDetail, raw []byte) error {
 
 // feedQuestionStates derives response arrival without mutating the original
 // question or claiming that the answer was adopted by the worker.
-func (s *Store) feedQuestionStates(ctx context.Context, details map[string]FeedCommentDetail) error {
+func (s *Store) feedQuestionStates(ctx context.Context, details map[string]FeedPostDetail) error {
 	ids := []string{}
 	for id, detail := range details {
 		if detail.Payload != nil && detail.Payload.Communication != nil && detail.Payload.Communication.Kind == "ask" {
@@ -166,8 +171,8 @@ func (s *Store) feedQuestionStates(ctx context.Context, details map[string]FeedC
 	// claiming anything about unrecorded replies.
 	rows, err := s.db.QueryContext(ctx, `SELECT p.id,bool_or(c.data->'communication'->>'kind'='answer'),
  bool_or(c.data->'communication'->>'kind'='answer' AND r.resolution='incorporated')
- FROM factory_feed_comments p JOIN factory_feed_comments c ON c.repository=p.repository
- AND (c.data->>'reply_to'=p.id OR (c.data->'source'->>'kind'='post' AND c.data->'source'->>'id'=p.id))
+ FROM factory_feed_posts p JOIN factory_feed_posts c ON c.repository=p.repository
+ AND (c.data->>'parent_id'=p.id OR (c.data->'source'->>'kind'='post' AND c.data->'source'->>'id'=p.id))
  LEFT JOIN factory_post_resolutions r ON r.post=c.id
  WHERE p.id=ANY($1) AND NOT COALESCE((c.data->>'deleted')::boolean,false) AND NOT COALESCE((c.data->>'revoked')::boolean,false)
  GROUP BY p.id`, ids)

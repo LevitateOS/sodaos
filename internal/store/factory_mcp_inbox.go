@@ -12,17 +12,17 @@ import (
 // assignment posts and replies to that assignment. Repository scope alone is
 // insufficient: unrelated project discussions stay outside this read.
 const mcpVisibleDiscussion = `WITH RECURSIVE visible AS (
- SELECT id,seq,data FROM factory_feed_comments
+ SELECT id,seq,data FROM factory_feed_posts
  WHERE repository=$1 AND NOT COALESCE((data->>'deleted')::boolean,false) AND NOT COALESCE((data->>'revoked')::boolean,false)
  AND (data->>'assignment'=$2 OR (data->'source'->>'kind'='record' AND data->'source'->>'id'=$2)
  OR data->'contribution'->>'assignment'=$2
- OR EXISTS(SELECT 1 FROM factory_feed_comments invitation WHERE invitation.repository=$1
- AND invitation.data->'contribution'->>'source'=factory_feed_comments.id
- AND (invitation.data->'contribution'->>'revision')::bigint=factory_feed_comments.revision
+ OR EXISTS(SELECT 1 FROM factory_feed_posts invitation WHERE invitation.repository=$1
+ AND invitation.data->'contribution'->>'source'=factory_feed_posts.id
+ AND (invitation.data->'contribution'->>'revision')::bigint=factory_feed_posts.revision
  AND invitation.data->'contribution'->>'assignment'=$2 AND invitation.data->'contribution'->>'state' IN ('invited','responded')))
  UNION
- SELECT c.id,c.seq,c.data FROM factory_feed_comments c JOIN visible p
- ON c.data->>'reply_to'=p.id OR (c.data->'source'->>'kind'='post' AND c.data->'source'->>'id'=p.id)
+ SELECT c.id,c.seq,c.data FROM factory_feed_posts c JOIN visible p
+ ON c.data->>'parent_id'=p.id OR (c.data->'source'->>'kind'='post' AND c.data->'source'->>'id'=p.id)
  WHERE c.repository=$1 AND NOT COALESCE((c.data->>'deleted')::boolean,false) AND NOT COALESCE((c.data->>'revoked')::boolean,false)
 )`
 
@@ -48,7 +48,7 @@ func (s *Store) MCPDiscussion(ctx context.Context, capability factory.MCPCapabil
 	// serve its discussion, which carries the bounded authorized source
 	// snapshot/body/context and the invitation reply target.
 	var invitation string
-	err := s.db.QueryRowContext(ctx, `SELECT i.id FROM factory_feed_comments i
+	err := s.db.QueryRowContext(ctx, `SELECT i.id FROM factory_feed_posts i
  JOIN factory_assignments a ON a.id=$3 AND a.repository=$1
  WHERE i.repository=$1 AND a.repository=$1
  AND i.data->'contribution'->>'assignment'=$2
@@ -74,7 +74,7 @@ func (s *Store) mcpDiscussionPage(ctx context.Context, capability factory.MCPCap
 		query += `, thread AS (
    SELECT id,seq,data FROM visible WHERE id=$4
    UNION SELECT c.id,c.seq,c.data FROM visible c JOIN thread p
-   ON c.data->>'reply_to'=p.id OR (c.data->'source'->>'kind'='post' AND c.data->'source'->>'id'=p.id)
+   ON c.data->>'parent_id'=p.id OR (c.data->'source'->>'kind'='post' AND c.data->'source'->>'id'=p.id)
   ) SELECT id,seq FROM thread WHERE ($3::bigint=0 OR seq<$3) ORDER BY seq DESC LIMIT 51`
 	}
 	args := []any{capability.Repository, capability.AssignmentID, before}
@@ -117,7 +117,7 @@ func (s *Store) mcpDiscussionPage(ctx context.Context, capability factory.MCPCap
 		if !ok {
 			continue
 		}
-		message := factory.MCPFeedMessage{ID: m.id, ReplyTo: detail.Record.ReplyTo, Actor: detail.Record.Author, Author: detail.AuthorName, At: detail.At, Status: detail.Status, Summary: TruncateFeedSummary(detail.Body)}
+		message := factory.MCPFeedMessage{ID: m.id, ParentID: detail.Record.ParentID, Actor: detail.Record.Author, Author: detail.AuthorName, At: detail.At, Status: detail.Status, Summary: TruncateFeedSummary(detail.Body)}
 		if detail.Actor != "" {
 			message.Actor = detail.Actor
 		}

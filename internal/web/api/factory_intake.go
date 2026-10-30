@@ -17,6 +17,7 @@ import (
 	"github.com/levitateos/sodaos/internal/factory"
 	"github.com/levitateos/sodaos/internal/factory/control"
 	forgejopublish "github.com/levitateos/sodaos/internal/forgejo/publish"
+	"github.com/levitateos/sodaos/internal/store"
 	"github.com/levitateos/sodaos/internal/web/auth"
 )
 
@@ -29,11 +30,13 @@ type IntakeCoordinator interface {
 // IntakeHandler serves authenticated native webhook deliveries as
 // readiness event hints. Fountain signs each delivery with the shared
 // intake secret; the handler verifies the HMAC-SHA256 hex signature,
-// extracts the affected issue locator, and lets the coordinator assess
-// from authoritative snapshots. Hints are partial by design: unknown
+// records the deterministic repository opening question on creation, or
+// extracts an issue locator for authoritative coordinator assessment.
+// Hints are partial by design: unknown
 // fields and unrelated events are ignored, never refused.
 type IntakeHandler struct {
 	Coordinator IntakeCoordinator
+	Store       *store.Store
 	Secret      []byte
 }
 
@@ -58,7 +61,7 @@ func (h IntakeHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		auth.JSONError(w, http.StatusMethodNotAllowed, "invalid_method", "Factory intake accepts POST deliveries.")
 		return
 	}
-	if len(h.Secret) == 0 || h.Coordinator == nil {
+	if len(h.Secret) == 0 || h.Coordinator == nil && h.Store == nil {
 		auth.JSONError(w, http.StatusServiceUnavailable, "intake_unavailable", "Factory intake is not configured.")
 		return
 	}
@@ -78,6 +81,10 @@ func (h IntakeHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	event := intakeHeader(r, "X-Forgejo-Event", "X-Gitea-Event")
+	if event == "repository" {
+		h.repositoryEvent(w, r, body)
+		return
+	}
 	hint, ignored, ok := parseIntakeHint(w, event, delivery, body)
 	if !ok {
 		return
@@ -88,6 +95,10 @@ func (h IntakeHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 	if err := hint.Validate(); err != nil {
 		auth.JSONError(w, http.StatusBadRequest, "invalid_hint", "Native delivery does not name a factory issue.")
+		return
+	}
+	if h.Coordinator == nil {
+		auth.JSONError(w, http.StatusServiceUnavailable, "intake_unavailable", "Factory intake is not configured.")
 		return
 	}
 	assessed, changed, err := h.Coordinator.ObserveIssueEvent(r.Context(), hint)
@@ -110,6 +121,33 @@ func (h IntakeHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		Issue:      strconv.FormatInt(assessed.Issue, 10),
 		Readiness:  assessed.Readiness, Changed: changed,
 	})
+}
+
+func (h IntakeHandler) repositoryEvent(w http.ResponseWriter, r *http.Request, body []byte) {
+	var payload struct {
+		Action     string `json:"action"`
+		Repository *struct {
+			ID        int64     `json:"id"`
+			CreatedAt time.Time `json:"created_at"`
+		} `json:"repository"`
+	}
+	if json.Unmarshal(body, &payload) != nil {
+		auth.JSONError(w, http.StatusBadRequest, "invalid_delivery", "Native repository delivery is invalid.")
+		return
+	}
+	if payload.Action != "created" {
+		auth.JSONResponse(w, http.StatusOK, intakeOutcome{Ignored: true})
+		return
+	}
+	if payload.Repository == nil || payload.Repository.ID <= 0 {
+		auth.JSONError(w, http.StatusBadRequest, "invalid_delivery", "Native repository identity is required.")
+		return
+	}
+	if h.Store == nil || h.Store.RecordRepositoryOpening(r.Context(), payload.Repository.ID, payload.Repository.CreatedAt.Unix()) != nil {
+		auth.JSONError(w, http.StatusServiceUnavailable, "intake_unavailable", "Repository opening post could not be saved.")
+		return
+	}
+	auth.JSONResponse(w, http.StatusOK, intakeOutcome{Repository: strconv.FormatInt(payload.Repository.ID, 10)})
 }
 
 // verifyIntakeSignature compares the hex HMAC-SHA256 of the raw delivery

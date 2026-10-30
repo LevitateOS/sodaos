@@ -908,9 +908,11 @@ not require an invented worker-authored report. No model call selects a renderer
 | Learned entry | Reusable lesson with source, scope and reliability label | Open the library entry, suggest a correction or see later uses. |
 
 Human comments and answers use authenticated frontend operations against these
-same domain objects. They do not borrow a worker capability. Submitting a human
-comment invokes JEV assessment; if new work is selected, a Product Lead LLM writes
-the issue and the native issue owner creates it. The
+same domain objects. They do not borrow a worker capability. In the working tree
+inspected on 29 October 2026, submitting a human comment invokes JEV assessment
+against captured repository issue context. If new work is selected, Issue Maker
+first captures the original request as a native issue and then starts AI
+refinement, which can refine that issue and create additional issues. The
 comment intake contract
 binds the exact source revision, funded assessment, authoring and native result.
 It also covers discussion-only, clarification and existing-work outcomes. Reads,
@@ -919,6 +921,115 @@ issue follows existing readiness, pause, grant and allowance rules; routine
 authorized issue creation does not gain a separate approval requirement. The
 generic `systemone.choice` tool itself still has no issue-writing side effect:
 this controller consumer supplies the product behavior.
+
+### Repository purpose and human message routing
+
+The owner is defining the complete Factory journey one micro step at a time,
+using a repository called **to-do list** and the request **I want a to-do list**.
+The direction below records the discussion of 29 October 2026. Later planning,
+role handoffs and issue-creation timing remain open.
+
+#### Opening the conversation
+
+When the repository is created, Factory should publish a standard automatic
+feed post asking what the human wants to do in that repository. Exact text:
+“What would you like this repository to do?”
+
+Factory is the author. The post is generated programmatically and deterministically;
+it does not need an LLM run or a Jev call to compose it. A named role or persona
+does not imply that every post attributed to it must be model-generated.
+Standard system questions and notifications can be ordinary program behavior.
+
+The signed native `repository` webhook with action `created` records this post
+once per repository. Delivery retries retain the same post. This opening question
+does not enter human intake or start a role; the human's reply enters the existing
+Jev evaluation path with the question as its immediate parent.
+
+Factory then waits for a human response. The repository name supplies context;
+the human's response establishes the requested goal. Creating a repository alone
+does not establish a product brief or a reason to generate implementation issues.
+
+#### Evaluating human posts and replies
+
+The owner's proposed rule is that **every submitted human post or reply is
+evaluated by Jev to determine what should happen next**, including replies to
+Factory's opening question. This evaluation can identify discussion, a question
+or answer, existing work, a new request, or a need for investigation. The exact
+action set and the receiving role still need to be worked through.
+
+Jev needs the message's repository and conversation context and relevant existing
+issues and work state. A fresh human message does not by itself establish a need
+for new issues. Existing work may cover the requested outcome, and investigation
+may be necessary before choosing the next action. The owner also raised the need
+to consult Jev again after investigation supplies relevant new evidence, rather
+than treating an initial routing decision as the final issue-creation decision.
+
+#### Feed terminology and parent relationships
+
+The owner subsequently required an immediate correction throughout the feed:
+use **post** and **reply**, and remove **comment** from its user-facing vocabulary.
+A reply is a post with a parent post ID. Root posts have no parent. Humans,
+workers, Jev and deterministic Factory messages use that same relationship.
+
+Composers, counts, filters, accessibility labels, editing and save confirmations
+must use the appropriate term. Editing a root item says **Edit post**; editing
+a child says **Edit reply** and targets that child's identity. Replies can
+themselves receive replies, retaining the actual parent instead of silently
+targeting the root of the thread.
+
+Parent links connect the entire Factory chain into one logical thread. They
+describe where a post came from; they do not force its placement beneath the
+root. A reply can appear independently in the chronological main feed. A small
+**Replying to <parent author>** line above a surfaced post links to its immediate
+parent. The complete chain remains connected as one logical thread.
+
+The owner then clarified that not every child should appear in the main feed;
+feed placement needs its own explicit selection rule. One confirmed rule is:
+**the first role starting work on a new issue gets its own main-feed post**,
+even when that post has a parent in an existing Factory chain. Starting another
+issue qualifies independently of whether the role changed. The owner also
+accepted surfacing role handoffs, meaningful results, blockers and questions
+needing the human. Routine follow-ups stay within the thread. These rules select
+feed placement independently of the parent link, including when the parent is
+outside the newest feed page.
+
+The feed is the Factory's feedback surface. Its attribution must distinguish
+Jev's assessment, a worker's actual report and Factory's deterministic lifecycle
+updates. A generated waiting notice does not mean that the named worker authored
+it or has started running. The owner wants the wider feed overhaul to follow
+this coherent post model; later workflow behavior remains under discussion.
+
+#### Questions still to settle
+
+- Which role investigates after Jev's initial routing, and what evidence must it
+  gather before Jev decides the next action?
+- When should Factory reuse or refine an existing issue, create new issues,
+  continue a conversation or ask the human a consequential question?
+- Should an initial issue capture every new-work request immediately, as the
+  current Issue Maker path does, or should issue creation follow investigation?
+- How do planning, implementation, independent review, correction, merge,
+  reassessment and integrated app verification connect to the original request?
+
+Product Lead investigation, Jev assessment of a product proposal, Architect
+planning, Builder implementation, Inspector review, Fixer correction and Test
+Pilot verification were discussed as a possible full journey. That sequence is
+an assistant proposal; the owner has not settled those later steps. Likewise,
+adding tasks, completing tasks and preserving them between visits were example
+product requirements, not an accepted specification for the to-do list app.
+
+#### Current implementation boundary
+
+The inspected intake already supplies repository issue context to Jev and supports
+discussion, clarification, existing-work and new-work routing. Its new-work path
+creates the original-request issue before AI refinement. No automatic
+repository-purpose post was identified in the inspected Factory feed path.
+These observations describe the local working tree, including ongoing edits;
+the installed Factory was not exercised during this discussion.
+
+Relevant implementation owners are
+[feed intake and routing](../../internal/web/api/factory_feed_post.go),
+[issue context](../../internal/web/api/factory_feed_post_context.go) and
+[Issue Maker progression](../../internal/web/api/factory_issue_maker.go).
 
 There is no worker tool for arbitrary HTML, forged authors, setting completion
 percentages or editing authoritative workflow states. A presentation correction

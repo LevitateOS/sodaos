@@ -58,7 +58,7 @@ func (s *Store) verifiedFactoryBuildInput(ctx context.Context, repository int64,
 		JOIN factory_intent_revisions i ON i.id=h.revision
 		WHERE a.repository=$1 AND a.data->'subject'->'delivery'->>'delivery_id'=$2 AND a.stage='finished'
 		AND a.data->>'phase'='verify' AND a.data->>'outcome'='succeeded'
-		AND EXISTS(SELECT 1 FROM factory_feed_comments p WHERE p.repository=a.repository AND p.data->>'assignment'=a.id AND p.data->>'event_identity'=$2 AND p.data->'communication'->>'component_id'='F10')
+		AND EXISTS(SELECT 1 FROM factory_feed_posts p WHERE p.repository=a.repository AND p.data->>'assignment'=a.id AND p.data->>'event_identity'=$2 AND p.data->'communication'->>'component_id'='F10')
 		ORDER BY a.seq DESC LIMIT 1 FOR SHARE OF a,r,h`, repository, deliveryID).Scan(&assignmentRaw, &runRaw, &revisionRaw)
 	if errors.Is(err, sql.ErrNoRows) {
 		return out, ErrNotFound
@@ -133,7 +133,7 @@ func (s *Store) VerifiedApplicationDelivery(ctx context.Context, id string) (*Ap
 		JOIN factory_intent_revisions i ON i.id=a.data->'subject'->'delivery'->>'accepted_revision'
 		WHERE a.repository=$1 AND a.stage='finished' AND a.data->>'phase'='verify' AND a.data->>'outcome'='succeeded'
 		AND (r.data->'verification_checks'->>'application_bundle_sha256'=$2 OR r.data->'verification_checks'->>'application_preview_bundle_sha256'=$2)
-		AND EXISTS(SELECT 1 FROM factory_feed_comments p WHERE p.repository=a.repository AND p.data->>'assignment'=a.id
+		AND EXISTS(SELECT 1 FROM factory_feed_posts p WHERE p.repository=a.repository AND p.data->>'assignment'=a.id
 		AND p.data->>'event_identity'=a.data->'subject'->'delivery'->>'delivery_id' AND p.data->'communication'->>'component_id'='F10')
 		ORDER BY a.seq DESC LIMIT 1 FOR SHARE OF a,r,i`, repository, app.Observation.BundleFileSHA256).Scan(&assignmentRaw, &runRaw, &revisionRaw)
 	if errors.Is(err, sql.ErrNoRows) {

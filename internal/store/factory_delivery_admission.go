@@ -179,7 +179,7 @@ func remainingAppVerificationSecondsTx(ctx context.Context, tx *sql.Tx, reposito
 // A worker report alone, another revision or a foreign scope cannot suppress it.
 func verifiedAppRevisionTx(ctx context.Context, tx *sql.Tx, revision factory.IntentRevision) (bool, error) {
 	var verified bool
-	err := tx.QueryRowContext(ctx, `SELECT EXISTS(SELECT 1 FROM factory_assignments a JOIN factory_feed_comments p ON p.repository=a.repository
+	err := tx.QueryRowContext(ctx, `SELECT EXISTS(SELECT 1 FROM factory_assignments a JOIN factory_feed_posts p ON p.repository=a.repository
 		AND p.data->>'event_identity'=a.data->'subject'->'delivery'->>'delivery_id' AND p.data->>'assignment'=a.id AND p.data->'communication'->>'component_id'='F10'
 		WHERE a.repository=$1 AND a.stage='finished' AND a.data->>'phase'='verify' AND a.data->>'outcome'='succeeded'
 		AND a.data->'result'->'phase_result'->'output'->'verification'->>'outcome'='verified'

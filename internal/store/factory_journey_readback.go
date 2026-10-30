@@ -292,7 +292,7 @@ func (s *Store) JourneyVerifiedApp(ctx context.Context, repository int64, intent
 	scope := adopted.Digest()
 	var raw, feed []byte
 	err := s.db.QueryRowContext(ctx, `SELECT a.data, p.data FROM factory_assignments a
-		JOIN factory_feed_comments p ON p.repository=a.repository
+		JOIN factory_feed_posts p ON p.repository=a.repository
 		AND p.data->>'event_identity'=a.data->'subject'->'delivery'->>'delivery_id'
 		AND p.data->>'assignment'=a.id AND p.data->'communication'->>'component_id'='F10'
 		WHERE a.repository=$1 AND a.stage='finished' AND a.data->>'phase'='verify'

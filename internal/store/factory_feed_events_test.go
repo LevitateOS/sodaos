@@ -10,7 +10,7 @@ import (
 	"github.com/levitateos/sodaos/internal/project"
 )
 
-func factoryEventCards(t *testing.T, s *Store, repository int64) map[string][]FeedCommentDetail {
+func factoryEventCards(t *testing.T, s *Store, repository int64) map[string][]FeedPostDetail {
 	t.Helper()
 	entries, _, _, err := s.SubscribedFeed(context.Background(), factory.FeedQuery{Repositories: []int64{repository}, Kinds: []string{factory.FeedKindRecord}, Limit: 256})
 	if err != nil {
@@ -26,7 +26,7 @@ func factoryEventCards(t *testing.T, s *Store, repository int64) map[string][]Fe
 	if err != nil {
 		t.Fatal(err)
 	}
-	out := map[string][]FeedCommentDetail{}
+	out := map[string][]FeedPostDetail{}
 	for _, detail := range details {
 		if detail.Actor == "factory" && detail.Payload != nil && detail.Payload.Communication != nil {
 			id := detail.Payload.Communication.ComponentID

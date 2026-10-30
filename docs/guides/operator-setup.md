@@ -164,6 +164,17 @@ to a private file. Install it as root:root, mode 0600, at
 `/etc/soda/enrollment/native-hooks.pat`. This token administers the selected
 repositories' hooks and is never mounted into the dashboard.
 
+To publish Factory's opening question automatically for new repositories, add
+one native **Site Administration → System Webhooks → Forgejo** hook targeting
+the appliance's HTTPS origin plus `/-/soda/api/factory/intake`. Select JSON, POST,
+the **Repository** event, and the same private intake secret. Keep existing
+issue hooks. Signed `created` deliveries publish “What would you like this
+repository to do?” once per repository; retries do not duplicate it. Factory
+waits for a human reply, which enters the existing Jev intake. Creating the
+question does not start an agent or evaluate a product request.
+Activation allows the appliance hostname in Forgejo's webhook destination list
+while preserving other configured destinations.
+
 Record actor and token IDs without reading token hashes or values:
 
 ```sh

@@ -99,14 +99,53 @@ func (s *API) apiFactoryFeed(w http.ResponseWriter, r *http.Request, v store.Ses
 	}
 	enrichFeedPosts(r.Context(), s.Store, projects, view.Entries)
 	enrichFeedRecords(r.Context(), s.Store, projects, view.Entries)
+	enrichFeedParents(r.Context(), s.Store, view.Entries)
 	for i, entry := range view.Entries {
 		if entry.Kind == factory.FeedKindPost && (entry.Payload == nil || entry.Payload.Communication == nil) {
-			if comment, err := s.feedCommentView(r, v, entry.ID); err == nil {
-				view.Entries[i].Comment = comment
+			if comment, err := s.feedPostView(r, v, entry.ID); err == nil {
+				view.Entries[i].Post = comment
 			}
 		}
 	}
 	auth.JSONResponse(w, 200, view)
+}
+
+// Parentage is causal context, independent of whether a post is shown in the
+// main feed or in a conversation. Only recorded relationships supply a parent.
+func enrichFeedParents(ctx context.Context, st *store.Store, entries []factory.FeedEntry) {
+	if st == nil {
+		return
+	}
+	for i := range entries {
+		entry := &entries[i]
+		if entry.Kind == factory.FeedKindRecord {
+			if entry.Activity != "" && entry.Assignment != entry.ID {
+				entry.ParentID = entry.Assignment
+			} else if assignment, err := st.Assignment(ctx, entry.ID); err == nil {
+				entry.ParentID = assignment.ParentAssignment
+				if entry.ParentID == "" && assignment.PlanningContext != nil && assignment.PlanningContext.IssueMaker != nil {
+					entry.ParentID = assignment.PlanningContext.IssueMaker.SourcePost
+				}
+			}
+		}
+		if entry.ParentID == "" {
+			continue
+		}
+		if parent, err := st.FeedPost(ctx, entry.ParentID); err == nil && parent.Record.Repository == entry.Repository && !parent.Record.Deleted && !parent.Record.Revoked {
+			entry.ParentAuthor = parent.AuthorName
+			entry.ParentActor = parent.Actor
+			if entry.ParentActor == "" {
+				entry.ParentActor = parent.Record.Author
+			}
+			entry.ParentIssue = parent.Record.Issue
+		} else if parent, err := st.FeedEntryByID(ctx, entry.ParentID); err == nil && parent.Repository == entry.Repository {
+			parents := []factory.FeedEntry{parent}
+			enrichFeedRecords(ctx, st, nil, parents)
+			entry.ParentAuthor = parents[0].Author
+			entry.ParentActor = parents[0].Actor
+			entry.ParentIssue = parents[0].Issue
+		}
+	}
 }
 
 // enrichFeedRecords fills the server-derived record enrichment on one

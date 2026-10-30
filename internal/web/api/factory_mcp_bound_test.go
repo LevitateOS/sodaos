@@ -638,7 +638,7 @@ func TestFactoryBoundCurrentContextUsesRecordedScopeAndState(t *testing.T) {
 		t.Fatal("journey cap admitted another observation")
 	}
 	var recordedPost, verifiedPosts int
-	if err := db.QueryRowContext(ctx, `SELECT count(*) FILTER(WHERE data->>'assignment'=$1 AND data->'communication'->>'kind'='journey'),count(*) FILTER(WHERE data->'communication'->>'component_id'='F10') FROM factory_feed_comments`, pilot.ID).Scan(&recordedPost, &verifiedPosts); err != nil || recordedPost != factory.MaxVerificationJourneys || verifiedPosts != 0 || verificationReadState() != beforeVerificationState {
+	if err := db.QueryRowContext(ctx, `SELECT count(*) FILTER(WHERE data->>'assignment'=$1 AND data->'communication'->>'kind'='journey'),count(*) FILTER(WHERE data->'communication'->>'component_id'='F10') FROM factory_feed_posts`, pilot.ID).Scan(&recordedPost, &verifiedPosts); err != nil || recordedPost != factory.MaxVerificationJourneys || verifiedPosts != 0 || verificationReadState() != beforeVerificationState {
 		t.Fatal("journey observations were missing or became verified work", recordedPost, verifiedPosts, err)
 	}
 	beforeVerification = counts()
@@ -1075,10 +1075,10 @@ func TestFactoryBoundCurrentContextUsesRecordedScopeAndState(t *testing.T) {
 	postID := factory.NewID()
 	post := map[string]any{"actor": "factory", "assignment": pilot.ID, "event_identity": pilot.Subject.Delivery.DeliveryID, "communication": map[string]any{"component_id": "F10"}}
 	raw, _ = json.Marshal(post)
-	write(`INSERT INTO factory_feed_comments(id,repository,revision,author,body,idempotency,data) VALUES($1,8,0,'factory','Application outcomes verified',$1,$2)`, postID, string(raw))
+	write(`INSERT INTO factory_feed_posts(id,repository,revision,author,body,idempotency,data) VALUES($1,8,0,'factory','Application outcomes verified',$1,$2)`, postID, string(raw))
 	readOverview(0)
 	postID = factory.NewID()
-	write(`INSERT INTO factory_feed_comments(id,repository,revision,author,body,idempotency,data) VALUES($1,7,0,'factory','Application outcomes verified',$1,$2)`, postID, string(raw))
+	write(`INSERT INTO factory_feed_posts(id,repository,revision,author,body,idempotency,data) VALUES($1,7,0,'factory','Application outcomes verified',$1,$2)`, postID, string(raw))
 	readOverview(len(accepted.EffectiveOutcomes))
 	pilot.Result.PhaseResult.Output.Verification.Outcome = factory.AppVerificationIncomplete
 	raw, _ = json.Marshal(pilot)

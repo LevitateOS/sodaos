@@ -93,7 +93,7 @@ func checkMCPWorkActiveTx(ctx context.Context, tx *sql.Tx, capability factory.MC
 	if err := json.Unmarshal(raw, &assignment); err != nil {
 		return err
 	}
-	if stage != factory.AssignmentAssigned || assignment.Run != capability.RunID || assignment.ProjectID != capability.Project || assignment.Repository != capability.Repository || recordProfile(assignment.Phase) != capability.Profile {
+	if stage != factory.AssignmentAssigned || assignment.Run != capability.RunID || assignment.ProjectID != capability.Project || assignment.Repository != capability.Repository || factory.MCPProfileOfAssignment(assignment) != capability.Profile {
 		return errors.New("factory assignment is no longer the admitted work")
 	}
 	if err := tx.QueryRowContext(ctx, `SELECT data FROM project_preparations WHERE id=$1 FOR SHARE`, assignment.Preparation).Scan(&raw); err != nil {

@@ -57,9 +57,11 @@ repository and Project permissions.
 | POST | `/api/factory/intents/{intentID}/plan/review` | Explicitly compare and check the planning agent's concrete walkthrough against the exact retained current revision; ordinary status reads never invoke JEV. |
 | POST | `/api/factory/intents/{intentID}/generate` | Native issue graph creation from accepted current scope |
 | GET | `/api/factory/intents/{intentID}/generation` | Durable generation outcome for the current revision |
-| GET | `/api/factory/feed/comments/{id}` | Stored comment, pipeline and optional canonical product-change review projection; reads never plan, adopt or generate work |
-| GET | `/api/factory/feed/replies?repository=N&source_kind=post&source_id=ID` | Same comment projections within the authorized source thread, including product-change state after adoption |
-| POST | `/api/factory/feed/comments/{id}/review` | Current repository administrator and original product owner explicitly opens a comment-bound successor draft; strict body `{ "revision": N }` |
+| POST | `/api/factory/feed/posts` | Submit a post with `repository`, `body`, `idempotency_key` and optional `parent_id`; a reply uses the same post model |
+| GET | `/api/factory/feed/posts/{id}` | Post from the communication store or a canonical workflow record, with its parent and optional pipeline or product-change projection; reads never start work |
+| POST | `/api/factory/feed/posts/{id}/retry` | Revise the exact authored post or reply using `expected_revision` and `body`, then reassess its intake |
+| GET | `/api/factory/feed/posts/{id}/replies?repository=N` | Direct child posts in the authorized thread, with `before` paging; descendants retain their immediate parents |
+| POST | `/api/factory/feed/posts/{id}/review` | Current repository administrator and original product owner explicitly opens a post-bound successor draft; strict body `{ "revision": N }` |
 | PUT | `/api/factory/capacity` | Operator appliance capacity (command envelope) |
 | POST | `/api/repositories/{repositoryID}/factory/actions` | Code-write pause/resume of factory dispatch (command envelope) |
 | POST | `/api/factory/runs/{runID}/actions` | Code-write run stop/retry/takeover (command envelope; takeover also requires membership) |
@@ -72,7 +74,7 @@ repository and Project permissions.
 | POST | `/api/repositories/{repositoryID}/factory/issues/{issueID}/withdrawal` | Code-write acceptance withdrawal (command envelope) |
 | GET | `/api/repositories/{repositoryID}/factory/issues/{issueID}/assignment` | Current dispatch assignment: exact bound inputs, staged prompt, recorded result, publication operation IDs, effects, completion and cancellation |
 | GET | `/api/repositories/{repositoryID}/factory/issues/{issueID}/plan?limit=1..20` | Recorded plan and recent priority comparisons for one native issue (optional before_unix/before_snapshot cursor) |
-| POST | `/api/factory/intake` | Authenticated native webhook intake (HMAC; issues and comments queue readiness assessment) |
+| POST | `/api/factory/intake` | Authenticated native webhook intake (HMAC; repository creation publishes the Factory opening question; issue events queue readiness assessment) |
 | GET | `/api/spaces` | Spaces inventory for the native actor |
 | GET/POST | `/api/applications` | Stored application inventory / operator-admitted initial references and administrator grant |
 | GET/POST | `/api/repositories/{repositoryID}/application-builds` | Operator stored build inventory / explicit native packaging of one current verified delivery and environment |
@@ -109,33 +111,33 @@ Create binds an immutable profile. Join creates the project-local account and
 records membership only after confirmed native success. Terminal details are in
 the [managed terminal contract](terminal.md).
 
-### Product changes from feed comments
+### Product changes from feed replies
 
-A comment on a canonical accepted design or verified application result retains
+A reply to a canonical accepted design or verified application result retains
 its server-resolved product identity in `source.product` (`intent`,
 `accepted_revision`). A client cannot supply or infer that identity. When the
-recorded comment judgment selects new work, the comment waits for explicit
+recorded post judgment selects new work, the reply waits for explicit
 product review instead of creating an independent issue graph. Ordinary issue
-comments keep their existing route.
+replies keep their existing route.
 
-Comment detail and thread reads may include `product_change` with `intent`,
+Post detail and thread reads may include `product_change` with `intent`,
 `accepted_revision`, `state`, `can_review` and optional `draft_revision`.
 States are `review_required`, `draft`, `accepted` and `superseded`. Decision IDs
 retain the native `d` plus 24 hexadecimal characters format. `can_review` is
 presentation only: the mutation rechecks the current native session, repository
-administration, original intent owner, exact comment revision and accepted head.
+administration, original intent owner, exact post revision and accepted head.
 
-The review POST returns the complete updated comment projection. Its transaction
-creates one same-intent successor draft and a receipt on the original comment.
+The review POST returns the complete updated post projection. Its transaction
+creates one same-intent successor draft and a receipt on the original post.
 It retains prior outcomes and adds the exact attributed request; planning and
 acceptance remain separate actions. When the accepted revision has a completed
 generation, the successor carries its exact recorded submitted task graph;
 incomplete or incorrectly bound generation refuses review. This preserves
 planning context without copying new issue or execution authority. Bounds-only
 draft edits retain those task identities and effective outcomes. Replay returns
-that first draft without moving a later head. A stale comment or competing head
+that first draft without moving a later head. A stale post or competing head
 returns 412. Once reviewed,
-the original comment cannot be edited or retried into different work; a new reply
+the original post cannot be edited or retried into different work; a new reply
 records a further proposal.
 
 Continue through the existing plan, walkthrough review, acceptance and generate

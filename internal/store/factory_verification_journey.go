@@ -178,7 +178,7 @@ func (s *Store) VerificationScope(ctx context.Context, cap factory.MCPCapability
 	if err := tx.QueryRowContext(ctx, `SELECT count(*) FROM factory_mcp_submissions WHERE assignment=$1 AND tool=$2`, a.ID, string(factory.MCPToolRecordJourneyResult)).Scan(&out.Total); err != nil {
 		return out, err
 	}
-	rows, err := tx.QueryContext(ctx, `SELECT s.submission,s.receipt->>'feed_post_id',p.seq,s.payload FROM factory_mcp_submissions s JOIN factory_feed_comments p ON p.id=s.receipt->>'feed_post_id' AND p.repository=$2 WHERE s.assignment=$1 AND s.tool=$3 AND p.seq>$4 ORDER BY p.seq LIMIT $5`, a.ID, a.Repository, string(factory.MCPToolRecordJourneyResult), after, factory.VerificationJourneyPageSize+1)
+	rows, err := tx.QueryContext(ctx, `SELECT s.submission,s.receipt->>'feed_post_id',p.seq,s.payload FROM factory_mcp_submissions s JOIN factory_feed_posts p ON p.id=s.receipt->>'feed_post_id' AND p.repository=$2 WHERE s.assignment=$1 AND s.tool=$3 AND p.seq>$4 ORDER BY p.seq LIMIT $5`, a.ID, a.Repository, string(factory.MCPToolRecordJourneyResult), after, factory.VerificationJourneyPageSize+1)
 	if err != nil {
 		return out, err
 	}

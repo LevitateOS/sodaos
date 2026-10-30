@@ -98,7 +98,7 @@ func TestEnrichFeedRecordsFillsRecordContent(t *testing.T) {
 		record.Issue != 3 || record.Summary != "addressed both findings" {
 		t.Fatalf("record entry: %+v", record)
 	}
-	// Posts pass through untouched: their enrichment stays with the
+	// Comments pass through untouched: their enrichment stays with the
 	// comment owner.
 	if entries[1].Actor != "" || entries[1].Project != "" || entries[1].Summary != "" {
 		t.Fatalf("post entry touched: %+v", entries[1])

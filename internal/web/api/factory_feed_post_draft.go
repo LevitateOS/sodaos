@@ -16,7 +16,9 @@ import (
 	"github.com/levitateos/sodaos/internal/store"
 )
 
-// Product Lead comment authoring (R32.14 step 3, SUP-004 binding).
+// Captured requests use the dedicated Issue Maker profile for AI refinement
+// after their initial native receipt. Retained pre-capture requests continue
+// their recorded Product Lead planning transport without rewriting history.
 //
 // There is no synchronous free-text LLM client in this codebase: the
 // TypeSafe transport answers Choice judgments only (free, used for
@@ -44,48 +46,59 @@ import (
 // An attention answer likewise refuses: the planner asked for a
 // product decision a comment draft cannot invent.
 
-// CommentDraftStore is the narrow store joint behind comment
+// PostDraftStore is the narrow store joint behind comment
 // authoring. *store.Store implements it; tests stub it.
-type CommentDraftStore interface {
+type PostDraftStore interface {
 	IntentRevision(ctx context.Context, intent string, owner int64) (factory.IntentRevision, error)
 	SaveIntentRevision(ctx context.Context, r factory.IntentRevision) error
 	IntentPlanAttempt(ctx context.Context, intentID, revisionID string) (factory.Assignment, error)
+	FactoryRun(ctx context.Context, id string) (factory.Run, error)
 }
 
-// CommentPlanTransport is the existing intent-generation funding and
+// PostPlanTransport is the existing intent-generation funding and
 // launch transport. *control.Coordinator implements it; tests stub
 // it with a fake transport so authoring logic runs without enrolled
 // model credentials.
-type CommentPlanTransport interface {
+type PostPlanTransport interface {
 	AssembleIntentPlanningInput(ctx context.Context, head factory.IntentRevision, operation string) (factory.SemanticPlannerInput, project.Preparation, *control.DispatchWait, error)
 	DispatchIntentPlan(ctx context.Context, intentID string, owner int64, operation string, in factory.SemanticPlannerInput, source, preparationID string) control.DispatchReport
 }
 
-var _ CommentDraftStore = (*store.Store)(nil)
-var _ CommentPlanTransport = (*control.Coordinator)(nil)
-var _ CommentDrafter = (*IntentCommentDrafter)(nil)
+var _ PostDraftStore = (*store.Store)(nil)
+var _ PostPlanTransport = (*control.Coordinator)(nil)
+var _ PostDrafter = (*IntentPostDrafter)(nil)
 
-// ErrCommentDraftPending reports a launched planning run that has not
+// ErrPostDraftPending reports a launched planning run that has not
 // settled yet. The attempt keeps running
 // under its own funding; the next drive resumes it without spending
 // again.
-var ErrCommentDraftPending = errors.New("comment planning run still settling")
+var ErrPostDraftPending = errors.New("comment planning run still settling")
 
-// IntentCommentDrafter authors issue drafts from feed comments
+type postDraftPending struct{ progress factory.PostAuthoring }
+
+func (e *postDraftPending) Error() string { return e.progress.Detail }
+func (e *postDraftPending) Unwrap() error { return ErrPostDraftPending }
+
+func pendingPostDraft(state, reason, detail, intent, run string, started int64) error {
+	return &postDraftPending{progress: factory.PostAuthoring{State: state, Reason: reason, Detail: detail, Intent: intent, Run: run, StartedUnix: started}}
+}
+
+// IntentPostDrafter authors issue drafts from feed comments
 // through the funded Product Lead planning path.
-type IntentCommentDrafter struct {
-	Store     CommentDraftStore
-	Transport CommentPlanTransport
+type IntentPostDrafter struct {
+	IssueMaker *factory.IssueMakerScope
+	Store      PostDraftStore
+	Transport  PostPlanTransport
 	// Now overrides the clock for tests.
 	Now func() time.Time
 }
 
-// commentSourceContext renders the recorded work context one
+// postSourceContext renders the recorded work context one
 // comment was submitted in — its resolved source snapshot and/or its
 // bound issue scope — as planner-facing evidence text. Only
 // server-recorded facts render; an unbound top-level comment has no
 // context to add.
-func commentSourceContext(comment store.FeedCommentDetail) string {
+func postSourceContext(comment store.FeedPostDetail) string {
 	var facts []string
 	if source := comment.Source; source != nil {
 		fact := "Submitted against " + source.Kind + " " + source.ID
@@ -109,7 +122,7 @@ func commentSourceContext(comment store.FeedCommentDetail) string {
 	return strings.Join(facts, " ")
 }
 
-// commentDraftIntent builds the durable draft intent one comment
+// postDraftIntent builds the durable draft intent one comment
 // source revision authors against: the human request as one accepted
 // requested idea, bounded to a single derived issue. The framing
 // consequence states only what the pipeline itself does with the
@@ -118,28 +131,28 @@ func commentSourceContext(comment store.FeedCommentDetail) string {
 // pending evidence-supported idea states that context so the planner
 // authors inside the actual project work; it is never an effective
 // outcome and candidate tasks never have to cover it.
-func commentDraftIntent(comment store.FeedCommentDetail, author int64, createdUnix int64) (factory.IntentRevision, error) {
+func postDraftIntent(comment store.FeedPostDetail, author int64, createdUnix int64) (factory.IntentRevision, error) {
 	body := comment.Body
 	if utf8.RuneCountInString(body) > 4000 {
 		return factory.IntentRevision{}, errors.New("comment body exceeds the planning idea bound")
 	}
-	commentID, revision := comment.Record.ID, comment.Record.Revision
-	ideaID := factory.CommentDecisionID("idea", commentID, revision)
+	postID, revision := comment.Record.ID, comment.Record.Revision
+	ideaID := factory.PostDecisionID("idea", postID, revision)
 	ideas := []factory.ProductIdea{{
 		ID: ideaID, Description: body,
 		Consequence: "The requested change is tracked as work and completed.",
 		Decision:    "accept", Source: "requested", Provenance: "human", Actor: author,
 	}}
-	if context := commentSourceContext(comment); context != "" {
+	if context := postSourceContext(comment); context != "" {
 		ideas = append(ideas, factory.ProductIdea{
-			ID: factory.CommentDecisionID("source", commentID, revision), Description: context,
+			ID: factory.PostDecisionID("source", postID, revision), Description: context,
 			Consequence: "Authored work fits alongside this existing tracked work.",
 			Decision:    "pending", Source: "supported", Provenance: "autonomous", Evidence: context,
 		})
 	}
 	head := factory.IntentRevision{
-		ID:         factory.CommentDecisionID("revision", commentID, revision),
-		Intent:     factory.CommentDecisionID("intent", commentID, revision),
+		ID:         factory.PostDecisionID("revision", postID, revision),
+		Intent:     factory.PostDecisionID("intent", postID, revision),
 		Owner:      author,
 		Repository: comment.Record.Repository,
 		Objective:  body,
@@ -153,12 +166,12 @@ func commentDraftIntent(comment store.FeedCommentDetail, author int64, createdUn
 	return head, nil
 }
 
-// ensureCommentDraftIntent loads the comment's durable draft intent,
+// ensurePostDraftIntent loads the comment's durable draft intent,
 // saving it first when this drive is its first authoring attempt. A
 // concurrent save of the identical deterministic revision replays
 // through the read-back instead of failing the drive.
-func (d *IntentCommentDrafter) ensureCommentDraftIntent(ctx context.Context, comment store.FeedCommentDetail, author int64) (factory.IntentRevision, error) {
-	intentID := factory.CommentDecisionID("intent", comment.Record.ID, comment.Record.Revision)
+func (d *IntentPostDrafter) ensurePostDraftIntent(ctx context.Context, comment store.FeedPostDetail, author int64) (factory.IntentRevision, error) {
+	intentID := factory.PostDecisionID("intent", comment.Record.ID, comment.Record.Revision)
 	if head, err := d.Store.IntentRevision(ctx, intentID, author); err == nil {
 		return head, nil
 	} else if !errors.Is(err, store.ErrNotFound) && !isNoRowsIntent(err) {
@@ -168,7 +181,7 @@ func (d *IntentCommentDrafter) ensureCommentDraftIntent(ctx context.Context, com
 	if created <= 0 {
 		created = d.now().Unix()
 	}
-	head, err := commentDraftIntent(comment, author, created)
+	head, err := postDraftIntent(comment, author, created)
 	if err != nil {
 		return factory.IntentRevision{}, err
 	}
@@ -187,20 +200,20 @@ func isNoRowsIntent(err error) bool {
 	return errors.Is(err, store.ErrNotFound)
 }
 
-func (d *IntentCommentDrafter) now() time.Time {
+func (d *IntentPostDrafter) now() time.Time {
 	if d.Now != nil {
 		return d.Now()
 	}
 	return time.Now()
 }
 
-// DraftCommentIssue authors one issue draft from a routed comment:
+// DraftPostIssue authors one issue draft from a routed comment:
 // ensure the comment-bound draft intent, reuse or launch its one
 // funded planning attempt, return pending until settlement, then map
 // the single assessed candidate task to the issue draft. The caller
-// (driveCommentDraft) validates the draft before any native effect
+// (drivePostDraft) validates the draft before any native effect
 // and settles malformed drafts invalid with their bytes wiped.
-func (d *IntentCommentDrafter) DraftCommentIssue(ctx context.Context, comment store.FeedCommentDetail) (factory.IssueDraft, error) {
+func (d *IntentPostDrafter) DraftPostIssue(ctx context.Context, comment store.FeedPostDetail) (factory.IssueDraft, error) {
 	var empty factory.IssueDraft
 	if d == nil || d.Store == nil || d.Transport == nil {
 		return empty, errors.New("comment authoring transport is unavailable")
@@ -212,18 +225,34 @@ func (d *IntentCommentDrafter) DraftCommentIssue(ctx context.Context, comment st
 	if comment.Record.Repository <= 0 || strings.TrimSpace(comment.Body) == "" {
 		return empty, errors.New("comment draft needs its repository and body")
 	}
-	head, err := d.ensureCommentDraftIntent(ctx, comment, author)
+	head, err := d.ensurePostDraftIntent(ctx, comment, author)
 	if err != nil {
 		return empty, err
 	}
-	attempt, err := d.commentPlanAttempt(ctx, head, author)
+	attempt, err := d.postPlanAttempt(ctx, head, author)
 	if err != nil {
 		return empty, err
 	}
 	// The coordinator also settles this run. Returning pending lets its
 	// next progress pass do that work instead of waiting inside its lock.
 	if attempt.Stage != factory.AssignmentFinished || attempt.Result == nil {
-		return empty, ErrCommentDraftPending
+		if attempt.Stage == factory.AssignmentFinished {
+			return empty, pendingPostDraft(factory.PostAuthoringSettling, "result_pending", "The Product Lead run ended. Waiting for its recorded result.", head.Intent, attempt.Run, attempt.CreatedUnix)
+		}
+		if attempt.Run == "" {
+			return empty, pendingPostDraft(factory.PostAuthoringQueued, "launch_pending", "The Product Lead is queued. No run has started yet.", head.Intent, "", 0)
+		}
+		run, err := d.Store.FactoryRun(ctx, attempt.Run)
+		if err != nil {
+			return empty, pendingPostDraft(factory.PostAuthoringUnknown, "status_unavailable", "The Product Lead run status is unavailable. It will be checked again.", head.Intent, attempt.Run, 0)
+		}
+		if run.ContextPending {
+			return empty, pendingPostDraft(factory.PostAuthoringQueued, "launch_pending", "The Product Lead is queued. No run has started yet.", head.Intent, attempt.Run, 0)
+		}
+		if run.Outcome != "" {
+			return empty, pendingPostDraft(factory.PostAuthoringSettling, "result_pending", "The Product Lead run ended. Its result is being checked before creating an issue.", head.Intent, attempt.Run, run.Started.Unix())
+		}
+		return empty, pendingPostDraft(factory.PostAuthoringRunning, "run_started", "A Product Lead run has started. Waiting for its result.", head.Intent, attempt.Run, run.Started.Unix())
 	}
 	switch attempt.Outcome {
 	case factory.Failed:
@@ -231,15 +260,15 @@ func (d *IntentCommentDrafter) DraftCommentIssue(ctx context.Context, comment st
 	case factory.Cancelled:
 		return empty, fmt.Errorf("comment planning run was cancelled: %s", attempt.Result.Summary)
 	}
-	return commentDraftFromAttempt(comment, head, attempt)
+	return postDraftFromAttempt(comment, head, attempt)
 }
 
-// commentPlanAttempt returns the recorded planning attempt behind
+// postPlanAttempt returns the recorded planning attempt behind
 // the comment intent, launching it through the funded transport when
 // none exists yet. A launch that lands as a wait or a duplicate
 // refusal reconciles through the recorded attempt instead of
 // launching again.
-func (d *IntentCommentDrafter) commentPlanAttempt(ctx context.Context, head factory.IntentRevision, author int64) (factory.Assignment, error) {
+func (d *IntentPostDrafter) postPlanAttempt(ctx context.Context, head factory.IntentRevision, author int64) (factory.Assignment, error) {
 	var empty factory.Assignment
 	if attempt, err := d.Store.IntentPlanAttempt(ctx, head.Intent, head.ID); err == nil {
 		return attempt, nil
@@ -251,7 +280,11 @@ func (d *IntentCommentDrafter) commentPlanAttempt(ctx context.Context, head fact
 		return empty, err
 	}
 	if wait != nil {
-		return empty, fmt.Errorf("%w: %s", ErrCommentDraftPending, wait.Detail)
+		return empty, pendingPostDraft(factory.PostAuthoringWaiting, wait.Reason, wait.Detail, head.Intent, "", 0)
+	}
+	if d.IssueMaker != nil {
+		in.IssueMaker = d.IssueMaker
+		in.RequireWalkthroughs = false
 	}
 	report := d.Transport.DispatchIntentPlan(ctx, head.Intent, author, factory.IntentPlanningPropose, in, prep.SourceCommit, prep.ID)
 	if len(report.Errors) != 0 {
@@ -260,14 +293,14 @@ func (d *IntentCommentDrafter) commentPlanAttempt(ctx context.Context, head fact
 	attempt, err := d.Store.IntentPlanAttempt(ctx, head.Intent, head.ID)
 	if err != nil {
 		if len(report.Waits) != 0 {
-			return empty, fmt.Errorf("%w: %s", ErrCommentDraftPending, report.Waits[0].Detail)
+			return empty, pendingPostDraft(factory.PostAuthoringWaiting, report.Waits[0].Reason, report.Waits[0].Detail, head.Intent, "", 0)
 		}
 		return empty, err
 	}
 	return attempt, nil
 }
 
-// commentDraftFromAttempt maps one settled planning attempt to the
+// postDraftFromAttempt maps one settled planning attempt to the
 // issue draft its single assessed candidate authors. The answer is
 // re-assessed against its exact staged input here, so replaying the
 // same recorded attempt reaches the same draft and spends nothing.
@@ -275,7 +308,7 @@ func (d *IntentCommentDrafter) commentPlanAttempt(ctx context.Context, head fact
 // become one issue draft without an authority this stage lacks. A
 // mapped draft that exceeds the issue-draft bounds returns as-is so
 // the caller's validation settles it invalid before any effect.
-func commentDraftFromAttempt(comment store.FeedCommentDetail, head factory.IntentRevision, attempt factory.Assignment) (factory.IssueDraft, error) {
+func postDraftFromAttempt(comment store.FeedPostDetail, head factory.IntentRevision, attempt factory.Assignment) (factory.IssueDraft, error) {
 	var empty factory.IssueDraft
 	if attempt.Subject.Intent == nil || attempt.Subject.Intent.OwnerID != head.Owner {
 		return empty, errors.New("recorded comment plan answers another owner")
@@ -323,36 +356,39 @@ func commentDraftFromAttempt(comment store.FeedCommentDetail, head factory.Inten
 		return empty, err
 	}
 	return factory.IssueDraft{
-		Comment:    comment.Record.ID,
+		SourcePost: comment.Record.ID,
 		Revision:   comment.Record.Revision,
-		Title:      commentDraftTitle(task.Objective),
-		Body:       commentDraftBody(task, candidate.Rationale),
+		Title:      postDraftTitle(task.Objective),
+		Body:       postDraftBody(task, candidate.Rationale),
 		Objective:  task.Objective,
 		Acceptance: strings.Join(task.Outcomes, "\n"),
 		Metadata:   string(metadata),
 	}, nil
 }
 
-// commentDraftTitle labels one draft from the authored task
+// postDraftTitle labels one draft from the authored task
 // objective: the objective itself within the title bound, otherwise
 // its longest whole-word prefix that fits. The full objective stays
 // in the draft objective and body verbatim.
-func commentDraftTitle(objective string) string {
+func postDraftTitle(objective string) string {
 	title := strings.Join(strings.Fields(objective), " ")
-	if len(title) <= 256 {
+	if len(title) <= 255 {
 		return title
 	}
-	trimmed := title[:256]
+	trimmed := title[:255]
+	for !utf8.ValidString(trimmed) {
+		trimmed = trimmed[:len(trimmed)-1]
+	}
 	if cut := strings.LastIndex(trimmed, " "); cut > 0 {
 		trimmed = trimmed[:cut]
 	}
 	return strings.TrimSpace(trimmed)
 }
 
-// commentDraftBody renders the authored issue body from the planner
+// postDraftBody renders the authored issue body from the planner
 // output alone: the task objective, the candidate rationale and the
 // outcome list. The creator appends the source-comment footer.
-func commentDraftBody(task factory.IntentTask, rationale string) string {
+func postDraftBody(task factory.IntentTask, rationale string) string {
 	var b strings.Builder
 	b.WriteString(task.Objective)
 	if strings.TrimSpace(rationale) != "" {

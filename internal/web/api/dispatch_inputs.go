@@ -13,7 +13,7 @@ import (
 // dispatch input reads. It brackets the accepted objective, the issue's
 // bounded comment page and the target branch tip through BracketedRead;
 // transport failures arrive as acceptance refusals, never guessed inputs.
-// Comment selection filters the by-issue page to the accepted revisions;
+// SourcePost selection filters the by-issue page to the accepted revisions;
 // unselected discussion is ignored and cannot grant scope.
 type DispatchSnapshotSource struct {
 	Reader     forgejo.SnapshotReader

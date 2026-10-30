@@ -78,7 +78,7 @@ func ContributionRecordReviewID(source string, revision int64) string {
 // ContributionReviewInvitationID selects the durable assessment identity for
 // one review without changing the historical post shape.
 func ContributionReviewInvitationID(review ContributionReview) string {
-	if review.SourceKind == CommentSourceRecord {
+	if review.SourceKind == PostSourceRecord {
 		return ContributionRecordReviewID(review.Source, review.Revision)
 	}
 	return ContributionReviewID(review.Source, review.Revision)

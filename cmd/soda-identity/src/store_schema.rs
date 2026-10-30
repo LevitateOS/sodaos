@@ -89,7 +89,7 @@ impl Store {
     }
 
     fn open_current_schema(tx: &Tx<'_>) -> Result<(), Error> {
-        let version = tx.load_schema_version()?;
+        let mut version = tx.load_schema_version()?;
         if version == 0 {
             // DDL carries no parameters.
             for statement in schema::STATEMENTS {
@@ -98,10 +98,17 @@ impl Store {
             }
         } else if version == 68 {
             tx.migrate_schema_68_to_69()?;
-        } else if version != schema::SCHEMA_VERSION {
+            version = 69;
+        } else if version != 69 && version != schema::SCHEMA_VERSION {
             return Err(Error::internal(
                 "database schema differs from this application",
             ));
+        }
+        if version == 69 {
+            for statement in schema::UPGRADE_69_TO_70 {
+                tx.simple(statement)
+                    .map_err(|e| Error::internal(format!("migrate feed posts: {e}")))?;
+            }
         }
         Self::verify_current_schema(tx)
     }

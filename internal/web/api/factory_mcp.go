@@ -70,6 +70,7 @@ type FactoryMCPRunSource interface {
 // D16 proposal validation from the authenticated capability's approved
 // preparation; nil keeps the catalog unavailable.
 type FactoryMCPDeps struct {
+	IssueMaker       func(context.Context, factory.MCPCapability, factory.MCPTool, map[string]any, string) (map[string]any, error)
 	ContextCursorKey []byte
 	// BoundCapability is supplied by the authenticated transport, never tool
 	// arguments. Its immutable scope supplies identity and default revisions.
@@ -175,6 +176,9 @@ func mcpEnvelopeSchema(tool factory.MCPTool) *mcp.Tool {
 			}, Required: []string{"task_id"}, AdditionalProperties: &jsonschema.Schema{Not: &jsonschema.Schema{}},
 		}
 		definition.InputSchema.(*jsonschema.Schema).Required = []string{"capability_id", "payload"}
+	}
+	if isIssueMakerTool(tool) {
+		definition.InputSchema.(*jsonschema.Schema).Properties["payload"] = issueMakerPayloadSchema()
 	}
 	return definition
 }
@@ -400,6 +404,9 @@ func checkPayloadEnums(payload map[string]any, spec mcpPayloadSpec) error {
 
 // checkPayload enforces the strict per-tool key shape.
 func (s *factoryCatalogServer) checkPayload(tool factory.MCPTool, payload map[string]any) error {
+	if isIssueMakerTool(tool) {
+		return checkIssueMakerPayload(payload)
+	}
 	if tool == factory.MCPToolRecordJourneyResult {
 		return checkVerificationJourneyPayload(payload)
 	}
@@ -566,6 +573,8 @@ func (s *factoryCatalogServer) serve(ctx context.Context, tool factory.MCPTool, 
 		return s.serveLibraryRead(ctx, tool, args)
 	}
 	switch tool {
+	case factory.MCPToolCreateIssue, factory.MCPToolRefineIssue:
+		return s.serveIssueMaker(ctx, tool, args)
 	case factory.MCPToolStartTask, factory.MCPToolReleaseOutput:
 		return s.serveNativeTask(ctx, tool, args)
 	case factory.MCPToolPublishArtifact:
@@ -762,11 +771,11 @@ func buildReadBody(read *readContext, attemptEligible, lineageEligible bool, for
 		"source_digest":         capability.SourceDigest,
 		"scope_digest":          capability.ScopeDigest(),
 		"replies_tool":          string(factory.MCPToolInbox),
-		"discussion_guidance":   "Read factory.inbox before finishing. A recorded role invitation grants only its exact discussion context and one useful reply through factory.reply with reply_to set to the invited post ID. It does not expand your assignment, execution authority or budget. Skip redundant contributions, explain concrete relevant evidence, and preserve the source identity. Do not invite other roles recursively.",
+		"discussion_guidance":   "Read factory.inbox before finishing. A recorded role invitation grants only its exact discussion context and one useful reply through factory.reply with parent_id set to the invited post ID. It does not expand your assignment, execution authority or budget. Skip redundant contributions, explain concrete relevant evidence, and preserve the source identity. Do not invite other roles recursively.",
 		"work_post":             map[string]any{"kind": "record", "id": assignment.ID},
 		"library_tools":         []string{"factory.search_library", "factory.read_library_item"},
 		"library_guidance":      factory.LibraryReadGuidance,
-		"consultation_guidance": "System One questions and actual results are automatically recorded in your work post. Never include credentials or private key material. For substantive decisions prepare three independent, counterbalanced questions using the same facts and alternatives before reading any answer, then make three separate calls with the same consultation_group identity. A questions batch is one call and must not be described as three independent calls. Compare the results, then reply to the returned consultation.post_id with your interpretation, decision and next action, or use factory.record_decision with that reply_to for durable decisions. Your explanation must remain distinct from JEV's actual answer. Judgments do not replace native checks or authorization. Read your inbox and effective project decisions/knowledge through the library tools before adopting a change; preserve cited item IDs/revisions and source revision.",
+		"consultation_guidance": "System One questions and actual results are automatically recorded in your work post. Never include credentials or private key material. For substantive decisions prepare three independent, counterbalanced questions using the same facts and alternatives before reading any answer, then make three separate calls with the same consultation_group identity. A questions batch is one call and must not be described as three independent calls. Compare the results, then reply to the returned consultation.post_id with your interpretation, decision and next action, or use factory.record_decision with that parent_id for durable decisions. Your explanation must remain distinct from JEV's actual answer. Judgments do not replace native checks or authorization. Read your inbox and effective project decisions/knowledge through the library tools before adopting a change; preserve cited item IDs/revisions and source revision.",
 	}
 	if assignment.Issue > 0 {
 		body["issue"] = assignment.Issue
@@ -940,6 +949,7 @@ func (s *API) FactoryMCPHandler() http.Handler {
 		return unavailableFactoryMCP(err)
 	}
 	return factoryBoundCatalogHandler(FactoryMCPDeps{
+		IssueMaker:           s.factoryIssueMakerTool,
 		Capabilities:         s.Store,
 		Submissions:          s.Store,
 		Assignments:          s.Store,

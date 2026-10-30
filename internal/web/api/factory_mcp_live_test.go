@@ -610,11 +610,11 @@ func exerciseFactoryLiveMCP(t *testing.T, wire *liveMCPTypeSafeTransport) {
 	}
 
 	// A real stored human reply becomes readable without a second model/JEV call.
-	humanReply, _, err := st.SaveFeedComment(ctx, factory.CommentRequest{Repository: 7, Body: "Please reuse that helper for all task routes.", ReplyTo: response.FeedPostID, IdempotencyKey: "human-reply"}, "7", "Owner", time.Now().Unix())
+	humanReply, _, err := st.SaveFeedPost(ctx, factory.PostRequest{Repository: 7, Body: "Please reuse that helper for all task routes.", ParentID: response.FeedPostID, IdempotencyKey: "human-reply"}, "7", "Owner", time.Now().Unix())
 	if err != nil {
 		t.Fatal(err)
 	}
-	unrelated, _, err := st.SaveFeedComment(ctx, factory.CommentRequest{Repository: 7, Body: "An unrelated project conversation", IdempotencyKey: "unrelated"}, "7", "Owner", time.Now().Unix())
+	unrelated, _, err := st.SaveFeedPost(ctx, factory.PostRequest{Repository: 7, Body: "An unrelated project conversation", IdempotencyKey: "unrelated"}, "7", "Owner", time.Now().Unix())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -758,7 +758,7 @@ func verifyLiveMCPConsultations(t *testing.T, ctx context.Context, st *store.Sto
 		questions, _ := sent["questions"].(map[string]any)
 		question, _ := questions["judgment"].(map[string]any)
 		instruction, _ := question["instructions"].(string)
-		post, err := st.FeedComment(ctx, posts[instruction])
+		post, err := st.FeedPost(ctx, posts[instruction])
 		if err != nil || post.Consultation == nil || post.Consultation.Status != store.ConsultationStatusPending || post.Consultation.GroupID != group || post.Consultation.Instructions != instruction {
 			return errors.New("exact pending consultation was not durable before real provider dispatch")
 		}
@@ -805,7 +805,7 @@ func verifyLiveMCPConsultations(t *testing.T, ctx context.Context, st *store.Sto
 		question := questions["judgment"].(map[string]any)
 		instruction := question["instructions"].(string)
 		snapshot, _ := factory.SystemOneWorkerSnapshot(cap.ID, factory.MCPToolSystemOneChoice, state, instruction, criteria)
-		post, err := st.FeedComment(ctx, posts[instruction])
+		post, err := st.FeedPost(ctx, posts[instruction])
 		if err != nil || post.Consultation == nil || post.Consultation.Status != store.ConsultationStatusReturned || post.Consultation.Assignment != cap.AssignmentID || post.Consultation.Snapshot != snapshot || post.Consultation.GroupID != group || post.Consultation.SourceRevision != cap.AcceptedRevision {
 			t.Fatalf("live question/result lost its exact work identity: %v", err)
 		}
@@ -837,7 +837,7 @@ func verifyLiveMCPConsultations(t *testing.T, ctx context.Context, st *store.Sto
 	if err != nil || len(thread) != 3 {
 		t.Fatalf("live consultation thread has %d comments, expected 3: %v", len(thread), err)
 	}
-	followup := map[string]any{"submission_id": factory.NewID(), "payload": map[string]any{"title": "Approval research recorded", "summary": "I retained all three actual judgments with the supplied policy. My next action is to cite the policy in the approval design review; this research does not approve the request or implement a change.", "reply_to": posts[instructions[0]]}}
+	followup := map[string]any{"submission_id": factory.NewID(), "payload": map[string]any{"title": "Approval research recorded", "summary": "I retained all three actual judgments with the supplied policy. My next action is to cite the policy in the approval design review; this research does not approve the request or implement a change.", "parent_id": posts[instructions[0]]}}
 	first, err := session.CallTool(ctx, &mcp.CallToolParams{Name: string(factory.MCPToolReply), Arguments: followup})
 	if catalogRefused(first, err) {
 		t.Fatalf("actual MCP follow-up reply refused: %v %v", first, err)
@@ -850,8 +850,8 @@ func verifyLiveMCPConsultations(t *testing.T, ctx context.Context, st *store.Sto
 	if err := json.Unmarshal([]byte(catalogText(t, first)), &receipt); err != nil || receipt.FeedPostID == "" {
 		t.Fatal("follow-up receipt lacks its post", err)
 	}
-	reply, err := st.FeedComment(ctx, receipt.FeedPostID)
-	if err != nil || reply.Consultation != nil || reply.Record.ReplyTo != posts[instructions[0]] || reply.Payload.Communication == nil || reply.Payload.Communication.Kind != "reply" {
+	reply, err := st.FeedPost(ctx, receipt.FeedPostID)
+	if err != nil || reply.Consultation != nil || reply.Record.ParentID != posts[instructions[0]] || reply.Payload.Communication == nil || reply.Payload.Communication.Kind != "reply" {
 		t.Fatal("agent follow-up was conflated with provider output", err)
 	}
 	thread, _, err = st.FeedReplyIDs(ctx, cap.Repository, "record", cap.AssignmentID, 0)

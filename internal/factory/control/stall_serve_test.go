@@ -776,7 +776,7 @@ func stallRepairGraphMode(t *testing.T, mode string) {
 		if e != nil || receipt.FeedPostID == "" {
 			t.Fatal("cause-bound diagnosis was not recorded with feed receipt", e)
 		}
-		post, e := db.FeedComment(ctx, receipt.FeedPostID)
+		post, e := db.FeedPost(ctx, receipt.FeedPostID)
 		if e != nil || post.Actor != "strategist" || post.Assignment != cycle.AssignmentID || post.Payload == nil || post.Payload.Communication == nil || post.Payload.Communication.Kind != "diagnosis" || len(post.Payload.Communication.Items) != len(diagnosis.Causes) || len(post.Payload.Communication.Alternatives) != 1 || len(post.Payload.Communication.Remaining) != 1 || !strings.Contains(post.Payload.Communication.Summary, "unchanged") {
 			t.Fatal("diagnosis lost typed evidence, attribution or uncertainty", e)
 		}
@@ -847,14 +847,14 @@ func stallRepairGraphMode(t *testing.T, mode string) {
 		// disposable fixture. A continuation must refuse the incomplete log.
 		var originalPost []byte
 		var firstSequence int64
-		if e := previewDB.QueryRow(`SELECT data,seq FROM factory_feed_comments WHERE id=$1`, receipt.FeedPostID).Scan(&originalPost, &firstSequence); e != nil {
+		if e := previewDB.QueryRow(`SELECT data,seq FROM factory_feed_posts WHERE id=$1`, receipt.FeedPostID).Scan(&originalPost, &firstSequence); e != nil {
 			t.Fatal(e)
 		}
-		if _, e := previewDB.Exec(`UPDATE factory_feed_comments SET data=jsonb_set(data,'{assignment}','"foreign"'::jsonb) WHERE id=$1`, receipt.FeedPostID); e != nil {
+		if _, e := previewDB.Exec(`UPDATE factory_feed_posts SET data=jsonb_set(data,'{assignment}','"foreign"'::jsonb) WHERE id=$1`, receipt.FeedPostID); e != nil {
 			t.Fatal(e)
 		}
 		_, refused := db.ReassessmentScope(ctx, repairCapability, firstSequence)
-		if _, e := previewDB.Exec(`UPDATE factory_feed_comments SET data=$1 WHERE id=$2`, string(originalPost), receipt.FeedPostID); e != nil || refused == nil {
+		if _, e := previewDB.Exec(`UPDATE factory_feed_posts SET data=$1 WHERE id=$2`, string(originalPost), receipt.FeedPostID); e != nil || refused == nil {
 			t.Fatal("paged scope hid an incomplete canonical feed projection", e, refused)
 		}
 		var expanded map[string]any
@@ -871,7 +871,7 @@ func stallRepairGraphMode(t *testing.T, mode string) {
 		if e != nil || draftReceipt.FeedPostID == "" {
 			t.Fatal("cause-bound draft was not recorded", e)
 		}
-		draftPost, e := db.FeedComment(ctx, draftReceipt.FeedPostID)
+		draftPost, e := db.FeedPost(ctx, draftReceipt.FeedPostID)
 		if e != nil || draftPost.Payload == nil || draftPost.Payload.Communication == nil || draftPost.Payload.Communication.Kind != "repair_draft" || len(draftPost.Payload.Communication.Items) != len(tasks)+1 || !strings.Contains(draftPost.Payload.Communication.Summary, "Not submitted") || draftPost.Payload.Communication.Items[1].ID != tasks[0].Key {
 			t.Fatal("draft lost its typed proposed graph or authority boundary", e)
 		}

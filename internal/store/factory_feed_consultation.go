@@ -97,13 +97,13 @@ func (s *Store) RecordConsultationRequest(ctx context.Context, c SystemOneConsul
 	data, err := json.Marshal(map[string]any{
 		"actor": string(c.Role), "author_name": recordPersona(c.Role), "assignment": c.Assignment,
 		"issue": issue, "at": c.CreatedUnix, "status": "consultation:pending",
-		"source":       factory.CommentSource{Kind: factory.CommentSourceRecord, ID: c.Assignment, Issue: issue, Ref: c.SourceRevision},
+		"source":       factory.PostSource{Kind: factory.PostSourceRecord, ID: c.Assignment, Issue: issue, Ref: c.SourceRevision},
 		"consultation": c.FeedConsultation,
 	})
 	if err != nil {
 		return err
 	}
-	_, err = s.db.ExecContext(ctx, `INSERT INTO factory_feed_comments(id,repository,revision,author,body,idempotency,data)
+	_, err = s.db.ExecContext(ctx, `INSERT INTO factory_feed_posts(id,repository,revision,author,body,idempotency,data)
 	 VALUES($1,$2,0,$3,$4,$5,$6) ON CONFLICT(id) DO NOTHING`, factory.FeedConsultationPostID(c.Snapshot), c.Repository,
 		"worker:"+c.Assignment, "Consulted JEV · "+c.Kind, factory.MCPInputDigest([]byte("consultation:"+c.Snapshot)), string(data))
 	return err
@@ -128,7 +128,7 @@ func (s *Store) RecordConsultationResult(ctx context.Context, snapshot, model, s
 	if err != nil {
 		return err
 	}
-	result, err := s.db.ExecContext(ctx, `UPDATE factory_feed_comments
+	result, err := s.db.ExecContext(ctx, `UPDATE factory_feed_posts
 	 SET data=jsonb_set(data,'{consultation}',data->'consultation' || $2::jsonb) || jsonb_build_object('status',$3::text)
 	 WHERE id=$1 AND data ? 'consultation' AND (data->'consultation'->>'status'<>'returned' OR $4='returned')`,
 		factory.FeedConsultationPostID(snapshot), string(raw), "consultation:"+status, status)
@@ -141,7 +141,7 @@ func (s *Store) RecordConsultationResult(ctx context.Context, snapshot, model, s
 	}
 	if count == 0 {
 		var exists bool
-		if err := s.db.QueryRowContext(ctx, `SELECT EXISTS(SELECT 1 FROM factory_feed_comments WHERE id=$1 AND data ? 'consultation')`, factory.FeedConsultationPostID(snapshot)).Scan(&exists); err != nil {
+		if err := s.db.QueryRowContext(ctx, `SELECT EXISTS(SELECT 1 FROM factory_feed_posts WHERE id=$1 AND data ? 'consultation')`, factory.FeedConsultationPostID(snapshot)).Scan(&exists); err != nil {
 			return err
 		}
 		if !exists {

@@ -14,7 +14,9 @@ import (
 	"testing"
 
 	"github.com/levitateos/sodaos/internal/config"
+	"github.com/levitateos/sodaos/internal/factory"
 	"github.com/levitateos/sodaos/internal/factory/control"
+	"github.com/levitateos/sodaos/internal/store"
 )
 
 type intakeRouteSource struct {
@@ -90,6 +92,51 @@ func TestFactoryIntakeRouteServesVerifiedDeliveries(t *testing.T) {
 	if again.Code != http.StatusOK {
 		t.Fatal("duplicate intake refused:", again.Code)
 	}
+	t.Run("repository creation publishes one question without starting intake", func(t *testing.T) {
+		deliver := func(action, delivery string, signed bool) int {
+			body := `{"action":"` + action + `","repository":{"id":17,"created_at":"2026-10-29T20:00:00Z"}}`
+			r := httptest.NewRequest(http.MethodPost, "/-/soda/api/factory/intake", strings.NewReader(body))
+			r.Header.Set("X-Forgejo-Event", "repository")
+			r.Header.Set("X-Forgejo-Delivery", delivery)
+			if signed {
+				sum := hmac.New(sha256.New, []byte("intake-secret"))
+				_, _ = sum.Write([]byte(body))
+				r.Header.Set("X-Forgejo-Signature", hex.EncodeToString(sum.Sum(nil)))
+			}
+			w := httptest.NewRecorder()
+			server.ServeHTTP(w, r)
+			return w.Code
+		}
+		if deliver("created", "unsigned", false) != http.StatusUnauthorized {
+			t.Fatal("unsigned repository event was admitted")
+		}
+		if deliver("deleted", "deleted", true) != http.StatusOK {
+			t.Fatal("unrelated repository action was not ignored")
+		}
+		query := factory.FeedQuery{Repositories: []int64{17}, Limit: 20}
+		before, _, _, err := server.Store.SubscribedFeed(context.Background(), query)
+		if err != nil || len(before) != 0 {
+			t.Fatalf("unadmitted creation published a post: %+v %v", before, err)
+		}
+		for _, delivery := range []string{"created", "created", "redelivery"} {
+			if deliver("created", delivery, true) != http.StatusOK {
+				t.Fatal("signed repository event was refused")
+			}
+		}
+		entries, _, _, err := server.Store.SubscribedFeed(context.Background(), query)
+		if err != nil || len(entries) != 1 {
+			t.Fatalf("opening question missing or duplicated: %+v %v", entries, err)
+		}
+		post, err := server.Store.FeedPost(context.Background(), entries[0].ID)
+		if err != nil || post.Actor != "factory" || post.AuthorName != "Factory" || post.Body != store.RepositoryOpeningQuestion ||
+			post.Payload.Communication.Kind != "ask" || post.Payload.Communication.QuestionState != "open" || post.Record.ParentID != "" {
+			t.Fatalf("opening post attribution or content wrong: %+v %v", post, err)
+		}
+		pending, err := server.Store.PendingPostIntakes(context.Background(), 20)
+		if err != nil || len(pending) != 0 {
+			t.Fatalf("Factory question started human intake: %+v %v", pending, err)
+		}
+	})
 }
 
 func TestFactoryIntakeRouteRefusesUnauthenticated(t *testing.T) {

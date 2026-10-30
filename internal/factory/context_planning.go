@@ -10,6 +10,7 @@ import (
 // CurrentPlanningContext retains the exact admitted planner input. Owner and
 // actor identities stay in the assignment's protected input, outside this DTO.
 type CurrentPlanningContext struct {
+	IssueMaker   *IssueMakerScope  `json:"issue_maker,omitempty"`
 	Operation    string            `json:"operation"`
 	Content      ProposalContent   `json:"content"`
 	Alternatives AlternativeSet    `json:"alternatives"`
@@ -42,5 +43,5 @@ func (in SemanticPlannerInput) ValidateAssignment(a Assignment) error {
 }
 
 func (in SemanticPlannerInput) CurrentContext() *CurrentPlanningContext {
-	return &CurrentPlanningContext{Operation: in.Operation, Content: in.Content, Alternatives: in.Alternatives, Inspected: in.Inspected}
+	return &CurrentPlanningContext{IssueMaker: in.IssueMaker, Operation: in.Operation, Content: in.Content, Alternatives: in.Alternatives, Inspected: in.Inspected}
 }

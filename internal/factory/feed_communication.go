@@ -21,115 +21,115 @@ import (
 // Reads never spend or dispatch: funding applies to judgment calls
 // only, and native effects apply through the issue/graph creator only.
 
-// Comment routing outcomes from the funded JEV Choice assessment.
+// SourcePost routing outcomes from the funded JEV Choice assessment.
 const (
-	// CommentRouteNewIssue routes the comment to Product Lead LLM
-	// issue authoring followed by validated native creation.
-	CommentRouteNewIssue = "new_issue"
-	// CommentRouteExistingWork links the comment to already tracked work.
-	CommentRouteExistingWork = "existing_work"
-	// CommentRouteDiscussion keeps the comment as discussion only: no
+	// PostRouteNewIssue invokes Issue Maker for capture and refinement.
+	PostRouteNewIssue = "new_issue"
+	// PostRouteExistingWork links the comment to already tracked work.
+	PostRouteExistingWork = "existing_work"
+	// PostRouteDiscussion keeps the comment as discussion only: no
 	// issue is ever created from it.
-	CommentRouteDiscussion = "discussion"
-	// CommentRouteClarify marks the comment as waiting on its author's
+	PostRouteDiscussion = "discussion"
+	// PostRouteClarify marks the comment as waiting on its author's
 	// clarification before any further routing.
-	CommentRouteClarify = "clarify"
+	PostRouteClarify = "clarify"
 )
 
-// Comment pipeline states. Intake, judgment, draft and native effect
+// SourcePost pipeline states. Intake, judgment, draft and native effect
 // advance separately so call admission, funding, comment save,
 // judgment, draft and native commit stay distinguishable.
 const (
-	CommentIntakeRecorded  = "recorded"
-	CommentJudgmentPending = "pending"
-	CommentJudgmentApplied = "applied"
-	CommentJudgmentFailed  = "failed"
-	CommentDraftPending    = "pending"
-	CommentDraftApplied    = "applied"
-	CommentDraftInvalid    = "invalid"
-	CommentEffectPending   = "pending"
-	CommentEffectApplied   = "applied"
-	CommentEffectVerified  = "verified"
-	CommentEffectFailed    = "failed"
-	CommentEffectBlocked   = "blocked"
+	PostIntakeRecorded  = "recorded"
+	PostJudgmentPending = "pending"
+	PostJudgmentApplied = "applied"
+	PostJudgmentFailed  = "failed"
+	PostDraftPending    = "pending"
+	PostDraftApplied    = "applied"
+	PostDraftInvalid    = "invalid"
+	PostEffectPending   = "pending"
+	PostEffectApplied   = "applied"
+	PostEffectVerified  = "verified"
+	PostEffectFailed    = "failed"
+	PostEffectBlocked   = "blocked"
 )
 
-// CommentAttemptLimit bounds funded judgment/draft/native retries behind
+// PostAttemptLimit bounds funded judgment/draft/native retries behind
 // one comment revision: a lost effect reply reconciles by re-reading
 // native state, never by blind repeated spending.
-const CommentAttemptLimit = 6
+const PostAttemptLimit = 6
 
-// CommentBodyLimit bounds one comment submission.
-const CommentBodyLimit = 4096
+// PostBodyLimit bounds one comment submission.
+const PostBodyLimit = 4096
 
-var commentID = regexp.MustCompile(`^[a-f0-9]{32}$`)
+var postID = regexp.MustCompile(`^[a-f0-9]{32}$`)
 
-var commentKey = regexp.MustCompile(`^[A-Za-z0-9_-]{1,64}$`)
+var postKey = regexp.MustCompile(`^[A-Za-z0-9_-]{1,64}$`)
 
-// Comment source kinds: the feed entry a comment was submitted
+// SourcePost source kinds: the feed entry a comment was submitted
 // against. The server resolves the named entry inside the caller's
 // visible repository at submission time and persists the resolved
 // snapshot; caller-supplied source facts never enter judgment or
 // authoring directly.
 const (
-	// CommentSourceRecord names one canonical workflow record entry
+	// PostSourceRecord names one canonical workflow record entry
 	// (a factory assignment rendered into the feed).
-	CommentSourceRecord = "record"
-	// CommentSourcePost names one stored communication post entry.
-	CommentSourcePost = "post"
+	PostSourceRecord = "record"
+	// PostSourcePost names one stored communication post entry.
+	PostSourcePost = "post"
 )
 
-// CommentRequest is one comment POST body: the repository scope, the
+// PostRequest is one comment POST body: the repository scope, the
 // submission text, the optional bound issue and reply parent, the
 // optional source record/post the comment answers, and the
 // caller-chosen idempotency key. The author is the host-admitted
 // caller, never a body field.
-type CommentRequest struct {
-	Repository     int64  `json:"repository"`
-	Body           string `json:"body"`
-	Issue          int64  `json:"issue,omitempty"`
-	ReplyTo        string `json:"reply_to,omitempty"`
-	SourceKind     string `json:"source_kind,omitempty"`
-	SourceID       string `json:"source_id,omitempty"`
+type PostRequest struct {
+	Repository int64  `json:"repository"`
+	Body       string `json:"body"`
+	Issue      int64  `json:"issue,omitempty"`
+	ParentID   string `json:"parent_id,omitempty"`
+	// The controller resolves provenance from ParentID; it is never supplied by a caller.
+	SourceKind     string `json:"-"`
+	SourceID       string `json:"-"`
 	IdempotencyKey string `json:"idempotency_key"`
 }
 
 // Validate admits one comment request with its scope, bounded body and
 // idempotency key.
-func (r CommentRequest) Validate() error {
+func (r PostRequest) Validate() error {
 	if r.Repository <= 0 {
 		return errors.New("comment needs its repository scope")
 	}
 	body := strings.TrimSpace(r.Body)
-	if body == "" || utf8.RuneCountInString(r.Body) > CommentBodyLimit {
+	if body == "" || utf8.RuneCountInString(r.Body) > PostBodyLimit {
 		return errors.New("comment needs its bounded body")
 	}
 	if r.Issue < 0 {
 		return errors.New("comment needs its non-negative issue scope")
 	}
-	if r.ReplyTo != "" && !commentID.MatchString(r.ReplyTo) {
+	if r.ParentID != "" && !postID.MatchString(r.ParentID) {
 		return errors.New("comment needs its known reply parent")
 	}
 	if (r.SourceKind == "") != (r.SourceID == "") {
 		return errors.New("comment source needs its kind and identity together")
 	}
-	if r.SourceKind != "" && r.SourceKind != CommentSourceRecord && r.SourceKind != CommentSourcePost {
+	if r.SourceKind != "" && r.SourceKind != PostSourceRecord && r.SourceKind != PostSourcePost {
 		return errors.New("comment needs its known source kind")
 	}
-	if r.SourceID != "" && !commentID.MatchString(r.SourceID) {
+	if r.SourceID != "" && !postID.MatchString(r.SourceID) {
 		return errors.New("comment needs its known source identity")
 	}
-	if !commentKey.MatchString(r.IdempotencyKey) {
+	if !postKey.MatchString(r.IdempotencyKey) {
 		return errors.New("comment needs its idempotency key")
 	}
 	return nil
 }
 
-// CommentSourceSummaryLimit bounds one persisted source summary: the
+// PostSourceSummaryLimit bounds one persisted source summary: the
 // same preview bound the feed serving layer applies to records.
-const CommentSourceSummaryLimit = 512
+const PostSourceSummaryLimit = 512
 
-// CommentSource is the server-resolved snapshot of the feed entry one
+// PostSource is the server-resolved snapshot of the feed entry one
 // comment was submitted against: its kind and stable identity, the
 // bound native issue and pull request where recorded, the produced
 // candidate ref, its recorded status and a bounded summary preview.
@@ -137,36 +137,36 @@ const CommentSourceSummaryLimit = 512
 // submission time and persisted with the comment, so judgment and
 // authoring consume authorized recorded evidence instead of
 // caller-asserted facts or a later re-read of moved work.
-type CommentSource struct {
-	Kind    string                `json:"kind"`
-	ID      string                `json:"id"`
-	Issue   int64                 `json:"issue,omitempty"`
-	PR      int64                 `json:"pr,omitempty"`
-	Ref     string                `json:"ref,omitempty"`
-	Status  string                `json:"status,omitempty"`
-	Summary string                `json:"summary,omitempty"`
-	Product *CommentProductSource `json:"product,omitempty"`
+type PostSource struct {
+	Kind    string             `json:"kind"`
+	ID      string             `json:"id"`
+	Issue   int64              `json:"issue,omitempty"`
+	PR      int64              `json:"pr,omitempty"`
+	Ref     string             `json:"ref,omitempty"`
+	Status  string             `json:"status,omitempty"`
+	Summary string             `json:"summary,omitempty"`
+	Product *PostProductSource `json:"product,omitempty"`
 }
 
-// CommentProductSource is supplied only by the canonical feed source resolver.
+// PostProductSource is supplied only by the canonical feed source resolver.
 // It names the accepted product discussed, never a caller-selected latest head.
-type CommentProductSource struct {
+type PostProductSource struct {
 	Intent           string `json:"intent"`
 	AcceptedRevision string `json:"accepted_revision"`
 }
 
 // Validate admits one resolved comment source snapshot.
-func (s CommentSource) Validate() error {
-	if s.Kind != CommentSourceRecord && s.Kind != CommentSourcePost {
+func (s PostSource) Validate() error {
+	if s.Kind != PostSourceRecord && s.Kind != PostSourcePost {
 		return errors.New("comment source needs its known kind")
 	}
-	if !commentID.MatchString(s.ID) {
+	if !postID.MatchString(s.ID) {
 		return errors.New("comment source needs its stable identity")
 	}
 	if s.Issue < 0 || s.PR < 0 {
 		return errors.New("comment source needs its non-negative issue and pull request")
 	}
-	if len(s.Ref) > 256 || len(s.Status) > 128 || len([]rune(s.Summary)) > CommentSourceSummaryLimit {
+	if len(s.Ref) > 256 || len(s.Status) > 128 || len([]rune(s.Summary)) > PostSourceSummaryLimit {
 		return errors.New("comment source evidence outside its bound")
 	}
 	if s.Product != nil && (!project.ValidDecisionID(s.Product.Intent) || !project.ValidDecisionID(s.Product.AcceptedRevision)) {
@@ -175,20 +175,20 @@ func (s CommentSource) Validate() error {
 	return nil
 }
 
-// Comment work candidate origins, strongest binding first.
+// SourcePost work candidate origins, strongest binding first.
 const (
-	CommentCandidateBound  = "bound"
-	CommentCandidateSource = "source"
-	CommentCandidateParent = "parent"
-	CommentCandidateRecent = "recent"
+	PostCandidateBound  = "bound"
+	PostCandidateSource = "source"
+	PostCandidateParent = "parent"
+	PostCandidateRecent = "recent"
 )
 
-// CommentWorkCandidate is one already-tracked issue the routing
+// PostWorkCandidate is one already-tracked issue the routing
 // judgment may link a comment to: the native issue identity plus a
 // bounded recorded summary and status, and how the candidate reached
 // the judgment (bound issue scope, source snapshot, reply parent or
 // recent repository work).
-type CommentWorkCandidate struct {
+type PostWorkCandidate struct {
 	Title        string `json:"title,omitempty"`
 	Objective    string `json:"objective,omitempty"`
 	WorkerStatus string `json:"execution_status,omitempty"`
@@ -199,40 +199,40 @@ type CommentWorkCandidate struct {
 }
 
 // Validate admits one existing-work candidate.
-func (c CommentWorkCandidate) Validate() error {
+func (c PostWorkCandidate) Validate() error {
 	if c.Issue <= 0 {
 		return errors.New("comment work candidate needs its issue")
 	}
 	switch c.Origin {
-	case CommentCandidateBound, CommentCandidateSource, CommentCandidateParent, CommentCandidateRecent:
+	case PostCandidateBound, PostCandidateSource, PostCandidateParent, PostCandidateRecent:
 	default:
 		return errors.New("comment work candidate needs its known origin")
 	}
-	if len([]rune(c.Summary)) > CommentSourceSummaryLimit || len(c.Status) > 128 || len([]rune(c.Objective)) > 4000 || len(c.WorkerStatus) > 128 {
+	if len([]rune(c.Summary)) > PostSourceSummaryLimit || len(c.Status) > 128 || len([]rune(c.Objective)) > 4000 || len(c.WorkerStatus) > 128 {
 		return errors.New("comment work candidate evidence outside its bound")
 	}
 	return nil
 }
 
-// CommentRecord is one durable communication record: stable identity,
+// PostRecord is one durable communication record: stable identity,
 // per-edit revision, scope and authorship. Edits add revisions; the
 // identity survives. Deleted or revoked comments keep their tombstone
 // so bound pipeline rows still resolve.
-type CommentRecord struct {
+type PostRecord struct {
 	ID         string `json:"id"`
 	Revision   int64  `json:"revision"`
 	Repository int64  `json:"repository"`
 	Author     string `json:"author"`
 	Issue      int64  `json:"issue,omitempty"`
-	ReplyTo    string `json:"reply_to,omitempty"`
+	ParentID   string `json:"parent_id,omitempty"`
 	Edited     bool   `json:"edited"`
 	Deleted    bool   `json:"deleted"`
 	Revoked    bool   `json:"revoked"`
 }
 
 // Validate admits one stored comment record.
-func (r CommentRecord) Validate() error {
-	if !commentID.MatchString(r.ID) {
+func (r PostRecord) Validate() error {
+	if !postID.MatchString(r.ID) {
 		return errors.New("comment record needs its stable identity")
 	}
 	if r.Revision < 0 {
@@ -247,130 +247,161 @@ func (r CommentRecord) Validate() error {
 	if r.Issue < 0 {
 		return errors.New("comment record needs its non-negative issue scope")
 	}
-	if r.ReplyTo != "" && !commentID.MatchString(r.ReplyTo) {
+	if r.ParentID != "" && !postID.MatchString(r.ParentID) {
 		return errors.New("comment record needs its known reply parent")
 	}
 	return nil
 }
 
-// CommentPipeline is the durable per-comment request row: the bound
+// PostIntake is the durable per-comment request row: the bound
 // source revision plus the separate intake/judgment/draft/effect
 // states, the assessed route, the linked native issue and the bounded
 // attempt count shared by judgment, draft and native retries.
-// CommentRouting is JEV's recorded routing Choice for one comment: every
+// PostRouting is JEV's recorded routing Choice for one comment: every
 // option it weighed in plain words with its probability, the selection
 // and how sure it was. The feed draws it as JEV's own reply.
-type CommentRouting struct {
-	Selected   string                 `json:"selected"`
-	Confidence float64                `json:"confidence"`
-	Options    []CommentRoutingOption `json:"options"`
+type PostRouting struct {
+	Selected   string              `json:"selected"`
+	Confidence float64             `json:"confidence"`
+	Options    []PostRoutingOption `json:"options"`
 }
 
-// CommentRoutingOption is one weighed outcome of a routing Choice.
-type CommentRoutingOption struct {
+// PostRoutingOption is one weighed outcome of a routing Choice.
+type PostRoutingOption struct {
 	Key         string  `json:"key"`
 	Label       string  `json:"label"`
 	Probability float64 `json:"probability"`
 }
 
-type CommentPipeline struct {
-	Comment  string `json:"comment"`
-	Revision int64  `json:"revision"`
-	Intake   string `json:"intake"`
-	Judgment string `json:"judgment"`
-	Route    string `json:"route,omitempty"`
-	Draft    string `json:"draft"`
-	Effect   string `json:"effect"`
-	Issue    int64  `json:"issue"`
-	Attempts int    `json:"attempts"`
+type PostIntake struct {
+	SourcePost string `json:"source_post"`
+	Revision   int64  `json:"revision"`
+	Intake     string `json:"intake"`
+	Judgment   string `json:"judgment"`
+	Route      string `json:"route,omitempty"`
+	Draft      string `json:"draft"`
+	Effect     string `json:"effect"`
+	Issue      int64  `json:"issue"`
+	Attempts   int    `json:"attempts"`
 }
 
-// CommentDecisionID binds authoring records to the original comment revision.
-func CommentDecisionID(kind, comment string, revision int64) string {
+// PostAuthoring distinguishes a pending draft's actual planning state.
+// CheckedUnix records a service check, not an agent activity heartbeat.
+type PostAuthoring struct {
+	State       string `json:"state"`
+	Reason      string `json:"reason,omitempty"`
+	Detail      string `json:"detail,omitempty"`
+	Intent      string `json:"intent,omitempty"`
+	Run         string `json:"run,omitempty"`
+	StartedUnix int64  `json:"started_unix,omitempty"`
+	SinceUnix   int64  `json:"since_unix,omitempty"`
+	CheckedUnix int64  `json:"checked_unix,omitempty"`
+}
+
+const (
+	PostAuthoringQueued   = "queued"
+	PostAuthoringWaiting  = "waiting"
+	PostAuthoringRunning  = "running"
+	PostAuthoringSettling = "settling"
+	PostAuthoringFailed   = "failed"
+	PostAuthoringUnknown  = "unknown"
+)
+
+func (p PostAuthoring) Validate() error {
+	switch p.State {
+	case PostAuthoringQueued, PostAuthoringWaiting, PostAuthoringRunning, PostAuthoringSettling, PostAuthoringFailed, PostAuthoringUnknown:
+		return nil
+	default:
+		return errors.New("unknown comment authoring state")
+	}
+}
+
+// PostDecisionID binds authoring records to the original comment revision.
+func PostDecisionID(kind, comment string, revision int64) string {
 	sum := sha256.Sum256([]byte("soda-comment-intent-v1:" + kind + ":" + comment + ":" + strconv.FormatInt(revision, 10)))
 	return "d" + hex.EncodeToString(sum[:])[:24]
 }
 
 // Validate admits one pipeline row with known states and a bounded
 // attempt count.
-func (p CommentPipeline) Validate() error {
-	if !commentID.MatchString(p.Comment) {
+func (p PostIntake) Validate() error {
+	if !postID.MatchString(p.SourcePost) {
 		return errors.New("comment pipeline needs its comment identity")
 	}
 	if p.Revision < 0 {
 		return errors.New("comment pipeline needs its non-negative source revision")
 	}
-	if p.Intake != CommentIntakeRecorded {
+	if p.Intake != PostIntakeRecorded {
 		return errors.New("comment pipeline needs its recorded intake")
 	}
 	switch p.Judgment {
-	case CommentJudgmentPending, CommentJudgmentApplied, CommentJudgmentFailed:
+	case PostJudgmentPending, PostJudgmentApplied, PostJudgmentFailed:
 	default:
 		return errors.New("comment pipeline needs its known judgment state")
 	}
 	switch p.Route {
-	case "", CommentRouteNewIssue, CommentRouteExistingWork, CommentRouteDiscussion, CommentRouteClarify:
+	case "", PostRouteNewIssue, PostRouteExistingWork, PostRouteDiscussion, PostRouteClarify:
 	default:
 		return errors.New("comment pipeline needs its known route")
 	}
 	switch p.Draft {
-	case CommentDraftPending, CommentDraftApplied, CommentDraftInvalid:
+	case PostDraftPending, PostDraftApplied, PostDraftInvalid:
 	default:
 		return errors.New("comment pipeline needs its known draft state")
 	}
 	switch p.Effect {
-	case CommentEffectPending, CommentEffectApplied, CommentEffectVerified, CommentEffectFailed, CommentEffectBlocked:
+	case PostEffectPending, PostEffectApplied, PostEffectVerified, PostEffectFailed, PostEffectBlocked:
 	default:
 		return errors.New("comment pipeline needs its known effect state")
 	}
-	if p.Issue < 0 || p.Attempts < 0 || p.Attempts > CommentAttemptLimit {
+	if p.Issue < 0 || p.Attempts < 0 || p.Attempts > PostAttemptLimit {
 		return errors.New("comment pipeline needs its bounded issue and attempts")
 	}
 	return nil
 }
 
-// AdmitCommentJudgment reports whether one funded judgment call may run
+// AdmitPostJudgment reports whether one funded judgment call may run
 // for the pipeline: intake recorded, judgment still pending, attempts
 // remaining. Reads and re-serves never pass this gate.
-func (p CommentPipeline) AdmitCommentJudgment() bool {
-	return p.Intake == CommentIntakeRecorded && p.Judgment == CommentJudgmentPending && p.Attempts < CommentAttemptLimit
+func (p PostIntake) AdmitPostJudgment() bool {
+	return p.Intake == PostIntakeRecorded && p.Judgment == PostJudgmentPending && p.Attempts < PostAttemptLimit
 }
 
-// AdmitCommentDraft reports whether Product Lead LLM authoring may run:
+// AdmitPostDraft reports whether Product Lead LLM authoring may run:
 // the new_issue route judged in, attempts remaining, no applied draft.
-func (p CommentPipeline) AdmitCommentDraft() bool {
-	return p.Judgment == CommentJudgmentApplied && p.Route == CommentRouteNewIssue &&
-		p.Draft == CommentDraftPending && p.Attempts < CommentAttemptLimit
+func (p PostIntake) AdmitPostDraft() bool {
+	return p.Judgment == PostJudgmentApplied && p.Route == PostRouteNewIssue &&
+		p.Draft == PostDraftPending && p.Attempts < PostAttemptLimit
 }
 
-func (p CommentPipeline) RetryAllowed() bool {
-	if p.Effect == CommentEffectApplied || p.Effect == CommentEffectVerified {
+func (p PostIntake) RetryAllowed() bool {
+	if p.Effect == PostEffectApplied || p.Effect == PostEffectVerified {
 		return false
 	}
-	return p.Attempts >= CommentAttemptLimit || p.Judgment == CommentJudgmentFailed || p.Draft == CommentDraftInvalid || p.Effect == CommentEffectFailed || p.Route == CommentRouteClarify || p.Route == CommentRouteExistingWork
+	return p.Attempts >= PostAttemptLimit || p.Judgment == PostJudgmentFailed || p.Draft == PostDraftInvalid || p.Effect == PostEffectFailed || p.Route == PostRouteClarify || p.Route == PostRouteExistingWork
 }
 
-// AdmitCommentEffect reports whether the native issue/graph effect may
+// AdmitPostEffect reports whether the native issue/graph effect may
 // run: draft applied, effect not yet settled, attempts remaining.
-func (p CommentPipeline) AdmitCommentEffect() bool {
-	if p.Judgment != CommentJudgmentApplied || p.Route != CommentRouteNewIssue || p.Draft != CommentDraftApplied {
+func (p PostIntake) AdmitPostEffect() bool {
+	if p.Judgment != PostJudgmentApplied || p.Route != PostRouteNewIssue || p.Draft != PostDraftApplied {
 		return false
 	}
-	return (p.Effect == CommentEffectPending || p.Effect == CommentEffectFailed) && p.Attempts < CommentAttemptLimit
+	return (p.Effect == PostEffectPending || p.Effect == PostEffectFailed) && p.Attempts < PostAttemptLimit
 }
 
-// CommentEffectSettled reports whether the native outcome is final:
+// PostEffectSettled reports whether the native outcome is final:
 // verified, applied, or blocked (deleted/revoked source, lost access).
 // Only an unsettled effect may retry or reconcile.
-func (p CommentPipeline) CommentEffectSettled() bool {
-	return p.Effect == CommentEffectVerified || p.Effect == CommentEffectApplied || p.Effect == CommentEffectBlocked
+func (p PostIntake) PostEffectSettled() bool {
+	return p.Effect == PostEffectVerified || p.Effect == PostEffectApplied || p.Effect == PostEffectBlocked
 }
 
-// IssueDraft is one Product Lead LLM-authored issue proposal bound to
+// IssueDraft is one source capture or authored issue proposal bound to
 // its exact comment source revision: title, body, objective and
 // acceptance plus the Soda work metadata the native creation validates.
 type IssueDraft struct {
-	Comment    string `json:"comment"`
+	SourcePost string `json:"source_post"`
 	Revision   int64  `json:"revision"`
 	Title      string `json:"title"`
 	Body       string `json:"body"`
@@ -383,7 +414,7 @@ type IssueDraft struct {
 // authoring: no field may be blank and malformed drafts refuse before
 // any native effect.
 func (d IssueDraft) Validate() error {
-	if !commentID.MatchString(d.Comment) {
+	if !postID.MatchString(d.SourcePost) {
 		return errors.New("issue draft needs its comment source")
 	}
 	if d.Revision < 0 {
@@ -407,7 +438,7 @@ func (d IssueDraft) Validate() error {
 	return nil
 }
 
-// CommentResponse is one comment POST answer: the durable identity and
+// PostResponse is one comment POST answer: the durable identity and
 // revision plus the separate pipeline states and the issue link once
 // the native effect verifies. A retry returns the same identity with
 // its current states instead of a duplicate comment. POST answers as
@@ -417,17 +448,17 @@ func (d IssueDraft) Validate() error {
 // existing_work judgment selected (the same identity Issue carries
 // on that route); Source echoes the persisted resolved source
 // snapshot when the submission named one.
-type CommentResponse struct {
-	Attempts      int            `json:"attempts"`
-	AttemptLimit  int            `json:"attempt_limit"`
-	Comment       string         `json:"comment_id"`
-	Revision      int64          `json:"revision"`
-	Intake        string         `json:"intake"`
-	Judgment      string         `json:"judgment"`
-	Route         string         `json:"route,omitempty"`
-	Draft         string         `json:"draft"`
-	Effect        string         `json:"effect"`
-	Issue         int64          `json:"issue,omitempty"`
-	ExistingIssue int64          `json:"existing_issue,omitempty"`
-	Source        *CommentSource `json:"source,omitempty"`
+type PostResponse struct {
+	Attempts      int         `json:"attempts"`
+	AttemptLimit  int         `json:"attempt_limit"`
+	SourcePost    string      `json:"post_id"`
+	Revision      int64       `json:"revision"`
+	Intake        string      `json:"intake"`
+	Judgment      string      `json:"judgment"`
+	Route         string      `json:"route,omitempty"`
+	Draft         string      `json:"draft"`
+	Effect        string      `json:"effect"`
+	Issue         int64       `json:"issue,omitempty"`
+	ExistingIssue int64       `json:"existing_issue,omitempty"`
+	Source        *PostSource `json:"source,omitempty"`
 }

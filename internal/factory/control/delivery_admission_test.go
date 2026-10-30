@@ -520,7 +520,7 @@ func TestDeliveredIntentAdmitsScopedTestPilotOnce(t *testing.T) {
 						t.Fatal("pre-CLI check failure invented a Test Pilot report", settled, finished.Outcome)
 					}
 					var posts int
-					if err := sqlDB.QueryRow(`SELECT count(*) FROM factory_feed_comments WHERE data->'communication'->>'component_id'='F10'`).Scan(&posts); err != nil || posts != 0 {
+					if err := sqlDB.QueryRow(`SELECT count(*) FROM factory_feed_posts WHERE data->'communication'->>'component_id'='F10'`).Scan(&posts); err != nil || posts != 0 {
 						t.Fatal("failed manifest verified application", posts, err)
 					}
 					return
@@ -1004,10 +1004,10 @@ func TestDeliveredIntentAdmitsScopedTestPilotOnce(t *testing.T) {
 				t.Fatal("trusted F10 adoption", err)
 			}
 			var resultPost string
-			if err := sqlDB.QueryRow(`SELECT id FROM factory_feed_comments WHERE data->>'event_identity'=$1 AND data->'communication'->>'component_id'='F10'`, a.Subject.Delivery.DeliveryID).Scan(&resultPost); err != nil {
+			if err := sqlDB.QueryRow(`SELECT id FROM factory_feed_posts WHERE data->>'event_identity'=$1 AND data->'communication'->>'component_id'='F10'`, a.Subject.Delivery.DeliveryID).Scan(&resultPost); err != nil {
 				t.Fatal("verified result post missing", err)
 			}
-			resultSource, err := db.ResolveCommentSource(ctx, a.Repository, factory.CommentSourcePost, resultPost)
+			resultSource, err := db.ResolvePostSource(ctx, a.Repository, factory.PostSourcePost, resultPost)
 			if err != nil || resultSource.Product == nil || resultSource.Product.Intent != revision.Intent || resultSource.Product.AcceptedRevision != revision.ID {
 				t.Fatal("verified app result cannot anchor an exact product change", resultSource, err)
 			}
@@ -1024,11 +1024,11 @@ func TestDeliveredIntentAdmitsScopedTestPilotOnce(t *testing.T) {
 				t.Fatal("authoritative verified current revision was rediscovered", candidates, err)
 			}
 			var waitsBefore, waitsAfter int
-			if err := sqlDB.QueryRow(`SELECT count(*) FROM factory_feed_comments WHERE data->'communication'->>'component_id'='F09'`).Scan(&waitsBefore); err != nil {
+			if err := sqlDB.QueryRow(`SELECT count(*) FROM factory_feed_posts WHERE data->'communication'->>'component_id'='F09'`).Scan(&waitsBefore); err != nil {
 				t.Fatal(err)
 			}
 			c.driveDeliveryVerifications(ctx)
-			if err := sqlDB.QueryRow(`SELECT count(*) FROM factory_feed_comments WHERE data->'communication'->>'component_id'='F09'`).Scan(&waitsAfter); err != nil || waitsAfter != waitsBefore {
+			if err := sqlDB.QueryRow(`SELECT count(*) FROM factory_feed_posts WHERE data->'communication'->>'component_id'='F09'`).Scan(&waitsAfter); err != nil || waitsAfter != waitsBefore {
 				t.Fatal("verified revision emitted another preparation wait", waitsBefore, waitsAfter, err)
 			}
 			other := revision

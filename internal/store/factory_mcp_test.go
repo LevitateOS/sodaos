@@ -754,7 +754,7 @@ func TestEvidenceStatusReceiptReadsExplicitWithoutSideEffects(t *testing.T) {
 		return receipt
 	}
 	ask := post(factory.MCPToolAsk, `{"title":"Who can view a task?","summary":"The owner policy needs clarification.","question":"May team members view?"}`)
-	answer := post(factory.MCPToolAnswer, `{"title":"Policy clarified","summary":"Only owners may view.","reply_to":"`+ask.FeedPostID+`"}`)
+	answer := post(factory.MCPToolAnswer, `{"title":"Policy clarified","summary":"Only owners may view.","parent_id":"`+ask.FeedPostID+`"}`)
 	suggest := post(factory.MCPToolSuggest, `{"title":"Cache the policy","summary":"Reading the file is slow.","rationale":"Cache at dispatch."}`)
 	read := func() {
 		t.Helper()
@@ -764,7 +764,7 @@ func TestEvidenceStatusReceiptReadsExplicitWithoutSideEffects(t *testing.T) {
 		if _, err := db.MCPDiscussion(ctx, capability, ask.FeedPostID, ""); err != nil {
 			t.Fatalf("discussion: %v", err)
 		}
-		if _, err := db.FeedComment(ctx, ask.FeedPostID); err != nil {
+		if _, err := db.FeedPost(ctx, ask.FeedPostID); err != nil {
 			t.Fatalf("comment: %v", err)
 		}
 		if _, err := db.FeedPostDetails(ctx, []string{answer.FeedPostID, suggest.FeedPostID}); err != nil {
@@ -780,7 +780,7 @@ func TestEvidenceStatusReceiptReadsExplicitWithoutSideEffects(t *testing.T) {
 	if resolutions != 0 {
 		t.Fatalf("reads recorded dispositions: %d", resolutions)
 	}
-	question, err := db.FeedComment(ctx, ask.FeedPostID)
+	question, err := db.FeedPost(ctx, ask.FeedPostID)
 	if err != nil || question.Payload.Communication.QuestionState != "answered" {
 		t.Fatalf("question state misreported: %+v %v", question, err)
 	}
@@ -794,7 +794,7 @@ func TestEvidenceStatusReceiptReadsExplicitWithoutSideEffects(t *testing.T) {
 		{"answer", answer.FeedPostID},
 		{"suggestion", suggest.FeedPostID},
 	} {
-		detail, err := db.FeedComment(ctx, tc.post)
+		detail, err := db.FeedPost(ctx, tc.post)
 		if err != nil || detail.Payload.Communication.Disposition != "" {
 			t.Fatalf("%s misreported: %+v %v", tc.name, detail, err)
 		}
@@ -806,7 +806,7 @@ func TestEvidenceStatusReceiptReadsExplicitWithoutSideEffects(t *testing.T) {
 	if _, err := db.MCPReceipt(ctx, capability.AssignmentID, factory.NewID()); !errors.Is(err, ErrNotFound) {
 		t.Fatalf("missing receipt not explicit: %v", err)
 	}
-	if _, err := db.FeedComment(ctx, factory.NewID()); !errors.Is(err, ErrNotFound) {
+	if _, err := db.FeedPost(ctx, factory.NewID()); !errors.Is(err, ErrNotFound) {
 		t.Fatalf("missing post not explicit: %v", err)
 	}
 	if _, err := db.MCPReceipt(ctx, factory.NewID(), answer.SubmissionID); !errors.Is(err, ErrNotFound) {

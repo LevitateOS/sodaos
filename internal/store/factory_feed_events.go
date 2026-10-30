@@ -14,6 +14,37 @@ import (
 	"github.com/levitateos/sodaos/internal/factory"
 )
 
+const RepositoryOpeningQuestion = "What would you like this repository to do?"
+
+// RecordRepositoryOpening consumes the signed native creation event. The
+// repository identity, rather than the webhook delivery ID, makes redelivery
+// harmless. A Factory question has no human intake and starts no worker.
+func (s *Store) RecordRepositoryOpening(ctx context.Context, repository, at int64) error {
+	if repository <= 0 {
+		return errors.New("invalid repository creation")
+	}
+	if at <= 0 {
+		at = time.Now().Unix()
+	}
+	key := fmt.Sprintf("factory:%d:repository-created", repository)
+	digest := sha256.Sum256([]byte(key))
+	id := hex.EncodeToString(digest[:16])
+	data, err := json.Marshal(map[string]any{
+		"actor": "factory", "author_name": "Factory", "at": at,
+		"status": "repository:waiting", "event_identity": "repository:created",
+		"communication": factory.FeedCommunication{
+			Kind: "ask", Title: RepositoryOpeningQuestion, Summary: RepositoryOpeningQuestion,
+		},
+	})
+	if err != nil {
+		return err
+	}
+	_, err = s.db.ExecContext(ctx, `INSERT INTO factory_feed_posts(id,repository,revision,author,body,idempotency,data)
+		VALUES($1,$2,0,'factory',$3,$4,$5) ON CONFLICT(repository,author,idempotency) DO NOTHING`,
+		id, repository, RepositoryOpeningQuestion, hex.EncodeToString(digest[:]), string(data))
+	return err
+}
+
 // factoryFeedEvents are the controller-written feed event kinds. The kind is
 // stored as communication.component_id: verification and contribution queries
 // filter on it, and the browser presents the event from it.
@@ -64,6 +95,15 @@ func recordFactoryFeedEventTx(ctx context.Context, tx *sql.Tx, repository, issue
 		return errors.New("invalid canonical Factory feed event")
 	}
 	content.Kind = "system"
+	if assignment != "" && content.ParentID == "" {
+		var parent string
+		if err := tx.QueryRowContext(ctx, `SELECT COALESCE((SELECT data->'planning_context'->'IssueMaker'->>'post' FROM factory_assignments WHERE id=$1),'')`, assignment).Scan(&parent); err != nil {
+			return err
+		}
+		if parent != "" {
+			content.ParentID = parent
+		}
+	}
 	if at <= 0 {
 		at = time.Now().Unix()
 	}
@@ -73,12 +113,12 @@ func recordFactoryFeedEventTx(ctx context.Context, tx *sql.Tx, repository, issue
 	key = hex.EncodeToString(digest[:])
 	data, err := json.Marshal(map[string]any{
 		"actor": "factory", "author_name": "Factory", "issue": issue,
-		"assignment": assignment, "at": at, "status": status, "communication": content, "reply_to": content.ReplyTo, "event_identity": identity,
+		"assignment": assignment, "at": at, "status": status, "communication": content, "parent_id": content.ParentID, "event_identity": identity,
 	})
 	if err != nil {
 		return err
 	}
-	_, err = tx.ExecContext(ctx, `INSERT INTO factory_feed_comments(id,repository,revision,author,body,idempotency,data)
+	_, err = tx.ExecContext(ctx, `INSERT INTO factory_feed_posts(id,repository,revision,author,body,idempotency,data)
 		VALUES($1,$2,0,'factory',$3,$4,$5) ON CONFLICT(repository,author,idempotency) DO NOTHING`,
 		id, repository, content.Title+"\n\n"+content.Summary, key, string(data))
 	return err

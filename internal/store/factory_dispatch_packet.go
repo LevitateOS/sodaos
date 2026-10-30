@@ -147,6 +147,18 @@ func writeDispatchPacketRowsTx(ctx context.Context, tx *sql.Tx, a factory.Assign
 		view.RunID, view.Repository, view.Issue, view.Attempt); err != nil {
 		return fmt.Errorf("dispatch packet failed: %w", err)
 	}
+	if a.PlanningContext != nil && a.PlanningContext.IssueMaker != nil {
+		scope := a.PlanningContext.IssueMaker
+		result, err := tx.ExecContext(ctx, `UPDATE factory_feed_posts p SET data=p.data || jsonb_build_object('assignment',$2::text,'run',$3::text)
+		 FROM factory_feed_posts c WHERE p.id=$1 AND p.repository=$4 AND c.id=$5 AND c.revision=$6 AND NOT COALESCE((c.data->>'deleted')::boolean,false) AND NOT COALESCE((c.data->>'revoked')::boolean,false)`, scope.Post, a.ID, run.ID, a.Repository, scope.SourcePost, scope.Revision)
+		if err != nil {
+			return err
+		}
+		if count, _ := result.RowsAffected(); count != 1 {
+			return ErrStaleRevision
+		}
+		return nil
+	}
 	_, author := RecordAuthor(a.Phase, a.Role)
 	if author == "" {
 		author = a.Role

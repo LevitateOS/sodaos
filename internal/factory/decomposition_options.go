@@ -28,6 +28,7 @@ type SemanticCandidate struct {
 // investigation the plan was built from. Accepted graphs and history are
 // never inputs: planning consumes planner outputs only.
 type SemanticPlannerInput struct {
+	IssueMaker   *IssueMakerScope `json:",omitempty"`
 	Operation    string
 	Head         IntentRevision
 	Content      ProposalContent
@@ -57,6 +58,11 @@ type SemanticPlannerOutput struct {
 // bound to the head, supported alternatives for the options operation, and
 // the investigation evidence planning was built from.
 func (in SemanticPlannerInput) Validate() error {
+	if in.IssueMaker != nil {
+		if err := in.IssueMaker.Validate(in.Head); err != nil {
+			return err
+		}
+	}
 	if !ValidIntentPlanningOperation(in.Operation) {
 		return errors.New("unknown intent planning operation")
 	}

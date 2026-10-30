@@ -653,7 +653,7 @@ func seedCanonicalVerifiedApp(t *testing.T, db *sql.DB, intent, revision string)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err := db.Exec(`INSERT INTO factory_feed_comments(id,repository,revision,author,body,idempotency,data) VALUES($1,$2,0,'factory',$3,$4,$5)`,
+	if _, err := db.Exec(`INSERT INTO factory_feed_posts(id,repository,revision,author,body,idempotency,data) VALUES($1,$2,0,'factory',$3,$4,$5)`,
 		subject.DeliveryID, 7,
 		content.Title+"\n\n"+content.Summary, subject.DeliveryID, string(feed)); err != nil {
 		t.Fatal(err)
@@ -706,7 +706,7 @@ func TestJourneyVerifiedAppRefusesWrongAssignment(t *testing.T) {
 		t.Fatal(err)
 	}
 	subject, _ := seedCanonicalVerifiedApp(t, raw, intent, revision)
-	if _, err := raw.Exec(`UPDATE factory_feed_comments SET data=jsonb_set(data,'{assignment}',$1) WHERE id=$2`,
+	if _, err := raw.Exec(`UPDATE factory_feed_posts SET data=jsonb_set(data,'{assignment}',$1) WHERE id=$2`,
 		`"00000000000000000000000000000000"`, subject.DeliveryID); err != nil {
 		t.Fatal(err)
 	}
@@ -752,7 +752,7 @@ func TestJourneyVerifiedAppRefusesWrongScope(t *testing.T) {
 	}
 	// Keep the event join valid: the F10 event follows the tampered
 	// delivery identity, so only the scope predicate can refuse.
-	res, err := raw.Exec(`UPDATE factory_feed_comments SET data=jsonb_set(data,'{event_identity}',$1) WHERE id=$2`,
+	res, err := raw.Exec(`UPDATE factory_feed_posts SET data=jsonb_set(data,'{event_identity}',$1) WHERE id=$2`,
 		`"`+stored.Subject.Delivery.DeliveryID+`"`, subject.DeliveryID)
 	if err != nil {
 		t.Fatal(err)
@@ -787,7 +787,7 @@ func TestJourneyVerifiedAppRefusesManifestMismatch(t *testing.T) {
 	// F10) and vary only the observed manifest: a well-formed but
 	// foreign digest must not pass as the admitted verification.
 	foreign := strings.Repeat("2", 64)
-	res, err := raw.Exec(`UPDATE factory_feed_comments SET data=jsonb_set(data,'{communication,evidence_refs,1}',$1) WHERE id=$2`,
+	res, err := raw.Exec(`UPDATE factory_feed_posts SET data=jsonb_set(data,'{communication,evidence_refs,1}',$1) WHERE id=$2`,
 		`"`+foreign+`"`, subject.DeliveryID)
 	if err != nil {
 		t.Fatal(err)
@@ -863,7 +863,7 @@ func TestJourneyVerifiedAppRefusesMissingF10(t *testing.T) {
 		t.Fatal(err)
 	}
 	subject, _ := seedCanonicalVerifiedApp(t, raw, intent, revision)
-	if _, err := raw.Exec(`DELETE FROM factory_feed_comments WHERE id=$1`, subject.DeliveryID); err != nil {
+	if _, err := raw.Exec(`DELETE FROM factory_feed_posts WHERE id=$1`, subject.DeliveryID); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := s.JourneyVerifiedApp(ctx, 7, intent, revision); !errors.Is(err, ErrNotFound) {
@@ -949,7 +949,7 @@ func TestJourneyVerifiedAppIgnoresUnrelatedNewerVerification(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err := raw.Exec(`INSERT INTO factory_feed_comments(id,repository,revision,author,body,idempotency,data) VALUES($1,$2,0,'factory',$3,$4,$5)`,
+	if _, err := raw.Exec(`INSERT INTO factory_feed_posts(id,repository,revision,author,body,idempotency,data) VALUES($1,$2,0,'factory',$3,$4,$5)`,
 		unrelated.DeliveryID, 7, content.Title+"\n\n"+content.Summary, unrelated.DeliveryID, string(feed)); err != nil {
 		t.Fatal(err)
 	}

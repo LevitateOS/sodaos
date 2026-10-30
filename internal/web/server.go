@@ -54,7 +54,7 @@ func New(c config.Config, db *store.Store) *Server {
 	// Durable comment continuation rides the coordinator lifetime:
 	// stored comment requests advance at Start and on progress passes
 	// without any browser request driving them.
-	s.Coordinator.CommentDrive = s.API.DrivePendingComments
+	s.Coordinator.CommentDrive = s.API.DrivePendingPosts
 	// Manager control uses the pinned service callback, without a factory
 	// actor credential or background admission. Ordinary appliance activation
 	// must support optional extensions before any factory actor is configured.
@@ -99,7 +99,7 @@ func New(c config.Config, db *store.Store) *Server {
 		}
 	}
 	s.mux.HandleFunc("POST /api/factory/intake", api.IntakeHandler{
-		Coordinator: s.Coordinator, Secret: loadIntakeSecret(c),
+		Coordinator: s.Coordinator, Store: db, Secret: loadIntakeSecret(c),
 	}.ServeHTTP)
 
 	// Health doubles as readiness: beyond "ok" it reports the two

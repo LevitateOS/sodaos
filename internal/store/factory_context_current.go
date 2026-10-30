@@ -96,7 +96,7 @@ func factoryCurrentContextTx(ctx context.Context, tx *sql.Tx, cap factory.MCPCap
 		if out.Role.Accepted == nil || out.Role.Accepted.RepositoryContext == nil {
 			out.Evidence.MissingReasons = append(out.Evidence.MissingReasons, "accepted_repository_context_unavailable")
 		}
-	case factory.MCPProfileProductLead:
+	case factory.MCPProfileProductLead, factory.MCPProfileIssueMaker:
 		err = currentProductTx(ctx, tx, assignment, &out)
 	case factory.MCPProfileStrategist:
 		err = currentStrategyTx(ctx, tx, assignment, &out)

@@ -39,7 +39,25 @@ pub(crate) fn rewrite_forgejo_env(
         "FORGEJO__server__ROOT_URL",
         format!("{trimmed}/"),
     );
-    set(&mut values, "FORGEJO__server__DOMAIN", domain);
+    set(&mut values, "FORGEJO__server__DOMAIN", domain.clone());
+    // Signed native intake uses the appliance's HTTPS origin. Keep the
+    // operator's existing webhook destinations and allow this exact hostname.
+    let webhook_hosts = values
+        .iter()
+        .find(|(key, _)| key == "FORGEJO__webhook__ALLOWED_HOST_LIST")
+        .map(|(_, value)| value.as_str())
+        .filter(|value| !value.is_empty())
+        .unwrap_or("external");
+    let webhook_hosts = if webhook_hosts.split(',').any(|host| host.trim() == domain) {
+        webhook_hosts.to_string()
+    } else {
+        format!("{webhook_hosts},{domain}")
+    };
+    set(
+        &mut values,
+        "FORGEJO__webhook__ALLOWED_HOST_LIST",
+        webhook_hosts,
+    );
     set(&mut values, "FORGEJO__server__SSH_PORT", "2222".to_string());
     set(
         &mut values,

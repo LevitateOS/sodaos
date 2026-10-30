@@ -9,7 +9,50 @@ import (
 	"time"
 
 	"github.com/levitateos/sodaos/internal/application"
+	"github.com/levitateos/sodaos/internal/factory"
 )
+
+// Restore the retained feed layout only inside a disposable integration fixture.
+func legacyFeedSchema(t *testing.T, s *Store) {
+	t.Helper()
+	for _, statement := range []string{
+		`DROP INDEX factory_feed_posts_parent`,
+		`ALTER TABLE factory_feed_posts RENAME TO factory_feed_comments`,
+		`ALTER INDEX factory_feed_posts_repository RENAME TO factory_feed_comments_repository`,
+		`ALTER TABLE factory_post_intakes RENAME TO factory_feed_comment_requests`,
+		`ALTER TABLE factory_feed_comment_requests RENAME COLUMN post TO comment`,
+	} {
+		if _, err := s.db.Exec(statement); err != nil { t.Fatal(err) }
+	}
+}
+
+func TestFeedPostMigrationPreservesConversationAndIntake(t *testing.T) {
+	s, dsn := postgresFixture(t)
+	ctx := context.Background()
+	root := saveTestPost(t, s, 7, "42", "Original human request", "migration-root")
+	child, _, err := s.SaveFeedPost(ctx, factory.PostRequest{Repository: 7, Body: "Original reply", ParentID: root, IdempotencyKey: "migration-child"}, "43", "Another person", 1729000001)
+	if err != nil { t.Fatal(err) }
+	if err := s.RecordPostIntake(ctx, root, 0); err != nil { t.Fatal(err) }
+	if _, err := s.db.Exec(`UPDATE factory_post_intakes SET attempts=2,data='{"operation":"retained-operation","draft":{"comment":"`+root+`"}}' WHERE post=$1`, root); err != nil { t.Fatal(err) }
+	legacyFeedSchema(t, s)
+	if _, err := s.db.Exec(`UPDATE factory_feed_comments SET data=(data-'parent_id') || jsonb_build_object('reply_to',$2::text) WHERE id=$1`, child, root); err != nil { t.Fatal(err) }
+	if _, err := s.db.Exec(`UPDATE schema_version SET version=69`); err != nil { t.Fatal(err) }
+	current, err := Open(dsn)
+	if err != nil { t.Fatal(err) }
+	defer current.Close()
+	post, err := current.FeedPost(ctx, child)
+	if err != nil || post.Record.ParentID != root || post.Body != "Original reply" || post.Record.Author != "43" { t.Fatalf("reply changed: %+v %v", post, err) }
+	parent, err := current.FeedPost(ctx, root)
+	if err != nil || parent.Body != "Original human request" { t.Fatalf("root changed: %+v %v", parent, err) }
+	intake, err := current.PostIntake(ctx, root)
+	if err != nil || intake.SourcePost != root || intake.Attempts != 2 { t.Fatalf("intake changed: %+v %v", intake, err) }
+	var operation, source string
+	if err := current.db.QueryRow(`SELECT data->>'operation',data->'draft'->>'source_post' FROM factory_post_intakes WHERE post=$1`, root).Scan(&operation,&source); err != nil || operation != "retained-operation" || source != root { t.Fatalf("receipt source changed: %q %q %v",operation,source,err) }
+	entries, _, _, err := current.SubscribedFeed(ctx, factory.FeedQuery{Repositories: []int64{7}, Limit: 10})
+	if err != nil || len(entries) != 2 { t.Fatalf("reply missing from main timeline: %+v %v",entries,err) }
+	var old int
+	if err := current.db.QueryRow(`SELECT count(*) FROM information_schema.tables WHERE table_name IN ('factory_feed_comments','factory_feed_comment_requests') AND table_schema='public'`).Scan(&old); err != nil || old != 0 { t.Fatalf("old store remains: %d %v",old,err) }
+}
 
 func TestOpenRefusesIncompleteApplicationSchema(t *testing.T) {
 	for _, test := range []struct{ name, damage, probe string }{
@@ -56,7 +99,7 @@ func TestSchemaSeedMatchesVersionConstant(t *testing.T) {
 	if err := s.db.QueryRowContext(ctx, `SELECT version FROM schema_version`).Scan(&version); err != nil {
 		t.Fatal(err)
 	}
-	if version != SchemaVersion() || SchemaVersion() != 69 {
+	if version != SchemaVersion() || SchemaVersion() != 70 {
 		t.Fatalf("seeded marker %d disagrees with constant %d", version, SchemaVersion())
 	}
 	var columns int
@@ -74,7 +117,7 @@ func TestOpenRefusesForeignSchemaVersion(t *testing.T) {
 	for _, test := range []struct {
 		name    string
 		foreign int
-	}{{"older", 68}, {"newer", 70}} {
+	}{{"older", 68}, {"newer", 71}} {
 		t.Run(test.name, func(t *testing.T) {
 			s, dsn := postgresFixture(t)
 			ctx := context.Background()
@@ -123,6 +166,7 @@ func TestOpenMigratesRetained68To69(t *testing.T) {
 	if _, err := s.db.ExecContext(ctx, `DROP TABLE application_setup_renewals`); err != nil {
 		t.Fatal(err)
 	}
+	legacyFeedSchema(t, s)
 	if _, err := s.db.ExecContext(ctx, `UPDATE schema_version SET version=68`); err != nil {
 		t.Fatal(err)
 	}
@@ -132,7 +176,7 @@ func TestOpenMigratesRetained68To69(t *testing.T) {
 	}
 	defer migrated.Close()
 	var version int
-	if err := migrated.db.QueryRowContext(ctx, `SELECT version FROM schema_version`).Scan(&version); err != nil || version != 69 {
+	if err := migrated.db.QueryRowContext(ctx, `SELECT version FROM schema_version`).Scan(&version); err != nil || version != SchemaVersion() {
 		t.Fatalf("migrated marker %d %v", version, err)
 	}
 	var journal int
@@ -165,7 +209,7 @@ func TestOpenMigratesRetained68To69(t *testing.T) {
 		t.Fatalf("migrated database refused reopen: %v", err)
 	}
 	defer again.Close()
-	if err := again.db.QueryRowContext(ctx, `SELECT version FROM schema_version`).Scan(&version); err != nil || version != 69 {
+	if err := again.db.QueryRowContext(ctx, `SELECT version FROM schema_version`).Scan(&version); err != nil || version != SchemaVersion() {
 		t.Fatalf("reopened marker %d %v", version, err)
 	}
 }
@@ -192,6 +236,7 @@ func TestConcurrentOpensMigrateRetained68Once(t *testing.T) {
 	if _, err := s.db.ExecContext(ctx, `DROP TABLE application_setup_renewals`); err != nil {
 		t.Fatal(err)
 	}
+	legacyFeedSchema(t, s)
 	if _, err := s.db.ExecContext(ctx, `UPDATE schema_version SET version=68`); err != nil {
 		t.Fatal(err)
 	}
@@ -225,7 +270,7 @@ func TestConcurrentOpensMigrateRetained68Once(t *testing.T) {
 	}
 	first := outcomes[0].opened
 	var version int
-	if err := first.db.QueryRowContext(ctx, `SELECT version FROM schema_version`).Scan(&version); err != nil || version != 69 {
+	if err := first.db.QueryRowContext(ctx, `SELECT version FROM schema_version`).Scan(&version); err != nil || version != SchemaVersion() {
 		t.Fatalf("concurrent migration marker %d %v", version, err)
 	}
 	kept, err := first.ApplicationSetup(ctx, setup.ID)
@@ -254,6 +299,7 @@ func TestLostUpgradeRaceRereadAcceptsCommitted69(t *testing.T) {
 	if _, err := s.db.ExecContext(ctx, `DROP TABLE application_setup_renewals`); err != nil {
 		t.Fatal(err)
 	}
+	legacyFeedSchema(t, s)
 	if _, err := s.db.ExecContext(ctx, `UPDATE schema_version SET version=68`); err != nil {
 		t.Fatal(err)
 	}
@@ -287,7 +333,7 @@ func TestLostUpgradeRaceRereadAcceptsCommitted69(t *testing.T) {
 		t.Fatalf("reread refused a committed 69: %v", err)
 	}
 	var version int
-	if err := s.db.QueryRowContext(ctx, `SELECT version FROM schema_version`).Scan(&version); err != nil || version != 69 {
+	if err := s.db.QueryRowContext(ctx, `SELECT version FROM schema_version`).Scan(&version); err != nil || version != SchemaVersion() {
 		t.Fatalf("reread moved marker to %d %v", version, err)
 	}
 }
@@ -309,6 +355,7 @@ func TestFailedMigrationLeaves68Intact(t *testing.T) {
 	if _, err := s.db.ExecContext(ctx, `DROP TABLE application_setup_renewals`); err != nil {
 		t.Fatal(err)
 	}
+	legacyFeedSchema(t, s)
 	if _, err := s.db.ExecContext(ctx, `UPDATE schema_version SET version=68`); err != nil {
 		t.Fatal(err)
 	}

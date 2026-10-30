@@ -76,6 +76,10 @@ const (
 type FeedEntry struct {
 	Kind          string       `json:"kind"`
 	ID            string       `json:"id"`
+	ParentID      string       `json:"parent_id,omitempty"`
+	ParentAuthor  string       `json:"parent_author,omitempty"`
+	ParentActor   string       `json:"parent_actor,omitempty"`
+	ParentIssue   int64        `json:"parent_issue,omitempty"`
 	Repository    int64        `json:"repository"`
 	Seq           int64        `json:"seq"`
 	Actor         string       `json:"actor,omitempty"`
@@ -91,9 +95,9 @@ type FeedEntry struct {
 	Assignment    string       `json:"assignment,omitempty"`
 	EventIdentity string       `json:"event_identity,omitempty"`
 	Payload       *FeedPayload `json:"payload,omitempty"`
-	// Comment is a human post's stored comment with its pipeline outcome,
+	// SourcePost is a human post's stored comment with its pipeline outcome,
 	// served with the window so the feed needs no per-post read.
-	Comment any `json:"comment,omitempty"`
+	Post any `json:"post,omitempty"`
 }
 
 // FeedPayload is one record's typed component content, projected by

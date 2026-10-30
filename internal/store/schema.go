@@ -8,7 +8,7 @@ import (
 	"sync"
 )
 
-const schemaFormatVersion = 69
+const schemaFormatVersion = 70
 
 // schemaStatements creates the current PostgreSQL schema in dependency
 // order: tables, indexes, guard functions, then triggers. JSON payloads
@@ -19,7 +19,7 @@ var schemaStatements = []string{
 	`CREATE TABLE factory_activity_settings(repository BIGINT PRIMARY KEY CHECK(repository>0), revision BIGINT NOT NULL CHECK(revision>0), actor_id BIGINT NOT NULL CHECK(actor_id>0), data JSONB NOT NULL)`,
 	`CREATE TABLE factory_feed_subscriptions(subscriber TEXT PRIMARY KEY, revision BIGINT NOT NULL CHECK(revision>0), data JSONB NOT NULL)`,
 	`CREATE TABLE schema_version(version INTEGER PRIMARY KEY)`,
-	`INSERT INTO schema_version(version) VALUES(69)`,
+	`INSERT INTO schema_version(version) VALUES(70)`,
 	`CREATE TABLE applications(id TEXT PRIMARY KEY, administrator_id BIGINT NOT NULL CHECK(administrator_id>0), name TEXT NOT NULL, data_id TEXT NOT NULL UNIQUE, owner_team TEXT NOT NULL, origin TEXT NOT NULL UNIQUE, hostname TEXT NOT NULL UNIQUE, port INTEGER NOT NULL UNIQUE CHECK(port>=20000 AND port<30000), revision BIGINT NOT NULL CHECK(revision>0), observation JSONB CHECK(observation IS NULL OR octet_length(observation::text)<=2048))`,
 	`CREATE TABLE application_revisions(application_id TEXT NOT NULL REFERENCES applications(id), revision BIGINT NOT NULL CHECK(revision>0), spec JSONB NOT NULL CHECK(octet_length(spec::text)<=4096), PRIMARY KEY(application_id,revision))`,
 	`CREATE TABLE application_projects(application_id TEXT PRIMARY KEY REFERENCES applications(id), repository BIGINT NOT NULL CHECK(repository>0))`,
@@ -85,9 +85,10 @@ created TEXT NOT NULL, finished TEXT NOT NULL DEFAULT '')`,
 	`CREATE UNIQUE INDEX factory_unfinished_completion_assignment ON factory_assignments(repository,(data->'subject'->'completion'->>'completion_id'),(data->'subject'->'completion'->>'cycle_id')) WHERE stage='assigned' AND issue=0`,
 	`CREATE INDEX factory_assignments_issue_history ON factory_assignments(repository,issue,seq DESC)`,
 	`CREATE INDEX factory_finished_children ON factory_assignments(seq) WHERE stage='finished' AND data->>'publication_assignment'<>id`,
-	`CREATE TABLE factory_feed_comments(seq BIGINT NOT NULL DEFAULT nextval(pg_get_serial_sequence('factory_assignments','seq')), id TEXT PRIMARY KEY CHECK(id ~ '^[a-f0-9]{32}$'), repository BIGINT NOT NULL CHECK(repository>0), revision BIGINT NOT NULL CHECK(revision>=0), author TEXT NOT NULL CHECK(octet_length(author) BETWEEN 1 AND 160), body TEXT NOT NULL CHECK(char_length(body) BETWEEN 1 AND 4096), idempotency TEXT NOT NULL CHECK(octet_length(idempotency) BETWEEN 1 AND 64), data JSONB NOT NULL, UNIQUE(repository,author,idempotency))`,
-	`CREATE INDEX factory_feed_comments_repository ON factory_feed_comments(repository,seq DESC)`,
-	`CREATE TABLE factory_feed_comment_requests(comment TEXT PRIMARY KEY REFERENCES factory_feed_comments(id), revision BIGINT NOT NULL CHECK(revision>=0), intake TEXT NOT NULL, judgment TEXT NOT NULL, route TEXT NOT NULL DEFAULT '', draft TEXT NOT NULL, effect TEXT NOT NULL, issue BIGINT NOT NULL DEFAULT 0 CHECK(issue>=0), attempts INTEGER NOT NULL DEFAULT 0 CHECK(attempts BETWEEN 0 AND 6), data JSONB NOT NULL)`,
+	`CREATE TABLE factory_feed_posts(seq BIGINT NOT NULL DEFAULT nextval(pg_get_serial_sequence('factory_assignments','seq')), id TEXT PRIMARY KEY CHECK(id ~ '^[a-f0-9]{32}$'), repository BIGINT NOT NULL CHECK(repository>0), revision BIGINT NOT NULL CHECK(revision>=0), author TEXT NOT NULL CHECK(octet_length(author) BETWEEN 1 AND 160), body TEXT NOT NULL CHECK(char_length(body) BETWEEN 1 AND 4096), idempotency TEXT NOT NULL CHECK(octet_length(idempotency) BETWEEN 1 AND 64), data JSONB NOT NULL, UNIQUE(repository,author,idempotency))`,
+	`CREATE INDEX factory_feed_posts_repository ON factory_feed_posts(repository,seq DESC)`,
+	`CREATE INDEX factory_feed_posts_parent ON factory_feed_posts(repository,(data->>'parent_id'),seq)`,
+	`CREATE TABLE factory_post_intakes(post TEXT PRIMARY KEY REFERENCES factory_feed_posts(id), revision BIGINT NOT NULL CHECK(revision>=0), intake TEXT NOT NULL, judgment TEXT NOT NULL, route TEXT NOT NULL DEFAULT '', draft TEXT NOT NULL, effect TEXT NOT NULL, issue BIGINT NOT NULL DEFAULT 0 CHECK(issue>=0), attempts INTEGER NOT NULL DEFAULT 0 CHECK(attempts BETWEEN 0 AND 6), data JSONB NOT NULL)`,
 	`CREATE TABLE factory_reservations(seq BIGINT GENERATED ALWAYS AS IDENTITY, assignment TEXT PRIMARY KEY, repository INTEGER NOT NULL CHECK(repository>0), connection TEXT NOT NULL, state TEXT NOT NULL, data JSONB NOT NULL)`,
 	`CREATE INDEX factory_reservations_connection_state ON factory_reservations(connection,state)`,
 	`CREATE TABLE factory_usage(run TEXT PRIMARY KEY, repository INTEGER NOT NULL CHECK(repository>0), connection TEXT NOT NULL, minutes INTEGER NOT NULL CHECK(minutes>=0), started_at TIMESTAMPTZ NOT NULL, ended_at TIMESTAMPTZ NOT NULL CHECK(ended_at>=started_at), data JSONB NOT NULL)`,
@@ -354,8 +355,8 @@ func verifyRequiredColumns(ctx context.Context, t *sql.Tx) error {
 		`SELECT repository,revision,actor_id,data FROM factory_activity_settings LIMIT 0`,
 		`SELECT subscriber,revision,data FROM factory_feed_subscriptions LIMIT 0`,
 		`SELECT feed_seq,snapshot,max_calls,data FROM factory_priority_judgments LIMIT 0`,
-		`SELECT seq,id,repository,revision,author,body,idempotency,data FROM factory_feed_comments LIMIT 0`,
-		`SELECT comment,revision,intake,judgment,route,draft,effect,issue,attempts,data FROM factory_feed_comment_requests LIMIT 0`,
+		`SELECT seq,id,repository,revision,author,body,idempotency,data FROM factory_feed_posts LIMIT 0`,
+		`SELECT post,revision,intake,judgment,route,draft,effect,issue,attempts,data FROM factory_post_intakes LIMIT 0`,
 		`SELECT id,login,name FROM users LIMIT 0`,
 		`SELECT id,user_id,public,fingerprint FROM keys LIMIT 0`,
 		`SELECT id,name,repository_id,owner_id,repository,ip,ready,creation_profile FROM projects LIMIT 0`,
@@ -500,8 +501,19 @@ func initializeSchema(ctx context.Context, db *sql.DB) error {
 			rollback()
 			return reopenAfterLostUpgradeRace(ctx, db, err)
 		}
+		version = 69
 	} else if version != SchemaVersion() {
-		return errors.New("database schema differs from this application")
+		if version != 69 {
+			return errors.New("database schema differs from this application")
+		}
+	}
+	if version == 69 {
+		for _, statement := range FeedPostsUpgradeDDL {
+			if _, err = t.ExecContext(ctx, statement); err != nil {
+				rollback()
+				return reopenAfterLostUpgradeRace(ctx, db, fmt.Errorf("migrate feed posts: %w", err))
+			}
+		}
 	}
 	if err = verifyCurrentSchema(ctx, t); err != nil {
 		return err

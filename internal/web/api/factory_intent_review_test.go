@@ -101,38 +101,38 @@ func TestCommentProductReviewHTTPPreservesOwnerAndExactSource(t *testing.T) {
 	if err != nil || len(posts) != 1 {
 		t.Fatalf("accepted source posts=%d err=%v", len(posts), err)
 	}
-	code, body := call(http.MethodPost, "/api/factory/feed/comments", `{"repository":7,"body":"New requests above EUR 1000 also need Finance approval. Existing requests keep their route.","source_kind":"post","source_id":"`+posts[0].ID+`","reply_to":"`+posts[0].ID+`","idempotency_key":"finance-change"}`)
+	code, body := call(http.MethodPost, "/api/factory/feed/posts", `{"repository":7,"body":"New requests above EUR 1000 also need Finance approval. Existing requests keep their route.","parent_id":"`+posts[0].ID+`","idempotency_key":"finance-change"}`)
 	if code != http.StatusOK {
 		t.Fatalf("comment save=%d %s", code, body)
 	}
 	var saved struct {
-		Comment string `json:"comment_id"`
+		SourcePost string `json:"post_id"`
 	}
-	if err := json.Unmarshal(body, &saved); err != nil || saved.Comment == "" {
+	if err := json.Unmarshal(body, &saved); err != nil || saved.SourcePost == "" {
 		t.Fatalf("comment identity=%s err=%v", body, err)
 	}
-	pipe, err := db.CommentPipeline(ctx, saved.Comment)
+	pipe, err := db.PostIntake(ctx, saved.SourcePost)
 	if err != nil {
 		t.Fatal(err)
 	}
 	// The external routing judgment is a declared fixture; the HTTP and
 	// transaction boundaries below use the real mux and PostgreSQL owners.
 	routed := pipe
-	routed.Judgment, routed.Route = factory.CommentJudgmentApplied, factory.CommentRouteNewIssue
-	if err := db.AdvanceCommentPipeline(ctx, pipe, routed); err != nil {
+	routed.Judgment, routed.Route = factory.PostJudgmentApplied, factory.PostRouteNewIssue
+	if err := db.AdvancePostIntake(ctx, pipe, routed); err != nil {
 		t.Fatal(err)
 	}
-	drafter := &fakeCommentDrafter{draft: validTestDraft(saved.Comment)}
-	creator := &fakeCommentCreator{next: 100, issues: map[string]int64{}}
-	response, err := driveCommentPipeline(ctx, db, &CommentCollaborators{Drafter: drafter, Creator: creator}, saved.Comment)
+	drafter := &fakePostDrafter{draft: validTestDraft(saved.SourcePost)}
+	creator := &fakePostCreator{next: 100, issues: map[string]int64{}}
+	response, err := drivePostIntake(ctx, db, &PostCollaborators{Drafter: drafter, Creator: creator}, saved.SourcePost)
 	if err != nil || response.Issue != 0 || drafter.calls != 0 || creator.creates != 0 {
 		t.Fatalf("product proposal created detached work: response=%+v drafts=%d creates=%d err=%v", response, drafter.calls, creator.creates, err)
 	}
-	path := "/api/factory/feed/comments/" + saved.Comment
-	decode := func(code int, body []byte) store.CommentProductChange {
+	path := "/api/factory/feed/posts/" + saved.SourcePost
+	decode := func(code int, body []byte) store.PostProductChange {
 		t.Helper()
 		var response struct {
-			Change store.CommentProductChange `json:"product_change"`
+			Change store.PostProductChange `json:"product_change"`
 			Issue  int64                      `json:"issue"`
 		}
 		if code != http.StatusOK || json.Unmarshal(body, &response) != nil || response.Change.Intent != accepted.Intent || response.Change.AcceptedRevision != accepted.ID {
@@ -174,10 +174,10 @@ func TestCommentProductReviewHTTPPreservesOwnerAndExactSource(t *testing.T) {
 	if view.CanReview {
 		t.Fatal("another actor can continue the owner's draft")
 	}
-	status, replyBody := call(http.MethodGet, "/api/factory/feed/replies?repository=7&source_kind=post&source_id="+posts[0].ID, "")
+	status, replyBody := call(http.MethodGet, "/api/factory/feed/posts/"+posts[0].ID+"/replies?repository=7", "")
 	var replies struct {
 		Items []struct {
-			Change *store.CommentProductChange `json:"product_change"`
+			Change *store.PostProductChange `json:"product_change"`
 		} `json:"items"`
 	}
 	if status != http.StatusOK || json.Unmarshal(replyBody, &replies) != nil || len(replies.Items) != 1 || replies.Items[0].Change == nil || !replies.Items[0].Change.CanReview {
@@ -193,7 +193,7 @@ func TestCommentProductReviewHTTPPreservesOwnerAndExactSource(t *testing.T) {
 	}
 	// Adopt the reviewed change: the owner may open the accepted direction,
 	// a collaborator sees it read-only.
-	commentIdea := factory.CommentDecisionID("product-idea", saved.Comment, 0)
+	commentIdea := factory.PostDecisionID("product-idea", saved.SourcePost, 0)
 	adopted := head
 	financeTask := factory.IntentTask{Key: "d666666666666666666666666", Objective: "Finance approval", Outcomes: []string{"Threshold is applied"}, IdeaIDs: []string{commentIdea}}
 	adopted.ID, adopted.Predecessor, adopted.State = "d555555555555555555555555", head.ID, "accepted"
@@ -227,35 +227,35 @@ func TestCommentProductReviewHTTPPreservesOwnerAndExactSource(t *testing.T) {
 	// A same-product comment whose product read misses its intent head
 	// projects the lane explicitly: state unavailable with the accepted
 	// source intact, never a detached generic pipeline.
-	brokenSource, err := db.ResolveCommentSource(ctx, 7, factory.CommentSourcePost, posts[0].ID)
+	brokenSource, err := db.ResolvePostSource(ctx, 7, factory.PostSourcePost, posts[0].ID)
 	if err != nil {
 		t.Fatal(err)
 	}
 	broken := *brokenSource
-	broken.Product = &factory.CommentProductSource{Intent: "d999999999999999999999999", AcceptedRevision: "d999999999999999999999999"}
-	brokenID, _, err := db.SaveFeedCommentWithSource(ctx, factory.CommentRequest{Repository: 7, Body: "Unknown product follow-up.", SourceKind: broken.Kind, SourceID: broken.ID, IdempotencyKey: "finance-unknown"}, "1", "Ada", 2, &broken)
+	broken.Product = &factory.PostProductSource{Intent: "d999999999999999999999999", AcceptedRevision: "d999999999999999999999999"}
+	brokenID, _, err := db.SaveFeedPostWithSource(ctx, factory.PostRequest{Repository: 7, Body: "Unknown product follow-up.", SourceKind: broken.Kind, SourceID: broken.ID, IdempotencyKey: "finance-unknown"}, "1", "Ada", 2, &broken)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := db.RecordCommentIntake(ctx, brokenID, 0); err != nil {
+	if err := db.RecordPostIntake(ctx, brokenID, 0); err != nil {
 		t.Fatal(err)
 	}
-	brokenPipe, err := db.CommentPipeline(ctx, brokenID)
+	brokenPipe, err := db.PostIntake(ctx, brokenID)
 	if err != nil {
 		t.Fatal(err)
 	}
 	brokenRouted := brokenPipe
-	brokenRouted.Judgment, brokenRouted.Route = factory.CommentJudgmentApplied, factory.CommentRouteNewIssue
-	if err := db.AdvanceCommentPipeline(ctx, brokenPipe, brokenRouted); err != nil {
+	brokenRouted.Judgment, brokenRouted.Route = factory.PostJudgmentApplied, factory.PostRouteNewIssue
+	if err := db.AdvancePostIntake(ctx, brokenPipe, brokenRouted); err != nil {
 		t.Fatal(err)
 	}
-	decodeBroken := func(code int, body []byte) store.CommentProductChange {
+	decodeBroken := func(code int, body []byte) store.PostProductChange {
 		t.Helper()
 		var response struct {
-			Change store.CommentProductChange `json:"product_change"`
+			Change store.PostProductChange `json:"product_change"`
 			Issue  int64                      `json:"issue"`
 		}
-		if code != http.StatusOK || json.Unmarshal(body, &response) != nil || response.Change.State != store.CommentProductStateUnavailable {
+		if code != http.StatusOK || json.Unmarshal(body, &response) != nil || response.Change.State != store.PostProductStateUnavailable {
 			t.Fatalf("unavailable projection=%d %s", code, body)
 		}
 		if response.Issue != 0 {
@@ -263,7 +263,7 @@ func TestCommentProductReviewHTTPPreservesOwnerAndExactSource(t *testing.T) {
 		}
 		return response.Change
 	}
-	brokenPath := "/api/factory/feed/comments/" + brokenID
+	brokenPath := "/api/factory/feed/posts/" + brokenID
 	unavailable := decodeBroken(call(http.MethodGet, brokenPath, ""))
 	if unavailable.Intent != broken.Product.Intent || unavailable.AcceptedRevision != broken.Product.AcceptedRevision || unavailable.CanReview {
 		t.Fatalf("unavailable projection claims work: %+v", unavailable)
@@ -272,7 +272,7 @@ func TestCommentProductReviewHTTPPreservesOwnerAndExactSource(t *testing.T) {
 	if unavailableOther.CanReview {
 		t.Fatal("collaborator gained unavailable review control")
 	}
-	status, replyBody = call(http.MethodGet, "/api/factory/feed/replies?repository=7&source_kind=post&source_id="+posts[0].ID, "")
+	status, replyBody = call(http.MethodGet, "/api/factory/feed/posts/"+posts[0].ID+"/replies?repository=7", "")
 	if status != http.StatusOK || json.Unmarshal(replyBody, &replies) != nil || len(replies.Items) != 2 {
 		t.Fatalf("unavailable thread over HTTP=%d %s", status, replyBody)
 	}
@@ -660,36 +660,36 @@ func TestCommentProductAcceptedOwnerReadKeepsAction(t *testing.T) {
 	if err != nil || len(posts) != 1 {
 		t.Fatalf("accepted source posts=%d err=%v", len(posts), err)
 	}
-	code, body := owner(http.MethodPost, "/api/factory/feed/comments", `{"repository":7,"body":"New requests above EUR 1000 also need Finance approval. Existing requests keep their route.","source_kind":"post","source_id":"`+posts[0].ID+`","reply_to":"`+posts[0].ID+`","idempotency_key":"owner-read-change"}`)
+	code, body := owner(http.MethodPost, "/api/factory/feed/posts", `{"repository":7,"body":"New requests above EUR 1000 also need Finance approval. Existing requests keep their route.","parent_id":"`+posts[0].ID+`","idempotency_key":"owner-read-change"}`)
 	if code != http.StatusOK {
 		t.Fatalf("comment save=%d %s", code, body)
 	}
 	var saved struct {
-		Comment string `json:"comment_id"`
+		SourcePost string `json:"post_id"`
 	}
-	if err := json.Unmarshal(body, &saved); err != nil || saved.Comment == "" {
+	if err := json.Unmarshal(body, &saved); err != nil || saved.SourcePost == "" {
 		t.Fatalf("comment identity=%s err=%v", body, err)
 	}
-	pipe, err := db.CommentPipeline(ctx, saved.Comment)
+	pipe, err := db.PostIntake(ctx, saved.SourcePost)
 	if err != nil {
 		t.Fatal(err)
 	}
 	routed := pipe
-	routed.Judgment, routed.Route = factory.CommentJudgmentApplied, factory.CommentRouteNewIssue
-	if err := db.AdvanceCommentPipeline(ctx, pipe, routed); err != nil {
+	routed.Judgment, routed.Route = factory.PostJudgmentApplied, factory.PostRouteNewIssue
+	if err := db.AdvancePostIntake(ctx, pipe, routed); err != nil {
 		t.Fatal(err)
 	}
-	drafter := &fakeCommentDrafter{draft: validTestDraft(saved.Comment)}
-	creator := &fakeCommentCreator{next: 100, issues: map[string]int64{}}
-	response, err := driveCommentPipeline(ctx, db, &CommentCollaborators{Drafter: drafter, Creator: creator}, saved.Comment)
+	drafter := &fakePostDrafter{draft: validTestDraft(saved.SourcePost)}
+	creator := &fakePostCreator{next: 100, issues: map[string]int64{}}
+	response, err := drivePostIntake(ctx, db, &PostCollaborators{Drafter: drafter, Creator: creator}, saved.SourcePost)
 	if err != nil || response.Issue != 0 || drafter.calls != 0 || creator.creates != 0 {
 		t.Fatalf("product proposal created detached work: response=%+v drafts=%d creates=%d err=%v", response, drafter.calls, creator.creates, err)
 	}
-	path := "/api/factory/feed/comments/" + saved.Comment
-	decode := func(code int, body []byte) store.CommentProductChange {
+	path := "/api/factory/feed/posts/" + saved.SourcePost
+	decode := func(code int, body []byte) store.PostProductChange {
 		t.Helper()
 		var response struct {
-			Change store.CommentProductChange `json:"product_change"`
+			Change store.PostProductChange `json:"product_change"`
 			Issue  int64                      `json:"issue"`
 		}
 		if code != http.StatusOK || json.Unmarshal(body, &response) != nil || response.Change.Intent != accepted.Intent || response.Change.AcceptedRevision != accepted.ID {
@@ -726,10 +726,10 @@ func TestCommentProductAcceptedOwnerReadKeepsAction(t *testing.T) {
 	if view.State != "accepted" || !view.CanReview {
 		t.Fatalf("downgraded owner lost accepted action=%+v", view)
 	}
-	status, replyBody := owner(http.MethodGet, "/api/factory/feed/replies?repository=7&source_kind=post&source_id="+posts[0].ID, "")
+	status, replyBody := owner(http.MethodGet, "/api/factory/feed/posts/"+posts[0].ID+"/replies?repository=7", "")
 	var replies struct {
 		Items []struct {
-			Change *store.CommentProductChange `json:"product_change"`
+			Change *store.PostProductChange `json:"product_change"`
 		} `json:"items"`
 	}
 	if status != http.StatusOK || json.Unmarshal(replyBody, &replies) != nil || len(replies.Items) != 1 || replies.Items[0].Change == nil || replies.Items[0].Change.State != "accepted" || !replies.Items[0].Change.CanReview {

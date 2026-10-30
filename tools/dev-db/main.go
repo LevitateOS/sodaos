@@ -15,12 +15,16 @@ func main() {
 		fmt.Fprintln(os.Stderr, "usage: dev-db > dev-schema.sql")
 		os.Exit(2)
 	}
-	if store.SchemaVersion() != 69 {
+	if store.SchemaVersion() != 70 {
 		fmt.Fprintln(os.Stderr, "dev-db: review the development-copy upgrade for the current store schema")
 		os.Exit(1)
 	}
 	quote := func(statement string) string {
 		return "'" + strings.ReplaceAll(statement, "'", "''") + "'"
+	}
+	var posts strings.Builder
+	for _, statement := range store.FeedPostsUpgradeDDL {
+		fmt.Fprintf(&posts, "            EXECUTE %s;\n", quote(statement))
 	}
 	sql := fmt.Sprintf(`-- Apply only to the retained development copy, never the native Soda database.
 BEGIN;
@@ -47,14 +51,18 @@ BEGIN
             EXECUTE %s;
         WHEN 69 THEN
             NULL;
+        WHEN 70 THEN
+            NULL;
         ELSE
             RAISE EXCEPTION 'unsupported development database schema version: %%', minimum;
     END CASE;
-    UPDATE schema_version SET version=69 WHERE version IN (67,68);
+    IF minimum < 70 THEN
+%s
+    END IF;
 END;
 $soda_dev_copy$;
 COMMIT;
-`, quote(store.ApplicationBuildsDDL), quote(store.ApplicationSetupRenewalsDDL), quote(store.ApplicationSetupRenewalsDDL))
+`, quote(store.ApplicationBuildsDDL), quote(store.ApplicationSetupRenewalsDDL), quote(store.ApplicationSetupRenewalsDDL), posts.String())
 	if _, err := os.Stdout.WriteString(sql); err != nil {
 		fmt.Fprintln(os.Stderr, "dev-db: write development-copy SQL:", err)
 		os.Exit(1)

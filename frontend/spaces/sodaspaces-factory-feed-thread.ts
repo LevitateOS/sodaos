@@ -1,15 +1,10 @@
-import {feedEntryKey} from './sodaspaces-factory-feed-response.js';
 import type {FeedCommunication, FeedEntry, FeedJudgment} from './sodaspaces-factory-feed-response.js';
-import {factoryEvent} from './sodaspaces-factory-feed-communication.js';
 
-// The Feed's three levels. Every entry lands in exactly one: a new post
-// (something worth seeing by itself), a live update (running work whose post
-// changes in place) or a one-line comment under the post it belongs to.
-// Comments that change the outcome or need the founder are promoted back to
-// posts and link to the thread they came from. Nothing is dropped: a comment
-// with no post to belong to stays a post.
+// Parent links connect one logical thread. Main-feed placement is independent:
+// starts, handoffs, outcomes and attention surface; routine replies stay inside.
 
 const roleLabels: Readonly<Record<string, string>> = {
+  issue_maker: 'Issue Maker',
   product_lead: 'Product Lead',
   architect: 'Architect',
   builder: 'Builder',
@@ -39,7 +34,7 @@ export function roleLabel(actor: string | undefined): string | undefined {
 }
 
 export type FeedState = 'needs_you' | 'problem' | 'waiting' | 'in_progress' | 'done' | 'decided' | 'info';
-export type FeedLevel = 'post' | 'update' | 'comment';
+export type FeedLevel = 'post' | 'update' | 'reply';
 
 export const feedStateWords: Readonly<Record<FeedState, string>> = {
   needs_you: 'Needs you',
@@ -94,7 +89,7 @@ function communicationState(communication: FeedCommunication, entry: FeedEntry):
 function statusState(entry: FeedEntry): FeedState {
   const status = (entry.status ?? '').toLowerCase();
   if (/needs-human|clarify/.test(status)) return 'needs_you';
-  if (/paused|pending|queued/.test(status)) return 'waiting';
+  if (/paused|pending|queued|waiting|settling/.test(status)) return 'waiting';
   if (
     /fail|error|refus|reject|invalid|blocked|stuck|unconfirmed|cancel|stopped|request-changes|exhaust|denied|conflict/.test(
       status
@@ -121,95 +116,13 @@ export function feedState(entry: FeedEntry): FeedState {
   return statusState(entry);
 }
 
-// feedLevel applies the post-or-comment rule. Stage starts and ends, results,
-// questions, decisions and failures are posts; running progress is a live
-// update; small steps inside work that already has a post are comments.
-export function feedLevel(entry: FeedEntry): FeedLevel {
-  const communication = entry.payload?.communication;
-  if (entry.kind === 'post' && !communication) return 'post';
-  const event = factoryEvent(communication?.componentId);
-  if (event !== undefined) return event.level;
-  // A priority judgment explains why work is next; a delivery assessment is a post.
-  if (entry.payload?.judgment?.kind === 'priority') return 'comment';
-  if (communication) {
-    switch (communication.kind) {
-      case 'partial':
-        return 'update';
-      case 'reply':
-      case 'answer':
-      case 'artifact':
-      case 'journey':
-      case 'learned':
-      case 'suggest':
-      case 'diagnosis':
-      case 'library_maintenance':
-        return 'comment';
-      case 'flag':
-        return communication.severity === 'info' ? 'comment' : 'post';
-      default:
-        return 'post';
-    }
-  }
-  if (entry.status === 'run:succeeded') return 'comment';
-  return 'post';
-}
-
-export type CommentKind =
-  | 'edit'
-  | 'read'
-  | 'pass'
-  | 'fail'
-  | 'save'
-  | 'jev'
-  | 'reply'
-  | 'know'
-  | 'shot'
-  | 'link'
-  | 'text';
-export type CommentTone = 'ok' | 'bad' | 'muted' | 'plain';
-
-export interface FeedCommentLine {
-  readonly key: string;
-  readonly kind: CommentKind;
-  readonly actor: string | undefined;
-  readonly who: string;
-  // A designed line reads who · did what · to what · result. A plain line
-  // (kind text) carries only its text.
-  readonly did: string;
-  readonly what: string;
-  readonly result: string;
-  readonly tone: CommentTone;
-  readonly at: number | undefined;
-  // The post this comment became, when it was promoted.
-  readonly promoted?: string;
-}
-
-export interface FeedCommentGroup {
-  readonly key: string;
-  readonly group: true;
-  readonly kind: CommentKind;
-  readonly actor: string | undefined;
-  readonly who: string;
-  readonly summary: string;
-  readonly result: string;
-  readonly tone: CommentTone;
-  readonly from: number | undefined;
-  readonly to: number | undefined;
-  readonly items: readonly FeedCommentLine[];
-}
-
-export type FeedThreadComment = FeedCommentLine | FeedCommentGroup;
-
+// Posts keep their own position in the timeline. Parentage supplies context;
+// it does not decide whether a post is hidden inside another post.
 export interface FeedThreadItem {
   readonly entry: FeedEntry;
   readonly state: FeedState;
   readonly level: FeedLevel;
-  readonly comments: readonly FeedThreadComment[];
-  readonly commentCount: number;
-  // Older states of a live update, newest first.
   readonly changes: readonly FeedEntry[];
-  // The thread a promoted comment came from.
-  readonly from?: {key: string; label: string};
 }
 
 export function whoOf(entry: FeedEntry): string {
@@ -222,280 +135,28 @@ function clip(text: string, limit = 72): string {
   return line.length > limit ? `${line.slice(0, limit - 1).trimEnd()}…` : line;
 }
 
-function plain(entry: FeedEntry, text: string): FeedCommentLine {
-  return {
-    key: feedEntryKey(entry),
-    kind: 'text',
-    actor: entry.actor,
-    who: whoOf(entry),
-    did: '',
-    what: clip(text, 160),
-    result: '',
-    tone: 'plain',
-    at: entry.at,
-  };
-}
 
-// The icon a Factory event's comment carries, by its presentation.
-const presentationKinds: Readonly<Record<string, CommentKind>> = {
-  comparison: 'edit',
-  artifact: 'shot',
-  result: 'save',
-  knowledge: 'know',
-  evidence: 'read',
-  diagnosis: 'read',
-  graph: 'read',
-  checks: 'pass',
-  journey: 'pass',
-  finding: 'fail',
-  proposal: 'reply',
-  discussion: 'reply',
-  brief: 'text',
-  decision: 'jev',
-};
-
-// commentLine turns one comment-level entry into its single line. Kinds
-// without their own design keep the plain-text fallback: who and one line.
-export function commentLine(entry: FeedEntry): FeedCommentLine {
-  const who = whoOf(entry);
-  const base = {key: feedEntryKey(entry), actor: entry.actor, who, at: entry.at};
-  const communication = entry.payload?.communication;
-  const title = communication ? clip(communication.title || communication.summary) : '';
-  const presentation = factoryEvent(communication?.componentId)?.presentation;
-  if (communication && presentation && presentationKinds[presentation]) {
-    const flagged = communication.severity === 'critical' || communication.severity === 'warning';
-    return {
-      ...base,
-      kind: flagged ? 'fail' : presentationKinds[presentation]!,
-      did: '',
-      what: title,
-      result: flagged ? 'needs attention' : '',
-      tone: flagged ? 'bad' : 'muted',
-    };
-  }
-  if (communication) {
-    switch (communication.kind) {
-      case 'artifact': {
-        const count = communication.artifacts?.length ?? 0;
-        return {
-          ...base,
-          kind: 'shot',
-          did: 'shared',
-          what: title,
-          result: count > 1 ? `${count} files` : '',
-          tone: 'muted',
-        };
-      }
-      case 'journey':
-        return {...base, kind: 'pass', did: 'checked', what: title, result: 'observed', tone: 'muted'};
-      case 'learned':
-        return {...base, kind: 'know', did: 'saved a lesson', what: title, result: 'in Knowledge', tone: 'muted'};
-      case 'suggest':
-        return {...base, kind: 'reply', did: 'suggested', what: title, result: 'proposal', tone: 'muted'};
-      case 'diagnosis':
-        return {...base, kind: 'read', did: 'diagnosed', what: title, result: '', tone: 'muted'};
-      case 'library_maintenance':
-        return {...base, kind: 'know', did: 'updated Knowledge', what: title, result: '', tone: 'muted'};
-      case 'answer':
-        return {...base, kind: 'reply', did: 'answered', what: title, result: '', tone: 'muted'};
-      case 'flag':
-        return {...base, kind: 'read', did: 'noted', what: title, result: '', tone: 'muted'};
-      default:
-        return plain(entry, communication.summary || communication.title);
-    }
-  }
-  if (entry.status === 'run:succeeded')
-    return {
-      ...base,
-      kind: 'pass',
-      did: 'finished a run',
-      what: entry.issue ? `on issue #${entry.issue}` : '',
-      result: 'run ended',
-      tone: 'muted',
-    };
-  if (entry.status === 'run:failed')
-    return {
-      ...base,
-      kind: 'fail',
-      did: 'ran',
-      what: entry.issue ? `issue #${entry.issue}` : 'its work',
-      result: 'failed',
-      tone: 'bad',
-    };
-  return plain(entry, entry.summary ?? entry.status ?? 'Recorded a step.');
-}
-
-// The thread a step belongs to: the same assignment first, then the same
-// pull request, then the same issue.
-function threadKeys(entry: FeedEntry): string[] {
-  const keys: string[] = [];
-  if (entry.assignment) keys.push(`a:${entry.repository}:${entry.assignment}`);
-  if (entry.kind === 'record' && entry.activity === undefined && entry.payload?.communication === undefined)
-    keys.push(`a:${entry.repository}:${entry.id}`);
-  if (entry.pr) keys.push(`p:${entry.repository}:${entry.pr}`);
-  if (entry.issue) keys.push(`i:${entry.repository}:${entry.issue}`);
-  return keys;
-}
-
-function headlineLabel(entry: FeedEntry): string {
-  const who = whoOf(entry);
-  const work = entry.pr ? `pull request #${entry.pr}` : entry.issue ? `issue #${entry.issue}` : 'this work';
-  return `${who === 'SodaOS' ? "SodaOS's" : `the ${who}'s`} post on ${work}`;
-}
-
-function liveKey(entry: FeedEntry): string | undefined {
-  const scope = entry.assignment ?? (entry.pr ? `pr${entry.pr}` : entry.issue ? `issue${entry.issue}` : undefined);
-  if (scope === undefined) return undefined;
-  const component = entry.payload?.communication?.componentId ?? 'progress';
-  return `${entry.repository}:${normalizedActor(entry.actor)}:${scope}:${component}`;
-}
-
-function normalizedActor(actor: string | undefined): string {
-  return (actor ?? '').trim().toLowerCase();
-}
-
-const groupWords: Readonly<Record<CommentKind, [string, string]>> = {
-  edit: ['made', 'change'],
-  read: ['read', 'source'],
-  pass: ['ran', 'check'],
-  fail: ['hit', 'problem'],
-  save: ['saved', 'checkpoint'],
-  jev: ['recorded', 'decision'],
-  reply: ['posted', 'reply'],
-  know: ['saved', 'lesson'],
-  shot: ['shared', 'preview'],
-  link: ['linked', 'post'],
-  text: ['posted', 'note'],
-};
-
-// "made 2 changes · ran 3 checks": one phrase per kind, in first-seen order.
-function groupSummary(lines: readonly FeedCommentLine[]): string {
-  const counts = new Map<CommentKind, number>();
-  for (const line of lines) counts.set(line.kind, (counts.get(line.kind) ?? 0) + 1);
-  return [...counts]
-    .map(([kind, count]) => {
-      const [verb, noun] = groupWords[kind];
-      return `${verb} ${count} ${noun}${count === 1 ? '' : noun.endsWith('y') ? '' : 's'}`.replace(
-        /replys$/,
-        'replies'
-      );
-    })
-    .join(' · ');
-}
-
-// Three or more steps in a row by the same author fold into one line that
-// opens to show each step.
-function groupLines(lines: readonly FeedCommentLine[]): FeedThreadComment[] {
-  const out: FeedThreadComment[] = [];
-  let run: FeedCommentLine[] = [];
-  const flush = () => {
-    if (run.length >= 3) {
-      const first = run[0]!;
-      const failed = run.filter((line) => line.tone === 'bad').length;
-      out.push({
-        key: `group:${first.key}`,
-        group: true,
-        kind: first.kind,
-        actor: first.actor,
-        who: first.who,
-        summary: groupSummary(run),
-        result: failed > 0 ? `${failed} failed` : run.every((line) => line.kind === 'pass') ? 'all passed' : '',
-        tone: failed > 0 ? 'bad' : run.every((line) => line.kind === 'pass') ? 'ok' : 'muted',
-        from: run[0]!.at,
-        to: run[run.length - 1]!.at,
-        items: run,
-      });
-    } else out.push(...run);
-    run = [];
-  };
-  for (const line of lines) {
-    const last = run[run.length - 1];
-    if (last && (last.who !== line.who || line.promoted)) flush();
-    run.push(line);
-    if (line.promoted) flush();
-  }
-  flush();
-  return out;
-}
-
-// threadFeed arranges one newest-first page into the Feed's three levels.
-// Comments join the nearest post that shares their assignment, pull request
-// or issue; a comment with no such post on the page stays a post.
-export function threadFeed(entries: readonly FeedEntry[]): FeedThreadItem[] {
-  const posts = new Map<
-    string,
-    {entry: FeedEntry; lines: FeedCommentLine[]; changes: FeedEntry[]; from?: {key: string; label: string}}
-  >();
-  const order: string[] = [];
-  const owners = new Map<string, string>();
-  const live = new Map<string, string>();
-  // Oldest first, so a thread exists before its steps arrive and the newest
-  // live state wins.
-  const oldestFirst = [...entries].reverse();
-  const postFor = (entry: FeedEntry) => {
-    for (const key of threadKeys(entry)) {
-      const owner = owners.get(key);
-      if (owner !== undefined && owner !== feedEntryKey(entry)) return owner;
-    }
-    return undefined;
-  };
-  const addPost = (entry: FeedEntry, from?: {key: string; label: string}) => {
-    const key = feedEntryKey(entry);
-    posts.set(key, {entry, lines: [], changes: [], ...(from ? {from} : {})});
-    order.push(key);
-    for (const threadKey of threadKeys(entry)) if (!owners.has(threadKey)) owners.set(threadKey, key);
-  };
-  for (const entry of oldestFirst) {
-    const level = feedLevel(entry);
+export function threadFeed(entries: readonly FeedEntry[], focused = false): FeedThreadItem[] {
+  const byID = new Map(entries.map(entry => [entry.id, entry]));
+  return entries.filter(entry => {
+    if (focused) return true;
+    const parentID = entry.parentId || entry.post?.parentId || entry.payload?.communication?.parentId;
+    if (!parentID) return true;
     const state = feedState(entry);
-    if (level === 'update') {
-      const scope = liveKey(entry);
-      const previous = scope !== undefined ? live.get(scope) : undefined;
-      const held = previous !== undefined ? posts.get(previous) : undefined;
-      if (held && previous !== undefined) {
-        // The live post takes the newer state in place; the older state moves
-        // to its change history and the thread stays with it.
-        const index = order.indexOf(previous);
-        const key = feedEntryKey(entry);
-        posts.delete(previous);
-        posts.set(key, {...held, entry, changes: [held.entry, ...held.changes]});
-        order.splice(index, 1, key);
-        live.set(scope!, key);
-        for (const [threadKey, owner] of owners) if (owner === previous) owners.set(threadKey, key);
-        continue;
-      }
-      addPost(entry);
-      if (scope !== undefined) live.set(scope, feedEntryKey(entry));
-      continue;
-    }
-    if (level === 'comment') {
-      const parent = postFor(entry);
-      if (parent !== undefined) {
-        const line = commentLine(entry);
-        if (state === 'problem' || state === 'needs_you') {
-          // It changes the outcome: it becomes its own post, and its thread
-          // keeps a line that links to it.
-          const holder = posts.get(parent)!;
-          holder.lines.push({...line, promoted: feedEntryKey(entry)});
-          addPost(entry, {key: parent, label: headlineLabel(holder.entry)});
-        } else posts.get(parent)!.lines.push(line);
-        continue;
-      }
-    }
-    addPost(entry);
-  }
-  return order
-    .map((key) => posts.get(key)!)
-    .reverse()
-    .map((held) => ({
-      entry: held.entry,
-      state: feedState(held.entry),
-      level: feedLevel(held.entry),
-      comments: groupLines(held.lines),
-      commentCount: held.lines.length,
-      changes: held.changes,
-      ...(held.from ? {from: held.from} : {}),
-    }));
+    const communication = entry.payload?.communication;
+    if (['needs_you', 'problem', 'done', 'decided'].includes(state) ||
+        ['blocked', 'stuck', 'finish_incomplete', 'artifact', 'learned'].includes(communication?.kind ?? ''))
+      return true;
+    const parent = byID.get(parentID);
+    const parentActor = parent?.actor || entry.parentActor || parent?.author || entry.parentAuthor;
+    const parentIssue = parent?.issue ?? entry.parentIssue;
+    // The same role starting another issue still gets a separate feed post.
+    if (entry.issue && entry.issue !== parentIssue) return true;
+    if (entry.actor && parentActor && roleKey(entry.actor) !== roleKey(parentActor)) return true;
+    // A missing parent snapshot must not hide work. The server includes the
+    // parent's actor and issue even when the parent is outside this page.
+    return !parent && !entry.parentAuthor;
+  }).map(entry => ({entry, state: feedState(entry), level: 'post', changes: []}));
 }
 
 export interface PostLine {
@@ -555,7 +216,7 @@ export function describePostLine(entry: FeedEntry, state: FeedState): PostLine {
   const workItem = entry.pr ? `Pull request #${entry.pr}` : entry.issue ? `Issue #${entry.issue}` : undefined;
   const communication = entry.payload?.communication;
   const judgment = entry.payload?.judgment;
-  const fallback = entry.kind === 'post' ? 'Comment' : `${who} recorded an update`;
+  const fallback = entry.kind === 'post' ? 'Post' : `${who} recorded an update`;
   let headline = fallback;
   // A recorded summary stays in the post's own section, so it is not repeated
   // here; the detail line carries a rule or consequence only.

@@ -16,6 +16,13 @@ func recordIntentRevisionFeedTx(ctx context.Context, tx *sql.Tx, r factory.Inten
 	if r.Repository <= 0 {
 		return nil
 	}
+	var intake bool
+	if err := tx.QueryRowContext(ctx, `SELECT EXISTS(SELECT 1 FROM factory_feed_posts WHERE repository=$1 AND data->>'intake_intent'=$2)`, r.Repository, r.Intent).Scan(&intake); err != nil {
+		return err
+	}
+	if intake {
+		return nil
+	}
 	label := map[string]string{"draft": "Design proposal recorded", "accepted": "Design accepted", "declined": "Design declined", "rejected": "Design rejected", "abandoned": "Design abandoned"}[r.State]
 	if label == "" {
 		return nil

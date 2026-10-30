@@ -17,6 +17,7 @@ import (
 
 // API owns native-extension product handlers and its terminal peer registry.
 type API struct {
+	IssueMakerNative IssueMakerNative
 	Config           *config.Config
 	Store            *store.Store
 	Forgejo          *forgejo.Client

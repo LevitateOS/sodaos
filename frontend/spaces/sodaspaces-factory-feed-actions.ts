@@ -260,6 +260,26 @@ function question(c: FilledCommunication, entryKey: string): TemplateResult {
   </section>`;
 }
 
+// An ordinary question reads as conversation: the question once, any
+// suggested answers, and what it affects. The card puts the reply box under it.
+export function questionPrompt(communication: FeedCommunication, entryKey: string): TemplateResult {
+  const c = filledCommunication(communication);
+  // Each distinct line once: a summary or question that repeats the title is dropped.
+  const lines = [...new Set([c.summary, c.question].filter((line): line is string => !!line && line !== c.title))];
+  return html`<div class="soda-feed-question">
+    <h3 class="soda-feed-question-text">${c.title}</h3>
+    ${lines.map((line) => html`<p>${line}</p>`)}
+    ${
+      c.options.length
+        ? html`<div class="soda-feed-answer-options" aria-label="Suggested answers">
+            ${c.options.map((option) => html`<button type="button" data-feed-answer=${entryKey} data-feed-answer-text=${option}>${option}</button>`)}
+          </div>`
+        : ''
+    }
+    ${nextStep(c, 'What this affects')}${reason(c)}
+  </div>`;
+}
+
 function finding(c: FilledCommunication): TemplateResult {
   return html`<div class="soda-action-finding">
     ${c.source ? sourceExcerpt(c.source) : ''}

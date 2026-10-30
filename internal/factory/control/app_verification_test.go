@@ -238,7 +238,7 @@ func TestApplicationVerificationRequiresApprovedNativeCheck(t *testing.T) {
 			t.Fatal("foreign or repeated delivery reference authorized F10", foreign)
 		}
 		var completed int
-		if err := sqlDB.QueryRow(`SELECT count(*) FROM factory_feed_comments WHERE data->'communication'->>'component_id'='F10'`).Scan(&completed); err != nil || completed != 0 {
+		if err := sqlDB.QueryRow(`SELECT count(*) FROM factory_feed_posts WHERE data->'communication'->>'component_id'='F10'`).Scan(&completed); err != nil || completed != 0 {
 			t.Fatal("refused coverage wrote application completion", completed, err)
 		}
 	}
@@ -254,14 +254,14 @@ func TestApplicationVerificationRequiresApprovedNativeCheck(t *testing.T) {
 		t.Fatal("completion replay", err)
 	}
 	var count int
-	if err := sqlDB.QueryRow(`SELECT count(*) FROM factory_feed_comments WHERE data->'communication'->>'component_id'='F10'`).Scan(&count); err != nil || count != 1 {
+	if err := sqlDB.QueryRow(`SELECT count(*) FROM factory_feed_posts WHERE data->'communication'->>'component_id'='F10'`).Scan(&count); err != nil || count != 1 {
 		t.Fatalf("trusted completion count %d: %v", count, err)
 	}
 	entries, _, _, err := db.SubscribedFeed(ctx, factory.FeedQuery{Repositories: []int64{7}, Limit: 20})
 	if err != nil {
 		t.Fatal(err)
 	}
-	post, err := db.FeedComment(ctx, entries[0].ID)
+	post, err := db.FeedPost(ctx, entries[0].ID)
 	if err != nil || post.Actor != "factory" || post.Status != "application:verified" || post.Payload.Communication.ComponentID != "F10" {
 		t.Fatalf("completion projection: %+v %v", post, err)
 	}
@@ -299,11 +299,11 @@ func TestApplicationVerificationRequiresApprovedNativeCheck(t *testing.T) {
 	}
 	c.driveAppVerifications(ctx)
 	var readyPosts int
-	if err := sqlDB.QueryRow(`SELECT count(*) FROM factory_feed_comments WHERE data->>'event_identity'=$1 AND data->'communication'->>'component_id'='F10'`, ready).Scan(&readyPosts); err != nil || readyPosts != 0 {
+	if err := sqlDB.QueryRow(`SELECT count(*) FROM factory_feed_posts WHERE data->>'event_identity'=$1 AND data->'communication'->>'component_id'='F10'`, ready).Scan(&readyPosts); err != nil || readyPosts != 0 {
 		t.Fatal("report drive exceeded its bounded page", readyPosts, err)
 	}
 	c.driveAppVerifications(ctx)
-	if err := sqlDB.QueryRow(`SELECT count(*) FROM factory_feed_comments WHERE data->>'event_identity'=$1 AND data->'communication'->>'component_id'='F10'`, ready).Scan(&readyPosts); err != nil || readyPosts != 1 {
+	if err := sqlDB.QueryRow(`SELECT count(*) FROM factory_feed_posts WHERE data->>'event_identity'=$1 AND data->'communication'->>'component_id'='F10'`, ready).Scan(&readyPosts); err != nil || readyPosts != 1 {
 		t.Fatal("stale report prefix starved ready seventeenth report", readyPosts, err)
 	}
 	c.driveAppVerifications(ctx) // wrap and reconcile the retained stale prefix.
@@ -502,7 +502,7 @@ func TestApplicationVerificationRequiresApprovedNativeCheck(t *testing.T) {
 		t.Fatal("legacy completion replay", err)
 	}
 	var legacyF10 int
-	if err := sqlDB.QueryRow(`SELECT count(*) FROM factory_feed_comments WHERE data->'communication'->>'component_id'='F10' AND data->>'event_identity'=$1`, legacySubject.Delivery.DeliveryID).Scan(&legacyF10); err != nil || legacyF10 != 1 {
+	if err := sqlDB.QueryRow(`SELECT count(*) FROM factory_feed_posts WHERE data->'communication'->>'component_id'='F10' AND data->>'event_identity'=$1`, legacySubject.Delivery.DeliveryID).Scan(&legacyF10); err != nil || legacyF10 != 1 {
 		t.Fatalf("legacy F10 posts=%d err=%v want exactly one", legacyF10, err)
 	}
 	if count, err := db.VerifiedApplicationOutcomeCount(ctx, legacy); err != nil || count != len(legacyScope) {

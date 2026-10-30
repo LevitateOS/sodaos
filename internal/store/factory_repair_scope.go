@@ -78,13 +78,13 @@ func (s *Store) ReassessmentScope(ctx context.Context, cap factory.MCPCapability
 	}
 	out = factory.RepairScopeView{Assignment: a.ID, Run: a.Run, InputDigest: cap.ScopeDigest(), Subject: cap.Subject, SourceCommit: a.SourceCommit, InventoryDigest: factory.RepairInventoryDigest(current), Records: []factory.RepairScopeRecord{}, Limit: factory.RepairObservationPageSize, MaximumPerTool: factory.MaxRepairObservations}
 	var projected int
-	if err := tx.QueryRowContext(ctx, `SELECT count(*),count(p.id) FROM factory_mcp_submissions s LEFT JOIN factory_feed_comments p ON p.id=s.receipt->>'feed_post_id' AND p.repository=$2 AND p.data->>'assignment'=$1 AND s.capability=$3 AND s.input_digest=$4 WHERE s.assignment=$1 AND s.tool IN ($5,$6)`, a.ID, a.Repository, cap.ID, cap.ScopeDigest(), string(factory.MCPToolRecordDiagnosis), string(factory.MCPToolDraftRepair)).Scan(&out.Total, &projected); err != nil {
+	if err := tx.QueryRowContext(ctx, `SELECT count(*),count(p.id) FROM factory_mcp_submissions s LEFT JOIN factory_feed_posts p ON p.id=s.receipt->>'feed_post_id' AND p.repository=$2 AND p.data->>'assignment'=$1 AND s.capability=$3 AND s.input_digest=$4 WHERE s.assignment=$1 AND s.tool IN ($5,$6)`, a.ID, a.Repository, cap.ID, cap.ScopeDigest(), string(factory.MCPToolRecordDiagnosis), string(factory.MCPToolDraftRepair)).Scan(&out.Total, &projected); err != nil {
 		return out, err
 	}
 	if projected != out.Total {
 		return out, errors.New("repair observation projection is incomplete")
 	}
-	rows, err := tx.QueryContext(ctx, `SELECT s.submission,s.tool,s.receipt->>'feed_post_id',p.seq FROM factory_mcp_submissions s JOIN factory_feed_comments p ON p.id=s.receipt->>'feed_post_id' AND p.repository=$2 AND p.data->>'assignment'=$1 WHERE s.assignment=$1 AND s.capability=$3 AND s.input_digest=$4 AND s.tool IN ($5,$6) AND p.seq>$7 ORDER BY p.seq LIMIT $8`, a.ID, a.Repository, cap.ID, cap.ScopeDigest(), string(factory.MCPToolRecordDiagnosis), string(factory.MCPToolDraftRepair), after, out.Limit+1)
+	rows, err := tx.QueryContext(ctx, `SELECT s.submission,s.tool,s.receipt->>'feed_post_id',p.seq FROM factory_mcp_submissions s JOIN factory_feed_posts p ON p.id=s.receipt->>'feed_post_id' AND p.repository=$2 AND p.data->>'assignment'=$1 WHERE s.assignment=$1 AND s.capability=$3 AND s.input_digest=$4 AND s.tool IN ($5,$6) AND p.seq>$7 ORDER BY p.seq LIMIT $8`, a.ID, a.Repository, cap.ID, cap.ScopeDigest(), string(factory.MCPToolRecordDiagnosis), string(factory.MCPToolDraftRepair), after, out.Limit+1)
 	if err != nil {
 		return out, err
 	}
@@ -128,7 +128,7 @@ func (s *Store) ReadRepairObservation(ctx context.Context, cap factory.MCPCapabi
 	}
 	var capability string
 	var raw []byte
-	if err := tx.QueryRowContext(ctx, `SELECT s.tool,s.capability,s.input_digest,s.payload_hash,s.payload FROM factory_mcp_submissions s JOIN factory_feed_comments p ON p.id=s.receipt->>'feed_post_id' AND p.repository=$2 AND p.data->>'assignment'=$1 WHERE s.assignment=$1 AND s.submission=$3 AND s.tool IN ($4,$5) FOR SHARE OF s,p`, a.ID, a.Repository, id, string(factory.MCPToolRecordDiagnosis), string(factory.MCPToolDraftRepair)).Scan(&out.Tool, &capability, &out.InputDigest, &out.PayloadHash, &raw); err != nil {
+	if err := tx.QueryRowContext(ctx, `SELECT s.tool,s.capability,s.input_digest,s.payload_hash,s.payload FROM factory_mcp_submissions s JOIN factory_feed_posts p ON p.id=s.receipt->>'feed_post_id' AND p.repository=$2 AND p.data->>'assignment'=$1 WHERE s.assignment=$1 AND s.submission=$3 AND s.tool IN ($4,$5) FOR SHARE OF s,p`, a.ID, a.Repository, id, string(factory.MCPToolRecordDiagnosis), string(factory.MCPToolDraftRepair)).Scan(&out.Tool, &capability, &out.InputDigest, &out.PayloadHash, &raw); err != nil {
 		return out, err
 	}
 	if capability != cap.ID || out.InputDigest != cap.ScopeDigest() || len(raw) == 0 || len(raw) > factory.MCPMaxSubmissionPayload || !utf8.Valid(raw) || !json.Valid(raw) || factory.MCPInputDigest(raw) != out.PayloadHash {

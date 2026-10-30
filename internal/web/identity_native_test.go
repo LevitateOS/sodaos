@@ -6,14 +6,169 @@ import (
 	"io"
 	"net/http"
 	"net/http/httptest"
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 
 	extensions "forgejo.org/extension-sdk"
+	"github.com/levitateos/sodaos/internal/factory"
 	"github.com/levitateos/sodaos/internal/identity"
 	"github.com/levitateos/sodaos/internal/store"
 	"github.com/levitateos/sodaos/internal/web/api"
 )
+
+func TestNativeCommentIntakeUsesHumanIssueAccessWithoutFactorySetup(t *testing.T) {
+	s := apiTestServer(t)
+	reads := 0
+	proxy := nativeProductProxyForActorWithCallback(t, s, extensions.Contribution{}, "alice", func(in extensions.CallbackRequest) extensions.CallbackResponse {
+		switch in.Operation {
+		case extensions.OperationRepository:
+			return extensions.CallbackResponse{Repository: &extensions.Repository{ID: "7", Owner: "alice", Name: "private-app", Permission: "read"}}
+		case extensions.OperationRepositoryIssues:
+			reads++
+			if in.Authority.Actor.ID != "1" || in.RepositoryID != "7" {
+				t.Error("issue read lost human or repository scope")
+			}
+			page := &extensions.RepositoryIssuePage{RepositoryID: "7", Items: []extensions.RepositoryIssue{}}
+			switch {
+			case in.Query == "9":
+				page.Items = append(page.Items, extensions.RepositoryIssue{Index: "9", Title: "Earlier login flow", Body: "Previous objective", Closed: true})
+			case in.Cursor == "":
+				page.Items = append(page.Items, extensions.RepositoryIssue{Index: "41", Title: "Login flow", Body: "An existing issue without Factory work"})
+				page.NextCursor = "41"
+			case in.Cursor == "41":
+				page.Items = append(page.Items, extensions.RepositoryIssue{Index: "42", Title: "Other work", Body: "A separate objective"})
+			default:
+				t.Error("unexpected issue selector")
+			}
+			return extensions.CallbackResponse{Issues: page}
+		}
+		return extensions.CallbackResponse{}
+	})
+	response := nativeProductRequest(t, proxy, s.Config.ForgejoURL, "POST", "/factory/feed/posts",
+		[]byte(`{"repository":7,"issue":9,"body":"Please discuss the login flow.","idempotency_key":"human-context-intake"}`))
+	if response.StatusCode != 200 {
+		body, _ := io.ReadAll(response.Body)
+		t.Fatalf("intake status=%d body=%s", response.StatusCode, body)
+	}
+	var saved struct {
+		SourcePost  string `json:"post_id"`
+		Revision int64  `json:"revision"`
+	}
+	if err := json.NewDecoder(response.Body).Decode(&saved); err != nil {
+		t.Fatal(err)
+	}
+	if saved.SourcePost == "" {
+		t.Fatal("intake did not return a comment")
+	}
+	candidates, err := s.Store.PostIssueContext(t.Context(), saved.SourcePost, saved.Revision)
+	if err != nil || len(candidates) != 3 || reads != 3 {
+		t.Fatal("human issue context was not saved", len(candidates), reads, err)
+	}
+	if candidates[0].Issue != 41 || candidates[0].Title != "Login flow" || candidates[2].Issue != 9 || candidates[2].Status != "closed" {
+		t.Fatal("issue meaning or closed selection was lost", candidates)
+	}
+	pipe, err := s.Store.PostIntake(t.Context(), saved.SourcePost)
+	if err != nil || pipe.Judgment != factory.PostJudgmentPending || pipe.Attempts != 0 {
+		t.Fatal("intake spent or executed work", pipe, err)
+	}
+
+	// A post blocked by the old service-account path can be refreshed by its
+	// author without creating a duplicate or configuring Factory.
+	id, revision, err := s.Store.SaveFeedPost(t.Context(), factory.PostRequest{Repository: 7, Body: "A request from before the fix", IdempotencyKey: "old-context-intake"}, "1", "alice", 1)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := s.Store.RecordPostIntake(t.Context(), id, revision); err != nil {
+		t.Fatal(err)
+	}
+	if err := s.Store.NotePostStall(t.Context(), id, "factory"); err != nil {
+		t.Fatal(err)
+	}
+	response = nativeProductRequest(t, proxy, s.Config.ForgejoURL, "POST", "/factory/feed/posts/"+id+"/retry", []byte(`{"expected_revision":0}`))
+	if response.StatusCode != 200 {
+		body, _ := io.ReadAll(response.Body)
+		t.Fatalf("refresh status=%d body=%s", response.StatusCode, body)
+	}
+	refreshed, err := s.Store.FeedPost(t.Context(), id)
+	if err != nil || refreshed.Record.Revision != revision+1 {
+		t.Fatal("refresh lost the original post", refreshed.Record, err)
+	}
+	if _, err := s.Store.PostIssueContext(t.Context(), id, refreshed.Record.Revision); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := s.Store.PostIssueContext(t.Context(), id, revision); err == nil {
+		t.Fatal("old revision retained current issue authority")
+	}
+}
+
+func TestNativeJEVProviderRoutesThroughProxy(t *testing.T) {
+	s := apiTestServer(t)
+	keyPath := filepath.Join(t.TempDir(), "typesafe.key")
+	s.API.Config.TypeSafeAPIKeyFile = keyPath
+	panel := extensions.Contribution{Kind: "panel", ID: "providers", Scope: "panel"}
+	for _, login := range []string{"alice", "bob"} {
+		t.Run(login, func(t *testing.T) {
+			proxy := nativeProductProxyForActor(t, s, panel, login)
+			request := func(method, path, body string, status int) map[string]any {
+				t.Helper()
+				r, err := http.NewRequestWithContext(t.Context(), method, proxy.URL+path, strings.NewReader(body))
+				if err != nil {
+					t.Fatal(err)
+				}
+				r.Header = nativeProductHeadersForActor(method, s.Config.ForgejoURL, panel, login)
+				r.Header.Set("Content-Type", "application/json")
+				response, err := proxy.Client().Do(r)
+				if err != nil {
+					t.Fatal(err)
+				}
+				defer response.Body.Close()
+				if response.StatusCode != status || !strings.HasPrefix(response.Header.Get("Content-Type"), "application/json") {
+					t.Fatalf("%s %s: status=%d content-type=%q, want JSON status %d", method, path, response.StatusCode, response.Header.Get("Content-Type"), status)
+				}
+				var value map[string]any
+				if err := json.NewDecoder(response.Body).Decode(&value); err != nil {
+					t.Fatal(err)
+				}
+				return value
+			}
+			if err := os.Remove(keyPath); err != nil && !os.IsNotExist(err) {
+				t.Fatal(err)
+			}
+			canManage := login == "alice"
+			status := request("GET", "/identity/jev", "", 200)
+			if status["connected"] != false || status["can_manage"] != canManage {
+				t.Fatal("incorrect disconnected status", status)
+			}
+			if err := os.WriteFile(keyPath, []byte("test-key-not-a-real-credential"), 0o600); err != nil {
+				t.Fatal(err)
+			}
+			status = request("GET", "/identity/jev", "", 200)
+			if status["connected"] != true || status["can_manage"] != canManage {
+				t.Fatal("incorrect connected status", status)
+			}
+			if canManage {
+				// An empty key reaches validation without making a provider call.
+				request("POST", "/identity/jev", `{"key":""}`, 400)
+				status = request("POST", "/identity/jev/disconnect", "{}", 200)
+				if status["connected"] != false || status["can_manage"] != true {
+					t.Fatal("incorrect disconnect status", status)
+				}
+				if _, err := os.Stat(keyPath); !os.IsNotExist(err) {
+					t.Fatal("disconnect did not remove the stored key", err)
+				}
+				request("POST", "/identity/jev/disconnect", "{}", 200)
+			} else {
+				request("POST", "/identity/jev", `{"key":""}`, 403)
+				request("POST", "/identity/jev/disconnect", "{}", 403)
+				if _, err := os.Stat(keyPath); err != nil {
+					t.Fatal("non-operator changed the stored key", err)
+				}
+			}
+		})
+	}
+}
 
 type nativeIdentityFake struct {
 	api.IdentityClient

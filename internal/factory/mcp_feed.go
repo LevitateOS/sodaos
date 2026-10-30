@@ -8,7 +8,7 @@ package factory
 // separate context helper.
 type MCPFeedMessage struct {
 	ID            string              `json:"id"`
-	ReplyTo       string              `json:"reply_to,omitempty"`
+	ParentID       string              `json:"parent_id,omitempty"`
 	Actor         string              `json:"actor"`
 	Author        string              `json:"author"`
 	At            int64               `json:"at"`
@@ -17,7 +17,7 @@ type MCPFeedMessage struct {
 	Body          string              `json:"body,omitempty"`
 	Communication *FeedCommunication  `json:"communication,omitempty"`
 	Consultation  *FeedConsultation   `json:"consultation,omitempty"`
-	Source        *CommentSource      `json:"source,omitempty"`
+	Source        *PostSource      `json:"source,omitempty"`
 	Contribution  *ContributionReview `json:"contribution,omitempty"`
 	Omitted       []string            `json:"omitted,omitempty"`
 }

@@ -217,6 +217,136 @@ const planDraftBody = `{"id":"d888888888888888888888888","intent":"d777777777777
 	`{"id":"d444444444444444444444444","description":"Sync to the legacy tracker","consequence":"Legacy stays current","decision":"edit","correction":"Sync only on explicit manager request","source":"requested","provenance":"human","actor":"1"},` +
 	`{"id":"d555555555555555555555555","description":"Delete requests automatically","consequence":"Old requests vanish","decision":"decline","source":"requested","provenance":"human","actor":"1"}]}`
 
+func TestIssueMakerBoundMCPPublishesIssuesDuringItsOwnRun(t *testing.T) {
+	product, s, _, _ := q05Mux(t, "")
+	ctx := context.Background()
+	if err := s.UpsertUser(ctx, store.User{ID: 1, Login: "alice"}); err != nil {
+		t.Fatal(err)
+	}
+	seedPlanFunding(t, ctx, s)
+	stub := &planStubHost{}
+	graph := &intakeNativePeer{}
+	product.IssueMakerNative = graph
+	product.Coordinator = &control.Coordinator{Store: s, Host: stub, Broker: planStubBroker{}, DispatchReads: planStubReads{}, Graph: graph, GraphActorID: 9}
+	id, revision, err := s.SaveFeedPost(ctx, factory.PostRequest{Repository: 7, Body: "Add login and notification preferences", IdempotencyKey: "maker-mcp"}, "1", "alice", time.Now().Unix())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err = s.RecordIssueMakerIntake(ctx, id, revision); err != nil {
+		t.Fatal(err)
+	}
+	seedIntakeGrant(t, s, ctx, id)
+	wired := &PostCollaborators{Judge: &fakePostJudge{judgment: PostJudgment{Route: factory.PostRouteNewIssue}}, IssueMaker: product.drivePostIssueMaker}
+	if _, err = drivePostIntake(ctx, s, wired, id); err != nil {
+		t.Fatal(err)
+	}
+	if len(stub.launches) != 0 || len(graph.issues) != 1 {
+		t.Fatal("initial capture waited for a model run")
+	}
+	if _, err = drivePostIntake(ctx, s, wired, id); err != nil {
+		t.Fatal(err)
+	}
+	if len(stub.launches) != 1 {
+		progress, _ := s.PostIssueMaker(ctx, id, revision)
+		t.Fatal("Issue Maker did not launch through the funded account", progress)
+	}
+	attempt, err := s.IntentPlanAttempt(ctx, factory.PostDecisionID("intent", id, revision), factory.PostDecisionID("revision", id, revision))
+	if err != nil {
+		t.Fatal(err)
+	}
+	preparation, err := s.Preparation(ctx, attempt.Preparation)
+	if err != nil {
+		t.Fatal(err)
+	}
+	run, err := s.FactoryRun(ctx, attempt.Run)
+	if err != nil {
+		t.Fatal(err)
+	}
+	cap, err := control.BuildMCPCapability(attempt, run, preparation)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if cap.Profile != factory.MCPProfileIssueMaker || !strings.Contains(string(attempt.Prompt), "Issue Maker assignment") || strings.Contains(string(attempt.Prompt), "Product walkthrough authored") {
+		t.Fatal("intake launched as Product Lead instead of Issue Maker", cap.Profile)
+	}
+	selection := newFakeCatalogSink()
+	selection.capability = cap
+	attemptEligible, lineageEligible := factory.BundleEligibility(attempt, false)
+	storeSelectionReceipt(t, selection, attempt, attemptEligible, lineageEligible, factory.ContextBundleCurrent)
+	cap = selection.capability
+	if err = s.StageMCPCapability(ctx, cap); err != nil {
+		t.Fatal(err)
+	}
+	if reserved, err := s.ReserveContextBundleSelection(ctx, cap, cap.ContextSelectionSnapshot); err != nil || !reserved {
+		t.Fatal("context selection", reserved, err)
+	}
+	if err = s.ActivateObservedMCPCapability(ctx, cap); err != nil {
+		t.Fatal(err)
+	}
+	cap, err = s.GetMCPCapability(ctx, cap.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	key := []byte(strings.Repeat("k", 32))
+	secret, _ := factory.DeriveMCPCapabilitySecret(key, cap)
+	server := httptest.NewServer(factoryBoundCatalogHandler(FactoryMCPDeps{Capabilities: s, Submissions: s, Assignments: s, Runs: s, PriorityJudgments: selection, IssueMaker: product.factoryIssueMakerTool}, key))
+	defer server.Close()
+	client := mcp.NewClient(&mcp.Implementation{Name: "issue-maker-bound-pg"}, nil)
+	session, err := client.Connect(ctx, &mcp.StreamableClientTransport{Endpoint: server.URL + FactoryMCPRoute, HTTPClient: &http.Client{Transport: workerMCPTransport{cap.ID, secret}}}, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer session.Close()
+	tools, err := session.ListTools(ctx, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	listed := map[string]bool{}
+	for _, tool := range tools.Tools {
+		listed[tool.Name] = true
+	}
+	if !listed["factory.create_issue"] || !listed["factory.refine_issue"] || listed["factory.start_task"] {
+		t.Fatal("Issue Maker discovery lost its scoped tools", listed)
+	}
+	if factory.MCPToolAdmitted(factory.MCPProfileProductLead, factory.MCPToolCreateIssue) || factory.MCPToolAdmitted(factory.MCPProfileBuilder, factory.MCPToolRefineIssue) {
+		t.Fatal("other roles gained intake writes")
+	}
+	call := func(tool, id, key, title, body string) *mcp.CallToolResult {
+		t.Helper()
+		result, err := session.CallTool(ctx, &mcp.CallToolParams{Name: tool, Arguments: map[string]any{"submission_id": id, "payload": map[string]any{"key": key, "title": title, "body": body}}})
+		if catalogRefused(result, err) {
+			t.Fatalf("%s: %v %s", tool, err, catalogText(t, result))
+		}
+		return result
+	}
+	call("factory.create_issue", "notifications", "notifications", "Notification preferences", "Allow the user to select notification preferences.")
+	call("factory.create_issue", "notifications", "notifications", "Notification preferences", "Allow the user to select notification preferences.")
+	call("factory.refine_issue", "refine-login", "request", "Login screen", "Provide a login screen. Acceptance: valid credentials open the app.")
+	post, err := s.PostIssueMaker(ctx, id, revision)
+	if err != nil {
+		t.Fatal(err)
+	}
+	replies, _, err := s.FeedReplyIDs(ctx, 7, "post", post.Scope.Post, 0)
+	if err != nil || len(replies) != 2 || len(graph.issues) != 2 || graph.issues[1].Title != "Login screen" {
+		t.Fatal("live MCP writes did not publish one comment per issue", replies, len(graph.issues), err)
+	}
+	if attempt, err = s.Assignment(ctx, attempt.ID); err != nil || attempt.Stage != factory.AssignmentAssigned {
+		t.Fatal("issues waited for the complete run", attempt.Stage, err)
+	}
+	if _, err = s.MCPDiscussion(ctx, cap, post.Scope.Post, ""); err != nil {
+		t.Fatal("Issue Maker cannot read its own progress thread", err)
+	}
+	entries, _, _, err := s.SubscribedFeed(ctx, factory.FeedQuery{Repositories: []int64{7}, Limit: 100})
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, entry := range entries {
+		if entry.ID == attempt.ID {
+			t.Fatal("internal intake run became a second feed post")
+		}
+	}
+}
+
 // Exercise the public preparation read with real PostgreSQL decisions and the
 // production native HTTP client. The explicit native peer enforces its actual
 // aggregate contract; selected files must be read without dropping bytes.

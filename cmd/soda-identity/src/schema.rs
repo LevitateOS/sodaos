@@ -1,6 +1,6 @@
 // Mechanically mirrored from internal/store/schema.go and its named SQL owners.
 // Go owns the schema; keep this consumer identical when changing those owners.
-pub const SCHEMA_VERSION: i64 = 69;
+pub const SCHEMA_VERSION: i64 = 70;
 
 /// 68 → 69 upgrade: retained 68 databases carry builds but no
 /// setup-renewals journal. Must match the Go 68→69 upgrade statement for
@@ -10,11 +10,38 @@ pub const UPGRADE_68_TO_69: &[&str] = &[
     r####"UPDATE schema_version SET version=69"####,
 ];
 
+pub const UPGRADE_69_TO_70: &[&str] = &[
+    r####"ALTER TABLE factory_feed_comments RENAME TO factory_feed_posts"####,
+    r####"ALTER INDEX factory_feed_comments_repository RENAME TO factory_feed_posts_repository"####,
+    r####"ALTER TABLE factory_feed_comment_requests RENAME TO factory_post_intakes"####,
+    r####"ALTER TABLE factory_post_intakes RENAME COLUMN comment TO post"####,
+    r####"CREATE FUNCTION pg_temp.soda_post_data(value JSONB) RETURNS JSONB LANGUAGE plpgsql AS $
+DECLARE result JSONB;
+BEGIN
+ IF jsonb_typeof(value)='object' THEN
+  SELECT COALESCE(jsonb_object_agg(CASE key WHEN 'comment' THEN 'source_post' WHEN 'comment_id' THEN 'post_id' WHEN 'reply_to' THEN 'parent_id' ELSE key END, pg_temp.soda_post_data(item)), '{}'::jsonb)
+   INTO result FROM jsonb_each(value) fields(key,item);
+  RETURN result;
+ ELSIF jsonb_typeof(value)='array' THEN
+  SELECT COALESCE(jsonb_agg(pg_temp.soda_post_data(item) ORDER BY position), '[]'::jsonb)
+   INTO result FROM jsonb_array_elements(value) WITH ORDINALITY fields(item,position);
+  RETURN result;
+ END IF;
+ RETURN value;
+END $"####,
+    r####"UPDATE factory_feed_posts SET data=pg_temp.soda_post_data(data)"####,
+    r####"UPDATE factory_feed_posts SET data=jsonb_set(data,'{parent_id}',to_jsonb(COALESCE(NULLIF(data->>'parent_id',''), data->'communication'->>'parent_id', data->'source'->>'id','')))"####,
+    r####"UPDATE factory_post_intakes SET data=pg_temp.soda_post_data(data)"####,
+    r####"DROP FUNCTION pg_temp.soda_post_data(JSONB)"####,
+    r####"CREATE INDEX factory_feed_posts_parent ON factory_feed_posts(repository,(data->>'parent_id'),seq)"####,
+    r####"UPDATE schema_version SET version=70"####,
+];
+
 pub const STATEMENTS: &[&str] = &[
     r####"CREATE TABLE factory_activity_settings(repository BIGINT PRIMARY KEY CHECK(repository>0), revision BIGINT NOT NULL CHECK(revision>0), actor_id BIGINT NOT NULL CHECK(actor_id>0), data JSONB NOT NULL)"####,
     r####"CREATE TABLE factory_feed_subscriptions(subscriber TEXT PRIMARY KEY, revision BIGINT NOT NULL CHECK(revision>0), data JSONB NOT NULL)"####,
     r####"CREATE TABLE schema_version(version INTEGER PRIMARY KEY)"####,
-    r####"INSERT INTO schema_version(version) VALUES(69)"####,
+    r####"INSERT INTO schema_version(version) VALUES(70)"####,
     r####"CREATE TABLE applications(id TEXT PRIMARY KEY, administrator_id BIGINT NOT NULL CHECK(administrator_id>0), name TEXT NOT NULL, data_id TEXT NOT NULL UNIQUE, owner_team TEXT NOT NULL, origin TEXT NOT NULL UNIQUE, hostname TEXT NOT NULL UNIQUE, port INTEGER NOT NULL UNIQUE CHECK(port>=20000 AND port<30000), revision BIGINT NOT NULL CHECK(revision>0), observation JSONB CHECK(observation IS NULL OR octet_length(observation::text)<=2048))"####,
     r####"CREATE TABLE application_revisions(application_id TEXT NOT NULL REFERENCES applications(id), revision BIGINT NOT NULL CHECK(revision>0), spec JSONB NOT NULL CHECK(octet_length(spec::text)<=4096), PRIMARY KEY(application_id,revision))"####,
     r####"CREATE TABLE application_projects(application_id TEXT PRIMARY KEY REFERENCES applications(id), repository BIGINT NOT NULL CHECK(repository>0))"####,
@@ -80,9 +107,10 @@ created TEXT NOT NULL, finished TEXT NOT NULL DEFAULT '')"####,
     r####"CREATE UNIQUE INDEX factory_unfinished_completion_assignment ON factory_assignments(repository,(data->'subject'->'completion'->>'completion_id'),(data->'subject'->'completion'->>'cycle_id')) WHERE stage='assigned' AND issue=0"####,
     r####"CREATE INDEX factory_assignments_issue_history ON factory_assignments(repository,issue,seq DESC)"####,
     r####"CREATE INDEX factory_finished_children ON factory_assignments(seq) WHERE stage='finished' AND data->>'publication_assignment'<>id"####,
-    r####"CREATE TABLE factory_feed_comments(seq BIGINT NOT NULL DEFAULT nextval(pg_get_serial_sequence('factory_assignments','seq')), id TEXT PRIMARY KEY CHECK(id ~ '^[a-f0-9]{32}$'), repository BIGINT NOT NULL CHECK(repository>0), revision BIGINT NOT NULL CHECK(revision>=0), author TEXT NOT NULL CHECK(octet_length(author) BETWEEN 1 AND 160), body TEXT NOT NULL CHECK(char_length(body) BETWEEN 1 AND 4096), idempotency TEXT NOT NULL CHECK(octet_length(idempotency) BETWEEN 1 AND 64), data JSONB NOT NULL, UNIQUE(repository,author,idempotency))"####,
-    r####"CREATE INDEX factory_feed_comments_repository ON factory_feed_comments(repository,seq DESC)"####,
-    r####"CREATE TABLE factory_feed_comment_requests(comment TEXT PRIMARY KEY REFERENCES factory_feed_comments(id), revision BIGINT NOT NULL CHECK(revision>=0), intake TEXT NOT NULL, judgment TEXT NOT NULL, route TEXT NOT NULL DEFAULT '', draft TEXT NOT NULL, effect TEXT NOT NULL, issue BIGINT NOT NULL DEFAULT 0 CHECK(issue>=0), attempts INTEGER NOT NULL DEFAULT 0 CHECK(attempts BETWEEN 0 AND 6), data JSONB NOT NULL)"####,
+    r####"CREATE TABLE factory_feed_posts(seq BIGINT NOT NULL DEFAULT nextval(pg_get_serial_sequence('factory_assignments','seq')), id TEXT PRIMARY KEY CHECK(id ~ '^[a-f0-9]{32}$'), repository BIGINT NOT NULL CHECK(repository>0), revision BIGINT NOT NULL CHECK(revision>=0), author TEXT NOT NULL CHECK(octet_length(author) BETWEEN 1 AND 160), body TEXT NOT NULL CHECK(char_length(body) BETWEEN 1 AND 4096), idempotency TEXT NOT NULL CHECK(octet_length(idempotency) BETWEEN 1 AND 64), data JSONB NOT NULL, UNIQUE(repository,author,idempotency))"####,
+    r####"CREATE INDEX factory_feed_posts_repository ON factory_feed_posts(repository,seq DESC)"####,
+    r####"CREATE INDEX factory_feed_posts_parent ON factory_feed_posts(repository,(data->>'parent_id'),seq)"####,
+    r####"CREATE TABLE factory_post_intakes(post TEXT PRIMARY KEY REFERENCES factory_feed_posts(id), revision BIGINT NOT NULL CHECK(revision>=0), intake TEXT NOT NULL, judgment TEXT NOT NULL, route TEXT NOT NULL DEFAULT '', draft TEXT NOT NULL, effect TEXT NOT NULL, issue BIGINT NOT NULL DEFAULT 0 CHECK(issue>=0), attempts INTEGER NOT NULL DEFAULT 0 CHECK(attempts BETWEEN 0 AND 6), data JSONB NOT NULL)"####,
     r####"CREATE TABLE factory_reservations(seq BIGINT GENERATED ALWAYS AS IDENTITY, assignment TEXT PRIMARY KEY, repository INTEGER NOT NULL CHECK(repository>0), connection TEXT NOT NULL, state TEXT NOT NULL, data JSONB NOT NULL)"####,
     r####"CREATE INDEX factory_reservations_connection_state ON factory_reservations(connection,state)"####,
     r####"CREATE TABLE factory_usage(run TEXT PRIMARY KEY, repository INTEGER NOT NULL CHECK(repository>0), connection TEXT NOT NULL, minutes INTEGER NOT NULL CHECK(minutes>=0), started_at TIMESTAMPTZ NOT NULL, ended_at TIMESTAMPTZ NOT NULL CHECK(ended_at>=started_at), data JSONB NOT NULL)"####,
@@ -321,8 +349,8 @@ pub const VERIFY_QUERIES: &[&str] = &[
     r####"SELECT repository,revision,actor_id,data FROM factory_activity_settings LIMIT 0"####,
     r####"SELECT subscriber,revision,data FROM factory_feed_subscriptions LIMIT 0"####,
     r####"SELECT feed_seq,snapshot,max_calls,data FROM factory_priority_judgments LIMIT 0"####,
-    r####"SELECT seq,id,repository,revision,author,body,idempotency,data FROM factory_feed_comments LIMIT 0"####,
-    r####"SELECT comment,revision,intake,judgment,route,draft,effect,issue,attempts,data FROM factory_feed_comment_requests LIMIT 0"####,
+    r####"SELECT seq,id,repository,revision,author,body,idempotency,data FROM factory_feed_posts LIMIT 0"####,
+    r####"SELECT comment,revision,intake,judgment,route,draft,effect,issue,attempts,data FROM factory_post_intakes LIMIT 0"####,
     r####"SELECT id,login,name FROM users LIMIT 0"####,
     r####"SELECT id,user_id,public,fingerprint FROM keys LIMIT 0"####,
     r####"SELECT id,name,repository_id,owner_id,repository,ip,ready,creation_profile FROM projects LIMIT 0"####,

@@ -7,6 +7,21 @@ import (
 	"github.com/levitateos/sodaos/internal/factory"
 )
 
+// FeedEntryByID addresses the same post identity from the timeline, parent link
+// or reply action, including posts projected from canonical workflow records.
+func (s *Store) FeedEntryByID(ctx context.Context, id string) (factory.FeedEntry, error) {
+	var entry factory.FeedEntry
+	err := s.db.QueryRowContext(ctx, `SELECT id,repository,seq,kind,activity,assignment FROM (
+ SELECT id,repository,seq,'post' AS kind,'' AS activity,'' AS assignment FROM factory_feed_posts WHERE id=$1 AND NOT COALESCE((data->>'deleted')::boolean,false) AND NOT COALESCE((data->>'revoked')::boolean,false)
+ UNION ALL SELECT id,repository,seq,'record','','' FROM factory_assignments WHERE id=$1
+ UNION ALL SELECT c.event,a.repository,c.feed_seq,'record','completed',a.id FROM factory_completions c JOIN factory_publications p ON p.data->>'id'=c.publication JOIN factory_assignments a ON a.id=p.assignment WHERE c.event=$1
+ UNION ALL SELECT m.publication,a.repository,m.feed_seq,'record','merged',a.id FROM factory_merges m JOIN factory_publications p ON p.data->>'id'=m.publication JOIN factory_assignments a ON a.id=p.assignment WHERE m.publication=$1 AND m.stage='merged'
+ UNION ALL SELECT j.snapshot,a.repository,j.feed_seq,'record','judgment',a.id FROM factory_priority_judgments j JOIN factory_publications p ON p.data->>'id'=j.data->'input'->>'publication_id' JOIN factory_assignments a ON a.id=p.assignment WHERE j.snapshot=$1 AND j.data->>'kind'='delivery-v1'
+ UNION ALL SELECT j.snapshot,(candidate->'control'->>'repository')::bigint,j.feed_seq,'record','judgment','' FROM factory_priority_judgments j CROSS JOIN LATERAL jsonb_array_elements(CASE WHEN jsonb_typeof(j.data->'candidates')='array' THEN j.data->'candidates' ELSE '[]'::jsonb END) candidate WHERE j.snapshot=$1 AND COALESCE(j.data->>'kind','')<>'delivery-v1' AND candidate->>'id'=j.data->>'selected' AND candidate->'control'->>'repository' ~ '^[1-9][0-9]*$'
+) posts LIMIT 1`, id).Scan(&entry.ID, &entry.Repository, &entry.Seq, &entry.Kind, &entry.Activity, &entry.Assignment)
+	return entry, err
+}
+
 // SubscribedFeed reads canonical assignments, comments and milestones in
 // newest-first recording order. Each milestone receives its own key from
 // the assignment/comment sequence when recorded, including JEV selections
@@ -40,11 +55,11 @@ func (s *Store) SubscribedFeed(ctx context.Context, query factory.FeedQuery) ([]
 			SELECT seq,id,repository,'record' AS kind,'' AS activity,'' AS assignment
 			FROM factory_assignments
 			WHERE $1 AND repository = ANY($2) AND ($3 = 0 OR seq < $3)
+			AND COALESCE(data->'planning_context'->'IssueMaker','null'::jsonb)='null'::jsonb
 			UNION ALL
-			SELECT seq,id,repository,'post','','' FROM factory_feed_comments
+			SELECT seq,id,repository,'post','','' FROM factory_feed_posts
 			WHERE (($4 AND NOT (data ? 'communication')) OR ($1 AND data ? 'communication'))
  AND repository = ANY($2) AND ($3 = 0 OR seq < $3)
-			AND ((COALESCE(data->>'reply_to','') = '' AND NOT (data ? 'source')) OR data->'communication'->>'kind' IN ('learned','record_decision','library_maintenance'))
 			AND COALESCE((data->>'deleted')::boolean,false) = false
 			AND COALESCE((data->>'revoked')::boolean,false) = false
 			UNION ALL
@@ -91,14 +106,14 @@ func (s *Store) SubscribedFeed(ctx context.Context, query factory.FeedQuery) ([]
 			AND ($3 = 0 OR j.feed_seq < $3)
 		)
 			SELECT m.seq,m.id,m.repository,m.kind,m.activity,m.assignment FROM members m
-			LEFT JOIN factory_feed_comments c ON m.kind='post' AND c.id=m.id
+			LEFT JOIN factory_feed_posts c ON m.kind='post' AND c.id=m.id
 			LEFT JOIN factory_assignments a ON m.kind='record' AND a.id=CASE WHEN m.assignment<>'' THEN m.assignment ELSE m.id END
 			LEFT JOIN factory_library_items l ON l.id=c.data->'communication'->>'library_item_id'
 			LEFT JOIN factory_reassessments rs ON rs.cycle=a.data->'result'->'phase_result'->'output'->'reassessment'->>'cycle_id'
 			WHERE ($6 IN ('','all')
 			 OR ($6='decisions' AND (c.data->'communication'->>'kind'='record_decision' OR c.data->'communication'->>'component_id' IN ('F03','F04','F11') OR l.kind='decision' OR m.activity='judgment' OR (m.activity='' AND a.data->'result'->'phase_result'->'output' ?| ARRAY['plan','decomposition','reassessment'])))
 			 OR ($6='knowledge' AND (c.data->'communication'->>'kind' IN ('learned','record_decision') OR c.data->'communication'->>'component_id' IN ('F03','F04','F11') OR l.id IS NOT NULL OR m.activity='judgment' OR (m.activity='' AND a.data->'result'->'phase_result'->'output' ?| ARRAY['plan','decomposition','reassessment'])))
-			 OR ($6='attention' AND ((c.data->'communication'->>'kind'='ask' AND NOT EXISTS(SELECT 1 FROM factory_feed_comments ans JOIN factory_post_resolutions res ON res.post=ans.id AND res.resolution='incorporated' WHERE ans.data->>'reply_to'=c.id)) OR c.data->'communication'->>'kind' IN ('blocked','stuck','flag') OR a.data->>'outcome' IN ('needs-human','failed','blocked')))
+			 OR ($6='attention' AND ((c.data->'communication'->>'kind'='ask' AND NOT EXISTS(SELECT 1 FROM factory_feed_posts ans JOIN factory_post_resolutions res ON res.post=ans.id AND res.resolution='incorporated' WHERE ans.data->>'parent_id'=c.id)) OR c.data->'communication'->>'kind' IN ('blocked','stuck','flag') OR a.data->>'outcome' IN ('needs-human','failed','blocked')))
 			 OR ($6='evidence' AND (m.activity IN ('merged','completed') OR c.data->'communication' ?| ARRAY['evidence_refs','artifacts','source','commits'] OR (m.activity='' AND a.data->'result'->'phase_result'->'output' ?| ARRAY['review','correction','verification','research']))))
 			AND ($7='' OR strpos(lower(COALESCE(c.body,'') || ' ' || COALESCE(c.data->'communication'->>'title','') || ' ' || COALESCE(c.data->'communication'->>'decision','') || ' ' || COALESCE(c.data->'communication'->>'rationale','') || ' ' || COALESCE(a.data->'result'->>'summary','') || ' ' || COALESCE(l.data->>'body','')),lower($7))>0)
 			AND ($8='' OR ($8='human' AND c.author NOT LIKE 'worker:%' AND c.author<>'factory') OR COALESCE(c.data->>'actor',CASE a.data->>'phase' WHEN 'decompose' THEN 'product_lead' WHEN 'investigate' THEN 'architect' WHEN 'implement' THEN 'builder' WHEN 'review' THEN 'inspector' WHEN 'correct' THEN 'fixer' WHEN 'verify' THEN 'test_pilot' WHEN 'reassess' THEN 'strategist' END,'')=$8)

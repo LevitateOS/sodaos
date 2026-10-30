@@ -21,7 +21,7 @@ export function renderContribution(review: FeedContribution, scope?: {entryKey: 
   };
   return html`<section class="soda-feed-consultation" aria-label="Role contribution assessment">
     <p role="status">${status[review.state] ?? 'Contribution outcome unconfirmed.'}</p>
-    ${review.reply && /^[a-f0-9]{32}$/.test(review.reply) ? html`<p class="soda-feed-role-reply"><a href=${'#comment-' + review.reply} data-role-reply-open=${review.reply} data-role-reply-entry=${scope?.entryKey ?? ''}>Read the role’s reply</a> <span role="status" data-role-reply-status></span></p>` : ''}
+    ${review.reply && /^[a-f0-9]{32}$/.test(review.reply) ? html`<p class="soda-feed-role-reply"><a href=${'#post-' + review.reply} data-role-reply-open=${review.reply} data-role-reply-entry=${scope?.entryKey ?? ''}>Read the role’s reply</a> <span role="status" data-role-reply-status></span></p>` : ''}
     <details>
       <summary>Why this role was considered</summary>
       <p>

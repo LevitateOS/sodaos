@@ -33,6 +33,10 @@ export type FeedActivity = 'merged' | 'completed' | 'judgment' | FeedCommunicati
 export interface FeedEntry {
   kind: FeedEntryKind;
   id: string;
+  parentId?: string;
+  parentAuthor?: string;
+  parentActor?: string;
+  parentIssue?: number;
   repository: number;
   seq: number;
   actor?: string;
@@ -48,9 +52,9 @@ export interface FeedEntry {
   assignment?: string;
   eventIdentity?: string;
   payload?: FeedPayload;
-  // Human posts carry their stored comment and pipeline outcome, so one
+  // Human posts carry their stored post and pipeline outcome, so one
   // feed read renders the post without a per-post request.
-  comment?: CommentDetail;
+  post?: FeedPostDetail;
 }
 
 export interface FeedPlanTask {
@@ -212,7 +216,7 @@ export interface FeedCommunication {
   decision?: string;
   rationale?: string;
   alternatives?: string[];
-  replyTo?: string;
+  parentId?: string;
   items?: FeedGraphItem[];
   artifacts?: FeedArtifact[];
   commits?: {revision: string; summary: string}[];
@@ -285,9 +289,9 @@ export function parseFeedPageView(value: unknown): FeedPageView {
     try {
       const entry = object(raw);
       check(typeof entry.id === 'string' && typeof entry.repository === 'number' && typeof entry.seq === 'number');
-      const parsed = camelize({...entry, comment: undefined}) as FeedEntry;
-      if (entry.comment !== undefined) parsed.comment = parseCommentDetail(entry.comment);
-      else delete parsed.comment;
+      const parsed = camelize({...entry, post: undefined}) as FeedEntry;
+      if (entry.post !== undefined) parsed.post = parseFeedPostDetail(entry.post);
+      else delete parsed.post;
       return [parsed];
     } catch {
       return [];
@@ -334,9 +338,9 @@ export function feedQueryString(query: FeedQueryOptions): string {
   return `factory/feed?${params.toString()}`;
 }
 
-// CommentSource is the server-resolved snapshot of the feed entry one
-// comment was submitted against.
-export interface CommentSource {
+// PostSource is the server-resolved snapshot of the feed entry one
+// post was submitted against.
+export interface PostSource {
   kind: FeedEntryKind;
   id: string;
   issue?: number;
@@ -347,7 +351,7 @@ export interface CommentSource {
   product?: {intent: string; acceptedRevision: string};
 }
 
-export interface CommentProductChange {
+export interface PostProductChange {
   intent: string;
   acceptedRevision: string;
   draftRevision?: string;
@@ -355,10 +359,11 @@ export interface CommentProductChange {
   canReview: boolean;
 }
 
-// CommentPipelineState is one stored comment request: its pipeline states,
+// PostPipelineState is one stored post request: its pipeline states,
 // the linked native issue and the author's retry right.
-export interface CommentPipelineState {
-  commentId: string;
+export interface PostPipelineState {
+  issueMaker?: {post: string; state: string; detail?: string; checked?: number};
+  postId: string;
   revision: number;
   intake: string;
   judgment: string;
@@ -371,34 +376,42 @@ export interface CommentPipelineState {
   canRetry?: boolean;
   attempts?: number;
   attemptLimit?: number;
-  source?: CommentSource;
-  productChange?: CommentProductChange;
+  source?: PostSource;
+  productChange?: PostProductChange;
   /** JEV's routing Choice: each option weighed, the pick and her confidence. */
-  routing?: CommentRouting;
+  routing?: PostRouting;
   /** The collaborator the next stage waits for: jev, product_lead or forge. */
   stalled?: string;
+  authoring?: {
+    state: 'queued' | 'waiting' | 'running' | 'settling' | 'failed' | 'unknown';
+    reason?: string;
+    detail?: string;
+    intent?: string;
+    run?: string;
+    startedUnix?: number;
+    sinceUnix?: number;
+    checkedUnix?: number;
+  };
 }
 
-export interface CommentRouting {
+export interface PostRouting {
   selected: string;
   confidence: number;
   options: {key: string; label: string; probability: number}[];
 }
 
-// commentSourceForEntry names the feed entry one reply answers: a post by
-// its comment identity, a record by its assignment identity.
-export function commentSourceForEntry(entry: FeedEntry): {kind: FeedEntryKind; id: string} | undefined {
-  const id = entry.kind === 'post' ? entry.id : (entry.assignment ?? entry.id);
+// postSourceForEntry names the feed entry one reply answers: a post by
+// its post identity, a record by its assignment identity.
+export function postSourceForEntry(entry: FeedEntry): {kind: FeedEntryKind; id: string} | undefined {
+  const id = entry.id;
   return /^[a-f0-9]{32}$/.test(id) ? {kind: entry.kind, id} : undefined;
 }
 
-export interface CommentPostBody {
+export interface FeedPostBody {
   repository: number;
   body: string;
   issue?: number;
-  reply_to?: string;
-  source_kind?: FeedEntryKind;
-  source_id?: string;
+  parent_id?: string;
   idempotency_key: string;
 }
 
@@ -442,31 +455,37 @@ export interface FeedConsultation {
   updated_unix: number;
 }
 
-export interface CommentDetail {
-  commentId: string;
-  // Human comments carry their stored pipeline; worker posts do not.
-  pipeline?: CommentPipelineState;
+export interface FeedPostDetail {
+  postId: string;
+  /** A reply is the same post object with an explicit parent post. */
+  parentId?: string;
+  // Human replies carry their stored pipeline; worker posts do not.
+  pipeline?: PostPipelineState;
   body: string;
   authorName: string;
   at: number;
   edited: boolean;
   removed: boolean;
   actor?: string;
+  issueScope?: number;
+  status?: string;
   communication?: FeedCommunication;
   consultation?: FeedConsultation;
   contribution?: FeedContribution;
 }
 
-// parseCommentDetail reads one comment as the server serves it (comment GET,
+// parseFeedPostDetail reads one post as the server serves it (post GET,
 // replies page or an enriched feed post). Deleted or revoked sources keep
 // their place without text.
-export function parseCommentDetail(value: unknown): CommentDetail {
+export function parseFeedPostDetail(value: unknown): FeedPostDetail {
   const raw = object(value);
-  check(typeof raw.comment_id === 'string');
-  const data = camelize(raw) as Record<string, unknown> & CommentPipelineState;
+  check(typeof raw.post_id === 'string');
+  const data = camelize(raw) as Record<string, unknown> & PostPipelineState;
   const removed = raw.deleted === true || raw.revoked === true;
+  const parent = raw.parent_id || object(raw.communication ?? {}).parent_id || object(raw.source ?? {}).id;
   return {
-    commentId: data.commentId,
+    postId: data.postId,
+    ...(typeof parent === 'string' && /^[a-f0-9]{32}$/.test(parent) ? {parentId: parent} : {}),
     ...(raw.judgment !== undefined && !removed ? {pipeline: data} : {}),
     body: typeof raw.body === 'string' ? raw.body : '',
     authorName: typeof raw.author_name === 'string' ? raw.author_name : '',
@@ -474,6 +493,10 @@ export function parseCommentDetail(value: unknown): CommentDetail {
     edited: raw.edited === true,
     removed,
     ...(typeof raw.actor === 'string' && raw.actor ? {actor: raw.actor} : {}),
+    ...(typeof raw.issue_scope === 'number' && Number.isSafeInteger(raw.issue_scope) && raw.issue_scope > 0
+      ? {issueScope: raw.issue_scope}
+      : {}),
+    ...(typeof raw.status === 'string' && raw.status ? {status: raw.status} : {}),
     ...(raw.communication ? {communication: data.communication as FeedCommunication} : {}),
     ...(raw.consultation ? {consultation: raw.consultation as FeedConsultation} : {}),
     ...(raw.contribution ? {contribution: raw.contribution as FeedContribution} : {}),
@@ -481,21 +504,21 @@ export function parseCommentDetail(value: unknown): CommentDetail {
 }
 
 // newIdempotencyKey mints one caller-chosen key per draft, so a resubmit
-// after a lost answer recovers the same comment.
+// after a lost answer recovers the same post.
 export function newIdempotencyKey(): string {
   const bytes = new Uint8Array(16);
   crypto.getRandomValues(bytes);
   return [...bytes].map((byte) => byte.toString(16).padStart(2, '0')).join('');
 }
 
-export function commentAttemptsExhausted(state: CommentPipelineState): boolean {
+export function postAttemptsExhausted(state: PostPipelineState): boolean {
   return state.attempts !== undefined && state.attemptLimit !== undefined && state.attempts >= state.attemptLimit;
 }
 
-// commentUnsettled reports whether one pipeline still advances on the
+// postUnsettled reports whether one pipeline still advances on the
 // server; the feed refresh picks up its next state.
-export function commentUnsettled(state: CommentPipelineState): boolean {
-  if (state.productChange || commentAttemptsExhausted(state)) return false;
+export function postUnsettled(state: PostPipelineState): boolean {
+  if (state.productChange || postAttemptsExhausted(state)) return false;
   if (state.judgment === 'pending') return true;
   if (state.judgment === 'failed') return false;
   if (state.route === 'new_issue')

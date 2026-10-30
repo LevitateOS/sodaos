@@ -65,7 +65,7 @@ type FeedCommunication struct {
 	DecisionOwner     string                  `json:"decision_owner,omitempty"`
 	Rationale         string                  `json:"rationale,omitempty"`
 	Alternatives      []string                `json:"alternatives,omitempty"`
-	ReplyTo           string                  `json:"reply_to,omitempty"`
+	ParentID          string                  `json:"parent_id,omitempty"`
 	RevisesItem       string                  `json:"revises_item,omitempty"`
 	ExpectedRevision  int64                   `json:"expected_revision,omitempty"`
 	Challenge         bool                    `json:"challenge,omitempty"`
@@ -237,8 +237,8 @@ func (c FeedCommunication) Validate() error {
 			return errors.New("artifact ID is required")
 		}
 	}
-	if c.ReplyTo != "" && !ValidID(c.ReplyTo) {
-		return errors.New("reply_to must name a feed post")
+	if c.ParentID != "" && !ValidID(c.ParentID) {
+		return errors.New("parent_id must name a feed post")
 	}
 	// Revisions and challenges ride the learned outlet: the server
 	// assigns library_item_id/library_revision, so a worker names its
@@ -282,7 +282,7 @@ func (c FeedCommunication) Validate() error {
 	case "ask":
 		return required(c.Question, "question")
 	case "answer", "reply":
-		return required(c.ReplyTo, "reply_to")
+		return required(c.ParentID, "parent_id")
 	case "flag":
 		return required(c.Severity, "severity")
 	case "learned":

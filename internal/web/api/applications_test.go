@@ -68,7 +68,8 @@ func applicationHTTPFixture(t *testing.T) *applicationBoundary {
 			return
 		}
 		id := actor.Load()
-		if fixture.changeSession.Load() && callbacks.Add(1) > 1 {
+		// Change identity after the bridge and product API admit the request.
+		if fixture.changeSession.Load() && callbacks.Add(1) > 2 {
 			id++
 		}
 		_ = json.NewEncoder(w).Encode(extensions.CallbackResponse{Actor: &extensions.Actor{ID: strconv.FormatInt(id, 10), Username: "soda-tester"}})
@@ -137,6 +138,17 @@ func applicationHTTPFixture(t *testing.T) *applicationBoundary {
 	api := &API{Store: db, Config: &config.Config{OperatorID: 1, ForgejoURL: "https://forgejo.example.test"}, Host: &host.Client{HTTP: &http.Client{Transport: applicationNativeTransport{native.URL}}}}
 	mux := http.NewServeMux()
 	api.registerExtensionProductRoutes(mux)
+	// Exercise the installed extension bridge as well as the product handlers.
+	servicePath := "@soda-application-service-" + strconv.Itoa(os.Getpid())
+	serviceListener, err := net.Listen("unix", servicePath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	service := &http.Server{Handler: mux}
+	go func() { _ = service.Serve(serviceListener) }()
+	t.Cleanup(func() { _ = service.Close() })
+	bridge, closeBridge := Extension(servicePath)
+	t.Cleanup(closeBridge)
 	fixture.call = func(id int64, method, path string, body any) (int, []byte) {
 		t.Helper()
 		actor.Store(id)
@@ -149,7 +161,7 @@ func applicationHTTPFixture(t *testing.T) *applicationBoundary {
 		if err != nil {
 			t.Fatal(err)
 		}
-		r := httptest.NewRequest(method, path, strings.NewReader(string(raw)))
+		r := httptest.NewRequest(method, strings.TrimPrefix(path, "/api"), strings.NewReader(string(raw)))
 		r.Header.Set(extensions.ContextHeader, string(authority))
 		r.Header.Set(extensions.AdmissionHeader, "test-admission")
 		r.Header.Set(extensions.SessionGenerationHeader, "generation-1")
@@ -158,7 +170,7 @@ func applicationHTTPFixture(t *testing.T) *applicationBoundary {
 			r.Header.Set("Content-Type", "application/json")
 		}
 		w := httptest.NewRecorder()
-		mux.ServeHTTP(w, r)
+		bridge.ServeHTTP(w, r)
 		return w.Code, w.Body.Bytes()
 	}
 	return fixture
@@ -342,8 +354,8 @@ func TestApplicationAuthorityAndLifecycleHTTP(t *testing.T) {
 	if _, ok := row["delivery_id"]; ok {
 		t.Fatal("image readback without verified F10 supplied a delivery identity")
 	}
-	if status, _ := f.call(42, "GET", "/api/applications?delivery_id="+strings.Repeat("e", 32), nil); status != 400 {
-		t.Fatal("caller-supplied delivery filter was admitted")
+	if status, _ := f.call(42, "GET", "/api/applications?delivery_id="+strings.Repeat("e", 32), nil); status != 404 {
+		t.Fatal("extension bridge admitted a global delivery filter")
 	}
 	status, body = f.call(43, "GET", "/api/applications", nil)
 	if status != 200 || json.Unmarshal(body, &launch) != nil || len(launch.Launchable) != 0 || f.effects.Load() != beforeLaunch {
@@ -387,6 +399,25 @@ func TestApplicationImageReplacementHTTP(t *testing.T) {
 	}
 	if status, _ := f.call(1, "POST", base+"/actions", buildRequest); status != 409 || f.effects.Load() != beforeBuild {
 		t.Fatal("unknown build affected native application")
+	}
+	// A visible repository with no deliveries has an empty build inventory.
+	for _, suffix := range []string{"", "?delivery_id=" + strings.Repeat("e", 32)} {
+		status, body := f.call(1, "GET", "/api/repositories/7/application-builds"+suffix, nil)
+		var result struct {
+			Builds []store.ApplicationBuild `json:"builds"`
+		}
+		if status != 200 || json.Unmarshal(body, &result) != nil || result.Builds == nil || len(result.Builds) != 0 {
+			t.Fatalf("empty build inventory %s: %d %s", suffix, status, body)
+		}
+	}
+	if status, _ := f.call(1, "GET", "/api/repositories/7/application-builds?delivery_id=invalid", nil); status != 400 {
+		t.Fatalf("invalid delivery filter: %d", status)
+	}
+	if status, _ := f.call(1, "POST", "/api/repositories/7/application-builds", map[string]string{"delivery_id": strings.Repeat("e", 32), "environment": "company"}); status != 409 || f.effects.Load() != beforeBuild {
+		t.Fatalf("unverified delivery build: %d", status)
+	}
+	if status, _ := f.call(1, "POST", "/api/repositories/7/application-builds/"+strings.Repeat("e", 32)+"/setup", struct{}{}); status != 409 || f.effects.Load() != beforeBuild {
+		t.Fatalf("unknown build setup: %d", status)
 	}
 	if status, _ := f.call(41, "GET", "/api/repositories/7/application-builds", nil); status != 403 {
 		t.Fatal("employee read operator build inventory")

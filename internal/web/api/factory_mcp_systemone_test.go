@@ -252,7 +252,7 @@ func TestBoundSystemOneConsultationFundsThroughRealJournal(t *testing.T) {
 	if receipt.Outcome != systemOneAnswerOutcome || receipt.Answer == nil {
 		t.Fatalf("journal receipt is not the recorded answer: %+v", receipt)
 	}
-	comment, err := st.FeedComment(ctx, factory.FeedConsultationPostID(snapshot))
+	comment, err := st.FeedPost(ctx, factory.FeedConsultationPostID(snapshot))
 	if err != nil || comment.Consultation == nil || comment.Consultation.Status != "returned" || comment.Consultation.Instructions != instructions || comment.Consultation.Answer == nil {
 		t.Fatalf("actual MCP question/result did not reach its work thread: %v", err)
 	}

@@ -416,7 +416,7 @@ test('maintainer reaccepts exact reviewed requirements and code prerequisite on 
   await page.waitForSelector('[data-requirements-preview]');
   assert.equal(
     await panel.getByRole('link', {name: 'Review comment 21', exact: true}).getAttribute('href'),
-    '/soda-tester/demo/issues/12#issuecomment-21'
+    '/soda-tester/demo/issues/12#issuepost-21'
   );
   await panel.getByLabel('Prerequisite repository ID', {exact: true}).fill('7');
   await panel.getByLabel('Prerequisite issue number', {exact: true}).fill('11');

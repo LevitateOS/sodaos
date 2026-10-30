@@ -1,35 +1,36 @@
-import {LitElement, html} from 'lit';
+import {LitElement, html, type TemplateResult} from 'lit';
 import {repeat} from 'lit/directives/repeat.js';
 import type {PreparedExtensionMount} from './soda-extension.js';
 import {allowanceHolds, allowanceHoldText, type AllowanceHold} from './sodaspaces-factory-allowance.js';
 import {check, id, object, readSodaJSON} from './sodaspaces-api.js';
 import {activityTimestamp, nativePath} from './sodaspaces-factory-activity.js';
+import {nativeIssueLink} from './sodaspaces-factory-work-view.js';
 import {repositoryChoices} from './sodaspaces-repository-response.js';
 import {applicationsResponse} from './sodaspaces-application-response.js';
 import {repositoryPlaces} from './soda-places.js';
 import type {SodaPlaces} from './soda-places.js';
 import type {FeedCardLinks} from './sodaspaces-factory-feed-communication.js';
 import {
-  commentSourceForEntry,
+  postSourceForEntry,
   feedEntryKey,
   feedEntryKinds,
   feedQueryString,
   mergeFeedEntries,
   newIdempotencyKey,
-  parseCommentDetail,
+  parseFeedPostDetail,
   parseFeedPageView,
   parseFeedSubscriptionView,
 } from './sodaspaces-factory-feed-response.js';
 import type {
-  CommentDetail,
-  CommentPostBody,
+  FeedPostDetail,
+  FeedPostBody,
   FeedEntry,
   FeedEntryKind,
   FeedSubscriptionView,
 } from './sodaspaces-factory-feed-response.js';
 import {
-  describeCommentOutcome,
-  describeComments,
+  describePostOutcome,
+  describeReplies,
   describeFeedPost,
   renderComposer,
   renderFeedPost,
@@ -57,7 +58,7 @@ interface RepositoryLabels {
 }
 
 interface Thread {
-  items: CommentDetail[];
+  items: FeedPostDetail[];
   next: number;
   busy: boolean;
   message: string;
@@ -68,6 +69,7 @@ interface Thread {
 
 interface Revising {
   id: string;
+  messageKind: 'post' | 'reply';
   revision: number;
   repository: string;
   body: string;
@@ -78,7 +80,7 @@ interface Revising {
 }
 
 const feedPageSize = 20;
-const commentID = /^[a-f0-9]{32}$/;
+const postID = /^[a-f0-9]{32}$/;
 
 function failureMessage(status: number | undefined, fallback: string): string {
   if (status === 403)
@@ -86,7 +88,7 @@ function failureMessage(status: number | undefined, fallback: string): string {
   return fallback;
 }
 
-// Relative reply age for comment rows ("now", "12m", "2h", "3d"); older
+// Relative reply age for post rows ("now", "12m", "2h", "3d"); older
 // replies fall back to a short date.
 export function relativeReplyTime(at: number, now = Date.now()): string {
   const seconds = Math.floor((now - at * 1000) / 1000);
@@ -126,7 +128,7 @@ async function readJSON(transport: PreparedExtensionMount, path: string, init?: 
     (error as {status?: number}).status = response.status;
     throw error;
   }
-  // Feed pages, conversation pages and comment reads carry stored text.
+  // Feed pages, conversation pages and post reads carry stored text.
   const large = path.startsWith('factory/feed?') || path.startsWith('factory/feed/');
   return readSodaJSON(response, large ? 4 * 1024 * 1024 : 65536);
 }
@@ -154,7 +156,7 @@ export class SodaFactoryFeed extends LitElement {
     truncated: boolean;
     pagedBack: boolean;
     confirmedUnix: number;
-    commentBusy: string[];
+    postBusy: string[];
     allowance: AllowanceHold[];
   };
   private current: FactoryFeedContext | undefined;
@@ -174,8 +176,9 @@ export class SodaFactoryFeed extends LitElement {
   private viewerID: string | undefined;
   // Verified delivery id → the origin of a Ready app the viewer may open.
   private appOrigins = new Map<string, string>();
-  // The repository comment box stays one line until focused.
-  private commentOpen = false;
+  // The repository post box stays one line until focused.
+  private postOpen = false;
+  private replyingTo = new Set<string>();
   private composeRequested = false;
   // A post to show alone (the Feed place's ?post=, e.g. a Knowledge item's source).
   private focusPost: string | undefined;
@@ -191,11 +194,11 @@ export class SodaFactoryFeed extends LitElement {
 
   constructor() {
     super();
-    // The repository comment box opens from one line when focused.
+    // The repository post box opens from one line when focused.
     this.addEventListener('focusin', (event) => {
-      if (this.commentOpen || !(event.target instanceof Element) || !event.target.closest('.soda-feed-comment-box'))
+      if (this.postOpen || !(event.target instanceof Element) || !event.target.closest('.soda-feed-post-box'))
         return;
-      this.commentOpen = true;
+      this.postOpen = true;
       this.requestUpdate();
     });
     this.view = this.emptyView();
@@ -214,7 +217,7 @@ export class SodaFactoryFeed extends LitElement {
       pagedBack: false,
       confirmedUnix: 0,
       allowance: [],
-      commentBusy: [],
+      postBusy: [],
     };
   }
 
@@ -239,7 +242,8 @@ export class SodaFactoryFeed extends LitElement {
     this.librarySourcePending = undefined;
     this.viewerID = undefined;
     this.appOrigins = new Map();
-    this.commentOpen = false;
+    this.postOpen = false;
+    this.replyingTo.clear();
     this.focusedEntry = undefined;
     this.filters = {view: 'all', search: '', role: '', current: false};
     this.view = this.emptyView();
@@ -389,7 +393,7 @@ export class SodaFactoryFeed extends LitElement {
   }
 
   // readLatest re-reads the newest page. Posts arrive with their stored text
-  // and comment outcome, so this one read refreshes every card; open threads
+  // and post outcome, so this one read refreshes every card; open threads
   // re-read their newest replies alongside.
   private async readLatest(announce: boolean) {
     const context = this.current;
@@ -412,6 +416,13 @@ export class SodaFactoryFeed extends LitElement {
     try {
       const page = parseFeedPageView(await readJSON(context.transport, this.feedPath('')));
       if (serial !== this.serial) return;
+      const focused = this.focusedEntry;
+      if (focused) {
+        const fresh = page.entries.find((entry) => feedEntryKey(entry) === feedEntryKey(focused));
+        const refreshed = fresh ?? (await this.readSourcePost(context, focused.id));
+        if (serial !== this.serial) return;
+        if (this.focusedEntry?.id === focused.id) this.focusedEntry = refreshed;
+      }
       const refs = new Map(this.view.labels.refs);
       for (const entry of page.entries) {
         if (entry.project && nativePath('/' + entry.project))
@@ -534,7 +545,7 @@ export class SodaFactoryFeed extends LitElement {
     void this.readLatest(false).then(() => this.querySelector('.soda-feed-list')?.scrollIntoView());
   };
 
-  private projectCommentKey(): string {
+  private projectPostKey(): string {
     return 'project:' + (this.current?.repository ?? '');
   }
 
@@ -545,14 +556,18 @@ export class SodaFactoryFeed extends LitElement {
     if (entry) return entry;
     // A reply row answered from inside a thread.
     for (const [root, thread] of this.threads) {
-      const reply = thread.items.find((item) => 'post:' + item.commentId === key);
+      const reply = thread.items.find((item) => 'post:' + item.postId === key);
       const parent = reply ? this.entryForKey(root) : undefined;
       if (reply && parent)
         return {
           kind: 'post',
-          id: reply.commentId,
+          id: reply.postId,
           repository: parent.repository,
           seq: 0,
+          post: reply,
+          ...(reply.actor ? {actor: reply.actor} : {}),
+          ...(reply.issueScope ? {issue: reply.issueScope} : {}),
+          ...(reply.status ? {status: reply.status} : {}),
           ...(reply.communication ? {payload: {communication: reply.communication}} : {}),
         };
     }
@@ -595,9 +610,9 @@ export class SodaFactoryFeed extends LitElement {
     if (!key) return;
     this.setDraft(key, area.value.slice(0, 4000));
     // Keystrokes never re-render: reading position and focus stay put.
-    const submit = this.querySelector(`[data-comment-submit="${CSS.escape(key)}"]`);
+    const submit = this.querySelector(`[data-post-submit="${CSS.escape(key)}"]`);
     if (submit instanceof HTMLButtonElement)
-      submit.disabled = area.value.trim() === '' || this.view.commentBusy.includes(key);
+      submit.disabled = area.value.trim() === '' || this.view.postBusy.includes(key);
   };
 
   private save = (event: SubmitEvent) => {
@@ -646,21 +661,21 @@ export class SodaFactoryFeed extends LitElement {
     })();
   };
 
-  /** New request (the Feed place's ?compose=): open the comment box and focus it. */
+  /** New request (the Feed place's ?compose=): open the post box and focus it. */
   set compose(compose: boolean) {
     if (compose === this.composeRequested) return;
     this.composeRequested = compose;
     if (!compose) return;
-    this.commentOpen = true;
+    this.postOpen = true;
     this.requestUpdate();
     void this.updateComplete.then(() =>
-      this.querySelector<HTMLTextAreaElement>('.soda-feed-comment-box textarea')?.focus()
+      this.querySelector<HTMLTextAreaElement>('.soda-feed-post-box textarea')?.focus()
     );
   }
 
   /** The post shown alone: the Feed place's ?post= (Knowledge's "Open source post"). */
   set post(post: string | undefined) {
-    const valid = post && commentID.test(post) ? post : undefined;
+    const valid = post && postID.test(post) ? post : undefined;
     if (valid === this.focusPost) return;
     this.focusPost = valid;
     if (valid) void this.openSourcePost(valid);
@@ -675,21 +690,8 @@ export class SodaFactoryFeed extends LitElement {
     this.librarySourcePending = sourceId;
     this.requestUpdate();
     try {
-      const value = object(await readJSON(context.transport, 'factory/feed/comments/' + sourceId));
-      check(context.global === true || String(value.repository) === context.repository);
-      const source = parseCommentDetail(value);
+      const entry = await this.readSourcePost(context, sourceId);
       if (serial !== this.serial || token !== this.librarySerial) return;
-      const entry: FeedEntry = {
-        kind: 'post',
-        id: source.commentId,
-        repository: Number(value.repository),
-        seq: 0,
-        at: source.at,
-        author: source.authorName,
-        comment: source,
-        ...(source.actor ? {actor: source.actor} : {}),
-        ...(source.communication ? {payload: {communication: source.communication}} : {}),
-      };
       this.focusedEntry = entry;
       this.openDrawer(feedEntryKey(entry));
     } catch (error) {
@@ -704,6 +706,29 @@ export class SodaFactoryFeed extends LitElement {
         this.requestUpdate();
       }
     }
+  }
+
+  private async readSourcePost(context: FactoryFeedContext, sourceId: string): Promise<FeedEntry> {
+    const value = object(await readJSON(context.transport, 'factory/feed/posts/' + sourceId));
+    check(context.global === true || String(value.repository) === context.repository);
+    const source = parseFeedPostDetail(value);
+    return {
+      kind: value.kind === 'record' ? 'record' : 'post',
+      id: source.postId,
+      repository: Number(value.repository),
+      seq: 0,
+      at: source.at,
+      author: source.authorName,
+      post: source,
+      ...(typeof value.parent_id === 'string' ? {parentId: value.parent_id} : {}),
+      ...(typeof value.parent_author === 'string' ? {parentAuthor: value.parent_author} : {}),
+      ...(value.kind === 'record' ? {assignment: String(value.assignment || value.post_id)} : {}),
+      ...(value.payload ? {payload: value.payload as NonNullable<FeedEntry['payload']>} : {}),
+      ...(source.actor ? {actor: source.actor} : {}),
+      ...(source.issueScope ? {issue: source.issueScope} : {}),
+      ...(source.status ? {status: source.status} : {}),
+      ...(source.communication ? {payload: {communication: source.communication}} : {}),
+    };
   }
 
   private leaveFocusedPost() {
@@ -803,28 +828,28 @@ export class SodaFactoryFeed extends LitElement {
     return minted;
   }
 
-  // submitComment saves one draft. A failed submit keeps the draft; the
+  // submitPost saves one draft. A failed submit keeps the draft; the
   // pending payload is kept with it, so a retry after a lost answer resends
   // the original text while newer writing stays in the box.
-  private async submitComment(key: string) {
+  private async submitPost(key: string) {
     const context = this.current;
     const entry = this.entryForKey(key);
-    if (!context || this.view.commentBusy.includes(key)) return;
-    const repository = entry?.repository ?? (key === this.projectCommentKey() ? Number(context.repository) : 0);
+    const messageKind = entry ? 'reply' : 'post';
+    const messageLabel = entry ? 'Reply' : 'Post';
+    if (!context || this.view.postBusy.includes(key)) return;
+    const repository = entry?.repository ?? (key === this.projectPostKey() ? Number(context.repository) : 0);
     const text = this.draftFor(key);
     if (!Number.isSafeInteger(repository) || repository <= 0 || text.trim() === '') return;
     const pendingKey = `soda-feed-pending:v1:${this.storageKey(key)}`;
     const idempotency = this.draftIdempotencyKey(key);
-    let post: CommentPostBody = {repository, body: text, idempotency_key: idempotency};
-    if (entry?.kind === 'post' && commentID.test(entry.id)) post.reply_to = entry.id;
+    let post: FeedPostBody = {repository, body: text, idempotency_key: idempotency};
     if (entry?.issue) post.issue = entry.issue;
-    const source = entry ? commentSourceForEntry(entry) : undefined;
+    const source = entry ? postSourceForEntry(entry) : undefined;
     if (source) {
-      post.source_kind = source.kind;
-      post.source_id = source.id;
+      post.parent_id = source.id;
     }
     try {
-      const saved = JSON.parse(readStored(pendingKey) || 'null') as CommentPostBody | null;
+      const saved = JSON.parse(readStored(pendingKey) || 'null') as FeedPostBody | null;
       if (saved?.idempotency_key === idempotency && saved.repository === repository) post = saved;
     } catch {
       /* A broken pending copy is replaced below. */
@@ -832,9 +857,9 @@ export class SodaFactoryFeed extends LitElement {
     writeStored(pendingKey, JSON.stringify(post));
     const serial = this.serial;
     if (entry) this.openDrawer(key);
-    this.view = {...this.view, commentBusy: [...this.view.commentBusy, key]};
+    this.view = {...this.view, postBusy: [...this.view.postBusy, key]};
     try {
-      const response = await context.transport.request('factory/feed/comments', {
+      const response = await context.transport.request('factory/feed/posts', {
         method: 'POST',
         headers: {'Content-Type': 'application/json'},
         body: JSON.stringify(post),
@@ -842,8 +867,8 @@ export class SodaFactoryFeed extends LitElement {
       });
       if (!response.ok) {
         if (response.status === 404)
-          throw Error('That work is no longer visible here, or comment intake is not served yet. The draft is kept.');
-        throw Error(failureMessage(response.status, 'Could not save the reply. The draft is kept.'));
+          throw Error('That work is no longer visible here, or posts and replies are unavailable. The draft is kept.');
+        throw Error(failureMessage(response.status, `Could not save the ${messageKind}. The draft is kept.`));
       }
       if (serial !== this.serial) return;
       writeStored(`soda-feed-draftkey:v2:${this.storageKey(key)}`, '');
@@ -851,10 +876,10 @@ export class SodaFactoryFeed extends LitElement {
       if (this.draftFor(key) === post.body) this.setDraft(key, '');
       this.view = {
         ...this.view,
-        commentBusy: this.view.commentBusy.filter((row) => row !== key),
+        postBusy: this.view.postBusy.filter((row) => row !== key),
         message: this.draftFor(key)
-          ? 'Previous comment saved. Your newer edits are kept, ready to send.'
-          : 'Comment saved.',
+          ? `Previous ${messageKind} saved. Your newer edits are kept, ready to send.`
+          : `${messageLabel} saved.`,
       };
       await this.readLatest(false);
       if (entry) void this.loadReplies(entry);
@@ -862,14 +887,14 @@ export class SodaFactoryFeed extends LitElement {
       if (serial === this.serial)
         this.view = {
           ...this.view,
-          commentBusy: this.view.commentBusy.filter((row) => row !== key),
-          message: error instanceof Error ? error.message : 'Could not save the reply. The draft is kept.',
+          postBusy: this.view.postBusy.filter((row) => row !== key),
+          message: error instanceof Error ? error.message : `Could not save the ${messageKind}. The draft is kept.`,
         };
     }
   }
 
   // openRoleReply resolves a "Read the role's reply" link inside its
-  // original thread: the thread opens and pages until the target comment or
+  // original thread: the thread opens and pages until the target post or
   // exhaustion, then the row scrolls into view and takes focus.
   private async openRoleReply(link: HTMLElement) {
     const targetId = link.dataset.roleReplyOpen ?? '';
@@ -884,7 +909,7 @@ export class SodaFactoryFeed extends LitElement {
       if (region) region.textContent = message;
       else this.view = {...this.view, message};
     };
-    if (!commentID.test(targetId)) return;
+    if (!postID.test(targetId)) return;
     if (!entry) {
       this.view = {
         ...this.view,
@@ -899,10 +924,10 @@ export class SodaFactoryFeed extends LitElement {
       if (serial !== this.serial || !this.openDrawers.has(key)) return;
       const thread = this.threads.get(key);
       if (!thread || thread.message) return say(thread?.message || 'The role’s reply could not be read here.');
-      if (thread.items.some((item) => item.commentId === targetId)) {
+      if (thread.items.some((item) => item.postId === targetId)) {
         this.requestUpdate();
         await this.updateComplete;
-        const row = this.querySelector('#comment-' + targetId);
+        const row = this.querySelector('#post-' + targetId);
         if (row instanceof HTMLElement) {
           row.scrollIntoView({block: 'center'});
           row.setAttribute('tabindex', '-1');
@@ -925,16 +950,16 @@ export class SodaFactoryFeed extends LitElement {
   // reviewProductChange opens the owner's review of a same-product change:
   // the first open saves the change as a draft, later opens open the build
   // request it lives in.
-  private async reviewProductChange(comment: string, revision: number, repository: number) {
+  private async reviewProductChange(post: string, revision: number, repository: number) {
     const context = this.current,
       serial = this.serial;
-    if (!context || !commentID.test(comment) || this.view.commentBusy.includes(comment)) return;
-    this.view = {...this.view, commentBusy: [...this.view.commentBusy, comment]};
+    if (!context || !postID.test(post) || this.view.postBusy.includes(post)) return;
+    this.view = {...this.view, postBusy: [...this.view.postBusy, post]};
     try {
-      const path = `factory/feed/comments/${comment}`;
-      let state = parseCommentDetail(await readJSON(context.transport, path)).pipeline;
+      const path = `factory/feed/posts/${post}`;
+      let state = parseFeedPostDetail(await readJSON(context.transport, path)).pipeline;
       if (state?.productChange?.state === 'review_required' && state.productChange.canReview)
-        state = parseCommentDetail(
+        state = parseFeedPostDetail(
           await readJSON(context.transport, path + '/review', {
             method: 'POST',
             headers: {'Content-Type': 'application/json'},
@@ -968,25 +993,26 @@ export class SodaFactoryFeed extends LitElement {
         this.view = {
           ...this.view,
           message:
-            'This change could not be opened. Refresh the conversation to check its current direction and your access; the comment is kept.',
+            'This change could not be opened. Refresh the conversation to check its current direction and your access; your text is kept.',
         };
     } finally {
       if (serial === this.serial)
-        this.view = {...this.view, commentBusy: this.view.commentBusy.filter((row) => row !== comment)};
+        this.view = {...this.view, postBusy: this.view.postBusy.filter((row) => row !== post)};
     }
   }
 
   // openRevision loads one request for revising and restores any unsent
   // text kept for it.
-  private async openRevision(comment: string) {
+  private async openRevision(post: string, messageKind: 'post' | 'reply') {
     const context = this.current,
       serial = this.serial;
     if (!context) return;
     try {
-      const data = object(await readJSON(context.transport, `factory/feed/comments/${comment}`));
+      const data = object(await readJSON(context.transport, `factory/feed/posts/${post}`));
       if (serial !== this.serial || data.can_retry !== true) return;
       const edit: Revising = {
-        id: String(data.comment_id),
+        id: String(data.post_id),
+        messageKind: parseFeedPostDetail(data).parentId ? 'reply' : messageKind,
         revision: Number(data.revision),
         repository: String(data.repository ?? context.repository),
         body: String(data.body),
@@ -1015,10 +1041,10 @@ export class SodaFactoryFeed extends LitElement {
     }
   }
 
-  // reviseComment sends the revised request against the revision it was
+  // revisePost sends the revised request against the revision it was
   // opened at. A stale revision is refused; the server's current text then
   // shows beside the kept draft and the next submit uses the new revision.
-  private async reviseComment() {
+  private async revisePost() {
     const edit = this.revising,
       context = this.current,
       serial = this.serial;
@@ -1035,7 +1061,7 @@ export class SodaFactoryFeed extends LitElement {
     const sent = {body: edit.body, original: edit.original};
     this.view = {...this.view, busy: true};
     try {
-      const response = await context.transport.request(`factory/feed/comments/${edit.id}/retry`, {
+      const response = await context.transport.request(`factory/feed/posts/${edit.id}/retry`, {
         method: 'POST',
         headers: {'Content-Type': 'application/json'},
         body: JSON.stringify({expected_revision: edit.revision, body}),
@@ -1043,7 +1069,7 @@ export class SodaFactoryFeed extends LitElement {
       });
       if (serial !== this.serial) return;
       if (response.status === 409) {
-        const live = object(await readJSON(context.transport, `factory/feed/comments/${edit.id}`));
+        const live = object(await readJSON(context.transport, `factory/feed/posts/${edit.id}`));
         if (serial !== this.serial) return;
         if (this.revising?.id === edit.id)
           this.revising = {...this.revising, revision: Number(live.revision), current: String(live.body ?? '')};
@@ -1089,10 +1115,25 @@ export class SodaFactoryFeed extends LitElement {
     const target = event.target;
     if (!(target instanceof HTMLElement)) return;
     const closest = (selector: string) => target.closest<HTMLElement>(selector);
-    const productChange = closest('[data-comment-product-change]');
+    const parentId = closest('[data-reply-compose]')?.dataset.replyCompose;
+    if (parentId) {
+      this.replyingTo.add(parentId);
+      this.requestUpdate();
+      void this.updateComplete.then(() =>
+        this.querySelector<HTMLElement>(`[data-feed-draft="post:${CSS.escape(parentId)}"]`)?.focus()
+      );
+      return;
+    }
+    const cancelReply = closest('[data-reply-cancel]')?.dataset.replyCancel;
+    if (cancelReply) {
+      this.replyingTo.delete(cancelReply);
+      this.requestUpdate();
+      return;
+    }
+    const productChange = closest('[data-post-product-change]');
     if (productChange) {
       void this.reviewProductChange(
-        productChange.dataset.commentProductChange ?? '',
+        productChange.dataset.postProductChange ?? '',
         Number(productChange.dataset.productRevision),
         Number(productChange.dataset.productRepository)
       );
@@ -1110,9 +1151,10 @@ export class SodaFactoryFeed extends LitElement {
       void this.openRoleReply(roleReply);
       return;
     }
-    const revise = closest('[data-comment-revise]')?.dataset.commentRevise;
+    const reviseButton = closest('[data-post-revise]');
+    const revise = reviseButton?.dataset.postRevise;
     if (revise) {
-      void this.openRevision(revise);
+      void this.openRevision(revise, reviseButton?.dataset.messageKind === 'reply' ? 'reply' : 'post');
       return;
     }
     if (closest('[data-revision-cancel]')) {
@@ -1122,7 +1164,7 @@ export class SodaFactoryFeed extends LitElement {
       return;
     }
     if (closest('[data-revision-submit]')) {
-      void this.reviseComment();
+      void this.revisePost();
       return;
     }
     const answer = closest('[data-feed-answer]');
@@ -1141,9 +1183,9 @@ export class SodaFactoryFeed extends LitElement {
       }
       return;
     }
-    const submit = closest('[data-comment-submit]')?.dataset.commentSubmit;
+    const submit = closest('[data-post-submit]')?.dataset.postSubmit;
     if (submit) {
-      void this.submitComment(submit);
+      void this.submitPost(submit);
       return;
     }
   };
@@ -1161,7 +1203,7 @@ export class SodaFactoryFeed extends LitElement {
 
   private async readThreadPage(entry: FeedEntry, older: boolean): Promise<void> {
     const context = this.current,
-      source = commentSourceForEntry(entry),
+      source = postSourceForEntry(entry),
       serial = this.serial;
     if (!context || !source) return;
     const key = feedEntryKey(entry);
@@ -1180,22 +1222,20 @@ export class SodaFactoryFeed extends LitElement {
     try {
       const query = new URLSearchParams({
         repository: String(entry.repository),
-        source_kind: source.kind,
-        source_id: source.id,
       });
       if (before > 0) query.set('before', String(before));
-      const result = object(await readJSON(context.transport, 'factory/feed/replies?' + query));
+      const result = object(await readJSON(context.transport, `factory/feed/posts/${source.id}/replies?` + query));
       check(Array.isArray(result.items));
       // Pages arrive newest-first; threads read oldest-first.
       const page = result.items
-        .map(parseCommentDetail)
+        .map(parseFeedPostDetail)
         .filter((item) => !item.removed)
         .reverse();
       if (serial !== this.serial) return;
       const kept = older ? (this.threads.get(key)?.items ?? []) : [];
-      const ids = new Set(page.map((item) => item.commentId));
+      const ids = new Set(page.map((item) => item.postId));
       this.threads.set(key, {
-        items: [...page, ...kept.filter((item) => !ids.has(item.commentId))],
+        items: [...page, ...kept.filter((item) => !ids.has(item.postId))],
         next: typeof result.next_before === 'number' ? result.next_before : 0,
         busy: false,
         message: '',
@@ -1219,7 +1259,7 @@ export class SodaFactoryFeed extends LitElement {
   protected render() {
     const confirmed = activityTimestamp(this.view.confirmedUnix);
     return html`<section class="soda-feed" aria-label="Feed" @click=${this.onFeedClick} @input=${this.onDraft}>
-      ${this.current?.global ? '' : this.renderProjectComment()}
+      ${this.current?.global ? '' : this.renderProjectPost()}
       <header class="soda-feed-toolbar">
         ${this.renderViews()}
         <span class="soda-feed-toolbar-actions">
@@ -1323,6 +1363,7 @@ export class SodaFactoryFeed extends LitElement {
   private renderFilters() {
     const roles = [
       'human',
+      'issue_maker',
       'product_lead',
       'architect',
       'builder',
@@ -1389,7 +1430,7 @@ export class SodaFactoryFeed extends LitElement {
   private renderRevision() {
     const edit = this.revising;
     if (!edit) return '';
-    return html`<section class="soda-feed-revision" aria-label="Revise request">
+    return html`<section class="soda-feed-revision" aria-label=${`Edit ${edit.messageKind}`}>
       ${
         edit.current !== undefined
           ? html`<p role="alert">This request changed since you opened it. Its current text:</p>
@@ -1412,7 +1453,7 @@ export class SodaFactoryFeed extends LitElement {
           : ''
       }
       <label
-        >${edit.question ?? 'Update your request'}<textarea
+        >${edit.question ?? `Edit your ${edit.messageKind}`}<textarea
           data-revision-body
           rows="5"
           maxlength="4000"
@@ -1421,24 +1462,24 @@ export class SodaFactoryFeed extends LitElement {
       </label>
       <p>Submitting reassesses this request and may start work using the project’s existing allowance.</p>
       <button type="button" data-revision-submit ?disabled=${this.view.busy}>
-        ${edit.question ? 'Submit answer' : 'Submit updated request'}</button
+        ${edit.question ? 'Submit answer' : `Save ${edit.messageKind} and retry`}</button
       ><button type="button" data-revision-cancel>Cancel</button>
     </section>`;
   }
 
-  private renderProjectComment() {
+  private renderProjectPost() {
     const context = this.current;
     if (!context || !id(context.repository)) return html``;
-    const key = this.projectCommentKey();
+    const key = this.projectPostKey();
     const draft = this.draftFor(key);
-    return html`<div class="soda-feed-comment-box">
+    return html`<div class="soda-feed-post-box">
       ${renderComposer({
         key,
         draft,
-        label: 'Comment',
+        label: 'New post',
         submitLabel: 'Post',
-        submitAvailable: draft.trim() !== '' && !this.view.commentBusy.includes(key),
-        collapsed: !this.commentOpen && draft.trim() === '',
+        submitAvailable: draft.trim() !== '' && !this.view.postBusy.includes(key),
+        collapsed: !this.postOpen && draft.trim() === '',
       })}
     </div>`;
   }
@@ -1478,7 +1519,7 @@ export class SodaFactoryFeed extends LitElement {
               Worker activity
             </option>
             <option value="post" .selected=${subscription.kinds.length === 1 && subscription.kinds[0] === 'post'}>
-              Comments
+              Posts and replies
             </option>
           </select>
         </fieldset>
@@ -1507,7 +1548,7 @@ export class SodaFactoryFeed extends LitElement {
     // post that updates in place.
     return html`<div class="soda-feed-list">
         ${repeat(
-          threadFeed(entries),
+          threadFeed(entries, this.focusedEntry !== undefined),
           (item) => feedEntryKey(item.entry),
           (item) => {
             const key = feedEntryKey(item.entry);
@@ -1516,8 +1557,8 @@ export class SodaFactoryFeed extends LitElement {
               this.repositoryRef(item.entry.repository),
               item,
               this.draftFor(key),
-              describeComments(key, this.openDrawers.has(key), this.threads.get(key)),
-              this.view.commentBusy
+              describeReplies(key, this.openDrawers.has(key), this.threads.get(key)),
+              this.view.postBusy
             );
             return renderFeedPost(
               post,
@@ -1568,18 +1609,18 @@ export class SodaFactoryFeed extends LitElement {
     return html`<section class="soda-feed-empty" aria-label="No activity">
       <h3>No activity yet.</h3>
       <p>
-        ${this.current?.global ? 'Posts and comments from your followed projects will appear here.' : 'Questions, updates and decisions will appear here as they are recorded. Start a conversation in the comment box above.'}
+        ${this.current?.global ? 'Posts and replies from your followed projects will appear here.' : 'Questions, updates and decisions will appear here as they are recorded. Start a conversation with a post above.'}
       </p>
     </section>`;
   }
 
-  private renderReplies(entry: FeedEntry) {
-    if (!commentSourceForEntry(entry)) return html``;
+  private renderReplies(entry: FeedEntry): TemplateResult {
+    if (!postSourceForEntry(entry)) return html``;
     const key = feedEntryKey(entry),
       thread = this.threads.get(key);
     if (!thread) return html`<p role="status" class="soda-feed-thread-status">Loading replies…</p>`;
     // Consecutive JEV calls for one decision fold into one group.
-    const groups: {key: string; items: CommentDetail[]}[] = [];
+    const groups: {key: string; items: FeedPostDetail[]}[] = [];
     for (const reply of thread.items) {
       const previous = groups.at(-1),
         prior = previous?.items.at(-1)?.consultation;
@@ -1590,7 +1631,7 @@ export class SodaFactoryFeed extends LitElement {
         reply.consultation.assignment === prior.assignment
       )
         previous?.items.push(reply);
-      else groups.push({key: reply.commentId, items: [reply]});
+      else groups.push({key: reply.postId, items: [reply]});
     }
     return html`<div class="soda-feed-thread">
       <p class="soda-feed-thread-head">
@@ -1618,7 +1659,7 @@ export class SodaFactoryFeed extends LitElement {
           </svg>
         </button>
       </p>
-      <ul class="soda-feed-comments">
+      <ul class="soda-feed-replies">
         ${repeat(
           groups,
           (group) => group.key,
@@ -1630,10 +1671,10 @@ export class SodaFactoryFeed extends LitElement {
                       ${group.items[0]?.authorName || 'Worker'} · ${group.items.length} recorded JEV calls for this
                       decision
                     </summary>
-                    <ul class="soda-feed-comments">
+                    <ul class="soda-feed-replies">
                       ${repeat(
                         group.items,
-                        (reply) => reply.commentId,
+                        (reply) => reply.postId,
                         (reply) => this.renderReply(entry, reply)
                       )}
                     </ul>
@@ -1646,9 +1687,18 @@ export class SodaFactoryFeed extends LitElement {
     </div>`;
   }
 
-  private renderReply(entry: FeedEntry, reply: CommentDetail) {
+  private renderReply(entry: FeedEntry, reply: FeedPostDetail): TemplateResult {
     const portrait = feedRolePortraits[roleLabel(reply.actor) ?? ''];
-    return html`<li class="soda-feed-comment" id=${'comment-' + reply.commentId} data-role=${reply.actor ?? 'human'}>
+    const repositoryPath = this.repositoryRef(entry.repository).path;
+    const issueHref =
+      reply.actor === 'issue_maker' && reply.issueScope && repositoryPath
+        ? nativeIssueLink(repositoryPath, String(reply.issueScope))
+        : undefined;
+    const key = 'post:' + reply.postId;
+    const thread = this.threads.get(feedEntryKey(entry));
+    const parent = thread?.items.find((post) => post.postId === reply.parentId) ??
+      (entry.id === reply.parentId ? {postId: entry.id, authorName: entry.author || entry.post?.authorName} : undefined);
+    return html`<li class="soda-feed-reply" id=${'post-' + reply.postId} data-role=${reply.actor ?? 'human'}>
       <span class="soda-feed-avatar" aria-hidden="true"
         >${
           portrait
@@ -1656,14 +1706,16 @@ export class SodaFactoryFeed extends LitElement {
             : (reply.authorName || '?').slice(0, 1).toUpperCase()
         }</span
       >
-      <div class="soda-feed-comment-main">
-        <p class="soda-feed-comment-who">
-          <strong>${reply.authorName || 'Comment'}</strong>
+      <div class="soda-feed-reply-main">
+        <p class="soda-feed-reply-who">
+          <strong>${reply.authorName || 'Reply'}</strong>
           <time datetime=${new Date(reply.at * 1000).toISOString()} title=${new Date(reply.at * 1000).toLocaleString()}
             >· ${relativeReplyTime(reply.at)}</time
           >
-          ${reply.edited ? html` <span class="soda-feed-comment-edited">(edited)</span>` : ''}
+          ${reply.edited ? html` <span class="soda-feed-reply-edited">(edited)</span>` : ''}
         </p>
+        ${parent ? html`<p class="soda-feed-reply-parent">Reply to <a href=${'#post-' + parent.postId}>${parent.authorName || 'post'}</a></p>` : ''}
+        ${issueHref ? html`<p><a href=${issueHref}>Open issue #${reply.issueScope}: ${reply.communication?.title || 'Created issue'}</a></p>` : ''}
         ${reply.body && (reply.contribution || reply.consultation) ? html`<p class="soda-feed-body-text">${reply.body}</p>` : ''}
         ${
           reply.contribution
@@ -1673,7 +1725,7 @@ export class SodaFactoryFeed extends LitElement {
               : reply.communication
                 ? renderFeedCommunication(
                     reply.communication,
-                    'post:' + reply.commentId,
+                    'post:' + reply.postId,
                     this.current?.transport.request
                   )
                 : html`<p class="soda-feed-body-text">${reply.body}</p>`
@@ -1681,13 +1733,30 @@ export class SodaFactoryFeed extends LitElement {
         ${
           reply.pipeline
             ? renderOutcome(
-                describeCommentOutcome(
+                describePostOutcome(
                   reply.pipeline,
                   this.repositoryRef(entry.repository),
-                  this.view.commentBusy.includes(reply.commentId)
+                  this.view.postBusy.includes(reply.postId),
+                  'reply'
                 ),
                 this.current?.transport.assetBase
               )
+            : ''
+        }
+        <button type="button" data-reply-compose=${reply.postId}>Reply</button>
+        <button type="button" data-feed-drawer-toggle=${key} aria-expanded=${this.openDrawers.has(key)}>
+          Replies
+        </button>
+        ${this.openDrawers.has(key) ? this.renderReplies(this.entryForKey(key)!) : ''}
+        ${
+          this.replyingTo.has(reply.postId)
+            ? html`${renderComposer({
+                key,
+                draft: this.draftFor(key),
+                label: `Reply to ${reply.authorName || 'post'}`,
+                compact: true,
+                submitAvailable: this.draftFor(key).trim() !== '' && !this.view.postBusy.includes(key),
+              })}<button type="button" data-reply-cancel=${reply.postId}>Cancel reply</button>`
             : ''
         }
       </div>

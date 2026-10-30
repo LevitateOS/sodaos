@@ -35,7 +35,7 @@ func recordMCPPostResolutionTx(ctx context.Context, tx *sql.Tx, cap factory.MCPC
 		return err
 	}
 	var kind string
-	if err = tx.QueryRowContext(ctx, `SELECT COALESCE(data->'communication'->>'kind','') FROM factory_feed_comments WHERE id=$1 AND repository=$2 AND NOT COALESCE((data->>'deleted')::boolean,false) AND NOT COALESCE((data->>'revoked')::boolean,false)`, resolution.Post, cap.Repository).Scan(&kind); err != nil {
+	if err = tx.QueryRowContext(ctx, `SELECT COALESCE(data->'communication'->>'kind','') FROM factory_feed_posts WHERE id=$1 AND repository=$2 AND NOT COALESCE((data->>'deleted')::boolean,false) AND NOT COALESCE((data->>'revoked')::boolean,false)`, resolution.Post, cap.Repository).Scan(&kind); err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return errors.New("resolution target is not available in this project")
 		}
@@ -59,7 +59,7 @@ func recordMCPPostResolutionTx(ctx context.Context, tx *sql.Tx, cap factory.MCPC
 // feedPostResolutions attaches recorded dispositions without mutating
 // the original posts or claiming an unrecorded state: resolved posts
 // carry their state and reason, everything else stays pending.
-func (s *Store) feedPostResolutions(ctx context.Context, details map[string]FeedCommentDetail) error {
+func (s *Store) feedPostResolutions(ctx context.Context, details map[string]FeedPostDetail) error {
 	ids := make([]string, 0, len(details))
 	for id := range details {
 		ids = append(ids, id)

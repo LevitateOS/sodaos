@@ -55,7 +55,7 @@ func (s *Store) PendingAppVerifications(ctx context.Context, after int64, limit 
 	rows, err := s.db.QueryContext(ctx, `SELECT a.seq,a.data FROM factory_assignments a WHERE a.stage='finished' AND a.seq>$2
 		AND a.data->>'phase'='verify' AND a.data->>'outcome'='succeeded'
 		AND a.data->'result'->'phase_result'->'output'->'verification'->>'outcome'='verified'
-		AND NOT EXISTS(SELECT 1 FROM factory_feed_comments p WHERE p.repository=a.repository AND p.data->>'event_identity'=a.data->'subject'->'delivery'->>'delivery_id' AND p.data->'communication'->>'component_id'='F10')
+		AND NOT EXISTS(SELECT 1 FROM factory_feed_posts p WHERE p.repository=a.repository AND p.data->>'event_identity'=a.data->'subject'->'delivery'->>'delivery_id' AND p.data->'communication'->>'component_id'='F10')
 		ORDER BY a.seq LIMIT $1`, limit, after)
 	if err != nil {
 		return nil, after, err

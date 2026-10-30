@@ -49,17 +49,17 @@ func (s *Store) ContributionSources(ctx context.Context) ([]string, error) {
 	}
 	candidates := []candidate{}
 	now := time.Now()
-	rows, err := s.db.QueryContext(ctx, `SELECT p.id,COALESCE((p.data->>'at')::bigint,0) FROM factory_feed_comments p
+	rows, err := s.db.QueryContext(ctx, `SELECT p.id,COALESCE((p.data->>'at')::bigint,0) FROM factory_feed_posts p
  WHERE NOT COALESCE((p.data->>'deleted')::boolean,false) AND NOT COALESCE((p.data->>'revoked')::boolean,false)
  AND NOT p.data ? 'consultation' AND NOT p.data ? 'contribution'
  AND (COALESCE(p.data->>'actor','')<>'factory' AND p.author<>'factory' OR p.data->'communication'->>'component_id'='F11')
- AND (p.author NOT LIKE 'worker:%' OR COALESCE(p.data->>'reply_to','')='')
+ AND (p.author NOT LIKE 'worker:%' OR COALESCE(p.data->>'parent_id','')='')
  AND COALESCE((p.data->>'at')::bigint,0)>$1
  AND EXISTS(SELECT 1 FROM factory_mcp_capabilities c JOIN factory_assignments a ON a.id=c.assignment AND a.run=c.run
  JOIN factory_runs r ON r.id=c.run WHERE c.repository=p.repository AND c.state='active' AND c.deadline>$2
  AND c.profile<>COALESCE(p.data->>'actor','') AND c.profile=ANY($3)
  AND `+contributionRoleScopeSQL+`<>'' AND a.stage='assigned' AND r.active AND NOT r.settled)
- AND NOT EXISTS(SELECT 1 FROM factory_feed_comments r WHERE r.author='factory' AND r.repository=p.repository
+ AND NOT EXISTS(SELECT 1 FROM factory_feed_posts r WHERE r.author='factory' AND r.repository=p.repository
  AND r.idempotency='invite:'||p.id||':'||p.revision::text)
  ORDER BY p.seq DESC LIMIT 8`, now.Add(-24*time.Hour).Unix(), now.Unix(), contributionReplyProfiles())
 	if err != nil {
@@ -88,7 +88,7 @@ func (s *Store) ContributionSources(ctx context.Context) ([]string, error) {
  JOIN factory_runs r ON r.id=c.run WHERE c.repository=a.repository AND c.state='active' AND c.deadline>$2
  AND c.profile=ANY($3) AND c.profile<>CASE a.data->>'phase' WHEN 'decompose' THEN 'product_lead' WHEN 'investigate' THEN 'architect' WHEN 'implement' THEN 'builder' WHEN 'review' THEN 'inspector' WHEN 'correct' THEN 'fixer' WHEN 'verify' THEN 'test_pilot' WHEN 'reassess' THEN 'strategist' WHEN 'repair' THEN 'strategist' ELSE '' END AND `+recordScopeSQL+`<>'' AND e.stage='assigned' AND r.active AND NOT r.settled)
  AND NOT EXISTS(SELECT 1 FROM factory_reassessments rs WHERE rs.cycle=a.data->'result'->'phase_result'->'output'->'reassessment'->>'cycle_id' AND rs.state='superseded')
- AND NOT EXISTS(SELECT 1 FROM factory_feed_comments r WHERE r.author='factory' AND r.repository=a.repository
+ AND NOT EXISTS(SELECT 1 FROM factory_feed_posts r WHERE r.author='factory' AND r.repository=a.repository
  AND r.idempotency='invite:'||a.id||':'||a.revision::text)
  ORDER BY a.seq DESC LIMIT 8`, now.Add(-24*time.Hour).Unix(), now.Unix(), contributionReplyProfiles())
 	if err != nil {
@@ -161,7 +161,7 @@ func (s *Store) ContributionSources(ctx context.Context) ([]string, error) {
 
 func (s *Store) ContributionContext(ctx context.Context, id string) (factory.ContributionReview, error) {
 	var review factory.ContributionReview
-	if source, err := s.FeedComment(ctx, id); err == nil {
+	if source, err := s.FeedPost(ctx, id); err == nil {
 		isDecision := source.Payload != nil && source.Payload.Communication != nil && source.Payload.Communication.ComponentID == "F11"
 		if source.Record.Deleted || source.Record.Revoked || source.Consultation != nil || (source.Actor == "factory" && !isDecision) {
 			return review, ErrNotFound
@@ -172,18 +172,18 @@ func (s *Store) ContributionContext(ctx context.Context, id string) (factory.Con
 		if source.Source != nil {
 			review.Context = TruncateFeedSummary(source.Source.Summary)
 		}
-		if source.Record.ReplyTo != "" {
-			if parent, err := s.FeedComment(ctx, source.Record.ReplyTo); err == nil && parent.Record.Repository == review.Repository && !parent.Record.Deleted && !parent.Record.Revoked {
+		if source.Record.ParentID != "" {
+			if parent, err := s.FeedPost(ctx, source.Record.ParentID); err == nil && parent.Record.Repository == review.Repository && !parent.Record.Deleted && !parent.Record.Revoked {
 				review.Context = parent.Body
 			}
 		}
-		return s.finishContributionContext(ctx, review, factory.CommentSourcePost)
+		return s.finishContributionContext(ctx, review, factory.PostSourcePost)
 	}
 	return s.contributionRecordContext(ctx, id)
 }
 
 // contributionRecordContext builds the JEV review for a real assignment-record
-// source through the canonical record owners: ResolveCommentSource supplies
+// source through the canonical record owners: ResolvePostSource supplies
 // the persisted summary/status, FeedRecordDetails supplies the serving actor,
 // and the original record thread supplies existing replies. No separate
 // authored post is created; the record itself is the source.
@@ -206,7 +206,7 @@ func (s *Store) contributionRecordContext(ctx context.Context, id string) (facto
 	if assignment.Repository != repository || assignment.Result == nil {
 		return review, ErrNotFound
 	}
-	source, err := s.ResolveCommentSource(ctx, repository, factory.CommentSourceRecord, id)
+	source, err := s.ResolvePostSource(ctx, repository, factory.PostSourceRecord, id)
 	if err != nil {
 		return review, err
 	}
@@ -225,10 +225,10 @@ func (s *Store) contributionRecordContext(ctx context.Context, id string) (facto
 	if body == "" {
 		return review, ErrNotFound
 	}
-	review = factory.ContributionReview{Source: id, SourceKind: factory.CommentSourceRecord, Revision: revision, Repository: repository,
+	review = factory.ContributionReview{Source: id, SourceKind: factory.PostSourceRecord, Revision: revision, Repository: repository,
 		Body: TruncateFeedSummary(body), SourceActor: detail.Actor, State: "pending", Replies: []factory.ContributionReply{},
 		PolicyVersion: "single-role-discussion-v1", ProbabilityThreshold: factory.ContributionProbability, ConfidenceThreshold: factory.ContributionConfidence}
-	return s.finishContributionContext(ctx, review, factory.CommentSourceRecord)
+	return s.finishContributionContext(ctx, review, factory.PostSourceRecord)
 }
 
 func (s *Store) finishContributionContext(ctx context.Context, review factory.ContributionReview, kind string) (factory.ContributionReview, error) {
@@ -303,15 +303,15 @@ func (s *Store) contributionRoles(ctx context.Context, review factory.Contributi
 // The source revision lock and existing comment idempotency key make a repeated
 // service wake, model timeout or browser refresh unable to dispatch twice.
 // Record sources persist the resolved record snapshot beside the assessment
-// (the ResolveCommentSource owner); post sources keep the existing reply_to
+// (the ResolvePostSource owner); post sources keep the existing parent_id
 // thread link. No separate authored post is created in either leg.
 func (s *Store) ClaimContributionReview(ctx context.Context, review factory.ContributionReview) (bool, error) {
 	if len(review.Roles) == 0 || !factory.ValidDigest(review.Snapshot) {
 		return false, errors.New("contribution requires eligible roles and snapshot")
 	}
-	var recordSource *factory.CommentSource
-	if review.SourceKind == factory.CommentSourceRecord {
-		source, err := s.ResolveCommentSource(ctx, review.Repository, factory.CommentSourceRecord, review.Source)
+	var recordSource *factory.PostSource
+	if review.SourceKind == factory.PostSourceRecord {
+		source, err := s.ResolvePostSource(ctx, review.Repository, factory.PostSourceRecord, review.Source)
 		if err != nil {
 			return false, err
 		}
@@ -329,13 +329,13 @@ func (s *Store) ClaimContributionReview(ctx context.Context, review factory.Cont
 	if recordSource != nil {
 		fields["source"] = recordSource
 	} else {
-		fields["reply_to"] = review.Source
+		fields["parent_id"] = review.Source
 	}
 	raw, err := json.Marshal(fields)
 	if err != nil {
 		return false, err
 	}
-	result, err := tx.ExecContext(ctx, `INSERT INTO factory_feed_comments(id,repository,revision,author,body,idempotency,data)
+	result, err := tx.ExecContext(ctx, `INSERT INTO factory_feed_posts(id,repository,revision,author,body,idempotency,data)
  VALUES($1,$2,0,'factory',$3,$4,$5) ON CONFLICT DO NOTHING`, factory.ContributionReviewInvitationID(review), review.Repository,
 		"JEV is checking whether an eligible running role can add a useful contribution.", "invite:"+review.Source+":"+strconv.FormatInt(review.Revision, 10), string(raw))
 	if err != nil {
@@ -349,7 +349,7 @@ func (s *Store) ClaimContributionReview(ctx context.Context, review factory.Cont
 }
 
 func lockContributionSource(ctx context.Context, tx *sql.Tx, review factory.ContributionReview) error {
-	if review.SourceKind == factory.CommentSourceRecord {
+	if review.SourceKind == factory.PostSourceRecord {
 		var revision int64
 		var stage string
 		var repository int64
@@ -363,7 +363,7 @@ func lockContributionSource(ctx context.Context, tx *sql.Tx, review factory.Cont
 		return nil
 	}
 	var revision int64
-	err := tx.QueryRowContext(ctx, `SELECT revision FROM factory_feed_comments WHERE id=$1 AND repository=$2
+	err := tx.QueryRowContext(ctx, `SELECT revision FROM factory_feed_posts WHERE id=$1 AND repository=$2
  AND NOT COALESCE((data->>'deleted')::boolean,false) AND NOT COALESCE((data->>'revoked')::boolean,false) FOR SHARE`, review.Source, review.Repository).Scan(&revision)
 	if err != nil {
 		return err
@@ -420,11 +420,11 @@ type contributionQuery interface {
 func contributionRepliesVersion(ctx context.Context, query contributionQuery, review factory.ContributionReview) (string, error) {
 	var version string
 	err := query.QueryRowContext(ctx, `WITH RECURSIVE thread AS (
- SELECT id,seq,revision,data FROM factory_feed_comments WHERE repository=$1
- AND (data->>'reply_to'=$2 OR (data->'source'->>'kind'='post' AND data->'source'->>'id'=$2)
+ SELECT id,seq,revision,data FROM factory_feed_posts WHERE repository=$1
+ AND (data->>'parent_id'=$2 OR (data->'source'->>'kind'='post' AND data->'source'->>'id'=$2)
  OR (data->'source'->>'kind'='record' AND data->'source'->>'id'=$2))
- UNION SELECT c.id,c.seq,c.revision,c.data FROM factory_feed_comments c JOIN thread p
- ON c.data->>'reply_to'=p.id OR (c.data->'source'->>'kind'='post' AND c.data->'source'->>'id'=p.id)
+ UNION SELECT c.id,c.seq,c.revision,c.data FROM factory_feed_posts c JOIN thread p
+ ON c.data->>'parent_id'=p.id OR (c.data->'source'->>'kind'='post' AND c.data->'source'->>'id'=p.id)
  WHERE c.repository=$1
  ) SELECT COALESCE(string_agg(id||':'||revision::text,',' ORDER BY seq DESC),'') FROM
  (SELECT id,seq,revision FROM thread WHERE NOT data ? 'consultation' AND NOT data ? 'contribution'
@@ -440,7 +440,7 @@ func contributionRepliesVersion(ctx context.Context, query contributionQuery, re
 // state or repeat its calls. The existing service continuation closes that
 // uncertainty without creating an invitation or replenishing the reservation.
 func (s *Store) ExpireContributionReviews(ctx context.Context) error {
-	_, err := s.db.ExecContext(ctx, `UPDATE factory_feed_comments SET body='The contribution assessment was interrupted or timed out. No agent was invited.',
+	_, err := s.db.ExecContext(ctx, `UPDATE factory_feed_posts SET body='The contribution assessment was interrupted or timed out. No agent was invited.',
  data=jsonb_set(data,'{contribution}',data->'contribution'||'{"state":"unavailable"}'::jsonb)||'{"status":"contribution:unavailable"}'::jsonb
  WHERE data->'contribution'->>'state'='pending' AND (data->>'at')::bigint<$1`, time.Now().Add(-90*time.Second).Unix())
 	return err
@@ -462,7 +462,7 @@ func settleContributionReviewTx(ctx context.Context, tx *sql.Tx, review factory.
 	if err != nil {
 		return err
 	}
-	result, err := tx.ExecContext(ctx, `UPDATE factory_feed_comments SET body=$2,data=jsonb_set(data,'{contribution}',$3::jsonb)||jsonb_build_object('status',$4::text)
+	result, err := tx.ExecContext(ctx, `UPDATE factory_feed_posts SET body=$2,data=jsonb_set(data,'{contribution}',$3::jsonb)||jsonb_build_object('status',$4::text)
  WHERE id=$1 AND data->'contribution'->>'state'='pending'`, factory.ContributionReviewInvitationID(review), body, string(raw), "contribution:"+review.State)
 	if err != nil {
 		return err
@@ -481,7 +481,7 @@ func settleContributionReviewTx(ctx context.Context, tx *sql.Tx, review factory.
 // admission. It consumes one exact discussion invitation, never an execution
 // lease. Edited/revoked source revisions cannot borrow an older invitation.
 // Record invitations are consumed by a direct reply to the invitation itself
-// (the record is not a comment, so reply_to names the assessment); post
+// (the record is not a comment, so parent_id names the assessment); post
 // invitations keep the existing exact-source-revision consumption. A direct
 // reply to the invitation still binds the exact live original source
 // kind/revision/repository plus nondeleted/nonrevoked state, so a stale edit
@@ -491,8 +491,8 @@ func settleContributionReviewTx(ctx context.Context, tx *sql.Tx, review factory.
 // discussion (which needs no invitation), so a 0-row freshness UPDATE
 // refuses instead of committing beside its comment and receipt.
 func contributionReplyTx(ctx context.Context, tx *sql.Tx, cap factory.MCPCapability, post, reply string) error {
-	result, err := tx.ExecContext(ctx, `UPDATE factory_feed_comments i SET data=jsonb_set(i.data,'{contribution}',i.data->'contribution'||jsonb_build_object('state','responded','reply',$4::text))
- FROM factory_feed_comments p WHERE p.id=$1 AND p.repository=$2 AND i.repository=p.repository
+	result, err := tx.ExecContext(ctx, `UPDATE factory_feed_posts i SET data=jsonb_set(i.data,'{contribution}',i.data->'contribution'||jsonb_build_object('state','responded','reply',$4::text))
+ FROM factory_feed_posts p WHERE p.id=$1 AND p.repository=$2 AND i.repository=p.repository
  AND i.data->'contribution'->>'assignment'=$3 AND i.data->'contribution'->>'state'='invited'
  AND ((i.data->'contribution'->>'source'=p.id AND (i.data->'contribution'->>'revision')::bigint=p.revision
  AND NOT COALESCE((p.data->>'deleted')::boolean,false) AND NOT COALESCE((p.data->>'revoked')::boolean,false))
@@ -500,7 +500,7 @@ func contributionReplyTx(ctx context.Context, tx *sql.Tx, cap factory.MCPCapabil
  AND ((i.data->'source'->>'kind'='record' AND EXISTS(SELECT 1 FROM factory_assignments a
  WHERE a.id=i.data->'contribution'->>'source' AND a.repository=i.repository
  AND a.revision=(i.data->'contribution'->>'revision')::bigint AND a.stage='finished'))
- OR (COALESCE(i.data->'source'->>'kind','')<>'record' AND EXISTS(SELECT 1 FROM factory_feed_comments s
+ OR (COALESCE(i.data->'source'->>'kind','')<>'record' AND EXISTS(SELECT 1 FROM factory_feed_posts s
  WHERE s.id=i.data->'contribution'->>'source' AND s.repository=i.repository
  AND s.revision=(i.data->'contribution'->>'revision')::bigint
  AND NOT COALESCE((s.data->>'deleted')::boolean,false) AND NOT COALESCE((s.data->>'revoked')::boolean,false))))))`, post, cap.Repository, cap.AssignmentID, reply)
@@ -536,13 +536,13 @@ func contributionReplyTx(ctx context.Context, tx *sql.Tx, cap factory.MCPCapabil
 func isOwnDiscussionReplyTx(ctx context.Context, tx *sql.Tx, cap factory.MCPCapability, post string) (bool, error) {
 	var own bool
 	err := tx.QueryRowContext(ctx, `WITH RECURSIVE ancestors AS (
- SELECT id,data,0 AS depth FROM factory_feed_comments WHERE id=$2 AND repository=$1
- UNION ALL SELECT p.id,p.data,a.depth+1 FROM factory_feed_comments p JOIN ancestors a
- ON p.id=COALESCE(NULLIF(a.data->>'reply_to',''),CASE WHEN a.data->'source'->>'kind'='post' THEN a.data->'source'->>'id' END)
+ SELECT id,data,0 AS depth FROM factory_feed_posts WHERE id=$2 AND repository=$1
+ UNION ALL SELECT p.id,p.data,a.depth+1 FROM factory_feed_posts p JOIN ancestors a
+ ON p.id=COALESCE(NULLIF(a.data->>'parent_id',''),CASE WHEN a.data->'source'->>'kind'='post' THEN a.data->'source'->>'id' END)
  WHERE p.repository=$1 AND a.depth<32
  ) SELECT EXISTS(SELECT 1 FROM ancestors WHERE
  (data->'source'->>'kind'='record' AND data->'source'->>'id'=$3)
- OR (data->>'assignment'=$3 AND COALESCE(data->>'reply_to','')=''))`, cap.Repository, post, cap.AssignmentID).Scan(&own)
+ OR (data->>'assignment'=$3 AND COALESCE(data->>'parent_id','')=''))`, cap.Repository, post, cap.AssignmentID).Scan(&own)
 	if err != nil {
 		return false, err
 	}
@@ -573,7 +573,7 @@ func admitWorkerDiscussionReplyTx(ctx context.Context, tx *sql.Tx, cap factory.M
 	// Source-direct invitation: the reply target is the exact live source
 	// revision itself. Re-assert it under the already-held share lock.
 	var one int
-	err = tx.QueryRowContext(ctx, `SELECT 1 FROM factory_feed_comments i JOIN factory_feed_comments p ON p.id=$2 AND p.repository=$1
+	err = tx.QueryRowContext(ctx, `SELECT 1 FROM factory_feed_posts i JOIN factory_feed_posts p ON p.id=$2 AND p.repository=$1
  WHERE i.repository=$1 AND i.data->'contribution'->>'assignment'=$3 AND i.data->'contribution'->>'state'='invited'
  AND i.data->'contribution'->>'source'=p.id AND (i.data->'contribution'->>'revision')::bigint=p.revision
  AND NOT COALESCE((p.data->>'deleted')::boolean,false) AND NOT COALESCE((p.data->>'revoked')::boolean,false)
@@ -585,8 +585,8 @@ func admitWorkerDiscussionReplyTx(ctx context.Context, tx *sql.Tx, cap factory.M
 		return err
 	}
 	// Invitation-direct post invitation: hold the exact live original post.
-	err = tx.QueryRowContext(ctx, `SELECT 1 FROM factory_feed_comments i JOIN factory_feed_comments p ON p.id=$2 AND p.repository=i.repository
- JOIN factory_feed_comments s ON s.id=i.data->'contribution'->>'source' AND s.repository=i.repository
+	err = tx.QueryRowContext(ctx, `SELECT 1 FROM factory_feed_posts i JOIN factory_feed_posts p ON p.id=$2 AND p.repository=i.repository
+ JOIN factory_feed_posts s ON s.id=i.data->'contribution'->>'source' AND s.repository=i.repository
  WHERE i.repository=$1 AND i.id=p.id
  AND i.data->'contribution'->>'assignment'=$3 AND i.data->'contribution'->>'state'='invited'
  AND NOT COALESCE((p.data->>'deleted')::boolean,false) AND NOT COALESCE((p.data->>'revoked')::boolean,false)
@@ -602,7 +602,7 @@ func admitWorkerDiscussionReplyTx(ctx context.Context, tx *sql.Tx, cap factory.M
 	}
 	// Invitation-direct record invitation: hold the exact finished
 	// assignment revision.
-	err = tx.QueryRowContext(ctx, `SELECT 1 FROM factory_feed_comments i JOIN factory_feed_comments p ON p.id=$2 AND p.repository=i.repository
+	err = tx.QueryRowContext(ctx, `SELECT 1 FROM factory_feed_posts i JOIN factory_feed_posts p ON p.id=$2 AND p.repository=i.repository
  JOIN factory_assignments a ON a.id=i.data->'contribution'->>'source'
  WHERE i.repository=$1 AND i.id=p.id
  AND i.data->'contribution'->>'assignment'=$3 AND i.data->'contribution'->>'state'='invited'

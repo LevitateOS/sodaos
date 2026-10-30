@@ -504,14 +504,16 @@ soda-factory-feed { display: block; max-width: 880px; margin-inline: auto; }
 .soda-feed-post[data-role=jev] { --soda-feed-role-color: var(--soda-role-jev); }
 .soda-feed-post[data-role=factory] { --soda-feed-role-color: var(--soda-role-factory); }
 .soda-feed-header { display: flex; align-items: center; gap: 10px; padding-bottom: 8px; }
+.soda-feed-parent { margin: 0 0 6px 46px; color: var(--soda-page-muted); font: var(--soda-font-caption); font-size: 12px; }
+.soda-feed-parent a { color: inherit; text-decoration: underline; text-underline-offset: 2px; }
 .soda-feed-header p { margin: 0 0 2px; font: var(--soda-font-caption); color: var(--soda-page-muted); }
 .soda-feed-header p:first-child { font: var(--soda-font-label); font-size: 14px; color: var(--soda-page-text); }
 .soda-feed-header strong { color: var(--soda-feed-role); }
 .soda-feed-avatar { display: grid; place-items: center; flex: 0 0 36px; width: 36px; height: 36px; overflow: hidden; border-radius: 0; color: var(--soda-feed-role); background: color-mix(in srgb, var(--soda-feed-role-color) 22%, var(--soda-page-surface)); border: 1px solid var(--soda-feed-role); font: 600 13px/1 "IBM Plex Mono", monospace; }
 .soda-feed-avatar img { display: block; width: 100%; height: 100%; object-fit: cover; }
-.soda-feed-post[data-role=comment] .soda-feed-avatar { background: var(--soda-feed-tint); color: var(--soda-page-muted); border: 1px solid var(--soda-feed-edge); }
+.soda-feed-post[data-role=post] .soda-feed-avatar { background: var(--soda-feed-tint); color: var(--soda-page-muted); border: 1px solid var(--soda-feed-edge); }
 .soda-feed-card { padding: 18px; border: 1px solid var(--soda-feed-edge); border-top: 3px solid var(--soda-feed-role-color); border-radius: 0; background: color-mix(in srgb, var(--soda-feed-role-color) 4%, var(--soda-page-surface)); }
-.soda-feed-post[data-role=comment] .soda-feed-card { border-top-color: var(--soda-feed-edge); }
+.soda-feed-post[data-role=post] .soda-feed-card { border-top-color: var(--soda-feed-edge); }
 .soda-feed-card p { margin: 0 0 10px; }
 .soda-feed-card h4 { font: var(--soda-font-label); margin: 12px 0 8px; }
 .soda-feed-body-text { white-space: pre-wrap; overflow-wrap: anywhere; }
@@ -551,14 +553,14 @@ soda-factory-feed { display: block; max-width: 880px; margin-inline: auto; }
 .soda-feed-thread-head .soda-feed-icon-button { color: var(--soda-page-muted); }
 .soda-feed-thread-head .soda-feed-icon-button:hover { color: var(--soda-page-text); }
 .soda-feed-thread-status { color: var(--soda-page-muted); font: var(--soda-font-caption); margin: 8px 0; }
-.soda-feed-comments { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 16px; }
-.soda-feed-comment { display: flex; gap: 10px; min-width: 0; }
-.soda-feed-comment .soda-feed-avatar { --soda-feed-role: var(--soda-page-muted); --soda-feed-role-color: var(--soda-page-muted); flex-basis: 30px; width: 30px; height: 30px; font-size: 11px; }
-.soda-feed-comment-main { min-width: 0; flex: 1; }
-.soda-feed-comment-who { margin: 0; font-size: 13px; }
-.soda-feed-comment-who strong { font-weight: 600; }
-.soda-feed-comment-who time, .soda-feed-comment-edited { color: var(--soda-page-muted); font-size: 12px; }
-.soda-feed-comment .soda-feed-body-text { margin: 2px 0 0; }
+.soda-feed-replies { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 16px; }
+.soda-feed-reply { display: flex; gap: 10px; min-width: 0; }
+.soda-feed-reply .soda-feed-avatar { --soda-feed-role: var(--soda-page-muted); --soda-feed-role-color: var(--soda-page-muted); flex-basis: 30px; width: 30px; height: 30px; font-size: 11px; }
+.soda-feed-reply-main { min-width: 0; flex: 1; }
+.soda-feed-reply-who { margin: 0; font-size: 13px; }
+.soda-feed-reply-who strong { font-weight: 600; }
+.soda-feed-reply-who time, .soda-feed-reply-edited { color: var(--soda-page-muted); font-size: 12px; }
+.soda-feed-reply .soda-feed-body-text { margin: 2px 0 0; }
 .soda-feed-more { background: transparent; border: 0; cursor: pointer; font: inherit; font-size: 13px; color: var(--soda-page-muted); padding: 4px 0; }
 .soda-feed-more:hover { color: var(--soda-page-text); text-decoration: underline; }
 .soda-feed-drawer section[aria-label="Discussion"]:has(> label) { display: flex; gap: 10px; align-items: flex-start; border-top: 1px solid var(--soda-feed-edge); margin-top: 8px; padding: 12px 0 10px; }
@@ -967,8 +969,8 @@ soda-factory-library { display: block; min-width: 0; }
 .soda-feed > section[aria-label=Discussion] textarea { min-height: 72px; }
 .soda-feed-compose-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; margin: 12px 0 0; }
 .soda-feed-compose-hint { flex: 1 1 220px; font: var(--soda-font-caption); color: var(--soda-page-muted); }
-.soda-feed button[data-comment-submit] { background: var(--soda-page-action); border: 2px solid var(--soda-page-action); color: var(--soda-page-on-action); min-height: 44px; font: var(--soda-font-button); }
-.soda-feed button[data-comment-submit]:not(:disabled):hover { background: var(--soda-page-action-hover); }
+.soda-feed button[data-post-submit] { background: var(--soda-page-action); border: 2px solid var(--soda-page-action); color: var(--soda-page-on-action); min-height: 44px; font: var(--soda-font-button); }
+.soda-feed button[data-post-submit]:not(:disabled):hover { background: var(--soda-page-action-hover); }
 .soda-feed-header { gap: 12px; padding-bottom: 12px; }
 .soda-feed-header p:first-child { font: var(--soda-font-meta); }
 .soda-feed-status { background: transparent; border-color: var(--soda-feed-edge); font-size: 11px; }
@@ -1111,6 +1113,14 @@ html[data-theme^="soda-"] body .soda-repository-header .ui.button:not(.disabled)
 .soda-feed-card[data-state=in_progress] { --soda-feed-state-edge: repeating-linear-gradient(135deg, var(--soda-page-text) 0 2px, transparent 2px 5px); }
 .soda-feed-card[data-state=done] { --soda-feed-state-edge: var(--soda-feed-ok); }
 .soda-feed-card[data-state=decided] { --soda-feed-state-edge: var(--soda-feed-faint); }
+/* An ordinary question reads as conversation: the question once, then the reply box. */
+.soda-feed-question { display: grid; gap: 10px; }
+.soda-feed-question > * { margin: 0; }
+.soda-feed-question-text { margin: 0; font-size: 17px; font-weight: 600; line-height: 1.38; overflow-wrap: anywhere; text-wrap: pretty; }
+.soda-feed-card[data-state=question] > section[aria-label="Discussion"] { display: grid; gap: 8px; }
+.soda-feed-card[data-state=question] > section[aria-label="Discussion"] label { display: grid; gap: 6px; font-size: 13px; color: var(--soda-page-muted); }
+.soda-feed-card[data-state=question] > section[aria-label="Discussion"] textarea { width: 100%; min-height: 64px; resize: vertical; }
+.soda-feed-card[data-state=question] .soda-feed-compose-actions { margin: 0; }
 .soda-feed-hgroup { display: grid; gap: 4px; }
 .soda-feed-hl { margin: 0; font-size: 17px; font-weight: 600; line-height: 1.38; overflow-wrap: anywhere; text-wrap: pretty; }
 .soda-feed-dt { margin: 0; font-size: 14px; color: var(--soda-page-muted); }
@@ -1213,7 +1223,7 @@ html[data-theme^="soda-"] body .soda-repository-header .ui.button:not(.disabled)
 .soda-feed-composer[data-open=false] > label { flex: 1 1 auto; }
 .soda-feed-composer[data-open=false] .soda-feed-composer-foot { border-top: 0; padding-left: 0; }
 .soda-feed-composer[data-open=false] .soda-feed-compose-hint { display: none; }
-html[data-theme^="soda-"] body .soda-feed .soda-feed-composer button[data-comment-submit], .soda-feed .soda-feed-composer button[data-comment-submit] { min-height: 40px !important; padding: 8px 20px !important; border-radius: 6px; flex-shrink: 0; }
+html[data-theme^="soda-"] body .soda-feed .soda-feed-composer button[data-post-submit], .soda-feed .soda-feed-composer button[data-post-submit] { min-height: 40px !important; padding: 8px 20px !important; border-radius: 6px; flex-shrink: 0; }
 
 .soda-feed .soda-feed-toolbar { display: flex; align-items: flex-end; justify-content: space-between; flex-wrap: wrap; gap: 4px 16px; margin: 0; padding: 0; border-bottom: 1px solid var(--soda-feed-edge); }
 .soda-feed-tabs { display: flex; gap: 2px; min-width: 0; overflow-x: auto; scrollbar-width: none; }
@@ -1245,7 +1255,7 @@ html[data-theme^="soda-"] body .soda-feed .soda-feed-pull-tab, .soda-feed .soda-
 /* The whole request card shows focus; its borderless text box does not. */
 .soda-feed .soda-feed-composer textarea:focus-visible { outline: none !important; }
 .soda-feed .soda-feed-composer:has(textarea:focus-visible) { outline: 2px solid var(--soda-page-focus); outline-offset: 2px; }
-html[data-theme^="soda-"] body .soda-feed .soda-feed-composer button[data-comment-submit], .soda-feed .soda-feed-composer button[data-comment-submit] { white-space: nowrap; overflow-wrap: normal; min-width: max-content; }
+html[data-theme^="soda-"] body .soda-feed .soda-feed-composer button[data-post-submit], .soda-feed .soda-feed-composer button[data-post-submit] { white-space: nowrap; overflow-wrap: normal; min-width: max-content; }
 /* JEV answers a request in its card: portrait, name, what she is doing now. */
 .soda-feed .soda-feed-card .soda-feed-outcome, .soda-feed .soda-feed-outcome { display: flex; align-items: flex-start; gap: 10px; margin: 0; padding: 10px 12px; border: 0; border-radius: 8px; background: var(--soda-feed-tint); font: var(--soda-font-meta); color: var(--soda-page-text); }
 .soda-feed .soda-feed-outcome[data-tone=failed] { background: var(--soda-feed-bad-bg); }
@@ -1257,6 +1267,8 @@ html[data-theme^="soda-"] body .soda-feed .soda-feed-composer button[data-commen
 .soda-feed .soda-feed-card .soda-feed-outcome a { margin-left: 0; margin-right: 10px; }
 .soda-feed-outcome-who { display: flex; align-items: center; gap: 8px; font-weight: 600; }
 .soda-feed-outcome-who strong { font-weight: 600; }
+.soda-feed-authoring-label, .soda-feed-authoring-meta { color: var(--soda-page-muted); font: var(--soda-font-caption); }
+.soda-feed-authoring-links { display: flex; flex-wrap: wrap; gap: 12px; }
 .soda-feed-outcome-body > button { justify-self: start; margin-top: 6px; }
 .soda-feed-working { display: inline-flex; gap: 3px; }
 .soda-feed-working i { width: 5px; height: 5px; border-radius: 50%; background: var(--soda-page-muted); animation: soda-feed-working 1.2s ease-in-out infinite; }

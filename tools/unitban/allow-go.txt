@@ -97,7 +97,7 @@ internal/store/factory_dispatch_phase_review_correct_test.go
 internal/store/factory_dispatch_phase_test.go
 internal/store/factory_dispatch_queue_test.go
 internal/store/factory_dispatch_test.go
-internal/store/factory_feed_comment_test.go
+internal/store/factory_feed_post_test.go
 internal/store/factory_feed_events_test.go
 internal/store/factory_feed_record_test.go
 internal/store/factory_feed_subscriptions_test.go
@@ -147,7 +147,7 @@ internal/web/api/extension_lifecycle_controller_test.go
 internal/web/api/extension_lifecycle_test.go
 internal/web/api/extension_test.go
 internal/web/api/factory_completion_budget_test.go
-internal/web/api/factory_feed_comment_test.go
+internal/web/api/factory_feed_post_test.go
 internal/web/api/factory_feed_route_test.go
 internal/web/api/factory_intent_explore_test.go
 internal/web/api/factory_intent_plan_test.go

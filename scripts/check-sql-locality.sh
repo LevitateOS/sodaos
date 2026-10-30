@@ -73,7 +73,7 @@ while IFS= read -r -d '' file; do
     # Seed an eligible assignment, finished record assignment and open run to
     # challenge FUX14 record-invitation threading through registered owners;
     # these rows have no public Store writer. Disposable fixture only.
-    ./internal/web/api/factory_feed_comment_test.go) continue ;;
+    ./internal/web/api/factory_feed_post_test.go) continue ;;
     # Seed a merged completion, finished assignment and F10 comment rows to
     # challenge comment-product HTTP projection/readback (incl. unavailable
     # lane); proves registered-HTTP readback of fixtures, not a producer

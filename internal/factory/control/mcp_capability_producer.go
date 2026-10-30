@@ -119,6 +119,12 @@ func BuildMCPCapability(a factory.Assignment, run factory.Run, preparation proje
 	if err != nil {
 		return factory.MCPCapability{}, err
 	}
+	if a.Phase == project.ExecutionDecompose && a.PlanningContext != nil && a.PlanningContext.IssueMaker != nil {
+		if err := a.PlanningContext.IssueMaker.Validate(a.PlanningContext.Head); err != nil {
+			return factory.MCPCapability{}, err
+		}
+		profile = factory.MCPProfileIssueMaker
+	}
 	subject := mcpSubjectForAssignment(a)
 	if subject == "" || len(subject) > factory.MCPMaxRefChars {
 		return factory.MCPCapability{}, errors.New("mcp producer refuses an unnameable recorded subject")

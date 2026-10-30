@@ -89,6 +89,12 @@ func nativeProductProxyForActorWithCallbacks(t *testing.T, s *Server, contributi
 				response = actorCallback(in)
 			}
 			_ = json.NewEncoder(w).Encode(response)
+		case extensions.OperationRepositoryIssues:
+			if nativeCallback != nil {
+				_ = json.NewEncoder(w).Encode(nativeCallback(in))
+			} else {
+				_ = json.NewEncoder(w).Encode(extensions.CallbackResponse{Issues: &extensions.RepositoryIssuePage{RepositoryID: in.RepositoryID, Items: []extensions.RepositoryIssue{}}})
+			}
 		default:
 			if nativeCallback != nil {
 				response := nativeCallback(in)

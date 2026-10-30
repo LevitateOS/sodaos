@@ -12,7 +12,7 @@ import (
 // The transport has authenticated the capability; repeat its domain bindings
 // before exposing the preparation-owned catalog for a new planning proposal.
 func (s *API) factoryApprovedVerificationCatalog(ctx context.Context, cap factory.MCPCapability) (factory.ApprovedCatalog, error) {
-	if s.Store == nil || s.Coordinator == nil || cap.Profile != factory.MCPProfileProductLead || cap.State != factory.MCPCapabilityActive || cap.Expired(time.Now()) {
+	if s.Store == nil || s.Coordinator == nil || (cap.Profile != factory.MCPProfileProductLead && cap.Profile != factory.MCPProfileIssueMaker) || cap.State != factory.MCPCapabilityActive || cap.Expired(time.Now()) {
 		return nil, errors.New("approved check catalog is unavailable for this worker")
 	}
 	a, err := s.Store.Assignment(ctx, cap.AssignmentID)

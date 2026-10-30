@@ -15,7 +15,7 @@ func communicationPayloadSchema(tool factory.MCPTool) *jsonschema.Schema {
 		return nil
 	}
 	props := map[string]*jsonschema.Schema{}
-	for _, key := range []string{"title", "summary", "question", "resolution", "scope", "decision", "rationale", "reply_to", "before", "after"} {
+	for _, key := range []string{"title", "summary", "question", "resolution", "scope", "decision", "rationale", "parent_id", "before", "after"} {
 		props[key] = &jsonschema.Schema{Type: "string"}
 	}
 	props["severity"] = &jsonschema.Schema{Type: "string", Enum: []any{"info", "warning", "critical"}}
@@ -33,7 +33,7 @@ func communicationPayloadSchema(tool factory.MCPTool) *jsonschema.Schema {
 	case factory.MCPToolAsk:
 		required = append(required, "question")
 	case factory.MCPToolAnswer, factory.MCPToolReply:
-		required = append(required, "reply_to")
+		required = append(required, "parent_id")
 	case factory.MCPToolFlag:
 		required = append(required, "severity")
 	case factory.MCPToolLearned:
@@ -61,15 +61,15 @@ func checkCommunicationPayload(tool factory.MCPTool, payload map[string]any) err
 
 // Worker communications are recorded content; no human comment routing request
 // was created, so their reads must not invent a pending JEV pipeline.
-func feedWorkerCommentResponse(detail store.FeedCommentDetail) map[string]any {
+func feedWorkerPostResponse(detail store.FeedPostDetail) map[string]any {
 	var communication *factory.FeedCommunication
 	if detail.Payload != nil {
 		communication = detail.Payload.Communication
 	}
 	return map[string]any{
-		"comment_id": detail.Record.ID, "revision": detail.Record.Revision, "repository": detail.Record.Repository,
+		"post_id": detail.Record.ID, "revision": detail.Record.Revision, "repository": detail.Record.Repository,
 		"author": detail.Record.Author, "author_name": detail.AuthorName, "actor": detail.Actor, "at": detail.At,
-		"issue_scope": detail.Record.Issue, "reply_to": detail.Record.ReplyTo, "body": commentBodyFor(detail),
+		"issue_scope": detail.Record.Issue, "parent_id": detail.Record.ParentID, "body": postBodyFor(detail),
 		"status": detail.Status, "deleted": detail.Record.Deleted, "revoked": detail.Record.Revoked, "edited": false,
 		"can_retry": false, "communication": communication, "consultation": detail.Consultation,
 		"assignment": detail.Assignment, "source": detail.Source,
