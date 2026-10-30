@@ -106,16 +106,15 @@ func (d RetryDecision) Validate() error {
 // never supplied by the caller; provider homes and role Git configuration
 // are excluded from the copy.
 type TakeoverRecord struct {
-	Run       string `json:"run"`
-	Member    string `json:"member"`
-	Project   string `json:"project"`
-	Dest      string `json:"destination"`
-	CommandID string `json:"command_id"`
-	Copied    string `json:"copied"`
+	Run     string `json:"run"`
+	Member  string `json:"member"`
+	Project string `json:"project"`
+	Dest    string `json:"destination"`
+	Copied  string `json:"copied"`
 }
 
 func (r TakeoverRecord) Validate() error {
-	if !ValidID(r.Run) || !ValidID(r.CommandID) || !ValidProjectID(r.Project) {
+	if !ValidID(r.Run) || !ValidProjectID(r.Project) {
 		return errors.New("invalid takeover identity")
 	}
 	if r.Member == "" || len(r.Member) > 32 || r.Member != strings.TrimSpace(r.Member) {

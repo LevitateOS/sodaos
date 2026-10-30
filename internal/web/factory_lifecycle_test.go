@@ -262,7 +262,7 @@ func TestFactoryTakeoverRequiresMembershipAndSettledRun(t *testing.T) {
 	if err := s.Store.Join(t.Context(), webTerminalProject, 1, "alice"); err != nil {
 		t.Fatal(err)
 	}
-	pending := lifecycleAction(t, s, "POST", "/api/factory/runs/"+r.ID+"/actions", `{"command_id":"`+factory.NewID()+`","action":"takeover"}`, "alice")
+	pending := lifecycleAction(t, s, "POST", "/api/factory/runs/"+r.ID+"/actions", `{"action":"takeover"}`, "alice")
 	if pending.Code != 409 {
 		t.Fatal(pending.Code, pending.Body.String())
 	}
@@ -270,11 +270,11 @@ func TestFactoryTakeoverRequiresMembershipAndSettledRun(t *testing.T) {
 	if err := s.Store.SaveFactoryRun(t.Context(), r); err != nil {
 		t.Fatal(err)
 	}
-	outsider := lifecycleAction(t, s, "POST", "/api/factory/runs/"+r.ID+"/actions", `{"command_id":"`+factory.NewID()+`","action":"takeover"}`, "bob")
+	outsider := lifecycleAction(t, s, "POST", "/api/factory/runs/"+r.ID+"/actions", `{"action":"takeover"}`, "bob")
 	if outsider.Code != 403 {
 		t.Fatal(outsider.Code, outsider.Body.String())
 	}
-	takeover := lifecycleAction(t, s, "POST", "/api/factory/runs/"+r.ID+"/actions", `{"command_id":"`+factory.NewID()+`","action":"takeover"}`, "alice")
+	takeover := lifecycleAction(t, s, "POST", "/api/factory/runs/"+r.ID+"/actions", `{"action":"takeover"}`, "alice")
 	if takeover.Code != 200 {
 		t.Fatal(takeover.Code, takeover.Body.String())
 	}
@@ -284,6 +284,15 @@ func TestFactoryTakeoverRequiresMembershipAndSettledRun(t *testing.T) {
 		t.Fatalf("takeover: %+v", record)
 	}
 	assertNoSecrets(t, takeover.Body.String())
+	repeated := lifecycleAction(t, s, "POST", "/api/factory/runs/"+r.ID+"/actions", `{"action":"takeover"}`, "alice")
+	if repeated.Code != 200 {
+		t.Fatal(repeated.Code, repeated.Body.String())
+	}
+	var again factory.TakeoverRecord
+	decodeBody(t, repeated, &again)
+	if again != record {
+		t.Fatalf("takeover post result changed: %+v", again)
+	}
 }
 
 func TestLifecycleStopAndStartCoordinate(t *testing.T) {

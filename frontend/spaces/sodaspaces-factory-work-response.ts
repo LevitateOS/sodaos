@@ -459,7 +459,6 @@ export interface TakeoverRecord {
   member: string;
   project: string;
   destination: string;
-  command_id: string;
   copied: string;
 }
 export interface FactoryCommandRecord {
@@ -532,14 +531,13 @@ export function deliveryRepairDecision(value: unknown, commandID: string, runID:
     state: 'queued' as const,
   };
 }
-export function takeoverRecord(value: unknown, commandID: string, runID: string): TakeoverRecord {
+export function takeoverRecord(value: unknown, runID: string): TakeoverRecord {
   const data = object(value);
   return {
     run: runID,
     member: text(data.member),
     project: text(data.project),
     destination: text(data.destination),
-    command_id: commandID,
     copied: text(data.copied),
   };
 }

@@ -2,7 +2,6 @@ package control
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"time"
 
@@ -13,15 +12,14 @@ import (
 )
 
 // ErrTakeoverFailed reports a takeover the host did not confirm. The
-// command stays unfinished so the caller refreshes instead of assuming a
-// copy that may not exist.
+// caller refreshes instead of assuming a copy that may not exist.
 var ErrTakeoverFailed = errors.New("factory takeover unconfirmed")
 
 // TakeoverRun copies a reconciled run's retained work into the admitted
 // member's own checkout. Unsettled runs refuse: takeover cannot finish
 // while retirement or credential accounting is unresolved. Provider homes
 // and role Git configuration are excluded; no credential is transferred.
-func (c *Coordinator) TakeoverRun(ctx context.Context, commandID, principal, runID, member string) (factory.TakeoverRecord, error) {
+func (c *Coordinator) TakeoverRun(ctx context.Context, runID, member string) (factory.TakeoverRecord, error) {
 	bounded, stop := context.WithTimeout(ctx, 5*time.Minute)
 	defer stop()
 	run, err := c.Store.FactoryRun(bounded, runID)
@@ -40,25 +38,6 @@ func (c *Coordinator) TakeoverRun(ctx context.Context, commandID, principal, run
 	} else if !errors.Is(err, store.ErrNotFound) {
 		return factory.TakeoverRecord{}, err
 	}
-	payload, err := json.Marshal(map[string]string{"member": member})
-	if err != nil {
-		return factory.TakeoverRecord{}, err
-	}
-	target := "run/" + runID
-	cmd := factory.Command{
-		ID: commandID, Type: factory.CommandTakeover, Target: target, Principal: principal,
-		Payload: string(payload), Digest: factory.SettingsDigest(factory.CommandTakeover, target, string(payload)),
-	}
-	if err = cmd.Validate(); err != nil {
-		return factory.TakeoverRecord{}, err
-	}
-	stored, created, err := c.Store.RecordFactoryCommand(bounded, cmd, time.Now())
-	if err != nil {
-		return factory.TakeoverRecord{}, err
-	}
-	if !created {
-		return replayTakeover(stored)
-	}
 	result, err := c.Host.FactoryTakeover(bounded, takeover)
 	if err != nil {
 		return factory.TakeoverRecord{}, ErrTakeoverFailed
@@ -68,31 +47,9 @@ func (c *Coordinator) TakeoverRun(ctx context.Context, commandID, principal, run
 	}
 	record := factory.TakeoverRecord{
 		Run: runID, Member: member, Project: run.ProjectID,
-		Dest: result.Destination, CommandID: cmd.ID, Copied: time.Now().UTC().Format(time.RFC3339),
+		Dest: result.Destination, Copied: time.Now().UTC().Format(time.RFC3339),
 	}
-	record, err = c.Store.RecordTakeover(bounded, record)
-	if err != nil {
-		return factory.TakeoverRecord{}, err
-	}
-	outcome, err := json.Marshal(record)
-	if err != nil {
-		return factory.TakeoverRecord{}, err
-	}
-	if err = c.Store.FinishFactoryCommand(bounded, cmd.ID, string(outcome), time.Now()); err != nil {
-		return factory.TakeoverRecord{}, err
-	}
-	return record, nil
-}
-
-func replayTakeover(stored factory.Command) (factory.TakeoverRecord, error) {
-	if stored.Finished == "" {
-		return factory.TakeoverRecord{}, ErrCommandRunning
-	}
-	var record factory.TakeoverRecord
-	if err := json.Unmarshal([]byte(stored.Outcome), &record); err != nil {
-		return factory.TakeoverRecord{}, err
-	}
-	return record, nil
+	return c.Store.RecordTakeover(bounded, record)
 }
 
 // VerifyProjectStart proves a coordinated start revived no old run: no

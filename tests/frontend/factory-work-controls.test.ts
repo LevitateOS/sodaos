@@ -676,13 +676,11 @@ test('work detail retries the same completion command after lost replies and run
       path: `factory/runs/${RUN}/actions`,
       action: 'takeover',
       status: 200,
-      echoCommand: true,
       json: {
         run: RUN,
         member: 'soda-tester',
         project: PROJECT,
         destination: '/home/soda-tester/takeover/d',
-        command_id: '',
         copied: '2024-06-30T00:00:00Z',
       },
     },
@@ -789,6 +787,8 @@ test('work detail retries the same completion command after lost replies and run
   const stop = posts.find((call) => (call.body as {action?: string}).action === 'stop');
   assert.equal(stop?.path, `factory/runs/${RUN}/actions`);
   assert.deepEqual(stop?.body, {action: 'stop'});
+  const takeover = posts.find((call) => (call.body as {action?: string}).action === 'takeover');
+  assert.deepEqual(takeover?.body, {action: 'takeover'});
   const projectStop = posts.find((call) => call.path === `environments/${ENVIRONMENT}/lifecycle`);
   assert.deepEqual(projectStop?.body, {action: 'stop', confirm_stop: true});
 
@@ -815,6 +815,17 @@ test('work detail retries the same completion command after lost replies and run
   const afterLostStop = await workCalls(page);
   assert.equal(afterLostStop.filter((call) => call.path.startsWith('factory/commands/')).length, 0);
   assert.deepEqual(afterLostStop.at(-1)?.body, {action: 'stop'});
+
+  await page.evaluate((run) => window.factoryWork.setRoutes([{
+    method: 'POST', path: `factory/runs/${run}/actions`, action: 'takeover',
+    status: 200, json: {run, member: 'soda-tester', destination: '/home/soda-tester/takeover/d'}, loseReply: true,
+  }]), RUN);
+  await detail.getByRole('button', {name: 'Take over run'}).click();
+  await detail.getByRole('listitem').filter({has: page.getByRole('button', {name: 'Take over run', exact: true})})
+    .getByText('No reply was confirmed. Refresh before acting again.').waitFor();
+  const afterLostTakeover = await workCalls(page);
+  assert.equal(afterLostTakeover.filter((call) => call.path.startsWith('factory/commands/')).length, 0);
+  assert.deepEqual(afterLostTakeover.at(-1)?.body, {action: 'takeover'});
 
   await page.evaluate((run) => window.factoryWork.setRoutes([{
     method: 'POST', path: `factory/runs/${run}/actions`, action: 'use_current_context',

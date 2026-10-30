@@ -351,6 +351,9 @@ receipt. Approval still binds the current requirement and preserves the maintena
 An owner's current-context choice is stored once on the capability, with its
 author and exact scope. Reads and repeated choices use that record directly;
 there is no duplicate command receipt or browser command-recovery request.
+The completed human-takeover copy is stored on its Feed post, keyed by run and
+member. Reading that post prevents another copy; no takeover table or command
+receipt duplicates it. Native retirement, membership and destination checks remain.
 
 Worker context does not carry a submission-receipt history; communications and
 results are available through the work posts and discussion. Ordinary worker

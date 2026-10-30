@@ -23,7 +23,7 @@ func takeoverStore(t *testing.T) *Store {
 
 func takeoverFixture() factory.TakeoverRecord {
 	run := strings.Repeat("a", 32)
-	return factory.TakeoverRecord{Run: run, Member: "alice", Project: "p765432109876543210987654", Dest: "/home/alice/factory-takeover/" + run, CommandID: factory.NewID(), Copied: "2026-10-01T00:00:00Z"}
+	return factory.TakeoverRecord{Run: run, Member: "alice", Project: "p765432109876543210987654", Dest: "/home/alice/factory-takeover/" + run, Copied: "2026-10-01T00:00:00Z"}
 }
 
 func TestTakeoverRecordReplays(t *testing.T) {
@@ -42,7 +42,7 @@ func TestTakeoverRecordReplays(t *testing.T) {
 	if err != nil || got != want {
 		t.Fatalf("read: %+v %v", got, err)
 	}
-	other, err := s.RecordTakeover(ctx, factory.TakeoverRecord{Run: want.Run, Member: "bob", Project: want.Project, Dest: "/home/bob/factory-takeover/" + want.Run, CommandID: factory.NewID(), Copied: want.Copied})
+	other, err := s.RecordTakeover(ctx, factory.TakeoverRecord{Run: want.Run, Member: "bob", Project: want.Project, Dest: "/home/bob/factory-takeover/" + want.Run, Copied: want.Copied})
 	if err != nil || other.Member != "bob" {
 		t.Fatalf("second member: %+v %v", other, err)
 	}
@@ -50,6 +50,10 @@ func TestTakeoverRecordReplays(t *testing.T) {
 	moved.Dest = "/home/alice/factory-takeover/" + strings.Repeat("b", 32)
 	if _, err = s.RecordTakeover(ctx, moved); !errors.Is(err, ErrTakeoverConflict) {
 		t.Fatalf("changed takeover: %v", err)
+	}
+	var posts, commands int
+	if err = s.db.QueryRowContext(ctx, `SELECT (SELECT count(*) FROM factory_feed_posts WHERE data->'takeover'->>'run'=$1),(SELECT count(*) FROM factory_commands)`, want.Run).Scan(&posts, &commands); err != nil || posts != 2 || commands != 0 {
+		t.Fatalf("takeover storage: posts=%d commands=%d err=%v", posts, commands, err)
 	}
 }
 

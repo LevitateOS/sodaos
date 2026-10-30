@@ -723,7 +723,7 @@ export class SodaFactoryWorkDetail extends LitElement {
       return;
     }
     const serial = this.serial;
-    const commandID = kind === 'retry' || kind === 'takeover' ? factoryCommandId() : '';
+    const commandID = kind === 'retry' ? factoryCommandId() : '';
     this.acting = kind;
     this.setMark(kind, 'pending', 'Requested; awaiting confirmation.');
     await this.executeIntervention(context, kind, commandID, serial, runID);
@@ -743,7 +743,7 @@ export class SodaFactoryWorkDetail extends LitElement {
       if (refreshesDetail(kind)) void this.load();
     } catch {
       if (serial !== this.serial) return;
-      if (kind !== 'retry' && kind !== 'takeover') {
+      if (kind !== 'retry') {
         this.setMark(kind, 'pending', 'No reply was confirmed. Refresh before acting again.');
         return;
       }
@@ -920,9 +920,9 @@ async function postIntervention(
       action: 'stop',
       confirm_stop: true,
     });
-  if (kind === 'stop' && runID)
+  if ((kind === 'stop' || kind === 'takeover') && runID)
     return postJSON(context.transport, `factory/runs/${runID}/actions`, {action: kind});
-  if ((kind === 'retry' || kind === 'takeover') && runID)
+  if (kind === 'retry' && runID)
     return postJSON(context.transport, `factory/runs/${runID}/actions`, {command_id: commandID, action: kind});
   throw Error('Intervention target is not available in this context.');
 }
@@ -941,7 +941,7 @@ function parseRunReceipt(
   const target = runID ?? '';
   if (kind === 'stop') return {kind: 'stop' as const, receipt: stopReceipt(posted.value, target)};
   if (kind === 'retry') return {kind: 'retry' as const, receipt: retryDecision(posted.value, commandID, target)};
-  return {kind: 'takeover' as const, receipt: takeoverRecord(posted.value, commandID, target)};
+  return {kind: 'takeover' as const, receipt: takeoverRecord(posted.value, target)};
 }
 function parsePostedReceipt(
   kind: InterventionKind,
