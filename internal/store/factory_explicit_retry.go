@@ -169,7 +169,7 @@ func pendingExplicitRetry(ctx context.Context, q explicitRetryQuerier, repositor
 	if err = json.Unmarshal([]byte(outcome), &decision); err != nil {
 		return factory.RetryDecision{}, err
 	}
-	if err = decision.Validate(); err != nil || decision.CommandID != id {
+	if decision.CommandID != id {
 		return factory.RetryDecision{}, ErrExplicitRetryIneligible
 	}
 	return decision, nil
@@ -227,7 +227,7 @@ func admitRetryCommandTx(ctx context.Context, tx *sql.Tx, decision factory.Retry
 }
 
 func (s *Store) RecordExplicitRetryPacket(ctx context.Context, decision factory.RetryDecision, d factory.DispatchRegistration, expected factory.IssueControl, a factory.Assignment, r factory.Reservation, run factory.Run, view factory.RunView) error {
-	if err := decision.Validate(); err != nil || a.ID != decision.CommandID || a.Role != project.RoleCoder || a.AttemptRoot != a.ID || a.PublicationAssignment != a.ID {
+	if a.ID != decision.CommandID || a.Role != project.RoleCoder || a.AttemptRoot != a.ID || a.PublicationAssignment != a.ID {
 		return ErrExplicitRetryIneligible
 	}
 	tx, err := s.db.BeginTx(ctx, nil)

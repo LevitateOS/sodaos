@@ -49,7 +49,7 @@ func TestCompletionRetryAfterSettledReassessmentPG(t *testing.T) {
 		t.Fatalf("explicit retry refused a reconciled failed coder: %v", err)
 	}
 	successor := decision.SuccessorCycle
-	if decision.Validate() != nil || successor != commandID || decision.PriorCycle != cycleID {
+	if !decision.Queued || decision.CommandID != commandID || successor != commandID || decision.PriorCycle != cycleID || decision.EventID != request.EventID || decision.Repository != fx.publish.seed.repo {
 		t.Fatalf("owner command did not bind its one successor: %+v", decision)
 	}
 	if replay, err := coord.RetryCompletion(ctx, commandID, "native:1", fx.publish.seed.repo, request); err != nil || replay != decision {

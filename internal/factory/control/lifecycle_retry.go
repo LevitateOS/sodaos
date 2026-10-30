@@ -51,9 +51,6 @@ func (c *Coordinator) RetryRun(ctx context.Context, commandID, principal, runID 
 	if implementation {
 		decision.Reason = "implementation retry queued with the accepted plan and remaining attempt allowance"
 	}
-	if err = decision.Validate(); err != nil {
-		return factory.RetryDecision{}, err
-	}
 	if assignment.Subject.Kind == factory.SubjectDelivery && assignment.Phase == project.ExecutionVerify && assignment.Issue == 0 {
 		if err := c.checkDeliveryRetrySource(bounded, assignment); err != nil {
 			return factory.RetryDecision{}, err

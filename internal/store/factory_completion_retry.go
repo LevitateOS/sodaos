@@ -18,14 +18,11 @@ var ErrCompletionRetryIneligible = errors.New("completion retry is no longer adm
 func (s *Store) RecordCompletionRetryCommand(ctx context.Context, cmd factory.Command, repository int64, request factory.CompletionRetryRequest, now time.Time) (factory.CompletionRetryDecision, error) {
 	var zero factory.CompletionRetryDecision
 	payload, _ := json.Marshal(request)
-	if cmd.Validate() != nil || request.Validate() != nil || cmd.Type != factory.CommandCompletionRetry ||
+	if cmd.Validate() != nil || request.Validate() != nil || repository <= 0 || cmd.Type != factory.CommandCompletionRetry ||
 		cmd.Target != fmt.Sprintf("repository/%d/completion/%s", repository, request.EventID) || cmd.Payload != string(payload) {
 		return zero, ErrCompletionRetryIneligible
 	}
 	decision := factory.CompletionRetryDecision{CommandID: cmd.ID, EventID: request.EventID, PriorCycle: request.ExpectedPriorCycle, SuccessorCycle: cmd.ID, Repository: repository, Queued: true}
-	if err := decision.Validate(); err != nil {
-		return zero, ErrCompletionRetryIneligible
-	}
 	tx, err := s.db.BeginTx(ctx, nil)
 	if err != nil {
 		return zero, err

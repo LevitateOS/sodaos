@@ -88,7 +88,7 @@ func (s *Store) PendingDeliveryRetry(ctx context.Context, repository int64, subj
 		return factory.RetryDecision{}, err
 	}
 	var decision factory.RetryDecision
-	if json.Unmarshal([]byte(outcome), &decision) != nil || decision.Validate() != nil || decision.CommandID != command || decision.Prior != prior {
+	if json.Unmarshal([]byte(outcome), &decision) != nil || decision.CommandID != command || decision.Prior != prior {
 		return decision, ErrExplicitRetryIneligible
 	}
 	return decision, nil
@@ -203,7 +203,7 @@ func validateDeliveryRetryPacketTx(ctx context.Context, tx *sql.Tx, a factory.As
 		return err
 	}
 	var decision factory.RetryDecision
-	if json.Unmarshal([]byte(outcome), &decision) != nil || decision.Validate() != nil || decision.CommandID != a.ID {
+	if json.Unmarshal([]byte(outcome), &decision) != nil || decision.CommandID != a.ID {
 		return ErrExplicitRetryIneligible
 	}
 	admitted, err := admitRetryCommandTx(ctx, tx, decision)

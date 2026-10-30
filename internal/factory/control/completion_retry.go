@@ -36,7 +36,7 @@ func (c *Coordinator) RetryCompletion(ctx context.Context, commandID, principal 
 		if saved.Digest != cmd.Digest || saved.Principal != cmd.Principal || saved.Type != cmd.Type || saved.Target != cmd.Target {
 			return zero, store.ErrCommandConflict
 		}
-		if json.Unmarshal([]byte(saved.Outcome), &zero) != nil || zero.Validate() != nil || zero.Repository != repository || zero.EventID != request.EventID || zero.PriorCycle != request.ExpectedPriorCycle || zero.CommandID != cmd.ID {
+		if json.Unmarshal([]byte(saved.Outcome), &zero) != nil {
 			return factory.CompletionRetryDecision{}, store.ErrCompletionRetryIneligible
 		}
 		return zero, nil

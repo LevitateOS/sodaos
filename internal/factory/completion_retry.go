@@ -29,11 +29,3 @@ type CompletionRetryDecision struct {
 	Repository     int64  `json:"repository,string"`
 	Queued         bool   `json:"queued"`
 }
-
-func (r CompletionRetryDecision) Validate() error {
-	if !ValidID(r.CommandID) || !ValidID(r.EventID) || !ValidID(r.PriorCycle) ||
-		r.SuccessorCycle != r.CommandID || r.SuccessorCycle == r.PriorCycle || r.Repository <= 0 || !r.Queued {
-		return errors.New("invalid completion retry decision")
-	}
-	return nil
-}

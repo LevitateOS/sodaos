@@ -663,7 +663,7 @@ func checkRetryPreparationOwnerTx(ctx context.Context, tx *sql.Tx, r CandidatePr
 		Outcome string `json:"prior_outcome"`
 	}
 	if typ != factory.CommandRetry || finished == "" || json.Unmarshal([]byte(outcome), &decision) != nil ||
-		decision.Validate() != nil || decision.CommandID != r.OwnerAssignment || !decision.Queued ||
+		decision.CommandID != r.OwnerAssignment ||
 		json.Unmarshal([]byte(payload), &prior) != nil || prior.Run != decision.Prior || target != "run/"+prior.Run {
 		return ErrExplicitRetryIneligible
 	}

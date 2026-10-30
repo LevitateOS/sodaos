@@ -223,14 +223,14 @@ func pendingImplementationRetry(ctx context.Context, q explicitRetryQuerier, rep
 	if err != nil {
 		return decision, err
 	}
-	if json.Unmarshal([]byte(data), &decision) != nil || decision.Validate() != nil {
+	if json.Unmarshal([]byte(data), &decision) != nil {
 		return decision, ErrExplicitRetryIneligible
 	}
 	return decision, nil
 }
 
 func (s *Store) RecordImplementationRetryPacket(ctx context.Context, decision factory.RetryDecision, d factory.DispatchRegistration, expected factory.IssueControl, a factory.Assignment, r factory.Reservation, run factory.Run, view factory.RunView) error {
-	if decision.Validate() != nil || a.ID != decision.CommandID {
+	if a.ID != decision.CommandID {
 		return ErrExplicitRetryIneligible
 	}
 	tx, err := s.db.BeginTx(ctx, nil)
