@@ -229,7 +229,7 @@ func pendingImplementationRetry(ctx context.Context, q explicitRetryQuerier, rep
 	return decision, nil
 }
 
-func (s *Store) RecordImplementationRetryPacket(ctx context.Context, decision factory.RetryDecision, d factory.DispatchRegistration, expected factory.IssueControl, a factory.Assignment, r factory.Reservation, run factory.Run, view factory.RunView) error {
+func (s *Store) RecordImplementationRetryPacket(ctx context.Context, decision factory.RetryDecision, expected factory.IssueControl, a factory.Assignment, r factory.Reservation, run factory.Run, view factory.RunView) error {
 	if a.ID != decision.CommandID {
 		return ErrExplicitRetryIneligible
 	}
@@ -254,7 +254,7 @@ func (s *Store) RecordImplementationRetryPacket(ctx context.Context, decision fa
 	if err = checkDispatchOpenTx(ctx, tx, a.Repository); err != nil {
 		return err
 	}
-	if err = recordDispatchPacketTx(ctx, tx, d, expected, a, r, run, view, false); err != nil {
+	if err = recordDispatchPacketTx(ctx, tx, expected, a, r, run, view, false); err != nil {
 		return err
 	}
 	return tx.Commit()

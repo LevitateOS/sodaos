@@ -339,7 +339,7 @@ func TestReassessmentMismatchRefuses(t *testing.T) {
 	// typed completion lookup.
 	positive := dispatchStoreFixture(t)
 	packet, reservation, run, view := dispatchTestPacket(t, now)
-	if err := recordDispatchTestPacket(t, ctx, positive, dispatchTestRegistration(packet), packet, reservation, run, view); err != nil {
+	if err := recordDispatchTestPacket(t, ctx, positive, packet, reservation, run, view); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := positive.ReassessmentAttemptAllowance(ctx, packet.Repository, subject, packet.ID); err == nil {
@@ -656,7 +656,7 @@ func TestReassessmentPositiveIssueAllowanceRegression(t *testing.T) {
 	db := dispatchStoreFixture(t)
 	now := time.Now().UTC()
 	a, reservation, run, view := dispatchTestPacket(t, now)
-	if err := recordDispatchTestPacket(t, ctx, db, dispatchTestRegistration(a), a, reservation, run, view); err != nil {
+	if err := recordDispatchTestPacket(t, ctx, db, a, reservation, run, view); err != nil {
 		t.Fatal(err)
 	}
 	allowance, err := db.AttemptAllowance(ctx, a.Repository, a.Issue)

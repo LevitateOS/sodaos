@@ -110,7 +110,7 @@ func settleIntentPacketWithPrompt(t *testing.T, ctx context.Context, db *store.S
 		Image: "sha256:" + strings.Repeat("b", 64), Harness: a.Harness, Model: a.Model,
 	}
 	view := factory.RunView{RunID: runID, Repository: fx.repo, Issue: 0, Attempt: a.ID}
-	if err := db.RecordDispatchPacket(ctx, factory.DispatchRegistration{ID: a.ID, Repository: a.Repository, Authority: a.Authority}, expected, a, r, run, view); err != nil {
+	if err := db.RecordDispatchPacket(ctx, expected, a, r, run, view); err != nil {
 		t.Fatalf("settling intent packet refused: %v", err)
 	}
 	summary := "planning done"

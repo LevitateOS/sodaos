@@ -105,7 +105,7 @@ func countAttemptAllowanceRows(t *testing.T, db *Store, root string) int {
 // packet: repository slot, Issue zero, fresh attempt root, reassess
 // phase, coder role, no parent, no publication, and the canonical
 // completion subject.
-func reassessRootPacket(t *testing.T, ctx context.Context, db *Store, now time.Time, eventID, cycleID, source string) (factory.DispatchRegistration, factory.Assignment, factory.Reservation, factory.Run, factory.RunView) {
+func reassessRootPacket(t *testing.T, ctx context.Context, db *Store, now time.Time, eventID, cycleID, source string) (factory.Assignment, factory.Reservation, factory.Run, factory.RunView) {
 	t.Helper()
 	selection, ok := grantTestPolicy().Roles[project.RoleCoder]
 	if !ok {
@@ -140,8 +140,7 @@ func reassessRootPacket(t *testing.T, ctx context.Context, db *Store, now time.T
 		Image: "sha256:" + strings.Repeat("b", 64), Harness: a.Harness, Model: a.Model,
 	}
 	view := factory.RunView{RunID: runID, Repository: 7, Issue: 0, Attempt: a.ID}
-	d := dispatchTestRegistration(a)
-	return d, a, r, run, view
+	return a, r, run, view
 }
 
 func reassessTestControl(a factory.Assignment) factory.IssueControl {
@@ -157,8 +156,8 @@ func TestReassessRootAdmitsThroughReassessGuard(t *testing.T) {
 	ctx := context.Background()
 	now := time.Now().UTC().Truncate(time.Second)
 	eventID, cycleID, merged := reassessCycleFixture(t, db)
-	d, a, r, run, view := reassessRootPacket(t, ctx, db, now, eventID, cycleID, merged)
-	if err := db.RecordDispatchPacket(ctx, d, reassessTestControl(a), a, r, run, view); err != nil {
+	a, r, run, view := reassessRootPacket(t, ctx, db, now, eventID, cycleID, merged)
+	if err := db.RecordDispatchPacket(ctx, reassessTestControl(a), a, r, run, view); err != nil {
 		t.Fatalf("reassessment root refused: %v", err)
 	}
 	allowance, err := db.ReassessmentAttemptAllowance(ctx, 7, *a.Subject.Completion, a.ID)
@@ -178,8 +177,8 @@ func TestReassessRootRefusesUnrecordedCompletion(t *testing.T) {
 	db := dispatchStoreFixture(t)
 	ctx := context.Background()
 	now := time.Now().UTC().Truncate(time.Second)
-	d, a, r, run, view := reassessRootPacket(t, ctx, db, now, factory.NewID(), factory.NewID(), strings.Repeat("c", 40))
-	err := db.RecordDispatchPacket(ctx, d, reassessTestControl(a), a, r, run, view)
+	a, r, run, view := reassessRootPacket(t, ctx, db, now, factory.NewID(), factory.NewID(), strings.Repeat("c", 40))
+	err := db.RecordDispatchPacket(ctx, reassessTestControl(a), a, r, run, view)
 	if !errors.Is(err, ErrAttemptRootMismatch) {
 		t.Fatalf("unrecorded completion error = %v, want root mismatch", err)
 	}
@@ -199,9 +198,9 @@ func TestReassessRootRefusesForeignBindings(t *testing.T) {
 		"cycle":       func(a *factory.Assignment) { a.Subject.Completion.CycleID = factory.NewID() },
 	}
 	for name, mutate := range cases {
-		d, a, r, run, view := reassessRootPacket(t, ctx, db, now, eventID, cycleID, merged)
+		a, r, run, view := reassessRootPacket(t, ctx, db, now, eventID, cycleID, merged)
 		mutate(&a)
-		if err := db.RecordDispatchPacket(ctx, d, reassessTestControl(a), a, r, run, view); err == nil {
+		if err := db.RecordDispatchPacket(ctx, reassessTestControl(a), a, r, run, view); err == nil {
 			t.Fatalf("%s binding admitted", name)
 		}
 		assertDispatchPacketAbsent(t, db, a)
@@ -213,11 +212,11 @@ func TestReassessRootReplayWritesNoRows(t *testing.T) {
 	ctx := context.Background()
 	now := time.Now().UTC().Truncate(time.Second)
 	eventID, cycleID, merged := reassessCycleFixture(t, db)
-	d, a, r, run, view := reassessRootPacket(t, ctx, db, now, eventID, cycleID, merged)
-	if err := db.RecordDispatchPacket(ctx, d, reassessTestControl(a), a, r, run, view); err != nil {
+	a, r, run, view := reassessRootPacket(t, ctx, db, now, eventID, cycleID, merged)
+	if err := db.RecordDispatchPacket(ctx, reassessTestControl(a), a, r, run, view); err != nil {
 		t.Fatalf("first reassessment packet refused: %v", err)
 	}
-	if err := db.RecordDispatchPacket(ctx, d, reassessTestControl(a), a, r, run, view); err == nil {
+	if err := db.RecordDispatchPacket(ctx, reassessTestControl(a), a, r, run, view); err == nil {
 		t.Fatal("replayed reassessment packet admitted")
 	}
 	count := countReassessAssignmentRows(t, db, a.ID)
@@ -245,8 +244,8 @@ func TestReassessRootRefusesCollectingCycle(t *testing.T) {
 	if err := row.Scan(&eventID, &cycleID); err != nil {
 		t.Fatal(err)
 	}
-	d, a, r, run, view := reassessRootPacket(t, ctx, db, now, eventID, cycleID, second.MergedCommit)
-	err := db.RecordDispatchPacket(ctx, d, reassessTestControl(a), a, r, run, view)
+	a, r, run, view := reassessRootPacket(t, ctx, db, now, eventID, cycleID, second.MergedCommit)
+	err := db.RecordDispatchPacket(ctx, reassessTestControl(a), a, r, run, view)
 	if !errors.Is(err, ErrAttemptRootMismatch) {
 		t.Fatalf("collecting cycle error = %v, want root mismatch", err)
 	}
@@ -264,9 +263,9 @@ func TestReassessRootRefusesSealMismatch(t *testing.T) {
 	ctx := context.Background()
 	now := time.Now().UTC().Truncate(time.Second)
 	eventID, cycleID, merged := reassessCycleFixture(t, db)
-	d, a, r, run, view := reassessRootPacket(t, ctx, db, now, eventID, cycleID, merged)
+	a, r, run, view := reassessRootPacket(t, ctx, db, now, eventID, cycleID, merged)
 	a.Subject.Completion.InventoryDigest = strings.Repeat("e", 64)
-	if err := db.RecordDispatchPacket(ctx, d, reassessTestControl(a), a, r, run, view); err == nil {
+	if err := db.RecordDispatchPacket(ctx, reassessTestControl(a), a, r, run, view); err == nil {
 		t.Fatal("foreign inventory digest admitted")
 	} else if !errors.Is(err, ErrAttemptRootMismatch) {
 		t.Fatalf("foreign digest error = %v, want root mismatch", err)
@@ -275,8 +274,8 @@ func TestReassessRootRefusesSealMismatch(t *testing.T) {
 	if count := countAttemptAllowanceRows(t, db, a.ID); count != 0 {
 		t.Fatalf("refused foreign digest funded %d allowance rows", count)
 	}
-	d, a, r, run, view = reassessRootPacket(t, ctx, db, now, eventID, cycleID, strings.Repeat("d", 40))
-	if err := db.RecordDispatchPacket(ctx, d, reassessTestControl(a), a, r, run, view); err == nil {
+	a, r, run, view = reassessRootPacket(t, ctx, db, now, eventID, cycleID, strings.Repeat("d", 40))
+	if err := db.RecordDispatchPacket(ctx, reassessTestControl(a), a, r, run, view); err == nil {
 		t.Fatal("foreign source commit admitted")
 	} else if !errors.Is(err, ErrAttemptRootMismatch) {
 		t.Fatalf("foreign source error = %v, want root mismatch", err)
@@ -305,8 +304,8 @@ func TestReassessRootRefusesIneligibleDecision(t *testing.T) {
 		t.Fatal(err)
 	}
 	sealReassessmentCycle(t, ctx, db, cycleID, m.MergedCommit, factory.ReassessmentOptionContinue)
-	d, a, r, run, view := reassessRootPacket(t, ctx, db, now, eventID, cycleID, m.MergedCommit)
-	if err := db.RecordDispatchPacket(ctx, d, reassessTestControl(a), a, r, run, view); err == nil {
+	a, r, run, view := reassessRootPacket(t, ctx, db, now, eventID, cycleID, m.MergedCommit)
+	if err := db.RecordDispatchPacket(ctx, reassessTestControl(a), a, r, run, view); err == nil {
 		t.Fatal("continue decision admitted a coder root")
 	} else if !errors.Is(err, ErrAttemptRootMismatch) {
 		t.Fatalf("continue decision error = %v, want root mismatch", err)
@@ -323,8 +322,8 @@ func TestReassessRootRefusesIneligibleDecision(t *testing.T) {
 	if err := db.CasReassessmentRecord(ctx, cycleID, factory.ReassessmentDeciding, released); err != nil {
 		t.Fatalf("release not recorded: %v", err)
 	}
-	d, a, r, run, view = reassessRootPacket(t, ctx, db, now, eventID, cycleID, m.MergedCommit)
-	if err := db.RecordDispatchPacket(ctx, d, reassessTestControl(a), a, r, run, view); err == nil {
+	a, r, run, view = reassessRootPacket(t, ctx, db, now, eventID, cycleID, m.MergedCommit)
+	if err := db.RecordDispatchPacket(ctx, reassessTestControl(a), a, r, run, view); err == nil {
 		t.Fatal("released cycle admitted a coder root")
 	} else if !errors.Is(err, ErrAttemptRootMismatch) {
 		t.Fatalf("released cycle error = %v, want root mismatch", err)
@@ -346,12 +345,12 @@ func TestReassessConcurrentRootsSingleCharge(t *testing.T) {
 	ctx := context.Background()
 	now := time.Now().UTC().Truncate(time.Second)
 	eventID, cycleID, merged := reassessCycleFixture(t, db)
-	d, first, r, run, view := reassessRootPacket(t, ctx, db, now, eventID, cycleID, merged)
-	if err := db.RecordDispatchPacket(ctx, d, reassessTestControl(first), first, r, run, view); err != nil {
+	first, r, run, view := reassessRootPacket(t, ctx, db, now, eventID, cycleID, merged)
+	if err := db.RecordDispatchPacket(ctx, reassessTestControl(first), first, r, run, view); err != nil {
 		t.Fatalf("first concurrent root refused: %v", err)
 	}
-	d, second, r, run, view := reassessRootPacket(t, ctx, db, now, eventID, cycleID, merged)
-	err := db.RecordDispatchPacket(ctx, d, reassessTestControl(second), second, r, run, view)
+	second, r, run, view := reassessRootPacket(t, ctx, db, now, eventID, cycleID, merged)
+	err := db.RecordDispatchPacket(ctx, reassessTestControl(second), second, r, run, view)
 	if !errors.Is(err, ErrAssignmentActive) {
 		t.Fatalf("concurrent root error = %v, want concurrent admission refusal", err)
 	}
@@ -378,8 +377,8 @@ func TestReassessmentSettledSubjectCannotRefill(t *testing.T) {
 	ctx := context.Background()
 	now := time.Now().UTC().Truncate(time.Second)
 	eventID, cycleID, merged := reassessCycleFixture(t, db)
-	d, a, r, run, view := reassessRootPacket(t, ctx, db, now, eventID, cycleID, merged)
-	if err := db.RecordDispatchPacket(ctx, d, reassessTestControl(a), a, r, run, view); err != nil {
+	a, r, run, view := reassessRootPacket(t, ctx, db, now, eventID, cycleID, merged)
+	if err := db.RecordDispatchPacket(ctx, reassessTestControl(a), a, r, run, view); err != nil {
 		t.Fatalf("first reassessment root refused: %v", err)
 	}
 	ended := time.Now().UTC().Truncate(time.Second)
@@ -404,8 +403,8 @@ func TestReassessmentSettledSubjectCannotRefill(t *testing.T) {
 	if prior.Active || !prior.Closed {
 		t.Fatalf("failed completion allowance still open: %+v", prior)
 	}
-	d2, a2, r2, run2, view2 := reassessRootPacket(t, ctx, db, ended, eventID, cycleID, merged)
-	err = db.RecordDispatchPacket(ctx, d2, reassessTestControl(a2), a2, r2, run2, view2)
+	a2, r2, run2, view2 := reassessRootPacket(t, ctx, db, ended, eventID, cycleID, merged)
+	err = db.RecordDispatchPacket(ctx, reassessTestControl(a2), a2, r2, run2, view2)
 	if !errors.Is(err, factory.ErrAttemptClosed) {
 		t.Fatalf("failed completion replay did not report the settled attempt: %v", err)
 	}
@@ -429,8 +428,8 @@ func TestReassessmentNewCycleFundsNextAttempt(t *testing.T) {
 	ctx := context.Background()
 	now := time.Now().UTC().Truncate(time.Second)
 	eventID, cycleID, merged := reassessCycleFixture(t, db)
-	d, a, r, run, view := reassessRootPacket(t, ctx, db, now, eventID, cycleID, merged)
-	if err := db.RecordDispatchPacket(ctx, d, reassessTestControl(a), a, r, run, view); err != nil {
+	a, r, run, view := reassessRootPacket(t, ctx, db, now, eventID, cycleID, merged)
+	if err := db.RecordDispatchPacket(ctx, reassessTestControl(a), a, r, run, view); err != nil {
 		t.Fatalf("first reassessment root refused: %v", err)
 	}
 	ended := time.Now().UTC().Truncate(time.Second)
@@ -449,8 +448,8 @@ func TestReassessmentNewCycleFundsNextAttempt(t *testing.T) {
 		t.Fatalf("failed root not finished: %v", err)
 	}
 	eventID2, cycleID2, merged2 := reassessCycleFixture(t, db)
-	d2, a2, r2, run2, view2 := reassessRootPacket(t, ctx, db, ended, eventID2, cycleID2, merged2)
-	if err := db.RecordDispatchPacket(ctx, d2, reassessTestControl(a2), a2, r2, run2, view2); err != nil {
+	a2, r2, run2, view2 := reassessRootPacket(t, ctx, db, ended, eventID2, cycleID2, merged2)
+	if err := db.RecordDispatchPacket(ctx, reassessTestControl(a2), a2, r2, run2, view2); err != nil {
 		t.Fatalf("next cycle root refused: %v", err)
 	}
 	funded, err := db.ReassessmentAttemptAllowance(ctx, 7, *a2.Subject.Completion, a2.ID)

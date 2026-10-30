@@ -47,7 +47,7 @@ func deliveryStoreFixture(t *testing.T) (*Store, factory.Assignment) {
 	db := dispatchStoreFixture(t)
 	now := time.Now().UTC()
 	a, reservation, run, view := dispatchTestPacket(t, now)
-	if err := recordDispatchTestPacket(t, context.Background(), db, dispatchTestRegistration(a), a, reservation, run, view); err != nil {
+	if err := recordDispatchTestPacket(t, context.Background(), db, a, reservation, run, view); err != nil {
 		t.Fatal(err)
 	}
 	return db, a

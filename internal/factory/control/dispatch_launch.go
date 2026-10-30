@@ -55,9 +55,6 @@ func executeFreshAttempt(ctx context.Context, deps DispatchDeps, occupancy *pass
 		report.Errors = append(report.Errors, DispatchError{Repository: repository, Issue: issue, Reason: DispatchErrStore, Detail: "dispatch assignment invalid"})
 		return
 	}
-	registration := factory.DispatchRegistration{
-		ID: assignmentID, Repository: repository, Revision: plan.gateRev, Authority: authority,
-	}
 	reservation := factory.Reservation{
 		AssignmentID: assignmentID, Repository: repository,
 		Connection: plan.sponsorship.Connection, State: factory.ReservationHeld, PlannedMinutes: plan.planned,
@@ -70,9 +67,9 @@ func executeFreshAttempt(ctx context.Context, deps DispatchDeps, occupancy *pass
 	view := factory.RunView{RunID: runID, Repository: repository, Issue: issue, Attempt: assignmentID}
 	var packetErr error
 	if retry == nil {
-		packetErr = deps.Store.RecordDispatchPacket(ctx, registration, plan.control, assignment, reservation, run, view)
+		packetErr = deps.Store.RecordDispatchPacket(ctx, plan.control, assignment, reservation, run, view)
 	} else {
-		packetErr = deps.Store.RecordExplicitRetryPacket(ctx, *retry, registration, plan.control, assignment, reservation, run, view)
+		packetErr = deps.Store.RecordExplicitRetryPacket(ctx, *retry, plan.control, assignment, reservation, run, view)
 	}
 	if err := packetErr; err != nil {
 		if plan.preparationOwner != "" && deps.RetireRetry != nil && retryPreparationInvalidated(err) {
@@ -230,9 +227,6 @@ func admitImplementChild(ctx context.Context, deps DispatchDeps, occupancy *pass
 		report.Errors = append(report.Errors, DispatchError{Repository: repository, Issue: issue, Reason: DispatchErrStore, Detail: "dispatch assignment does not match its subject"})
 		return
 	}
-	registration := factory.DispatchRegistration{
-		ID: childID, Repository: repository, Revision: plan.gateRev, Authority: authority,
-	}
 	reservation := factory.Reservation{
 		AssignmentID: childID, Repository: repository,
 		Connection: plan.sponsorship.Connection, State: factory.ReservationHeld, PlannedMinutes: plan.planned,
@@ -246,9 +240,9 @@ func admitImplementChild(ctx context.Context, deps DispatchDeps, occupancy *pass
 	view := factory.RunView{RunID: runID, Repository: repository, Issue: issue, Attempt: childID}
 	var packetErr error
 	if retry == nil {
-		packetErr = deps.Store.RecordDispatchPacket(ctx, registration, plan.control, assignment, reservation, run, view)
+		packetErr = deps.Store.RecordDispatchPacket(ctx, plan.control, assignment, reservation, run, view)
 	} else {
-		packetErr = deps.Store.RecordImplementationRetryPacket(ctx, *retry, registration, plan.control, assignment, reservation, run, view)
+		packetErr = deps.Store.RecordImplementationRetryPacket(ctx, *retry, plan.control, assignment, reservation, run, view)
 	}
 	if packetErr != nil {
 		reportPacketRefusal(ctx, deps, occupancy, repository, issue, packetErr, report)

@@ -311,7 +311,7 @@ func TestIntentExecutionAggregatePG(t *testing.T) {
 		t.Fatalf("save rev1: %v", err)
 	}
 	a, reservation, run, view := dispatchTestPacket(t, now)
-	if err := recordDispatchTestPacket(t, ctx, db, dispatchTestRegistration(a), a, reservation, run, view); err != nil {
+	if err := recordDispatchTestPacket(t, ctx, db, a, reservation, run, view); err != nil {
 		t.Fatalf("packet issue 3: %v", err)
 	}
 	bumpAttemptSeconds(t, ctx, db, repo, 3, 300)

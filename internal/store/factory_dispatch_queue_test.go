@@ -15,7 +15,7 @@ func TestReservationTransitions(t *testing.T) {
 	now := time.Now().UTC()
 	db := dispatchStoreFixture(t)
 	a, r, run, view := dispatchTestPacket(t, now)
-	if err := recordDispatchTestPacket(t, ctx, db, dispatchTestRegistration(a), a, r, run, view); err != nil {
+	if err := recordDispatchTestPacket(t, ctx, db, a, r, run, view); err != nil {
 		t.Fatal(err)
 	}
 	if err := db.ConsumeReservation(ctx, a.ID); err != nil {
@@ -35,7 +35,7 @@ func TestReservationTransitions(t *testing.T) {
 	// fixture rather than admitting another active attempt in this repository.
 	db = dispatchStoreFixture(t)
 	b, r2, run2, view2 := dispatchTestPacket(t, now)
-	if err := recordDispatchTestPacket(t, ctx, db, dispatchTestRegistration(b), b, r2, run2, view2); err != nil {
+	if err := recordDispatchTestPacket(t, ctx, db, b, r2, run2, view2); err != nil {
 		t.Fatal(err)
 	}
 	if err := db.ReleaseReservation(ctx, b.ID); err != nil {
@@ -156,7 +156,7 @@ func TestActiveRunCountsSkipAttributed(t *testing.T) {
 	now := time.Now().UTC()
 	db := dispatchStoreFixture(t)
 	a, r, run, view := dispatchTestPacket(t, now)
-	if err := recordDispatchTestPacket(t, ctx, db, dispatchTestRegistration(a), a, r, run, view); err != nil {
+	if err := recordDispatchTestPacket(t, ctx, db, a, r, run, view); err != nil {
 		t.Fatal(err)
 	}
 	human := factory.Run{

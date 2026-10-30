@@ -29,7 +29,7 @@ func TestRecordRetryPacketBoundsAttemptsAndFinishes(t *testing.T) {
 	now := time.Now().UTC()
 	db := dispatchStoreFixture(t)
 	a, r, run, view := dispatchTestPacket(t, now)
-	if err := recordDispatchTestPacket(t, ctx, db, dispatchTestRegistration(a), a, r, run, view); err != nil {
+	if err := recordDispatchTestPacket(t, ctx, db, a, r, run, view); err != nil {
 		t.Fatal(err)
 	}
 	expected := dispatchTestControlFor(t, db, a)
@@ -112,7 +112,7 @@ func TestRecordRetryPacketPreservesExecutionActor(t *testing.T) {
 	ctx := context.Background()
 	db := dispatchStoreFixture(t)
 	a, reservation, run, view := dispatchTestPacket(t, time.Now().UTC())
-	if err := recordDispatchTestPacket(t, ctx, db, dispatchTestRegistration(a), a, reservation, run, view); err != nil {
+	if err := recordDispatchTestPacket(t, ctx, db, a, reservation, run, view); err != nil {
 		t.Fatal(err)
 	}
 	previous, err := db.FactoryRun(ctx, run.ID)
@@ -150,7 +150,7 @@ func TestRecordRetryPacketRefusesAnotherActiveRepositorySession(t *testing.T) {
 	ctx := context.Background()
 	db := dispatchStoreFixture(t)
 	a, reservation, run, view := dispatchTestPacket(t, time.Now().UTC())
-	if err := recordDispatchTestPacket(t, ctx, db, dispatchTestRegistration(a), a, reservation, run, view); err != nil {
+	if err := recordDispatchTestPacket(t, ctx, db, a, reservation, run, view); err != nil {
 		t.Fatal(err)
 	}
 	if err := db.ReleaseReservation(ctx, a.ID); err != nil {
@@ -178,7 +178,7 @@ func TestRecordRetryPacketReholdsAndRefusesLimits(t *testing.T) {
 	now := time.Now().UTC()
 	db := dispatchStoreFixture(t)
 	a, r, run, view := dispatchTestPacket(t, now)
-	if err := recordDispatchTestPacket(t, ctx, db, dispatchTestRegistration(a), a, r, run, view); err != nil {
+	if err := recordDispatchTestPacket(t, ctx, db, a, r, run, view); err != nil {
 		t.Fatal(err)
 	}
 	expected := dispatchTestControlFor(t, db, a)
@@ -213,7 +213,7 @@ func TestRecordRetryPacketReholdsAndRefusesLimits(t *testing.T) {
 	b.Authority.Capacity = 2
 	r2.AssignmentID = b.ID
 	view2.Issue, view2.Attempt = 4, b.ID
-	if err := recordDispatchTestPacket(t, ctx, db, dispatchTestRegistration(b), b, r2, run2, view2); !errors.Is(err, ErrCapacityFull) {
+	if err := recordDispatchTestPacket(t, ctx, db, b, r2, run2, view2); !errors.Is(err, ErrCapacityFull) {
 		t.Fatalf("over-capacity packet accepted: %v", err)
 	}
 	if _, err := db.Assignment(ctx, b.ID); !errors.Is(err, ErrNotFound) {
@@ -238,7 +238,7 @@ func TestRecordRetryPacketRefusesWithdrawnOperatorAtomically(t *testing.T) {
 	now := time.Now().UTC()
 	db := dispatchStoreFixture(t)
 	a, reservation, run, view := dispatchTestPacket(t, now)
-	if err := recordDispatchTestPacket(t, ctx, db, dispatchTestRegistration(a), a, reservation, run, view); err != nil {
+	if err := recordDispatchTestPacket(t, ctx, db, a, reservation, run, view); err != nil {
 		t.Fatal(err)
 	}
 	if err := db.ReleaseReservation(ctx, a.ID); err != nil {
@@ -291,7 +291,7 @@ func TestRecordRetryPacketRefusesRoleRemovedFromSponsorshipAtomically(t *testing
 	now := time.Now().UTC()
 	db := dispatchStoreFixture(t)
 	a, reservation, run, view := dispatchTestPacket(t, now)
-	if err := recordDispatchTestPacket(t, ctx, db, dispatchTestRegistration(a), a, reservation, run, view); err != nil {
+	if err := recordDispatchTestPacket(t, ctx, db, a, reservation, run, view); err != nil {
 		t.Fatal(err)
 	}
 	if err := db.ReleaseReservation(ctx, a.ID); err != nil {
@@ -333,7 +333,7 @@ func TestRecordRetryPacketRefusesChangedEnvironmentAtomically(t *testing.T) {
 	now := time.Now().UTC()
 	db := dispatchStoreFixture(t)
 	a, reservation, run, view := dispatchTestPacket(t, now)
-	if err := recordDispatchTestPacket(t, ctx, db, dispatchTestRegistration(a), a, reservation, run, view); err != nil {
+	if err := recordDispatchTestPacket(t, ctx, db, a, reservation, run, view); err != nil {
 		t.Fatal(err)
 	}
 	if err := db.ReleaseReservation(ctx, a.ID); err != nil {
@@ -372,7 +372,7 @@ func TestSupervisorRunWritesPreserveAdmissionSnapshot(t *testing.T) {
 	ctx := context.Background()
 	db := dispatchStoreFixture(t)
 	a, reservation, run, view := dispatchTestPacket(t, time.Now().UTC())
-	if err := recordDispatchTestPacket(t, ctx, db, dispatchTestRegistration(a), a, reservation, run, view); err != nil {
+	if err := recordDispatchTestPacket(t, ctx, db, a, reservation, run, view); err != nil {
 		t.Fatal(err)
 	}
 	stored, err := db.FactoryRun(ctx, run.ID)

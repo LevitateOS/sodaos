@@ -28,7 +28,7 @@ func TestRecordDispatchPacketRejectsStalePolicyAuthority(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	err = recordDispatchTestPacket(t, ctx, db, dispatchTestRegistration(a), a, reservation, run, view)
+	err = recordDispatchTestPacket(t, ctx, db, a, reservation, run, view)
 	if !errors.Is(err, ErrAdmissionChanged) {
 		t.Fatalf("stale policy packet error = %v, want %v", err, ErrAdmissionChanged)
 	}
@@ -169,7 +169,7 @@ func TestRecordDispatchPacketRejectsStaleAuthorityMembers(t *testing.T) {
 			a.Authority = dispatchCurrentAuthority(t, db, a)
 			restore := tc.mutate(t, db, a)
 			t.Cleanup(restore)
-			err := recordDispatchTestPacket(t, context.Background(), db, dispatchTestRegistration(a), a, reservation, run, view)
+			err := recordDispatchTestPacket(t, context.Background(), db, a, reservation, run, view)
 			if !errors.Is(err, ErrAdmissionChanged) {
 				t.Fatalf("stale %s error = %v", tc.name, err)
 			}
@@ -178,13 +178,13 @@ func TestRecordDispatchPacketRejectsStaleAuthorityMembers(t *testing.T) {
 	}
 }
 
-func TestRecordDispatchPacketRequiresEffectiveAuthorityAndMatchingRegistration(t *testing.T) {
+func TestRecordDispatchPacketRequiresEffectiveAuthority(t *testing.T) {
 	db := dispatchStoreFixture(t)
 	mutations := []struct {
 		name   string
-		mutate func(*testing.T, *Store, *factory.Assignment, *factory.DispatchRegistration) func()
+		mutate func(*testing.T, *Store, *factory.Assignment) func()
 	}{
-		{"paused policy", func(t *testing.T, db *Store, a *factory.Assignment, d *factory.DispatchRegistration) func() {
+		{"paused policy", func(t *testing.T, db *Store, a *factory.Assignment) func() {
 			policy, err := db.RepositoryPolicy(context.Background(), a.Repository)
 			if err != nil {
 				t.Fatal(err)
@@ -194,7 +194,6 @@ func TestRecordDispatchPacketRequiresEffectiveAuthorityAndMatchingRegistration(t
 				t.Fatal(err)
 			}
 			a.Authority = dispatchCurrentAuthority(t, db, *a)
-			d.Authority = a.Authority
 			return func() {
 				policy, err := db.RepositoryPolicy(context.Background(), a.Repository)
 				if err != nil {
@@ -206,7 +205,7 @@ func TestRecordDispatchPacketRequiresEffectiveAuthorityAndMatchingRegistration(t
 				}
 			}
 		}},
-		{"disabled policy", func(t *testing.T, db *Store, a *factory.Assignment, d *factory.DispatchRegistration) func() {
+		{"disabled policy", func(t *testing.T, db *Store, a *factory.Assignment) func() {
 			policy, err := db.RepositoryPolicy(context.Background(), a.Repository)
 			if err != nil {
 				t.Fatal(err)
@@ -216,7 +215,6 @@ func TestRecordDispatchPacketRequiresEffectiveAuthorityAndMatchingRegistration(t
 				t.Fatal(err)
 			}
 			a.Authority = dispatchCurrentAuthority(t, db, *a)
-			d.Authority = a.Authority
 			return func() {
 				policy, err := db.RepositoryPolicy(context.Background(), a.Repository)
 				if err != nil {
@@ -228,7 +226,7 @@ func TestRecordDispatchPacketRequiresEffectiveAuthorityAndMatchingRegistration(t
 				}
 			}
 		}},
-		{"withdrawn operator", func(t *testing.T, db *Store, a *factory.Assignment, d *factory.DispatchRegistration) func() {
+		{"withdrawn operator", func(t *testing.T, db *Store, a *factory.Assignment) func() {
 			grant, err := db.OperatorGrant(context.Background(), a.Repository)
 			if err != nil {
 				t.Fatal(err)
@@ -238,7 +236,6 @@ func TestRecordDispatchPacketRequiresEffectiveAuthorityAndMatchingRegistration(t
 				t.Fatal(err)
 			}
 			a.Authority = dispatchCurrentAuthority(t, db, *a)
-			d.Authority = a.Authority
 			return func() {
 				grant, err := db.OperatorGrant(context.Background(), a.Repository)
 				if err != nil {
@@ -250,7 +247,7 @@ func TestRecordDispatchPacketRequiresEffectiveAuthorityAndMatchingRegistration(t
 				}
 			}
 		}},
-		{"withdrawn sponsorship", func(t *testing.T, db *Store, a *factory.Assignment, d *factory.DispatchRegistration) func() {
+		{"withdrawn sponsorship", func(t *testing.T, db *Store, a *factory.Assignment) func() {
 			grant, err := db.Sponsorship(context.Background(), a.Repository, a.Connection)
 			if err != nil {
 				t.Fatal(err)
@@ -260,7 +257,6 @@ func TestRecordDispatchPacketRequiresEffectiveAuthorityAndMatchingRegistration(t
 				t.Fatal(err)
 			}
 			a.Authority = dispatchCurrentAuthority(t, db, *a)
-			d.Authority = a.Authority
 			return func() {
 				grant, err := db.Sponsorship(context.Background(), a.Repository, a.Connection)
 				if err != nil {
@@ -272,7 +268,7 @@ func TestRecordDispatchPacketRequiresEffectiveAuthorityAndMatchingRegistration(t
 				}
 			}
 		}},
-		{"sponsorship without coder", func(t *testing.T, db *Store, a *factory.Assignment, d *factory.DispatchRegistration) func() {
+		{"sponsorship without coder", func(t *testing.T, db *Store, a *factory.Assignment) func() {
 			grant, err := db.Sponsorship(context.Background(), a.Repository, a.Connection)
 			if err != nil {
 				t.Fatal(err)
@@ -282,7 +278,6 @@ func TestRecordDispatchPacketRequiresEffectiveAuthorityAndMatchingRegistration(t
 				t.Fatal(err)
 			}
 			a.Authority = dispatchCurrentAuthority(t, db, *a)
-			d.Authority = a.Authority
 			return func() {
 				grant, err := db.Sponsorship(context.Background(), a.Repository, a.Connection)
 				if err != nil {
@@ -294,7 +289,7 @@ func TestRecordDispatchPacketRequiresEffectiveAuthorityAndMatchingRegistration(t
 				}
 			}
 		}},
-		{"withdrawn environment", func(t *testing.T, db *Store, a *factory.Assignment, d *factory.DispatchRegistration) func() {
+		{"withdrawn environment", func(t *testing.T, db *Store, a *factory.Assignment) func() {
 			grant, err := db.EnvironmentGrant(context.Background(), a.Repository)
 			if err != nil {
 				t.Fatal(err)
@@ -304,7 +299,6 @@ func TestRecordDispatchPacketRequiresEffectiveAuthorityAndMatchingRegistration(t
 				t.Fatal(err)
 			}
 			a.Authority = dispatchCurrentAuthority(t, db, *a)
-			d.Authority = a.Authority
 			return func() {
 				grant, err := db.EnvironmentGrant(context.Background(), a.Repository)
 				if err != nil {
@@ -316,8 +310,8 @@ func TestRecordDispatchPacketRequiresEffectiveAuthorityAndMatchingRegistration(t
 				}
 			}
 		}},
-		{"registration authority mismatch", func(_ *testing.T, _ *Store, _ *factory.Assignment, d *factory.DispatchRegistration) func() {
-			d.Authority.Policy++
+		{"assignment authority mismatch", func(_ *testing.T, _ *Store, a *factory.Assignment) func() {
+			a.Authority.Policy++
 			return func() {}
 		}},
 	}
@@ -326,10 +320,9 @@ func TestRecordDispatchPacketRequiresEffectiveAuthorityAndMatchingRegistration(t
 		t.Run(tc.name, func(t *testing.T) {
 			a, reservation, run, view := dispatchTestPacket(t, time.Now())
 			a.Authority = dispatchCurrentAuthority(t, db, a)
-			registration := dispatchTestRegistration(a)
-			restore := tc.mutate(t, db, &a, &registration)
+			restore := tc.mutate(t, db, &a)
 			t.Cleanup(restore)
-			err := recordDispatchTestPacket(t, context.Background(), db, registration, a, reservation, run, view)
+			err := recordDispatchTestPacket(t, context.Background(), db, a, reservation, run, view)
 			if !errors.Is(err, ErrAdmissionChanged) {
 				t.Fatalf("ineffective/mismatched authority error = %v", err)
 			}
@@ -359,7 +352,7 @@ func TestRecordDispatchPacketRejectsMissingAuthorityRows(t *testing.T) {
 			if _, err := db.db.ExecContext(context.Background(), tc.query, value); err != nil {
 				t.Fatal(err)
 			}
-			err := recordDispatchTestPacket(t, context.Background(), db, dispatchTestRegistration(a), a, reservation, run, view)
+			err := recordDispatchTestPacket(t, context.Background(), db, a, reservation, run, view)
 			if !errors.Is(err, ErrAdmissionChanged) {
 				t.Fatalf("missing %s error = %v", tc.name, err)
 			}

@@ -841,7 +841,7 @@ func TestDeliveredIntentAdmitsScopedTestPilotOnce(t *testing.T) {
 				successorRun.Deadline = successorRun.Started.Add(time.Minute)
 				reservation = factory.Reservation{AssignmentID: successor.ID, Repository: 7, Connection: successor.Connection, State: factory.ReservationHeld, PlannedMinutes: 1}
 				expected := factory.IssueControl{Repository: 7, Issue: 0, NativeRev: successor.NativeRev}
-				err = db.RecordDispatchPacket(ctx, factory.DispatchRegistration{ID: successor.ID, Repository: 7, Authority: successor.Authority}, expected, successor, reservation, successorRun, factory.RunView{RunID: successor.Run, Repository: 7, Issue: 0, Attempt: successor.ID})
+				err = db.RecordDispatchPacket(ctx, expected, successor, reservation, successorRun, factory.RunView{RunID: successor.Run, Repository: 7, Issue: 0, Attempt: successor.ID})
 				if !errors.Is(err, factory.ErrAttemptTimeExhausted) {
 					t.Fatal("atomic packet gate refilled stable-intent runs", err)
 				}

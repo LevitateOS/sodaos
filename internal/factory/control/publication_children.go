@@ -1006,7 +1006,6 @@ func (c *Coordinator) executePublicationChild(ctx context.Context, deps Dispatch
 		publicationError(report, p.ID, "child_assignment_invalid")
 		return
 	}
-	registration := factory.DispatchRegistration{ID: assignmentID, Repository: p.Repository, Revision: plan.gateRev, Authority: authority}
 	reservation := factory.Reservation{
 		AssignmentID: assignmentID, Repository: p.Repository, Connection: plan.sponsorship.Connection,
 		State: factory.ReservationHeld, PlannedMinutes: plan.planned,
@@ -1017,7 +1016,7 @@ func (c *Coordinator) executePublicationChild(ctx context.Context, deps Dispatch
 		Image: plan.pin.Image, Harness: assignment.Harness, Model: assignment.Model,
 	}
 	view := factory.RunView{RunID: runID, Repository: p.Repository, Issue: p.Issue, Attempt: assignmentID}
-	if err := deps.Store.RecordDispatchPacket(ctx, registration, plan.control, assignment, reservation, run, view); err != nil {
+	if err := deps.Store.RecordDispatchPacket(ctx, plan.control, assignment, reservation, run, view); err != nil {
 		if errors.Is(err, store.ErrAssignmentActive) || errors.Is(err, store.ErrAdmissionChanged) || errors.Is(err, store.ErrDispatchControlStale) {
 			publicationWait(report, p.ID, "child_admission_changed")
 			return

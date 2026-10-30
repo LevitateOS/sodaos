@@ -488,7 +488,7 @@ func TestCompletionPersistFenceAndFund(t *testing.T) {
 	a, r, run, view := dispatchTestPacket(t, time.Now().UTC())
 	a.Issue, view.Issue = 4, 4
 	a.Subject.Issue.Issue = 4
-	if err := recordDispatchTestPacket(t, ctx, db, dispatchTestRegistration(a), a, r, run, view); !errors.Is(err, ErrCompletionFenced) {
+	if err := recordDispatchTestPacket(t, ctx, db, a, r, run, view); !errors.Is(err, ErrCompletionFenced) {
 		t.Fatalf("packet past the fence: %v", err)
 	}
 }

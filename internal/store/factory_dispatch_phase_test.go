@@ -142,7 +142,7 @@ func TestPhasedInvestigateRootAdvancesImplementChild(t *testing.T) {
 	now := time.Now().UTC()
 	db := dispatchStoreFixture(t)
 	root, reservation, run, view := phaseTestInvestigateRoot(t, now)
-	if err := recordDispatchTestPacket(t, ctx, db, dispatchTestRegistration(root), root, reservation, run, view); err != nil {
+	if err := recordDispatchTestPacket(t, ctx, db, root, reservation, run, view); err != nil {
 		t.Fatalf("investigate root refused: %v", err)
 	}
 	allowance, err := db.AttemptAllowance(ctx, root.Repository, root.Issue)
@@ -165,7 +165,7 @@ func TestPhasedInvestigateRootAdvancesImplementChild(t *testing.T) {
 	}
 	childRun.ContextPending = true
 	childRun.ExecutionManifest = manifestFor(childRun)
-	if err := recordDispatchTestPacket(t, ctx, db, dispatchTestRegistration(child), child, childReservation, childRun, childView); err != nil {
+	if err := recordDispatchTestPacket(t, ctx, db, child, childReservation, childRun, childView); err != nil {
 		t.Fatalf("implement child refused: %v", err)
 	}
 	// The allowance is retained, not reset or recharged: same root, still
@@ -183,7 +183,7 @@ func TestPhasedInvestigateRootAdvancesImplementChild(t *testing.T) {
 	replay.RunHistory = []string{replay.Run}
 	replayRun.ID, replayView.RunID = replay.Run, replay.Run
 	replayRun.ExecutionManifest = manifestFor(replayRun)
-	if err := recordDispatchTestPacket(t, ctx, db, dispatchTestRegistration(replay), replay, childReservation, replayRun, replayView); err == nil {
+	if err := recordDispatchTestPacket(t, ctx, db, replay, childReservation, replayRun, replayView); err == nil {
 		t.Fatal("implement child replay admitted")
 	} else if !isAssignmentActive(err) {
 		t.Fatalf("wrong replay error: %v", err)
@@ -250,10 +250,10 @@ func TestPhasedInvestigateRootAdvancesImplementChild(t *testing.T) {
 	expected := dispatchTestControlFor(t, db, next)
 	wrong := next
 	wrong.SourceCommit = strings.Repeat("9", 40)
-	if err = db.RecordImplementationRetryPacket(ctx, decision, dispatchTestRegistration(wrong), expected, wrong, nextReservation, nextRun, nextView); err == nil {
+	if err = db.RecordImplementationRetryPacket(ctx, decision, expected, wrong, nextReservation, nextRun, nextView); err == nil {
 		t.Fatal("changed continuation source admitted")
 	}
-	if err = db.RecordImplementationRetryPacket(ctx, decision, dispatchTestRegistration(next), expected, next, nextReservation, nextRun, nextView); err != nil {
+	if err = db.RecordImplementationRetryPacket(ctx, decision, expected, next, nextReservation, nextRun, nextView); err != nil {
 		t.Fatalf("continuation packet refused: %v", err)
 	}
 	afterContinuation, err := db.AttemptAllowance(ctx, root.Repository, root.Issue)
@@ -271,7 +271,7 @@ func TestPhasedInvestigateRootAdvancesImplementChild(t *testing.T) {
 	if _, err = db.PendingImplementationRetry(ctx, root.Repository, root.Issue, root.Acceptance); !errors.Is(err, ErrNotFound) {
 		t.Fatalf("consumed continuation remained pending: %v", err)
 	}
-	if err = db.RecordImplementationRetryPacket(ctx, decision, dispatchTestRegistration(next), expected, next, nextReservation, nextRun, nextView); err == nil {
+	if err = db.RecordImplementationRetryPacket(ctx, decision, expected, next, nextReservation, nextRun, nextView); err == nil {
 		t.Fatal("continuation duplicated packet")
 	}
 	// A later confirmed unused launch retry belongs to the already admitted
@@ -302,7 +302,7 @@ func TestPhasedPacketRefusals(t *testing.T) {
 	t.Run("implement child needs its investigation parent", func(t *testing.T) {
 		db := dispatchStoreFixture(t)
 		root, reservation, run, view := phaseTestInvestigateRoot(t, now)
-		if err := recordDispatchTestPacket(t, ctx, db, dispatchTestRegistration(root), root, reservation, run, view); err != nil {
+		if err := recordDispatchTestPacket(t, ctx, db, root, reservation, run, view); err != nil {
 			t.Fatal(err)
 		}
 		parent := finishInvestigateRoot(t, ctx, db, root, run, now)
@@ -311,7 +311,7 @@ func TestPhasedPacketRefusals(t *testing.T) {
 		// Move the run with the assignment: the packet stays coherent so
 		// the semantic parent binding (not packet shape) refuses.
 		childRun.InputSHA = child.SourceCommit
-		if err := recordDispatchTestPacket(t, ctx, db, dispatchTestRegistration(child), child, childReservation, childRun, childView); !errors.Is(err, ErrAttemptRootMismatch) {
+		if err := recordDispatchTestPacket(t, ctx, db, child, childReservation, childRun, childView); !errors.Is(err, ErrAttemptRootMismatch) {
 			t.Fatalf("moved-source child error = %v, want root mismatch", err)
 		}
 		assertDispatchPacketAbsent(t, db, child)
@@ -319,7 +319,7 @@ func TestPhasedPacketRefusals(t *testing.T) {
 	t.Run("phased review enters through its owning boundary", func(t *testing.T) {
 		db := dispatchStoreFixture(t)
 		root, reservation, run, view := phaseTestInvestigateRoot(t, now)
-		if err := recordDispatchTestPacket(t, ctx, db, dispatchTestRegistration(root), root, reservation, run, view); err != nil {
+		if err := recordDispatchTestPacket(t, ctx, db, root, reservation, run, view); err != nil {
 			t.Fatal(err)
 		}
 		parent := finishInvestigateRoot(t, ctx, db, root, run, now)
@@ -332,7 +332,7 @@ func TestPhasedPacketRefusals(t *testing.T) {
 		}
 		childReservation.AssignmentID = child.ID
 		childView.Attempt = child.ID
-		if err := recordDispatchTestPacket(t, ctx, db, dispatchTestRegistration(child), child, childReservation, childRun, childView); err == nil {
+		if err := recordDispatchTestPacket(t, ctx, db, child, childReservation, childRun, childView); err == nil {
 			t.Fatal("phased review child admitted without its boundary")
 		}
 		assertDispatchPacketAbsent(t, db, child)
@@ -350,7 +350,7 @@ func TestPhasedPacketRefusals(t *testing.T) {
 		}
 		// The domain shape holds; the admission gate refuses it: only
 		// investigation opens a phased attempt root.
-		if err := recordDispatchTestPacket(t, ctx, db, dispatchTestRegistration(a), a, r, run, view); err == nil {
+		if err := recordDispatchTestPacket(t, ctx, db, a, r, run, view); err == nil {
 			t.Fatal("implement root admitted without its parent")
 		}
 		assertDispatchPacketAbsent(t, db, a)

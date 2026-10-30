@@ -16,7 +16,7 @@ func TestCandidatePreparationOwnerPreservesReadFailure(t *testing.T) {
 	ctx := context.Background()
 	db := dispatchStoreFixture(t)
 	a, reservation, run, view := dispatchTestPacket(t, time.Now())
-	if err := recordDispatchTestPacket(t, ctx, db, dispatchTestRegistration(a), a, reservation, run, view); err != nil {
+	if err := recordDispatchTestPacket(t, ctx, db, a, reservation, run, view); err != nil {
 		t.Fatal(err)
 	}
 	registration := CandidatePreparationRegistration{
@@ -59,7 +59,7 @@ func TestAttemptAllowanceSurvivesRetryAndPolicyChange(t *testing.T) {
 	db := dispatchStoreFixture(t)
 	now := time.Now().UTC()
 	a, reservation, run, view := dispatchTestPacket(t, now)
-	if err := recordDispatchTestPacket(t, ctx, db, dispatchTestRegistration(a), a, reservation, run, view); err != nil {
+	if err := recordDispatchTestPacket(t, ctx, db, a, reservation, run, view); err != nil {
 		t.Fatal(err)
 	}
 
@@ -177,7 +177,7 @@ func phasedCorrectionReviewer(t *testing.T, ctx context.Context, db *Store, now 
 		Image: "sha256:" + strings.Repeat("b", 64), Harness: reviewer.Harness, Model: reviewer.Model,
 	}
 	view := factory.RunView{RunID: run.ID, Repository: reviewer.Repository, Issue: reviewer.Issue, Attempt: reviewer.ID}
-	if err := db.RecordDispatchPacket(ctx, dispatchTestRegistration(reviewer), dispatchTestControlFor(t, db, reviewer), reviewer, reservation, run, view); err != nil {
+	if err := db.RecordDispatchPacket(ctx, dispatchTestControlFor(t, db, reviewer), reviewer, reservation, run, view); err != nil {
 		t.Fatalf("reviewer packet refused: %v", err)
 	}
 	run.Outcome, run.Summary, run.Reconciled = factory.Succeeded, "reviewed", true
@@ -372,7 +372,7 @@ func TestCorrectionAdmissionConsumesRootAllowanceOnce(t *testing.T) {
 		t.Fatalf("fresh root carries charges: %+v", allowance)
 	}
 	bad, badReservation, badRun, badView, badControl := newChild(strings.Repeat("4", 40))
-	if err = db.RecordDispatchPacket(ctx, dispatchTestRegistration(bad), badControl, bad, badReservation, badRun, badView); err == nil {
+	if err = db.RecordDispatchPacket(ctx, badControl, bad, badReservation, badRun, badView); err == nil {
 		t.Fatal("noncurrent published candidate packet accepted")
 	}
 	if _, err = db.Assignment(ctx, bad.ID); !errors.Is(err, ErrNotFound) {
@@ -380,7 +380,7 @@ func TestCorrectionAdmissionConsumesRootAllowanceOnce(t *testing.T) {
 	}
 
 	child, childReservation, childRun, childView, control := newChild(p.Candidate)
-	if err = db.RecordDispatchPacket(ctx, dispatchTestRegistration(child), control, child, childReservation, childRun, childView); err != nil {
+	if err = db.RecordDispatchPacket(ctx, control, child, childReservation, childRun, childView); err != nil {
 		t.Fatalf("published correction packet refused: %v", err)
 	}
 	allowance, err = db.AttemptAllowance(ctx, root.Repository, root.Issue)
@@ -406,7 +406,7 @@ func TestCorrectionAdmissionConsumesRootAllowanceOnce(t *testing.T) {
 
 	wrongRoot, wrongReservation, wrongRun, wrongView, wrongControl := newChild(p.Candidate)
 	wrongRoot.AttemptRoot = factory.NewID()
-	if err = db.RecordDispatchPacket(ctx, dispatchTestRegistration(wrongRoot), wrongControl, wrongRoot, wrongReservation, wrongRun, wrongView); err == nil {
+	if err = db.RecordDispatchPacket(ctx, wrongControl, wrongRoot, wrongReservation, wrongRun, wrongView); err == nil {
 		t.Fatal("child with mismatched attempt root accepted")
 	}
 	if _, err = db.Assignment(ctx, wrongRoot.ID); !errors.Is(err, ErrNotFound) {
@@ -517,7 +517,7 @@ func TestCorrectionExhaustionRefusesDispatchAfterBudgetFilled(t *testing.T) {
 	if err = fillTx.Commit(); err != nil {
 		t.Fatal(err)
 	}
-	if err = db.RecordDispatchPacket(ctx, dispatchTestRegistration(child), control, child, reservation, run, view); !errors.Is(err, factory.ErrCorrectionExhausted) {
+	if err = db.RecordDispatchPacket(ctx, control, child, reservation, run, view); !errors.Is(err, factory.ErrCorrectionExhausted) {
 		t.Fatalf("exhausted correction packet = %v", err)
 	}
 	if _, err = db.Assignment(ctx, child.ID); !errors.Is(err, ErrNotFound) {
@@ -530,7 +530,7 @@ func TestFreshRetryAllowancePreservesConsumedPriorRoot(t *testing.T) {
 	db := dispatchStoreFixture(t)
 	now := time.Now().UTC()
 	a, reservation, run, view := dispatchTestPacket(t, now)
-	if err := recordDispatchTestPacket(t, ctx, db, dispatchTestRegistration(a), a, reservation, run, view); err != nil {
+	if err := recordDispatchTestPacket(t, ctx, db, a, reservation, run, view); err != nil {
 		t.Fatal(err)
 	}
 	prior, err := db.AttemptAllowance(ctx, a.Repository, a.Issue)
@@ -635,7 +635,7 @@ func TestInitialAttemptDeadlineMustFitRecordedAllowance(t *testing.T) {
 			} else {
 				run.Deadline = now.Add(3 * time.Hour)
 			}
-			if err := recordDispatchTestPacket(t, ctx, db, dispatchTestRegistration(a), a, reservation, run, view); !errors.Is(err, factory.ErrAttemptTimeExhausted) {
+			if err := recordDispatchTestPacket(t, ctx, db, a, reservation, run, view); !errors.Is(err, factory.ErrAttemptTimeExhausted) {
 				t.Fatalf("inadmissible initial deadline error = %v", err)
 			}
 			for _, check := range []struct {
@@ -666,7 +666,7 @@ func TestPauseFreezesOnlyAfterSettledViewsAndRechecksGateRevision(t *testing.T) 
 	db := dispatchStoreFixture(t)
 	now := time.Now().UTC()
 	a, reservation, run, view := dispatchTestPacket(t, now)
-	if err := recordDispatchTestPacket(t, ctx, db, dispatchTestRegistration(a), a, reservation, run, view); err != nil {
+	if err := recordDispatchTestPacket(t, ctx, db, a, reservation, run, view); err != nil {
 		t.Fatal(err)
 	}
 	withdrawal, err := db.WithdrawDispatch(ctx, a.Repository, factory.CauseControlPaused, "soda-tester")
@@ -704,7 +704,7 @@ func TestCapAttemptDeadlineUsesExactRemainingRootTime(t *testing.T) {
 	db := dispatchStoreFixture(t)
 	now := time.Now().UTC()
 	a, reservation, run, view := dispatchTestPacket(t, now)
-	if err := recordDispatchTestPacket(t, ctx, db, dispatchTestRegistration(a), a, reservation, run, view); err != nil {
+	if err := recordDispatchTestPacket(t, ctx, db, a, reservation, run, view); err != nil {
 		t.Fatal(err)
 	}
 	allowance, err := db.AttemptAllowance(ctx, a.Repository, a.Issue)

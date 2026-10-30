@@ -249,7 +249,7 @@ func TestFinishAssignmentRefusesChangedInputs(t *testing.T) {
 	now := time.Now().UTC()
 	db := dispatchStoreFixture(t)
 	a, r, run, view := dispatchTestPacket(t, now)
-	if err := recordDispatchTestPacket(t, ctx, db, dispatchTestRegistration(a), a, r, run, view); err != nil {
+	if err := recordDispatchTestPacket(t, ctx, db, a, r, run, view); err != nil {
 		t.Fatalf("packet refused: %v", err)
 	}
 	original, err := db.Assignment(ctx, a.ID)
@@ -335,7 +335,7 @@ func TestFinishAssignmentInvestigateSubjectAcceptanceRefused(t *testing.T) {
 	now := time.Now().UTC()
 	db := dispatchStoreFixture(t)
 	root, reservation, run, view := phaseTestInvestigateRoot(t, now)
-	if err := recordDispatchTestPacket(t, ctx, db, dispatchTestRegistration(root), root, reservation, run, view); err != nil {
+	if err := recordDispatchTestPacket(t, ctx, db, root, reservation, run, view); err != nil {
 		t.Fatalf("investigate root refused: %v", err)
 	}
 	original, err := db.Assignment(ctx, root.ID)

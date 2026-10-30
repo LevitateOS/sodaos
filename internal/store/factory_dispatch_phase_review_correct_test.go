@@ -84,7 +84,7 @@ func reviewCorrectOwner(t *testing.T, ctx context.Context, db *Store, now time.T
 	// Grant saves bump revisions, so the seed captures live authority
 	// exactly like production dispatch does.
 	root.Authority = reviewCorrectAuthority(t, ctx, db, root.ProjectID, root.Repository, root.Connection)
-	if err := recordDispatchTestPacket(t, ctx, db, dispatchTestRegistration(root), root, reservation, run, view); err != nil {
+	if err := recordDispatchTestPacket(t, ctx, db, root, reservation, run, view); err != nil {
 		t.Fatalf("investigate root refused: %v", err)
 	}
 	return finishInvestigateRoot(t, ctx, db, root, run, now)
@@ -393,7 +393,7 @@ func TestReviewChildAdmitsThroughReviewGuard(t *testing.T) {
 	if err := db.UpdatePublication(ctx, stored); err != nil {
 		t.Fatal(err)
 	}
-	if err := recordDispatchTestPacket(t, ctx, db, dispatchTestRegistration(child), child, reservation, run, view); err != nil {
+	if err := recordDispatchTestPacket(t, ctx, db, child, reservation, run, view); err != nil {
 		t.Fatalf("review child refused: %v", err)
 	}
 	allowance, err := db.AttemptAllowance(ctx, owner.Repository, owner.Issue)
@@ -417,7 +417,7 @@ func TestCorrectChildAdmitsThroughCorrectGuard(t *testing.T) {
 	if err := db.UpdatePublication(ctx, stored); err != nil {
 		t.Fatal(err)
 	}
-	if err := recordDispatchTestPacket(t, ctx, db, dispatchTestRegistration(reviewer), reviewer, reviewerReservation, reviewerRun, reviewerView); err != nil {
+	if err := recordDispatchTestPacket(t, ctx, db, reviewer, reviewerReservation, reviewerRun, reviewerView); err != nil {
 		t.Fatalf("review child refused: %v", err)
 	}
 	finished := finishReviewCorrectChild(t, ctx, db, reviewer, reviewerRun, now, cycle.ID, false)
@@ -429,7 +429,7 @@ func TestCorrectChildAdmitsThroughCorrectGuard(t *testing.T) {
 		t.Fatal(err)
 	}
 	stored = appendCommittedReviewOp(t, ctx, db, stored, finished.Run, "REQUEST_CHANGES", now)
-	if err := recordDispatchTestPacket(t, ctx, db, dispatchTestRegistration(corrector), corrector, correctionReservation, correctionRun, correctionView); err != nil {
+	if err := recordDispatchTestPacket(t, ctx, db, corrector, correctionReservation, correctionRun, correctionView); err != nil {
 		t.Fatalf("correct child refused: %v", err)
 	}
 	allowance, err := db.AttemptAllowance(ctx, owner.Repository, owner.Issue)
@@ -468,7 +468,7 @@ func admitReviewCorrectRound(t *testing.T, ctx context.Context, db *Store, owner
 	if err := db.UpdatePublication(ctx, stored); err != nil {
 		t.Fatal(err)
 	}
-	if err := recordDispatchTestPacket(t, ctx, db, dispatchTestRegistration(reviewer), reviewer, reviewerReservation, reviewerRun, reviewerView); err != nil {
+	if err := recordDispatchTestPacket(t, ctx, db, reviewer, reviewerReservation, reviewerRun, reviewerView); err != nil {
 		t.Fatalf("round %d review refused: %v", round, err)
 	}
 	finished := finishReviewCorrectChild(t, ctx, db, reviewer, reviewerRun, now, cycle.ID, false)
@@ -477,7 +477,7 @@ func admitReviewCorrectRound(t *testing.T, ctx context.Context, db *Store, owner
 		t.Fatal(err)
 	}
 	appendCommittedReviewOp(t, ctx, db, recorded, finished.Run, "REQUEST_CHANGES", now)
-	if err := recordDispatchTestPacket(t, ctx, db, dispatchTestRegistration(corrector), corrector, correctionReservation, correctionRun, correctionView); err != nil {
+	if err := recordDispatchTestPacket(t, ctx, db, corrector, correctionReservation, correctionRun, correctionView); err != nil {
 		t.Fatalf("round %d correction refused: %v", round, err)
 	}
 	// Settle the corrector the way production settlement does so later
@@ -509,7 +509,7 @@ func TestReviewCorrectPhaseMismatchRefusals(t *testing.T) {
 		if err := db.UpdatePublication(ctx, stored); err != nil {
 			t.Fatal(err)
 		}
-		err := recordDispatchTestPacket(t, ctx, db, dispatchTestRegistration(child), child, reservation, run, view)
+		err := recordDispatchTestPacket(t, ctx, db, child, reservation, run, view)
 		if err == nil || strings.Contains(err.Error(), "implementation child") {
 			t.Fatalf("coder review routed to the implement guard: %v", err)
 		}
@@ -527,7 +527,7 @@ func TestReviewCorrectPhaseMismatchRefusals(t *testing.T) {
 		if err := db.UpdatePublication(ctx, stored); err != nil {
 			t.Fatal(err)
 		}
-		err := recordDispatchTestPacket(t, ctx, db, dispatchTestRegistration(child), child, reservation, run, view)
+		err := recordDispatchTestPacket(t, ctx, db, child, reservation, run, view)
 		if err == nil || strings.Contains(err.Error(), "implementation child") {
 			t.Fatalf("reviewer correction routed to the implement guard: %v", err)
 		}
@@ -538,7 +538,7 @@ func TestReviewCorrectPhaseMismatchRefusals(t *testing.T) {
 		owner := reviewCorrectOwner(t, ctx, db, now)
 		_ = recordReviewCorrectPublication(t, ctx, db, owner, reviewCorrectPublication(t, owner, now))
 		child, reservation, run, view := reviewCorrectChild(t, ctx, db, now, owner, project.ExecutionInvestigate, project.RoleCoder, owner.ID, owner.Preparation)
-		err := recordDispatchTestPacket(t, ctx, db, dispatchTestRegistration(child), child, reservation, run, view)
+		err := recordDispatchTestPacket(t, ctx, db, child, reservation, run, view)
 		if err == nil || !strings.Contains(err.Error(), "unadmitted execution phase") {
 			t.Fatalf("foreign phase routed past its guard: %v", err)
 		}
@@ -560,7 +560,7 @@ func TestReviewCorrectLineageRefusals(t *testing.T) {
 		if err := db.UpdatePublication(ctx, stored); err != nil {
 			t.Fatal(err)
 		}
-		if err := recordDispatchTestPacket(t, ctx, db, dispatchTestRegistration(first), first, firstReservation, firstRun, firstView); err != nil {
+		if err := recordDispatchTestPacket(t, ctx, db, first, firstReservation, firstRun, firstView); err != nil {
 			t.Fatalf("first review refused: %v", err)
 		}
 		finishedFirst := finishReviewCorrectChild(t, ctx, db, first, firstRun, now, firstCycle.ID, false)
@@ -575,7 +575,7 @@ func TestReviewCorrectLineageRefusals(t *testing.T) {
 		if err := db.UpdatePublication(ctx, fresh); err != nil {
 			t.Fatal(err)
 		}
-		err = recordDispatchTestPacket(t, ctx, db, dispatchTestRegistration(second), second, secondReservation, secondRun, secondView)
+		err = recordDispatchTestPacket(t, ctx, db, second, secondReservation, secondRun, secondView)
 		if err == nil || !errors.Is(err, ErrAttemptRootMismatch) {
 			t.Fatalf("reviewer under a non-owner parent admitted: %v", err)
 		}
@@ -593,7 +593,7 @@ func TestReviewCorrectLineageRefusals(t *testing.T) {
 		if err := db.UpdatePublication(ctx, stored); err != nil {
 			t.Fatal(err)
 		}
-		if err := recordDispatchTestPacket(t, ctx, db, dispatchTestRegistration(reviewer), reviewer, reviewerReservation, reviewerRun, reviewerView); err != nil {
+		if err := recordDispatchTestPacket(t, ctx, db, reviewer, reviewerReservation, reviewerRun, reviewerView); err != nil {
 			t.Fatalf("review refused: %v", err)
 		}
 		finished := finishReviewCorrectChild(t, ctx, db, reviewer, reviewerRun, now, cycle.ID, false)
@@ -611,7 +611,7 @@ func TestReviewCorrectLineageRefusals(t *testing.T) {
 		if err := db.UpdatePublication(ctx, published); err != nil {
 			t.Fatal(err)
 		}
-		err = recordDispatchTestPacket(t, ctx, db, dispatchTestRegistration(corrector), corrector, correctionReservation, correctionRun, correctionView)
+		err = recordDispatchTestPacket(t, ctx, db, corrector, correctionReservation, correctionRun, correctionView)
 		if err == nil || !errors.Is(err, ErrAttemptRootMismatch) {
 			t.Fatalf("correction without its cycle admitted: %v", err)
 		}
@@ -632,7 +632,7 @@ func TestReviewCorrectLineageRefusals(t *testing.T) {
 		if err := db.UpdatePublication(ctx, admitted); err != nil {
 			t.Fatal(err)
 		}
-		err := recordDispatchTestPacket(t, ctx, db, dispatchTestRegistration(corrector), corrector, correctionReservation, correctionRun, correctionView)
+		err := recordDispatchTestPacket(t, ctx, db, corrector, correctionReservation, correctionRun, correctionView)
 		if err == nil || !errors.Is(err, ErrAttemptRootMismatch) {
 			t.Fatalf("correction under a superseded reviewer admitted: %v", err)
 		}
@@ -651,7 +651,7 @@ func TestReviewCorrectLineageRefusals(t *testing.T) {
 		if err := db.UpdatePublication(ctx, admitted); err != nil {
 			t.Fatal(err)
 		}
-		if err := recordDispatchTestPacket(t, ctx, db, dispatchTestRegistration(corrector), corrector, correctionReservation, correctionRun, correctionView); err == nil {
+		if err := recordDispatchTestPacket(t, ctx, db, corrector, correctionReservation, correctionRun, correctionView); err == nil {
 			t.Fatal("correction off the current candidate admitted")
 		}
 		assertDispatchPacketAbsent(t, db, corrector)
@@ -668,7 +668,7 @@ func TestReviewCorrectLineageRefusals(t *testing.T) {
 		if err := db.UpdatePublication(ctx, stored); err != nil {
 			t.Fatal(err)
 		}
-		if err := recordDispatchTestPacket(t, ctx, db, dispatchTestRegistration(child), child, reservation, run, view); err == nil {
+		if err := recordDispatchTestPacket(t, ctx, db, child, reservation, run, view); err == nil {
 			t.Fatal("review child off its subject admitted")
 		} else {
 			assertDispatchPacketAbsent(t, db, child)
@@ -690,7 +690,7 @@ func TestReviewCorrectLineageRefusals(t *testing.T) {
 		if err := db.UpdatePublication(ctx, stored); err != nil {
 			t.Fatal(err)
 		}
-		err := recordDispatchTestPacket(t, ctx, db, dispatchTestRegistration(child), child, reservation, run, view)
+		err := recordDispatchTestPacket(t, ctx, db, child, reservation, run, view)
 		if err == nil || !errors.Is(err, ErrDispatchControlStale) {
 			t.Fatalf("review child on a replaced acceptance admitted: %v", err)
 		}
@@ -708,7 +708,7 @@ func TestReviewCorrectLineageRefusals(t *testing.T) {
 			if err := db.UpdatePublication(ctx, admitted); err != nil {
 				t.Fatal(err)
 			}
-			if err := recordDispatchTestPacket(t, ctx, db, dispatchTestRegistration(stray), stray, strayReservation, strayRun, strayView); err == nil {
+			if err := recordDispatchTestPacket(t, ctx, db, stray, strayReservation, strayRun, strayView); err == nil {
 				t.Fatal("correction off its owner preparation admitted")
 			} else {
 				assertDispatchPacketAbsent(t, db, stray)
@@ -729,7 +729,7 @@ func TestReviewCorrectLineageRefusals(t *testing.T) {
 			if err := db.UpdatePublication(ctx, fresh); err != nil {
 				t.Fatal(err)
 			}
-			if err := recordDispatchTestPacket(t, ctx, db, dispatchTestRegistration(child), child, reservation, run, view); err == nil {
+			if err := recordDispatchTestPacket(t, ctx, db, child, reservation, run, view); err == nil {
 				t.Fatal("reviewer sharing its owner preparation admitted")
 			} else {
 				assertDispatchPacketAbsent(t, db, child)
@@ -756,9 +756,8 @@ func TestReviewCorrectLineageRefusals(t *testing.T) {
 		if err := db.UpdatePublication(ctx, stored); err != nil {
 			t.Fatal(err)
 		}
-		// The registration still pins the superseded policy revision.
-		registration := dispatchTestRegistration(child)
-		if err := recordDispatchTestPacket(t, ctx, db, registration, child, reservation, run, view); err == nil || !errors.Is(err, ErrAdmissionChanged) {
+		// The assignment still pins the superseded policy revision.
+		if err := recordDispatchTestPacket(t, ctx, db, child, reservation, run, view); err == nil || !errors.Is(err, ErrAdmissionChanged) {
 			t.Fatalf("review child under stale authority admitted: %v", err)
 		}
 		assertDispatchPacketAbsent(t, db, child)
@@ -788,7 +787,7 @@ func TestReviewCorrectAllowanceAndFence(t *testing.T) {
 		if err := db.UpdatePublication(ctx, stored); err != nil {
 			t.Fatal(err)
 		}
-		if err := recordDispatchTestPacket(t, ctx, db, dispatchTestRegistration(reviewer), reviewer, reviewerReservation, reviewerRun, reviewerView); err != nil {
+		if err := recordDispatchTestPacket(t, ctx, db, reviewer, reviewerReservation, reviewerRun, reviewerView); err != nil {
 			t.Fatalf("fourth review refused: %v", err)
 		}
 		finished := finishReviewCorrectChild(t, ctx, db, reviewer, reviewerRun, now, cycle.ID, false)
@@ -797,7 +796,7 @@ func TestReviewCorrectAllowanceAndFence(t *testing.T) {
 			t.Fatal(err)
 		}
 		appendCommittedReviewOp(t, ctx, db, round, finished.Run, "REQUEST_CHANGES", now)
-		err = recordDispatchTestPacket(t, ctx, db, dispatchTestRegistration(corrector), corrector, correctionReservation, correctionRun, correctionView)
+		err = recordDispatchTestPacket(t, ctx, db, corrector, correctionReservation, correctionRun, correctionView)
 		if err == nil || !errors.Is(err, factory.ErrCorrectionExhausted) {
 			t.Fatalf("fourth correction admitted past exhaustion: %v", err)
 		}
@@ -815,7 +814,7 @@ func TestReviewCorrectAllowanceAndFence(t *testing.T) {
 		if err := db.UpdatePublication(ctx, stored); err != nil {
 			t.Fatal(err)
 		}
-		if err := recordDispatchTestPacket(t, ctx, db, dispatchTestRegistration(reviewer), reviewer, reviewerReservation, reviewerRun, reviewerView); err != nil {
+		if err := recordDispatchTestPacket(t, ctx, db, reviewer, reviewerReservation, reviewerRun, reviewerView); err != nil {
 			t.Fatalf("review refused before the fence: %v", err)
 		}
 		if _, err := db.db.ExecContext(ctx, `INSERT INTO factory_completions(repository,generation,event,publication,occurrence,data) VALUES($1,$2,$3,$4,$5,$6)`,
@@ -827,7 +826,7 @@ func TestReviewCorrectAllowanceAndFence(t *testing.T) {
 			t.Fatal(err)
 		}
 		fresh, freshReservation, freshRun, freshView := reviewCorrectChild(t, ctx, db, now, owner, project.ExecutionReview, project.RoleReviewer, owner.ID, "f"+strings.Repeat("e", 24))
-		if err := recordDispatchTestPacket(t, ctx, db, dispatchTestRegistration(fresh), fresh, freshReservation, freshRun, freshView); !errors.Is(err, ErrCompletionFenced) {
+		if err := recordDispatchTestPacket(t, ctx, db, fresh, freshReservation, freshRun, freshView); !errors.Is(err, ErrCompletionFenced) {
 			t.Fatalf("fenced review admitted: %v", err)
 		} else {
 			assertDispatchPacketAbsent(t, db, fresh)
@@ -867,7 +866,7 @@ func TestReviewCorrectAllowanceAndFence(t *testing.T) {
 		if err := db.UpdatePublication(ctx, stored); err != nil {
 			t.Fatal(err)
 		}
-		if err := recordDispatchTestPacket(t, ctx, db, dispatchTestRegistration(reviewer), reviewer, reviewerReservation, reviewerRun, reviewerView); err != nil {
+		if err := recordDispatchTestPacket(t, ctx, db, reviewer, reviewerReservation, reviewerRun, reviewerView); err != nil {
 			t.Fatalf("review refused: %v", err)
 		}
 		// Production charges the round by assignment identity before the
@@ -899,7 +898,7 @@ func TestReviewCorrectAllowanceAndFence(t *testing.T) {
 			t.Fatal(err)
 		}
 		appendCommittedReviewOp(t, ctx, db, round, finished.Run, "REQUEST_CHANGES", now)
-		if err := recordDispatchTestPacket(t, ctx, db, dispatchTestRegistration(corrector), corrector, correctionReservation, correctionRun, correctionView); err != nil {
+		if err := recordDispatchTestPacket(t, ctx, db, corrector, correctionReservation, correctionRun, correctionView); err != nil {
 			t.Fatalf("correction refused: %v", err)
 		}
 		before, err := db.AttemptAllowance(ctx, owner.Repository, owner.Issue)

@@ -279,7 +279,7 @@ func TestCaptureCompletionMaterialComplete(t *testing.T) {
 	a, r, run, view := dispatchTestPacket(t, time.Now().UTC())
 	a.Acceptance = v2.ID
 	a.Subject.Issue.Acceptance = v2.ID
-	if err := recordDispatchTestPacket(t, ctx, db, dispatchTestRegistration(a), a, r, run, view); err != nil {
+	if err := recordDispatchTestPacket(t, ctx, db, a, r, run, view); err != nil {
 		t.Fatalf("packet: %v", err)
 	}
 	plan := planRevisionFixture(a.ID, factory.NewID(), 0, "Investigate, plan, then implement behind checks.")

@@ -124,7 +124,7 @@ func TestDispatchWithdrawalOrdering(t *testing.T) {
 	if err != nil || withdrawal.Revision != 1 {
 		t.Fatalf("withdrawal: %+v %v", withdrawal, err)
 	}
-	if err = db.RecordDispatchPacket(ctx, dispatchTestRegistration(a), expected, a, r, run, view); !errors.Is(err, ErrDispatchClosed) {
+	if err = db.RecordDispatchPacket(ctx, expected, a, r, run, view); !errors.Is(err, ErrDispatchClosed) {
 		t.Fatal("late dispatch escaped withdrawal", err)
 	}
 	assertDispatchPacketAbsent(t, db, a)
@@ -138,7 +138,7 @@ func TestDispatchWithdrawalOrdering(t *testing.T) {
 	if opened, revision, reopenErr := db.ReopenDispatch(ctx, 7, 1); reopenErr != nil || !opened || revision != 2 {
 		t.Fatal(opened, revision, reopenErr)
 	}
-	if err = db.RecordDispatchPacket(ctx, dispatchTestRegistration(a), expected, a, r, run, view); err != nil {
+	if err = db.RecordDispatchPacket(ctx, expected, a, r, run, view); err != nil {
 		t.Fatal("dispatch refused after reopen", err)
 	}
 }

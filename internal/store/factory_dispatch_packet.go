@@ -51,7 +51,7 @@ var (
 // sponsorship and spend-cap limits are rechecked inside the same
 // transaction. Concurrent passes serialize here, so only room that
 // actually exists is admitted; the losers wait instead of launching.
-func (s *Store) RecordDispatchPacket(ctx context.Context, d factory.DispatchRegistration, expected factory.IssueControl, a factory.Assignment, r factory.Reservation, run factory.Run, view factory.RunView) error {
+func (s *Store) RecordDispatchPacket(ctx context.Context, expected factory.IssueControl, a factory.Assignment, r factory.Reservation, run factory.Run, view factory.RunView) error {
 	tx, err := s.db.BeginTx(ctx, nil)
 	if err != nil {
 		return err
@@ -60,7 +60,7 @@ func (s *Store) RecordDispatchPacket(ctx context.Context, d factory.DispatchRegi
 	if err = checkDispatchOpenTx(ctx, tx, a.Repository); err != nil {
 		return err
 	}
-	if err = recordDispatchPacketTx(ctx, tx, d, expected, a, r, run, view, false); err != nil {
+	if err = recordDispatchPacketTx(ctx, tx, expected, a, r, run, view, false); err != nil {
 		return err
 	}
 	return tx.Commit()
@@ -71,10 +71,7 @@ func sameControlOutcome(left, right factory.IssueControl) bool {
 		maps.Equal(left.EndpointHeads, right.EndpointHeads) && maps.Equal(left.Satisfied, right.Satisfied)
 }
 
-func checkDispatchPacketInputs(d factory.DispatchRegistration, expected factory.IssueControl, a factory.Assignment, r factory.Reservation, run factory.Run, view factory.RunView) error {
-	if err := d.Validate(); err != nil {
-		return err
-	}
+func checkDispatchPacketInputs(expected factory.IssueControl, a factory.Assignment, r factory.Reservation, run factory.Run, view factory.RunView) error {
 	if err := a.Validate(); err != nil {
 		return err
 	}
@@ -93,13 +90,7 @@ func checkDispatchPacketInputs(d factory.DispatchRegistration, expected factory.
 	return nil
 }
 
-func checkDispatchPacketBindings(d factory.DispatchRegistration, a factory.Assignment, r factory.Reservation, run factory.Run, view factory.RunView) error {
-	if d.ID != a.ID || d.Repository != a.Repository {
-		return errors.New("dispatch packet registration does not match its assignment")
-	}
-	if d.Authority != a.Authority {
-		return ErrAdmissionChanged
-	}
+func checkDispatchPacketBindings(a factory.Assignment, r factory.Reservation, run factory.Run, view factory.RunView) error {
 	if a.Stage != factory.AssignmentAssigned || a.Outcome != "" || a.Result != nil {
 		return errors.New("dispatch packet carries a fresh assignment")
 	}
@@ -207,8 +198,8 @@ func fundDispatchPacketAttemptTx(ctx context.Context, tx *sql.Tx, a factory.Assi
 	return admitAttemptAllowanceTx(ctx, tx, a.Repository, a.Issue, a.AttemptRoot, &grants.policy.AttemptLimits, run.Deadline, now)
 }
 
-func recordDispatchPacketTx(ctx context.Context, tx *sql.Tx, d factory.DispatchRegistration, expected factory.IssueControl, a factory.Assignment, r factory.Reservation, run factory.Run, view factory.RunView, freshAttempt bool) error {
-	if err := checkDispatchPacketInputs(d, expected, a, r, run, view); err != nil {
+func recordDispatchPacketTx(ctx context.Context, tx *sql.Tx, expected factory.IssueControl, a factory.Assignment, r factory.Reservation, run factory.Run, view factory.RunView, freshAttempt bool) error {
+	if err := checkDispatchPacketInputs(expected, a, r, run, view); err != nil {
 		return err
 	}
 	// D13 completion fence (FW31): the gate row above is locked, so this
@@ -237,7 +228,7 @@ func recordDispatchPacketTx(ctx context.Context, tx *sql.Tx, d factory.DispatchR
 	} else if err := checkQueuedControlTx(ctx, tx, expected, a.Repository, a.Issue, a.Acceptance); err != nil {
 		return err
 	}
-	if err := checkDispatchPacketBindings(d, a, r, run, view); err != nil {
+	if err := checkDispatchPacketBindings(a, r, run, view); err != nil {
 		return err
 	}
 	if err := validateAttemptPacketTx(ctx, tx, a, freshAttempt); err != nil {

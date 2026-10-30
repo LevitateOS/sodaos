@@ -44,9 +44,9 @@ func dispatchTestControlFor(t *testing.T, db *Store, a factory.Assignment) facto
 	return stored
 }
 
-func recordDispatchTestPacket(t *testing.T, ctx context.Context, db *Store, d factory.DispatchRegistration, a factory.Assignment, r factory.Reservation, run factory.Run, view factory.RunView) error {
+func recordDispatchTestPacket(t *testing.T, ctx context.Context, db *Store, a factory.Assignment, r factory.Reservation, run factory.Run, view factory.RunView) error {
 	t.Helper()
-	return db.RecordDispatchPacket(ctx, d, dispatchTestControlFor(t, db, a), a, r, run, view)
+	return db.RecordDispatchPacket(ctx, dispatchTestControlFor(t, db, a), a, r, run, view)
 }
 
 // seedDispatchLimits records current dispatch authority and room for two
@@ -166,10 +166,6 @@ func dispatchCurrentAuthority(t *testing.T, db *Store, a factory.Assignment) fac
 	}
 }
 
-func dispatchTestRegistration(a factory.Assignment) factory.DispatchRegistration {
-	return factory.DispatchRegistration{ID: a.ID, Repository: a.Repository, Authority: a.Authority}
-}
-
 func dispatchTestPrompt(t *testing.T) []byte {
 	t.Helper()
 	selection := grantTestPolicy().Roles[project.RoleCoder]
@@ -228,7 +224,7 @@ func TestRecordDispatchPacket(t *testing.T) {
 	now := time.Now().UTC()
 	db := dispatchStoreFixture(t)
 	a, r, run, view := dispatchTestPacket(t, now)
-	if err := recordDispatchTestPacket(t, ctx, db, dispatchTestRegistration(a), a, r, run, view); err != nil {
+	if err := recordDispatchTestPacket(t, ctx, db, a, r, run, view); err != nil {
 		t.Fatalf("packet refused: %v", err)
 	}
 	got, err := db.Assignment(ctx, a.ID)
@@ -261,7 +257,7 @@ func TestRecordDispatchPacket(t *testing.T) {
 	again.AttemptRoot, again.PublicationAssignment = again.ID, again.ID
 	r2.AssignmentID = again.ID
 	view2.Attempt = again.ID
-	if err := recordDispatchTestPacket(t, ctx, db, dispatchTestRegistration(again), again, r2, run2, view2); err == nil {
+	if err := recordDispatchTestPacket(t, ctx, db, again, r2, run2, view2); err == nil {
 		t.Fatal("second unfinished assignment for the issue accepted")
 	} else if !isAssignmentActive(err) {
 		t.Fatalf("wrong conflict error: %v", err)
@@ -281,7 +277,7 @@ func TestRecordDispatchPacketEnforcesOneRepositorySession(t *testing.T) {
 			db := dispatchStoreFixture(t)
 			now := time.Now().UTC()
 			first, reservation, run, view := dispatchTestPacket(t, now)
-			if err := recordDispatchTestPacket(t, ctx, db, dispatchTestRegistration(first), first, reservation, run, view); err != nil {
+			if err := recordDispatchTestPacket(t, ctx, db, first, reservation, run, view); err != nil {
 				t.Fatal(err)
 			}
 			if tc.releasePriorSlot {
@@ -296,7 +292,7 @@ func TestRecordDispatchPacketEnforcesOneRepositorySession(t *testing.T) {
 			second.AttemptRoot, second.PublicationAssignment = second.ID, second.ID
 			nextReservation.AssignmentID = second.ID
 			nextView.Issue, nextView.Attempt = second.Issue, second.ID
-			if err := recordDispatchTestPacket(t, ctx, db, dispatchTestRegistration(second), second, nextReservation, nextRun, nextView); !errors.Is(err, ErrRepositoryFull) {
+			if err := recordDispatchTestPacket(t, ctx, db, second, nextReservation, nextRun, nextView); !errors.Is(err, ErrRepositoryFull) {
 				t.Fatalf("second same-repository session error = %v, want %v", err, ErrRepositoryFull)
 			}
 			assertDispatchPacketAbsent(t, db, second)
@@ -315,7 +311,7 @@ func TestRecordDispatchPacketRejectsChangedQueuedControlAtomically(t *testing.T)
 	if _, _, err := db.RecordIssueAssessment(ctx, changed, time.Now()); err != nil {
 		t.Fatal(err)
 	}
-	err := db.RecordDispatchPacket(ctx, dispatchTestRegistration(a), expected, a, r, run, view)
+	err := db.RecordDispatchPacket(ctx, expected, a, r, run, view)
 	if !errors.Is(err, ErrDispatchControlStale) {
 		t.Fatalf("stale queued control error = %v", err)
 	}
@@ -330,7 +326,7 @@ func TestRecordDispatchPacketRejectsWithdrawnAcceptanceAtomically(t *testing.T) 
 	if err := db.WithdrawAcceptanceDecision(ctx, a.Repository, a.Issue, a.Acceptance, 7); err != nil {
 		t.Fatal(err)
 	}
-	if err := db.RecordDispatchPacket(ctx, dispatchTestRegistration(a), expected, a, r, run, view); !errors.Is(err, ErrDispatchControlStale) {
+	if err := db.RecordDispatchPacket(ctx, expected, a, r, run, view); !errors.Is(err, ErrDispatchControlStale) {
 		t.Fatalf("withdrawn acceptance packet error = %v", err)
 	}
 	assertDispatchPacketAbsent(t, db, a)
@@ -354,7 +350,7 @@ func TestRecordDispatchPacketBindsExecutionActorAndProject(t *testing.T) {
 			}
 			a, reservation, run, view := dispatchTestPacket(t, time.Now().UTC())
 			a.Authority.Sponsorship = sponsorship.Revision + 1
-			if err := recordDispatchTestPacket(t, ctx, db, dispatchTestRegistration(a), a, reservation, run, view); !errors.Is(err, ErrAdmissionChanged) {
+			if err := recordDispatchTestPacket(t, ctx, db, a, reservation, run, view); !errors.Is(err, ErrAdmissionChanged) {
 				t.Fatalf("packet admitted mismatched execution binding: %v", err)
 			}
 			if _, err := db.Assignment(ctx, a.ID); !errors.Is(err, ErrNotFound) {
@@ -379,7 +375,7 @@ func TestRecordDispatchPacketEnforcesLimits(t *testing.T) {
 		}
 		a, r, run, view := dispatchTestPacket(t, now)
 		a.Authority.Capacity = 2
-		if err := recordDispatchTestPacket(t, ctx, db, dispatchTestRegistration(a), a, r, run, view); err != nil {
+		if err := recordDispatchTestPacket(t, ctx, db, a, r, run, view); err != nil {
 			t.Fatal(err)
 		}
 		b, r2, run2, view2 := dispatchTestPacket(t, now)
@@ -390,7 +386,7 @@ func TestRecordDispatchPacketEnforcesLimits(t *testing.T) {
 		b.Authority.Capacity = 2
 		r2.AssignmentID = b.ID
 		view2.Issue, view2.Attempt = 4, b.ID
-		if err := recordDispatchTestPacket(t, ctx, db, dispatchTestRegistration(b), b, r2, run2, view2); !errors.Is(err, ErrCapacityFull) {
+		if err := recordDispatchTestPacket(t, ctx, db, b, r2, run2, view2); !errors.Is(err, ErrCapacityFull) {
 			t.Fatalf("over-capacity packet accepted: %v", err)
 		}
 		if _, err := db.Assignment(ctx, b.ID); !errors.Is(err, ErrNotFound) {
@@ -422,7 +418,7 @@ func TestRecordDispatchPacketEnforcesLimits(t *testing.T) {
 		if err != nil || !allowance.Active || allowance.Closed {
 			t.Fatalf("settled reported attempt allowance = %+v, %v", allowance, err)
 		}
-		if err := recordDispatchTestPacket(t, ctx, db, dispatchTestRegistration(b), b, r2, run2, view2); !errors.Is(err, ErrCapacityFull) {
+		if err := recordDispatchTestPacket(t, ctx, db, b, r2, run2, view2); !errors.Is(err, ErrCapacityFull) {
 			t.Fatalf("packet bypassed appliance limit after session settled: %v", err)
 		}
 	})
@@ -439,7 +435,7 @@ func TestRecordDispatchPacketEnforcesLimits(t *testing.T) {
 		}
 		a, r, run, view := dispatchTestPacket(t, now)
 		a.Authority.Sponsorship = 2
-		if err := recordDispatchTestPacket(t, ctx, db, dispatchTestRegistration(a), a, r, run, view); err != nil {
+		if err := recordDispatchTestPacket(t, ctx, db, a, r, run, view); err != nil {
 			t.Fatal(err)
 		}
 		settled, err := db.FactoryRun(ctx, run.ID)
@@ -478,7 +474,7 @@ func TestRecordDispatchPacketEnforcesLimits(t *testing.T) {
 		b.Authority.Sponsorship = 2
 		r2.AssignmentID = b.ID
 		view2.Issue, view2.Attempt = 4, b.ID
-		if err := recordDispatchTestPacket(t, ctx, db, dispatchTestRegistration(b), b, r2, run2, view2); !errors.Is(err, ErrAllowanceExhausted) {
+		if err := recordDispatchTestPacket(t, ctx, db, b, r2, run2, view2); !errors.Is(err, ErrAllowanceExhausted) {
 			t.Fatalf("over-budget packet accepted: %v", err)
 		}
 	})
@@ -486,7 +482,7 @@ func TestRecordDispatchPacketEnforcesLimits(t *testing.T) {
 		now := time.Now().UTC()
 		db := dispatchStoreFixture(t)
 		a, reservation, run, view := dispatchTestPacket(t, now)
-		if err := recordDispatchTestPacket(t, ctx, db, dispatchTestRegistration(a), a, reservation, run, view); err != nil {
+		if err := recordDispatchTestPacket(t, ctx, db, a, reservation, run, view); err != nil {
 			t.Fatal(err)
 		}
 		missingRun := factory.NewID()
@@ -500,7 +496,7 @@ func TestRecordDispatchPacketEnforcesLimits(t *testing.T) {
 		second.AttemptRoot, second.PublicationAssignment = second.ID, second.ID
 		r2.AssignmentID = second.ID
 		view2.Issue, view2.Attempt = 4, second.ID
-		if err := recordDispatchTestPacket(t, ctx, db, dispatchTestRegistration(second), second, r2, run2, view2); err == nil {
+		if err := recordDispatchTestPacket(t, ctx, db, second, r2, run2, view2); err == nil {
 			t.Fatal("held session without a run start was ignored")
 		}
 		assertDispatchPacketAbsent(t, db, second)
@@ -508,7 +504,7 @@ func TestRecordDispatchPacketEnforcesLimits(t *testing.T) {
 	t.Run("missing grants", func(t *testing.T) {
 		db := grantStoreFixture(t)
 		a, r, run, view := dispatchTestPacket(t, now)
-		if err := recordDispatchTestPacket(t, ctx, db, dispatchTestRegistration(a), a, r, run, view); !errors.Is(err, ErrAdmissionChanged) {
+		if err := recordDispatchTestPacket(t, ctx, db, a, r, run, view); !errors.Is(err, ErrAdmissionChanged) {
 			t.Fatalf("unlimited packet accepted: %v", err)
 		}
 		assertDispatchPacketAbsent(t, db, a)
@@ -546,7 +542,7 @@ func TestReportedAssignmentEnqueuesReadinessRootAtomically(t *testing.T) {
 	t.Run("success", func(t *testing.T) {
 		db := dispatchStoreFixture(t)
 		a, reservation, run, view := dispatchTestPacket(t, now)
-		if err := recordDispatchTestPacket(t, ctx, db, dispatchTestRegistration(a), a, reservation, run, view); err != nil {
+		if err := recordDispatchTestPacket(t, ctx, db, a, reservation, run, view); err != nil {
 			t.Fatal(err)
 		}
 		before := readinessGeneration(t, db)
@@ -573,7 +569,7 @@ func TestReportedAssignmentEnqueuesReadinessRootAtomically(t *testing.T) {
 	t.Run("source-capacity-rolls-back-finish", func(t *testing.T) {
 		db := dispatchStoreFixture(t)
 		a, reservation, run, view := dispatchTestPacket(t, now)
-		if err := recordDispatchTestPacket(t, ctx, db, dispatchTestRegistration(a), a, reservation, run, view); err != nil {
+		if err := recordDispatchTestPacket(t, ctx, db, a, reservation, run, view); err != nil {
 			t.Fatal(err)
 		}
 		// Consume the admission-created notification before filling the

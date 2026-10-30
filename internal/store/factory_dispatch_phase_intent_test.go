@@ -54,7 +54,7 @@ func decomposeRevisionDigest(t *testing.T, db *Store, revisionID string) string 
 // repository slot, Issue zero, fresh attempt root, decompose phase,
 // coder role, no parent, no publication, and the canonical intent
 // subject bound to the persisted head revision.
-func decomposeRootPacket(t *testing.T, ctx context.Context, db *Store, now time.Time, intentID, revisionID string, owner int64, source string) (factory.DispatchRegistration, factory.Assignment, factory.Reservation, factory.Run, factory.RunView) {
+func decomposeRootPacket(t *testing.T, ctx context.Context, db *Store, now time.Time, intentID, revisionID string, owner int64, source string) (factory.Assignment, factory.Reservation, factory.Run, factory.RunView) {
 	t.Helper()
 	return decomposeRootPacketWithDigest(t, ctx, db, now, intentID, revisionID, owner, source, "")
 }
@@ -63,7 +63,7 @@ func decomposeRootPacket(t *testing.T, ctx context.Context, db *Store, now time.
 // subject digest. An empty digest reads the persisted revision row; a
 // test proving refusal for an unrecorded revision supplies the digest
 // of its unsaved literal instead, since no row exists to read.
-func decomposeRootPacketWithDigest(t *testing.T, ctx context.Context, db *Store, now time.Time, intentID, revisionID string, owner int64, source string, digest string) (factory.DispatchRegistration, factory.Assignment, factory.Reservation, factory.Run, factory.RunView) {
+func decomposeRootPacketWithDigest(t *testing.T, ctx context.Context, db *Store, now time.Time, intentID, revisionID string, owner int64, source string, digest string) (factory.Assignment, factory.Reservation, factory.Run, factory.RunView) {
 	t.Helper()
 	selection, ok := grantTestPolicy().Roles[project.RoleCoder]
 	if !ok {
@@ -101,8 +101,7 @@ func decomposeRootPacketWithDigest(t *testing.T, ctx context.Context, db *Store,
 		Image: "sha256:" + strings.Repeat("b", 64), Harness: a.Harness, Model: a.Model,
 	}
 	view := factory.RunView{RunID: runID, Repository: 7, Issue: 0, Attempt: a.ID}
-	d := dispatchTestRegistration(a)
-	return d, a, r, run, view
+	return a, r, run, view
 }
 
 func decomposeTestControl(a factory.Assignment) factory.IssueControl {
@@ -132,8 +131,8 @@ func TestDecomposeRootAdmitsThroughDecomposeGuard(t *testing.T) {
 	now := time.Now().UTC().Truncate(time.Second)
 	intentID, revisionID := "d"+strings.Repeat("b", 24), "d"+strings.Repeat("a", 24)
 	decomposeIntentRevisionFixture(t, db, intentID, revisionID, 7)
-	d, a, r, run, view := decomposeRootPacket(t, ctx, db, now, intentID, revisionID, 7, strings.Repeat("c", 40))
-	if err := db.RecordDispatchPacket(ctx, d, decomposeTestControl(a), a, r, run, view); err != nil {
+	a, r, run, view := decomposeRootPacket(t, ctx, db, now, intentID, revisionID, 7, strings.Repeat("c", 40))
+	if err := db.RecordDispatchPacket(ctx, decomposeTestControl(a), a, r, run, view); err != nil {
 		t.Fatalf("intent root refused: %v", err)
 	}
 	allowance := readIntentAllowance(t, db, a.ID)
@@ -154,8 +153,8 @@ func TestDecomposeRootRefusesUnrecordedRevision(t *testing.T) {
 		Objective: "plan the recorded draft", State: "draft",
 		MaxIssues: 10, CreatedUnix: now.Unix(),
 	}
-	d, a, r, run, view := decomposeRootPacketWithDigest(t, ctx, db, now, "d"+strings.Repeat("b", 24), "d"+strings.Repeat("a", 24), 7, strings.Repeat("c", 40), unsaved.Digest())
-	err := db.RecordDispatchPacket(ctx, d, decomposeTestControl(a), a, r, run, view)
+	a, r, run, view := decomposeRootPacketWithDigest(t, ctx, db, now, "d"+strings.Repeat("b", 24), "d"+strings.Repeat("a", 24), 7, strings.Repeat("c", 40), unsaved.Digest())
+	err := db.RecordDispatchPacket(ctx, decomposeTestControl(a), a, r, run, view)
 	if !errors.Is(err, ErrAttemptRootMismatch) {
 		t.Fatalf("unrecorded revision error = %v, want root mismatch", err)
 	}
@@ -185,9 +184,9 @@ func TestDecomposeRootRefusesForeignBindings(t *testing.T) {
 		"owner":       func(a *factory.Assignment) { a.Subject.Intent.OwnerID = 9 },
 	}
 	for name, mutate := range cases {
-		d, a, r, run, view := decomposeRootPacket(t, ctx, db, now, intentID, advanced.ID, 7, strings.Repeat("c", 40))
+		a, r, run, view := decomposeRootPacket(t, ctx, db, now, intentID, advanced.ID, 7, strings.Repeat("c", 40))
 		mutate(&a)
-		if err := db.RecordDispatchPacket(ctx, d, decomposeTestControl(a), a, r, run, view); err == nil {
+		if err := db.RecordDispatchPacket(ctx, decomposeTestControl(a), a, r, run, view); err == nil {
 			t.Fatalf("%s binding admitted", name)
 		}
 		assertDispatchPacketAbsent(t, db, a)
@@ -200,11 +199,11 @@ func TestDecomposeRootReplayWritesNoRows(t *testing.T) {
 	now := time.Now().UTC().Truncate(time.Second)
 	intentID, revisionID := "d"+strings.Repeat("b", 24), "d"+strings.Repeat("a", 24)
 	decomposeIntentRevisionFixture(t, db, intentID, revisionID, 7)
-	d, a, r, run, view := decomposeRootPacket(t, ctx, db, now, intentID, revisionID, 7, strings.Repeat("c", 40))
-	if err := db.RecordDispatchPacket(ctx, d, decomposeTestControl(a), a, r, run, view); err != nil {
+	a, r, run, view := decomposeRootPacket(t, ctx, db, now, intentID, revisionID, 7, strings.Repeat("c", 40))
+	if err := db.RecordDispatchPacket(ctx, decomposeTestControl(a), a, r, run, view); err != nil {
 		t.Fatalf("first intent packet refused: %v", err)
 	}
-	if err := db.RecordDispatchPacket(ctx, d, decomposeTestControl(a), a, r, run, view); err == nil {
+	if err := db.RecordDispatchPacket(ctx, decomposeTestControl(a), a, r, run, view); err == nil {
 		t.Fatal("replayed intent packet admitted")
 	}
 	if count := countReassessAssignmentRows(t, db, a.ID); count != 1 {
@@ -224,13 +223,13 @@ func TestIntentDistinctRootCannotRefillSameRevision(t *testing.T) {
 	intentID, revisionID := "d"+strings.Repeat("e", 24), "d"+strings.Repeat("f", 24)
 	decomposeIntentRevisionFixture(t, db, intentID, revisionID, 7)
 	first := time.Now().UTC().Truncate(time.Second)
-	d, a, r, run, view := decomposeRootPacket(t, ctx, db, first, intentID, revisionID, 7, strings.Repeat("1", 40))
-	if err := db.RecordDispatchPacket(ctx, d, decomposeTestControl(a), a, r, run, view); err != nil {
+	a, r, run, view := decomposeRootPacket(t, ctx, db, first, intentID, revisionID, 7, strings.Repeat("1", 40))
+	if err := db.RecordDispatchPacket(ctx, decomposeTestControl(a), a, r, run, view); err != nil {
 		t.Fatalf("first intent root refused: %v", err)
 	}
 	second := time.Now().UTC().Truncate(time.Second)
-	d2, a2, r2, run2, view2 := decomposeRootPacket(t, ctx, db, second, intentID, revisionID, 7, strings.Repeat("1", 40))
-	err := db.RecordDispatchPacket(ctx, d2, decomposeTestControl(a2), a2, r2, run2, view2)
+	a2, r2, run2, view2 := decomposeRootPacket(t, ctx, db, second, intentID, revisionID, 7, strings.Repeat("1", 40))
+	err := db.RecordDispatchPacket(ctx, decomposeTestControl(a2), a2, r2, run2, view2)
 	if !errors.Is(err, ErrAssignmentActive) {
 		t.Fatalf("second distinct root did not report the concurrent admission: %v", err)
 	}
@@ -253,8 +252,8 @@ func TestIntentFailedRootCannotRefillSameRevision(t *testing.T) {
 	intentID, revisionID := "d"+strings.Repeat("e", 24), "d"+strings.Repeat("f", 24)
 	decomposeIntentRevisionFixture(t, db, intentID, revisionID, 7)
 	first := time.Now().UTC().Truncate(time.Second)
-	d, a, r, run, view := decomposeRootPacket(t, ctx, db, first, intentID, revisionID, 7, strings.Repeat("1", 40))
-	if err := db.RecordDispatchPacket(ctx, d, decomposeTestControl(a), a, r, run, view); err != nil {
+	a, r, run, view := decomposeRootPacket(t, ctx, db, first, intentID, revisionID, 7, strings.Repeat("1", 40))
+	if err := db.RecordDispatchPacket(ctx, decomposeTestControl(a), a, r, run, view); err != nil {
 		t.Fatalf("first intent root refused: %v", err)
 	}
 	ended := time.Now().UTC().Truncate(time.Second)
@@ -277,8 +276,8 @@ func TestIntentFailedRootCannotRefillSameRevision(t *testing.T) {
 		t.Fatalf("failed intent allowance still open: %+v", prior)
 	}
 	second := time.Now().UTC().Truncate(time.Second)
-	d2, a2, r2, run2, view2 := decomposeRootPacket(t, ctx, db, second, intentID, revisionID, 7, strings.Repeat("1", 40))
-	err := db.RecordDispatchPacket(ctx, d2, decomposeTestControl(a2), a2, r2, run2, view2)
+	a2, r2, run2, view2 := decomposeRootPacket(t, ctx, db, second, intentID, revisionID, 7, strings.Repeat("1", 40))
+	err := db.RecordDispatchPacket(ctx, decomposeTestControl(a2), a2, r2, run2, view2)
 	if !errors.Is(err, factory.ErrAttemptClosed) {
 		t.Fatalf("failed intent replay did not report the settled attempt: %v", err)
 	}
@@ -302,8 +301,8 @@ func TestIntentSucceededRootCannotRefillSameRevision(t *testing.T) {
 	intentID, revisionID := "d"+strings.Repeat("e", 24), "d"+strings.Repeat("f", 24)
 	decomposeIntentRevisionFixture(t, db, intentID, revisionID, 7)
 	first := time.Now().UTC().Truncate(time.Second)
-	d, a, r, run, view := decomposeRootPacket(t, ctx, db, first, intentID, revisionID, 7, strings.Repeat("1", 40))
-	if err := db.RecordDispatchPacket(ctx, d, decomposeTestControl(a), a, r, run, view); err != nil {
+	a, r, run, view := decomposeRootPacket(t, ctx, db, first, intentID, revisionID, 7, strings.Repeat("1", 40))
+	if err := db.RecordDispatchPacket(ctx, decomposeTestControl(a), a, r, run, view); err != nil {
 		t.Fatalf("first intent root refused: %v", err)
 	}
 	ended := time.Now().UTC().Truncate(time.Second)
@@ -326,8 +325,8 @@ func TestIntentSucceededRootCannotRefillSameRevision(t *testing.T) {
 		t.Fatalf("succeeded intent allowance still open: %+v", prior)
 	}
 	second := time.Now().UTC().Truncate(time.Second)
-	d2, a2, r2, run2, view2 := decomposeRootPacket(t, ctx, db, second, intentID, revisionID, 7, strings.Repeat("1", 40))
-	err := db.RecordDispatchPacket(ctx, d2, decomposeTestControl(a2), a2, r2, run2, view2)
+	a2, r2, run2, view2 := decomposeRootPacket(t, ctx, db, second, intentID, revisionID, 7, strings.Repeat("1", 40))
+	err := db.RecordDispatchPacket(ctx, decomposeTestControl(a2), a2, r2, run2, view2)
 	if !errors.Is(err, factory.ErrAttemptClosed) {
 		t.Fatalf("succeeded intent replay did not report the settled attempt: %v", err)
 	}
@@ -353,8 +352,8 @@ func TestIntentSucceededRootCannotRefillSameRevision(t *testing.T) {
 		t.Fatalf("next intent revision not recorded: %v", err)
 	}
 	third := time.Now().UTC().Truncate(time.Second)
-	d3, a3, r3, run3, view3 := decomposeRootPacket(t, ctx, db, third, intentID, nextRevision, 7, strings.Repeat("1", 40))
-	if err := db.RecordDispatchPacket(ctx, d3, decomposeTestControl(a3), a3, r3, run3, view3); err != nil {
+	a3, r3, run3, view3 := decomposeRootPacket(t, ctx, db, third, intentID, nextRevision, 7, strings.Repeat("1", 40))
+	if err := db.RecordDispatchPacket(ctx, decomposeTestControl(a3), a3, r3, run3, view3); err != nil {
 		t.Fatalf("successor revision root refused: %v", err)
 	}
 	fundedNext := readIntentAllowance(t, db, a3.ID)
@@ -378,8 +377,8 @@ func TestIntentNewRevisionFundsNextAttempt(t *testing.T) {
 	intentID, revisionID := "d"+strings.Repeat("e", 24), "d"+strings.Repeat("f", 24)
 	decomposeIntentRevisionFixture(t, db, intentID, revisionID, 7)
 	first := time.Now().UTC().Truncate(time.Second)
-	d, a, r, run, view := decomposeRootPacket(t, ctx, db, first, intentID, revisionID, 7, strings.Repeat("1", 40))
-	if err := db.RecordDispatchPacket(ctx, d, decomposeTestControl(a), a, r, run, view); err != nil {
+	a, r, run, view := decomposeRootPacket(t, ctx, db, first, intentID, revisionID, 7, strings.Repeat("1", 40))
+	if err := db.RecordDispatchPacket(ctx, decomposeTestControl(a), a, r, run, view); err != nil {
 		t.Fatalf("first intent root refused: %v", err)
 	}
 	ended := time.Now().UTC().Truncate(time.Second)
@@ -407,8 +406,8 @@ func TestIntentNewRevisionFundsNextAttempt(t *testing.T) {
 		t.Fatalf("next intent revision not recorded: %v", err)
 	}
 	second := time.Now().UTC().Truncate(time.Second)
-	d2, a2, r2, run2, view2 := decomposeRootPacket(t, ctx, db, second, intentID, nextRevision, 7, strings.Repeat("1", 40))
-	if err := db.RecordDispatchPacket(ctx, d2, decomposeTestControl(a2), a2, r2, run2, view2); err != nil {
+	a2, r2, run2, view2 := decomposeRootPacket(t, ctx, db, second, intentID, nextRevision, 7, strings.Repeat("1", 40))
+	if err := db.RecordDispatchPacket(ctx, decomposeTestControl(a2), a2, r2, run2, view2); err != nil {
 		t.Fatalf("next revision root refused: %v", err)
 	}
 	funded := readIntentAllowance(t, db, a2.ID)
@@ -432,8 +431,8 @@ func TestIntentDigestChangeCannotRefillSameRevision(t *testing.T) {
 	now := time.Now().UTC().Truncate(time.Second)
 	intent, revision := "d"+strings.Repeat("b", 24), "d"+strings.Repeat("a", 24)
 	decomposeIntentRevisionFixture(t, db, intent, revision, 7)
-	d, a, r, run, view := decomposeRootPacket(t, ctx, db, now, intent, revision, 7, strings.Repeat("c", 40))
-	if err := db.RecordDispatchPacket(ctx, d, decomposeTestControl(a), a, r, run, view); err != nil {
+	a, r, run, view := decomposeRootPacket(t, ctx, db, now, intent, revision, 7, strings.Repeat("c", 40))
+	if err := db.RecordDispatchPacket(ctx, decomposeTestControl(a), a, r, run, view); err != nil {
 		t.Fatal(err)
 	}
 	run.Outcome, run.Reconciled, run.Summary = factory.Failed, true, "provider failed"
@@ -454,9 +453,9 @@ func TestIntentDigestChangeCannotRefillSameRevision(t *testing.T) {
 	if prior.Active || !prior.Closed {
 		t.Fatalf("prior root not settled: %+v", prior)
 	}
-	d2, a2, r2, run2, view2 := decomposeRootPacket(t, ctx, db, now, intent, revision, 7, strings.Repeat("c", 40))
+	a2, r2, run2, view2 := decomposeRootPacket(t, ctx, db, now, intent, revision, 7, strings.Repeat("c", 40))
 	a2.Subject.Intent.ScopeDigest = strings.Repeat("e", 64)
-	err := db.RecordDispatchPacket(ctx, d2, decomposeTestControl(a2), a2, r2, run2, view2)
+	err := db.RecordDispatchPacket(ctx, decomposeTestControl(a2), a2, r2, run2, view2)
 	if err == nil {
 		first, second := readIntentAllowance(t, db, a.ID), readIntentAllowance(t, db, a2.ID)
 		t.Fatalf("same intent revision admitted two distinct roots and funded both: first=%d second=%d active=%v/%v", first.Limits.ActiveMinutes, second.Limits.ActiveMinutes, first.Active, second.Active)
@@ -478,7 +477,7 @@ func TestIntentHeadChangeBeforeAdmissionCommit(t *testing.T) {
 	now := time.Now().UTC().Truncate(time.Second)
 	intent, revision := "d"+strings.Repeat("b", 24), "d"+strings.Repeat("a", 24)
 	decomposeIntentRevisionFixture(t, db, intent, revision, 7)
-	d, a, r, run, view := decomposeRootPacket(t, ctx, db, now, intent, revision, 7, strings.Repeat("c", 40))
+	a, r, run, view := decomposeRootPacket(t, ctx, db, now, intent, revision, 7, strings.Repeat("c", 40))
 	blocker, err := db.db.BeginTx(ctx, nil)
 	if err != nil {
 		t.Fatal(err)
@@ -489,7 +488,7 @@ func TestIntentHeadChangeBeforeAdmissionCommit(t *testing.T) {
 		t.Fatal(err)
 	}
 	done := make(chan error, 1)
-	go func() { done <- db.RecordDispatchPacket(ctx, d, decomposeTestControl(a), a, r, run, view) }()
+	go func() { done <- db.RecordDispatchPacket(ctx, decomposeTestControl(a), a, r, run, view) }()
 	// Synchronize on the real packet waiting at its post-head-validation capacity lock.
 	for {
 		var waiting bool

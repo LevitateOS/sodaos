@@ -250,7 +250,7 @@ func (fx *publishFixture) finishReported(t *testing.T, issue int64) factory.Assi
 		Image: "sha256:" + strings.Repeat("b", 64), Harness: a.Harness, Model: a.Model,
 	}
 	view := factory.RunView{RunID: a.Run, Repository: fx.seed.repo, Issue: issue, Attempt: a.ID}
-	if err := fx.db.RecordDispatchPacket(ctx, factory.DispatchRegistration{ID: a.ID, Repository: a.Repository, Authority: a.Authority}, dispatchControlForAssignment(t, fx.db, a), a, r, run, view); err != nil {
+	if err := fx.db.RecordDispatchPacket(ctx, dispatchControlForAssignment(t, fx.db, a), a, r, run, view); err != nil {
 		t.Fatal(err)
 	}
 	run.Outcome, run.Reconciled = factory.Succeeded, true
@@ -377,8 +377,7 @@ func (fx *publishFixture) childRun(t *testing.T, parent factory.Assignment, publ
 		State: factory.ReservationHeld, PlannedMinutes: 30,
 	}
 	view := factory.RunView{RunID: r.ID, Repository: a.Repository, Issue: a.Issue, Attempt: a.ID}
-	registration := factory.DispatchRegistration{ID: a.ID, Repository: a.Repository, Authority: a.Authority}
-	if err := fx.db.RecordDispatchPacket(ctx, registration, dispatchControlForAssignment(t, fx.db, a), a, reservation, r, view); err != nil {
+	if err := fx.db.RecordDispatchPacket(ctx, dispatchControlForAssignment(t, fx.db, a), a, reservation, r, view); err != nil {
 		t.Fatalf("childRun packet record: %v", err)
 	}
 	if settled {

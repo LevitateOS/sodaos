@@ -406,21 +406,6 @@ type AuthorityInput struct {
 	DispatchOpen     bool
 }
 
-// DispatchRegistration carries the identity and authority for dispatch admission.
-type DispatchRegistration struct {
-	Authority  AuthorityRef `json:"authority"`
-	ID         string       `json:"id"`
-	Repository int64        `json:"repository,string"`
-	Revision   int64        `json:"revision"`
-}
-
-func (d DispatchRegistration) Validate() error {
-	if !ValidID(d.ID) || d.Repository <= 0 || d.Revision < 0 {
-		return errors.New("invalid dispatch registration")
-	}
-	return nil
-}
-
 // MaxActiveDispatchCauses bounds the cause labels retained on one gate.
 // Labels remain bounded strings because grant withdrawal callers own their
 // vocabulary; lifecycle controls do not reinterpret grant causes.

@@ -351,13 +351,12 @@ func (t *timeOnlyLaunch) submitPacket() {
 	if !ok {
 		return
 	}
-	registration := factory.DispatchRegistration{ID: assignment.ID, Repository: t.repository, Authority: assignment.Authority}
 	reservation := factory.Reservation{AssignmentID: assignment.ID, Repository: t.repository, Connection: t.plan.sponsorship.Connection, State: factory.ReservationHeld, PlannedMinutes: t.plan.planned}
 	view := factory.RunView{RunID: run.ID, Repository: t.repository, Issue: 0, Attempt: assignment.ID}
 	t.plan.control = factory.IssueControl{Repository: t.repository, Issue: 0, NativeRev: nativeRev}
 	t.plan.prompt, t.plan.promptSHA = t.prompt, assignment.PromptSHA
 	t.plan.preparationOwner = t.plan.prep.Preparation.ID
-	if err := t.deps.Store.RecordDispatchPacket(t.ctx, registration, t.plan.control, assignment, reservation, run, view); err != nil {
+	if err := t.deps.Store.RecordDispatchPacket(t.ctx, t.plan.control, assignment, reservation, run, view); err != nil {
 		reportPacketRefusal(t.ctx, t.deps, t.occupancy, t.repository, 0, err, t.report)
 		return
 	}

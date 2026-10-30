@@ -68,7 +68,7 @@ func TestFinishTerminalBindsPhasedResult(t *testing.T) {
 		Image: "sha256:" + strings.Repeat("b", 64), Harness: a.Harness, Model: a.Model,
 	}
 	view := factory.RunView{RunID: runID, Repository: fx.repo, Issue: 7, Attempt: a.ID}
-	if err := db.RecordDispatchPacket(ctx, factory.DispatchRegistration{ID: a.ID, Repository: a.Repository, Authority: a.Authority}, dispatchControlForAssignment(t, db, a), a, reservation, run, view); err != nil {
+	if err := db.RecordDispatchPacket(ctx, dispatchControlForAssignment(t, db, a), a, reservation, run, view); err != nil {
 		t.Fatalf("phased terminal packet refused: %v", err)
 	}
 
@@ -149,7 +149,7 @@ func TestFinishTerminalKeepsPhasedResult(t *testing.T) {
 		Image: "sha256:" + strings.Repeat("b", 64), Harness: a.Harness, Model: a.Model,
 	}
 	view := factory.RunView{RunID: runID, Repository: fx.repo, Issue: 9, Attempt: a.ID}
-	if err := db.RecordDispatchPacket(ctx, factory.DispatchRegistration{ID: a.ID, Repository: a.Repository, Authority: a.Authority}, dispatchControlForAssignment(t, db, a), a, reservation, run, view); err != nil {
+	if err := db.RecordDispatchPacket(ctx, dispatchControlForAssignment(t, db, a), a, reservation, run, view); err != nil {
 		t.Fatalf("phased terminal packet refused: %v", err)
 	}
 
