@@ -2,7 +2,6 @@ package store
 
 import (
 	"context"
-	"errors"
 
 	"github.com/levitateos/sodaos/internal/factory"
 )
@@ -162,21 +161,11 @@ func (s *Store) SubscribedFeed(ctx context.Context, query factory.FeedQuery) ([]
 		return nil, "", false, err
 	}
 	defer func() { _ = rows.Close() }()
-	allowed := make(map[int64]bool, len(query.Repositories))
-	for _, repository := range query.Repositories {
-		allowed[repository] = true
-	}
 	entries := make([]factory.FeedEntry, 0, query.Limit+1)
 	for rows.Next() {
 		var entry factory.FeedEntry
 		if err = rows.Scan(&entry.Seq, &entry.ID, &entry.Repository, &entry.Kind, &entry.Activity, &entry.Assignment); err != nil {
 			return nil, "", false, err
-		}
-		if err = entry.Validate(); err != nil {
-			return nil, "", false, err
-		}
-		if !allowed[entry.Repository] {
-			return nil, "", false, errors.New("feed entry scope mismatch")
 		}
 		entries = append(entries, entry)
 	}
