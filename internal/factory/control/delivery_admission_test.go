@@ -873,10 +873,7 @@ func TestDeliveredIntentAdmitsScopedTestPilotOnce(t *testing.T) {
 					for range 2 {
 						change := factory.AppVerificationAllowanceChange{CommandID: factory.NewID(), Limits: factory.AppVerificationLimits{Runs: 3, ActiveMinutes: 60}}
 						go func() {
-							raw, _ := json.Marshal(change)
-							cmd := factory.Command{ID: change.CommandID, Type: factory.CommandVerificationAllowance, Target: factory.AppVerificationAllowanceTarget(revision.Intent), Principal: "native:7", Payload: string(raw)}
-							cmd.Digest = factory.SettingsDigest(cmd.Type, cmd.Target, cmd.Payload)
-							view, err := db.IncreaseAppVerificationAllowance(ctx, revision.Intent, 7, cmd, change, time.Now())
+							view, err := db.IncreaseAppVerificationAllowance(ctx, revision.Intent, 7, change, time.Now())
 							results <- increaseResult{view, err}
 						}()
 					}

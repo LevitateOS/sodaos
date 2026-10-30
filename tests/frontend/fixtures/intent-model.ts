@@ -70,7 +70,7 @@ export function createIntentModel() {
   const departments: Record<string, unknown>[] = [];
   const allowances = new Map<string, Record<string, unknown>>();
   const verificationHeads = new Map<string, Record<string, unknown>>();
-  const verificationCommands = new Map<string, {request: string; receipt: Record<string, unknown>}>();
+  const verificationCommands = new Map<string, string>();
   const plans = new Set<string>();
   let serial = 100;
   const nextID = () => 'd' + (++serial).toString(16).padStart(24, '0');
@@ -133,7 +133,7 @@ export function createIntentModel() {
       const command = String(body.command_id || '');
       const request = JSON.stringify({intent, body});
       const prior = verificationCommands.get(command);
-      if (prior) return prior.request === request ? Response.json(prior.receipt) : new Response(null, {status: 409});
+      if (prior) return prior === request ? Response.json(current) : new Response(null, {status: 409});
       if (body.expected_revision !== current.revision) return new Response(null, {status: 409});
       const limits = body.limits as {runs: number; active_minutes: number};
       const previous = current.limits as {runs: number; active_minutes: number};
@@ -146,15 +146,15 @@ export function createIntentModel() {
         (limits.runs === previous.runs && limits.active_minutes === previous.active_minutes)
       )
         return new Response(null, {status: 400});
-      const receipt = {
+      const saved = {
         ...current,
         command_id: command,
         revision: command,
         limits,
         remaining: {runs: limits.runs - 2, active_seconds: limits.active_minutes * 60 - 148},
       };
-      verificationHeads.set(intent, receipt);
-      verificationCommands.set(command, {request, receipt});
+      verificationHeads.set(intent, saved);
+      verificationCommands.set(command, request);
       // Persist first, then lose the reply: only the same immutable change may retry.
       throw new TypeError('verification allowance reply lost');
     }

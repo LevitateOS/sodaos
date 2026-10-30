@@ -1,7 +1,6 @@
 package api
 
 import (
-	"encoding/json"
 	"errors"
 	"net/http"
 	"time"
@@ -65,14 +64,7 @@ func (s *API) apiIntentVerificationAllowance(w http.ResponseWriter, r *http.Requ
 		auth.JSONError(w, 400, "invalid_verification_allowance", err.Error())
 		return
 	}
-	raw, err := json.Marshal(change)
-	if err != nil {
-		verificationAllowanceError(w, err)
-		return
-	}
-	cmd := factory.Command{ID: change.CommandID, Type: factory.CommandVerificationAllowance, Target: factory.AppVerificationAllowanceTarget(intent), Principal: factoryPrincipal(v), Payload: string(raw)}
-	cmd.Digest = factory.SettingsDigest(cmd.Type, cmd.Target, cmd.Payload)
-	result, err := s.Store.IncreaseAppVerificationAllowance(r.Context(), intent, v.User.ID, cmd, change, now)
+	result, err := s.Store.IncreaseAppVerificationAllowance(r.Context(), intent, v.User.ID, change, now)
 	if err != nil {
 		verificationAllowanceError(w, err)
 		return

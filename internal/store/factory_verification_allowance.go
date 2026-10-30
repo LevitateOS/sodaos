@@ -36,9 +36,6 @@ func verificationAllowanceIntentTx(ctx context.Context, tx *sql.Tx, intent strin
 	if err = json.Unmarshal(raw, &revision); err != nil {
 		return revision, err
 	}
-	if err = revision.Validate(); err != nil {
-		return revision, err
-	}
 	if revision.Intent != intent || revision.Owner != owner {
 		return revision, factory.ErrVerificationAllowanceOwner
 	}
@@ -50,57 +47,25 @@ func verificationAllowanceIntentTx(ctx context.Context, tx *sql.Tx, intent strin
 // serializes both this chain's append and every delivery packet admission.
 func verificationAllowanceLimits(ctx context.Context, q grantCommandSQL, intent string) (string, factory.AppVerificationLimits, error) {
 	defaults := factory.AppVerificationLimits{Runs: factory.DefaultAppVerificationRuns, ActiveMinutes: factory.DefaultAppVerificationActiveMinutes}
-	commands, err := finishedCommands(ctx, q, factory.CommandVerificationAllowance, factory.AppVerificationAllowanceTarget(intent))
+	var id string
+	var raw []byte
+	err := q.QueryRowContext(ctx, `SELECT c.id,c.payload FROM factory_commands c
+    WHERE c.type=$1 AND c.target=$2 AND c.finished<>''
+      AND NOT EXISTS (SELECT 1 FROM factory_commands successor
+        WHERE successor.type=c.type AND successor.target=c.target AND successor.finished<>''
+          AND successor.payload::jsonb->>'expected_revision'=c.id)
+    LIMIT 1`, factory.CommandVerificationAllowance, factory.AppVerificationAllowanceTarget(intent)).Scan(&id, &raw)
+	if errors.Is(err, sql.ErrNoRows) {
+		return "", defaults, nil
+	}
 	if err != nil {
 		return "", defaults, err
 	}
-	if len(commands) == 0 {
-		return "", defaults, nil
+	var change factory.AppVerificationAllowanceChange
+	if err = json.Unmarshal(raw, &change); err != nil {
+		return "", defaults, err
 	}
-	changes, referenced := map[string]factory.AppVerificationAllowanceChange{}, map[string]bool{}
-	for _, cmd := range commands {
-		var change factory.AppVerificationAllowanceChange
-		if cmd.Validate() != nil || json.Unmarshal([]byte(cmd.Payload), &change) != nil || change.Validate() != nil || change.CommandID != cmd.ID {
-			return "", defaults, errors.New("invalid retained verification allowance")
-		}
-		changes[cmd.ID] = change
-		if change.ExpectedRevision != "" {
-			referenced[change.ExpectedRevision] = true
-		}
-	}
-	head := ""
-	for id := range changes {
-		if !referenced[id] {
-			if head != "" {
-				return "", defaults, errors.New("forked verification allowance")
-			}
-			head = id
-		}
-	}
-	seen := map[string]bool{}
-	for cursor := head; cursor != ""; {
-		change, ok := changes[cursor]
-		if !ok || seen[cursor] {
-			return "", defaults, errors.New("incomplete verification allowance chain")
-		}
-		seen[cursor] = true
-		prior := defaults
-		if change.ExpectedRevision != "" {
-			old, ok := changes[change.ExpectedRevision]
-			if !ok {
-				return "", defaults, errors.New("missing verification allowance predecessor")
-			}
-			prior = old.Limits
-		}
-		if !verificationLimitsIncrease(prior, change.Limits) {
-			return "", defaults, factory.ErrVerificationAllowanceIncrease
-		}
-		cursor = change.ExpectedRevision
-	}
-	if head == "" || len(seen) != len(changes) {
-		return "", defaults, errors.New("invalid verification allowance lineage")
-	}
-	return head, changes[head].Limits, nil
+	return id, change.Limits, nil
 }
 
 func verificationLimitsIncrease(old, next factory.AppVerificationLimits) bool {
@@ -122,9 +87,6 @@ func verificationConsumptionTx(ctx context.Context, tx *sql.Tx, intent string, n
 		}
 		if err = json.Unmarshal(raw, &allowance); err != nil {
 			return usage, err
-		}
-		if allowance.Validate() != nil || allowance.Delivery == nil || allowance.Delivery.IntentID != intent {
-			return usage, errors.New("invalid retained application verification allowance")
 		}
 		if now.Unix() < allowance.CheckpointUnix {
 			return usage, factory.ErrAllowanceClock
@@ -177,8 +139,7 @@ func (s *Store) AppVerificationAllowance(ctx context.Context, intent string, own
 	return view, tx.Commit()
 }
 
-// Mutation authorization needs the current owner/repository, not a fresh usage
-// calculation that could precede an already-finished command's exact replay.
+// Mutation authorization reads the current owner and repository.
 func (s *Store) AppVerificationAllowanceScope(ctx context.Context, intent string, owner int64) (int64, error) {
 	tx, err := s.db.BeginTx(ctx, nil)
 	if err != nil {
@@ -192,15 +153,20 @@ func (s *Store) AppVerificationAllowanceScope(ctx context.Context, intent string
 	return head.Repository, tx.Commit()
 }
 
-func (s *Store) IncreaseAppVerificationAllowance(ctx context.Context, intent string, owner int64, cmd factory.Command, change factory.AppVerificationAllowanceChange, now time.Time) (factory.AppVerificationAllowance, error) {
+// IncreaseAppVerificationAllowance admits one finite limit increase. The grant
+// command owns its identity and limits; responses read current limits and usage.
+func (s *Store) IncreaseAppVerificationAllowance(ctx context.Context, intent string, owner int64, change factory.AppVerificationAllowanceChange, now time.Time) (factory.AppVerificationAllowance, error) {
 	var none factory.AppVerificationAllowance
+	if err := change.Validate(); err != nil {
+		return none, err
+	}
 	raw, err := json.Marshal(change)
 	if err != nil {
 		return none, err
 	}
-	if change.Validate() != nil || cmd.Validate() != nil || cmd.Type != factory.CommandVerificationAllowance || cmd.ID != change.CommandID || cmd.Target != factory.AppVerificationAllowanceTarget(intent) || cmd.Principal != "native:"+strconv.FormatInt(owner, 10) || cmd.Payload != string(raw) {
-		return none, ErrCommandConflict
-	}
+	cmd := factory.Command{ID: change.CommandID, Type: factory.CommandVerificationAllowance,
+		Target: factory.AppVerificationAllowanceTarget(intent), Principal: "native:" + strconv.FormatInt(owner, 10), Payload: string(raw)}
+	cmd.Digest = factory.SettingsDigest(cmd.Type, cmd.Target, cmd.Payload)
 	tx, err := s.db.BeginTx(ctx, nil)
 	if err != nil {
 		return none, err
@@ -210,37 +176,31 @@ func (s *Store) IncreaseAppVerificationAllowance(ctx context.Context, intent str
 	if err != nil {
 		return none, err
 	}
-	stored, created, err := recordFactoryCommandTx(ctx, tx, cmd, now)
+	_, created, err := recordFactoryCommandTx(ctx, tx, cmd, now)
 	if err != nil {
 		return none, err
-	}
-	if !created {
-		if stored.Type != cmd.Type || stored.Target != cmd.Target || stored.Principal != cmd.Principal || stored.Payload != cmd.Payload || stored.Finished == "" || json.Unmarshal([]byte(stored.Outcome), &none) != nil || none.Intent != intent || none.Revision != cmd.ID || none.CommandID != cmd.ID {
-			return none, ErrCommandConflict
-		}
-		return none, tx.Commit()
 	}
 	view, err := verificationAllowanceStatusTx(ctx, tx, intent, now)
 	if err != nil {
 		return none, err
 	}
-	if change.ExpectedRevision != view.Revision {
-		return none, ErrStaleRevision
+	if created {
+		if change.ExpectedRevision != view.Revision {
+			return none, ErrStaleRevision
+		}
+		if head.State != "accepted" || head.Repository <= 0 {
+			return none, factory.ErrVerificationAllowanceState
+		}
+		if !verificationLimitsIncrease(view.Limits, change.Limits) {
+			return none, factory.ErrVerificationAllowanceIncrease
+		}
+		if err = finishFactoryCommandTx(ctx, tx, cmd.ID, "", now); err != nil {
+			return none, err
+		}
+		view.Revision, view.Limits = cmd.ID, change.Limits
+		view.UpdateRemaining()
 	}
-	if head.State != "accepted" || head.Repository <= 0 {
-		return none, factory.ErrVerificationAllowanceState
-	}
-	if !verificationLimitsIncrease(view.Limits, change.Limits) {
-		return none, factory.ErrVerificationAllowanceIncrease
-	}
-	view.Revision, view.CommandID, view.Limits, view.CanIncrease = cmd.ID, cmd.ID, change.Limits, true
-	view.UpdateRemaining()
-	outcome, err := json.Marshal(view)
-	if err != nil {
-		return none, err
-	}
-	if err = finishFactoryCommandTx(ctx, tx, cmd.ID, string(outcome), now); err != nil {
-		return none, err
-	}
+	view.CommandID, view.Repository = change.CommandID, head.Repository
+	view.CanIncrease = head.State == "accepted" && head.Repository > 0
 	return view, tx.Commit()
 }

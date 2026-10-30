@@ -176,19 +176,7 @@ export class SodaFactoryVerificationAllowance extends LitElement {
         return;
       }
       check(response.ok);
-      const saved = verificationAllowance(await readSodaJSON(response), context.intent);
-      check(
-        saved.revision === pending.command_id &&
-          saved.limits.runs === pending.limits.runs &&
-          saved.limits.active_minutes === pending.limits.active_minutes
-      );
-      // A replay acknowledges its original receipt; another owner tab may have
-      // already increased the current head. Display that head, never the receipt.
-      const latest = await context.transport.request(`factory/intents/${context.intent}/verification-allowance`, {
-        signal: AbortSignal.timeout(15000),
-      });
-      check(latest.ok);
-      const confirmed = verificationAllowance(await readSodaJSON(latest), context.intent);
+      const confirmed = verificationAllowance(await readSodaJSON(response), context.intent);
       if (this.live(serial)) {
         this.allowance = confirmed;
         this.pending = undefined;

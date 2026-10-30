@@ -373,6 +373,9 @@ Browser controls use action responses and the ordinary work/run views. There is
 no generic command-receipt read API or automatic lost-reply lookup. Queued retries
 and finite funding keep their actual request/grant identities; an explicit repeat
 uses that identity rather than creating another paid attempt.
+Verification limit increases retain the admitted grant and return current limits
+and consumption directly. They do not save a frozen usage response, replay one
+in the browser, or revalidate the full admitted grant chain on each read.
 
 Worker context does not carry a submission-receipt history; communications and
 results are available through the work posts and discussion. Ordinary worker
