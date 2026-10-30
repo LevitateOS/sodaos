@@ -519,7 +519,7 @@ test('preparation decisions copy reviewed server preview facts and keep approval
   const acceptance = calls.find((call) => call.url.endsWith('/preparation/acceptances'));
   assert(acceptance);
   const accepted = JSON.parse(acceptance.body || '{}') as Record<string, unknown>;
-  assert.match(String(accepted.command_id), /^[a-f0-9]{32}$/);
+  assert.equal('command_id' in accepted, false);
   assert.match(String(accepted.decision_id), /^d[a-f0-9]{24}$/);
   assert.equal(accepted.predecessor, 'requirements-head');
   assert.equal(accepted.source_commit, sourceCommit);
@@ -542,6 +542,7 @@ test('preparation decisions copy reviewed server preview facts and keep approval
   assert(approval);
   const approved = JSON.parse(approval.body || '{}') as Record<string, unknown>;
   assert.equal(approved.action, 'approve');
+  assert.equal('command_id' in approved, false);
   assert.equal(approved.predecessor, undefined);
   assert.equal(approved.requirement, 'requirement-current');
   assert.equal(approved.effects_digest, effectsDigest);
@@ -1309,10 +1310,8 @@ test('Factory settings resume closed dispatch with no open work through the acti
             : {effective: false, dispatch_open: false, missing: ['dispatch_closed'], authority: {}},
         });
       if (call.url.endsWith('/api/repositories/7/factory/actions') && call.method === 'POST') {
-        const body = JSON.parse(call.body || '{}');
         resumed = true;
         return Response.json({
-          command_id: body.command_id,
           revision: 6,
           reopened: true,
           effective: {effective: true, dispatch_open: true, missing: []},
@@ -1334,7 +1333,7 @@ test('Factory settings resume closed dispatch with no open work through the acti
   assert.equal(sent[0]?.method, 'POST');
   const payload = JSON.parse(sent[0]?.body || '{}') as Record<string, unknown>;
   assert.equal(payload.action, 'resume');
-  assert.match(String(payload.command_id), /^[a-f0-9]{32}$/);
+  assert.deepEqual(payload, {action: 'resume'});
   assert.match(await settings.innerText(), /Dispatch: open/);
 });
 

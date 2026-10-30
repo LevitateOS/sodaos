@@ -374,12 +374,25 @@ func TestPreparationAcceptanceJourney(t *testing.T) {
 	s := factorySettingsServer(t)
 	digest := strings.Repeat("d", 64)
 	commit := strings.Repeat("e", 40)
-	body := `{"command_id":"` + factory.NewID() + `","decision_id":"d123456789012345678901234",` +
+	body := `{"decision_id":"d123456789012345678901234",` +
 		`"source_commit":"` + commit + `","setup_digest":"` + digest + `","inputs_digest":"` + digest + `"}`
 	w := httptest.NewRecorder()
 	nativeAPIServe(t, s, w, apiTestRequest(http.MethodPost, "/api/environments/"+factorySettingsProject+"/preparation/acceptances", body, "alice"))
 	if w.Code != 201 {
 		t.Fatal(w.Code, w.Body.String())
+	}
+	var saved map[string]any
+	decodeBody(t, w, &saved)
+	if saved["decision_id"] != "d123456789012345678901234" || saved["command_id"] != nil {
+		t.Fatalf("acceptance result did not use its decision identity: %+v", saved)
+	}
+	repeated := httptest.NewRecorder()
+	nativeAPIServe(t, s, repeated, apiTestRequest(http.MethodPost, "/api/environments/"+factorySettingsProject+"/preparation/acceptances", body, "alice"))
+	if repeated.Code != 201 {
+		t.Fatal("identical acceptance decision refused", repeated.Code, repeated.Body.String())
+	}
+	if depth, err := s.Store.RequirementDepth(t.Context(), factorySettingsProject); err != nil || depth != 1 {
+		t.Fatal("repeated acceptance advanced its decision chain", depth, err)
 	}
 	read := httptest.NewRecorder()
 	nativeAPIServe(t, s, read, apiTestRequest(http.MethodGet, "/api/environments/"+factorySettingsProject+"/preparation", "", "alice"))
@@ -393,7 +406,7 @@ func TestPreparationAcceptanceJourney(t *testing.T) {
 	if view.Requirements != "d123456789012345678901234" {
 		t.Fatalf("preparation view: %+v", view)
 	}
-	second := `{"command_id":"` + factory.NewID() + `","decision_id":"d223456789012345678901234",` +
+	second := `{"decision_id":"d223456789012345678901234",` +
 		`"source_commit":"` + commit + `","setup_digest":"` + digest + `","inputs_digest":"` + digest + `"}`
 	stale := httptest.NewRecorder()
 	nativeAPIServe(t, s, stale, apiTestRequest(http.MethodPost, "/api/environments/"+factorySettingsProject+"/preparation/acceptances", second, "alice"))
@@ -410,22 +423,22 @@ func TestPreparationApprovalJourney(t *testing.T) {
 	}
 	digest := strings.Repeat("d", 64)
 	commit := strings.Repeat("e", 40)
-	accept := `{"command_id":"` + factory.NewID() + `","decision_id":"d123456789012345678901234",` +
+	accept := `{"decision_id":"d123456789012345678901234",` +
 		`"source_commit":"` + commit + `","setup_digest":"` + digest + `","inputs_digest":"` + digest + `"}`
 	accepted := httptest.NewRecorder()
 	nativeAPIServe(t, s, accepted, apiTestRequest(http.MethodPost, "/api/environments/"+factorySettingsProject+"/preparation/acceptances", accept, "alice"))
 	if accepted.Code != 201 {
 		t.Fatal(accepted.Code, accepted.Body.String())
 	}
-	approve := func(command, requirement string) string {
-		return `{"command_id":"` + command + `","action":"approve","decision_id":"d223456789012345678901234",` +
+	approve := func(requirement string) string {
+		return `{"action":"approve","decision_id":"d223456789012345678901234",` +
 			`"requirement":"` + requirement + `","effects_digest":"` + digest + `","readiness_digest":"` + digest + `","verified":true}`
 	}
 	accessCalls, statusCode := 0, 0
 	administrator, malformed := true, false
 	approvalProjectAccessHost(s, &accessCalls, &administrator, &statusCode, &malformed)
 	wrong := httptest.NewRecorder()
-	nativeAPIServe(t, s, wrong, apiTestRequest(http.MethodPost, "/api/environments/"+factorySettingsProject+"/preparation/actions", approve(factory.NewID(), "d999999999999999999999999"), "alice"))
+	nativeAPIServe(t, s, wrong, apiTestRequest(http.MethodPost, "/api/environments/"+factorySettingsProject+"/preparation/actions", approve("d999999999999999999999999"), "alice"))
 	if wrong.Code != 409 {
 		t.Fatal("approval bound a superseded requirement", wrong.Code, wrong.Body.String())
 	}
@@ -435,7 +448,7 @@ func TestPreparationApprovalJourney(t *testing.T) {
 	// Bob has a current native session but no Project membership, so no host
 	// privilege observation or approval mutation is allowed.
 	denied := httptest.NewRecorder()
-	nativeAPIServe(t, s, denied, apiTestRequest(http.MethodPost, "/api/environments/"+factorySettingsProject+"/preparation/actions", approve(factory.NewID(), "d123456789012345678901234"), "bob"))
+	nativeAPIServe(t, s, denied, apiTestRequest(http.MethodPost, "/api/environments/"+factorySettingsProject+"/preparation/actions", approve("d123456789012345678901234"), "bob"))
 	if denied.Code != 403 {
 		t.Fatal("nonmember reached privileged-effect approval", denied.Code, denied.Body.String())
 	}
@@ -446,7 +459,7 @@ func TestPreparationApprovalJourney(t *testing.T) {
 	// ownership cannot substitute for the current guest-native result.
 	administrator = false
 	ownerDenied := httptest.NewRecorder()
-	nativeAPIServe(t, s, ownerDenied, apiTestRequest(http.MethodPost, "/api/environments/"+factorySettingsProject+"/preparation/actions", approve(factory.NewID(), "d123456789012345678901234"), "alice"))
+	nativeAPIServe(t, s, ownerDenied, apiTestRequest(http.MethodPost, "/api/environments/"+factorySettingsProject+"/preparation/actions", approve("d123456789012345678901234"), "alice"))
 	if ownerDenied.Code != 403 {
 		t.Fatal("repository owner without native Project privilege was admitted", ownerDenied.Code, ownerDenied.Body.String())
 	}
@@ -462,14 +475,14 @@ func TestPreparationApprovalJourney(t *testing.T) {
 	// Native errors and mismatched echoes remain unconfirmed, not authority.
 	statusCode = http.StatusServiceUnavailable
 	uncertain := httptest.NewRecorder()
-	nativeAPIServe(t, s, uncertain, apiTestRequest(http.MethodPost, "/api/environments/"+factorySettingsProject+"/preparation/actions", approve(factory.NewID(), "d123456789012345678901234"), "alice"))
+	nativeAPIServe(t, s, uncertain, apiTestRequest(http.MethodPost, "/api/environments/"+factorySettingsProject+"/preparation/actions", approve("d123456789012345678901234"), "alice"))
 	if uncertain.Code != 502 {
 		t.Fatal("unavailable native authority was admitted", uncertain.Code, uncertain.Body.String())
 	}
 	statusCode = 0
 	malformed = true
 	badEcho := httptest.NewRecorder()
-	nativeAPIServe(t, s, badEcho, apiTestRequest(http.MethodPost, "/api/environments/"+factorySettingsProject+"/preparation/actions", approve(factory.NewID(), "d123456789012345678901234"), "alice"))
+	nativeAPIServe(t, s, badEcho, apiTestRequest(http.MethodPost, "/api/environments/"+factorySettingsProject+"/preparation/actions", approve("d123456789012345678901234"), "alice"))
 	if badEcho.Code != 502 {
 		t.Fatal("mismatched native authority echo was admitted", badEcho.Code, badEcho.Body.String())
 	}
@@ -489,7 +502,7 @@ func TestPreparationApprovalJourney(t *testing.T) {
 	// Bob is a non-owner Project member with the positive native stub result.
 	administrator = true
 	w := httptest.NewRecorder()
-	nativeAPIServe(t, s, w, apiTestRequest(http.MethodPost, "/api/environments/"+factorySettingsProject+"/preparation/actions", approve(factory.NewID(), "d123456789012345678901234"), "bob"))
+	nativeAPIServe(t, s, w, apiTestRequest(http.MethodPost, "/api/environments/"+factorySettingsProject+"/preparation/actions", approve("d123456789012345678901234"), "bob"))
 	if w.Code != 201 {
 		t.Fatal(w.Code, w.Body.String())
 	}
@@ -511,7 +524,7 @@ func TestPreparationApprovalJourney(t *testing.T) {
 func TestPreparationApprovalFixedOperatorSkipsNativeLookup(t *testing.T) {
 	s := factorySettingsServer(t)
 	digest := strings.Repeat("d", 64)
-	accept := `{"command_id":"` + factory.NewID() + `","decision_id":"d123456789012345678901234",` +
+	accept := `{"decision_id":"d123456789012345678901234",` +
 		`"source_commit":"` + strings.Repeat("e", 40) + `","setup_digest":"` + digest + `","inputs_digest":"` + digest + `"}`
 	accepted := httptest.NewRecorder()
 	nativeAPIServe(t, s, accepted, apiTestRequest(http.MethodPost, "/api/environments/"+factorySettingsProject+"/preparation/acceptances", accept, "alice"))
@@ -521,7 +534,7 @@ func TestPreparationApprovalFixedOperatorSkipsNativeLookup(t *testing.T) {
 	calls, statusCode := 0, http.StatusServiceUnavailable
 	administrator, malformed := false, true
 	approvalProjectAccessHost(s, &calls, &administrator, &statusCode, &malformed)
-	approve := `{"command_id":"` + factory.NewID() + `","action":"approve","decision_id":"d223456789012345678901234",` +
+	approve := `{"action":"approve","decision_id":"d223456789012345678901234",` +
 		`"requirement":"d123456789012345678901234","effects_digest":"` + digest + `","readiness_digest":"` + digest + `","verified":true}`
 	w := httptest.NewRecorder()
 	nativeAPIServe(t, s, w, apiTestRequest(http.MethodPost, "/api/environments/"+factorySettingsProject+"/preparation/actions", approve, "alice"))

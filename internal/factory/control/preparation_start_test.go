@@ -11,7 +11,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/levitateos/sodaos/internal/factory"
 	"github.com/levitateos/sodaos/internal/project"
 	"github.com/levitateos/sodaos/internal/store"
 )
@@ -43,14 +42,14 @@ func standingFixture(t *testing.T) (*Coordinator, project.Prepare, *standingHost
 		SourceCommit: strings.Repeat("a", 40), SetupDigest: project.SetupDigestOf(files), InputsDigest: project.PreparationInputsDigestOf([]string{"setup.sh", "check.sh"}, selected, []string{"git"}),
 		SourceInputs: selected,
 	}
-	if _, err := c.AdmitRequirement(t.Context(), factory.NewID(), "native:7", requirement); err != nil {
+	if _, err := c.AdmitRequirement(t.Context(), requirement); err != nil {
 		t.Fatal(err)
 	}
 	approval := project.ApprovalDecision{
 		ID: "d" + strings.Repeat("2", 24), Project: requirement.Project, Requirement: requirement.ID, Approver: 9,
 		EffectsDigest: strings.Repeat("d", 64), ReadinessDigest: strings.Repeat("e", 64), Verified: true,
 	}
-	if _, err := c.AdmitApproval(t.Context(), factory.NewID(), "native:9", approval); err != nil {
+	if _, err := c.AdmitApproval(t.Context(), approval); err != nil {
 		t.Fatal(err)
 	}
 	in := project.Prepare{
@@ -519,7 +518,7 @@ func TestServingStandingObservationRotatesPastMissingProjectPrefix(t *testing.T)
 		t.Fatal(err)
 	}
 	requirement.ID, requirement.Project = "d"+strings.Repeat("3", 24), later.Preparation.Project
-	if _, err := c.AdmitRequirement(t.Context(), factory.NewID(), "native:7", requirement); err != nil {
+	if _, err := c.AdmitRequirement(t.Context(), requirement); err != nil {
 		t.Fatal(err)
 	}
 	approval, err := c.Store.ApprovalDecision(t.Context(), in.Preparation.Approval.ID)
@@ -527,7 +526,7 @@ func TestServingStandingObservationRotatesPastMissingProjectPrefix(t *testing.T)
 		t.Fatal(err)
 	}
 	approval.ID, approval.Project, approval.Requirement = "d"+strings.Repeat("4", 24), later.Preparation.Project, requirement.ID
-	if _, err := c.AdmitApproval(t.Context(), factory.NewID(), "native:9", approval); err != nil {
+	if _, err := c.AdmitApproval(t.Context(), approval); err != nil {
 		t.Fatal(err)
 	}
 	later.Preparation.Requirements, later.Preparation.Approval = requirement.Ref(1), approval.Ref(1)

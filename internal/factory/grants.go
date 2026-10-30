@@ -46,8 +46,6 @@ const (
 	CommandCapacity              = "capacity"
 	CommandSponsorship           = "sponsorship"
 	CommandEnvironmentGrant      = "environment-grant"
-	CommandRequirement           = "preparation-requirement"
-	CommandApproval              = "preparation-approval"
 	CommandAcceptance            = "acceptance"
 	CommandWithdrawal            = "withdrawal"
 	CommandRetry                 = "retry"
@@ -82,7 +80,7 @@ const (
 func SettingsCommandType(typ string) bool {
 	switch typ {
 	case CommandPolicy, CommandOperatorGrant, CommandCapacity, CommandSponsorship,
-		CommandEnvironmentGrant, CommandRequirement, CommandApproval,
+		CommandEnvironmentGrant,
 		CommandAcceptance, CommandWithdrawal,
 		CommandRetry, CommandRetryImplementation, CommandTakeover, CommandPlanIntent, CommandContextCurrent, CommandCompletionRetry,
 		CommandRepairGrant, CommandIntentExecutionLimit, CommandRepairCharge, CommandVerificationAllowance, CommandDeliveryRepair, CommandDeliveryRepairRequest:

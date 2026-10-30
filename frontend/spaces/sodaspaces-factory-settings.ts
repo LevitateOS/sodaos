@@ -631,7 +631,6 @@ export class SodaFactorySettings extends LitElement {
       throw Error('The API has not supplied a complete, ready setup-input review. No acceptance was recorded.');
     const accepted = asObject(
       await this.request(`/api/environments/${context.environment}/preparation/acceptances`, 'POST', {
-        command_id: factoryCommandId(),
         decision_id: factoryDecisionId(),
         predecessor: safeText(requirements.predecessor) || undefined,
         source_commit: safeText(requirements.source_commit),
@@ -680,7 +679,6 @@ export class SodaFactorySettings extends LitElement {
     if (!inputChecked(form, 'verified'))
       throw Error('Review the installed service/resource facts and separately confirm they are ready before approval.');
     await this.request(`/api/environments/${context.environment}/preparation/actions`, 'POST', {
-      command_id: factoryCommandId(),
       action: 'approve-initial',
       decision_id: factoryDecisionId(),
       predecessor: safeText(currentPreparation.approval) || undefined,
@@ -777,7 +775,6 @@ export class SodaFactorySettings extends LitElement {
         'Review the privileged effects and separately verify current live services and resources before approval.'
       );
     await this.request(`/api/environments/${context.environment}/preparation/actions`, 'POST', {
-      command_id: factoryCommandId(),
       action: 'approve',
       decision_id: factoryDecisionId(),
       predecessor: safeText(review.predecessor) || undefined,

@@ -12,7 +12,6 @@ import (
 	"testing"
 
 	extensions "forgejo.org/extension-sdk"
-	"github.com/levitateos/sodaos/internal/factory"
 	"github.com/levitateos/sodaos/internal/project"
 	"github.com/levitateos/sodaos/internal/store"
 	"github.com/stretchr/testify/require"
@@ -177,7 +176,7 @@ func establishSourceDecisions(t *testing.T, f *preparationSourceTest) (string, s
 	requirementID := "d" + strings.Repeat("3", 24)
 	accepted := preparationSourcePost(t, alice, f.server.Config.ForgejoURL,
 		"/api/environments/"+preparationProject+"/preparation/acceptances", map[string]any{
-			"command_id": factory.NewID(), "decision_id": requirementID,
+			"decision_id": requirementID,
 			"predecessor": selected.Requirements.Predecessor, "source_commit": selected.Requirements.SourceCommit,
 			"setup_digest": selected.Requirements.SetupDigest, "inputs_digest": selected.Requirements.InputsDigest,
 			"source_inputs": inputDigests,
@@ -187,7 +186,7 @@ func establishSourceDecisions(t *testing.T, f *preparationSourceTest) (string, s
 	approvalID := "d" + strings.Repeat("4", 24)
 	approved := preparationSourcePostAs(t, bob, f.server.Config.ForgejoURL,
 		"/api/environments/"+preparationProject+"/preparation/actions", "bob", map[string]any{
-			"action": "approve-initial", "command_id": factory.NewID(), "decision_id": approvalID,
+			"action": "approve-initial", "decision_id": approvalID,
 			"requirement": requirementID, "verified": true,
 			"effects_evidence":   "Reviewed the selected privileged effects and installed prerequisites.",
 			"readiness_evidence": "Checked current native Project services and assigned resources.",
@@ -258,7 +257,7 @@ func TestPreparationSourceProxyJourneyStartsFromEmptyDecisions(t *testing.T) {
 	requirementID := "d" + strings.Repeat("1", 24)
 	accept := preparationSourcePost(t, alice, f.server.Config.ForgejoURL,
 		"/api/environments/"+preparationProject+"/preparation/acceptances", map[string]any{
-			"command_id": factory.NewID(), "decision_id": requirementID, "source_commit": previewData.Requirements.SourceCommit,
+			"decision_id": requirementID, "source_commit": previewData.Requirements.SourceCommit,
 			"setup_digest": previewData.Requirements.SetupDigest, "inputs_digest": previewData.Requirements.InputsDigest,
 			"source_inputs": selected,
 		})
@@ -270,7 +269,7 @@ func TestPreparationSourceProxyJourneyStartsFromEmptyDecisions(t *testing.T) {
 	bob := preparationSourceProxy(t, f, "bob", "read")
 	approve := preparationSourcePostAs(t, bob, f.server.Config.ForgejoURL,
 		"/api/environments/"+preparationProject+"/preparation/actions", "bob", map[string]any{
-			"action": "approve-initial", "command_id": factory.NewID(), "decision_id": "d" + strings.Repeat("2", 24),
+			"action": "approve-initial", "decision_id": "d" + strings.Repeat("2", 24),
 			"requirement": requirementID, "verified": true,
 			"effects_evidence":   "Reviewed installed prerequisites and assigned resources.",
 			"readiness_evidence": "Checked current native Project readiness and service state.",
@@ -311,7 +310,7 @@ func TestPreparationSourceProxyRequiresCurrentRepositoryWriterAndNativeAdministr
 	require.Empty(t, f.sourceRequests[0].SourceActors)
 	readOnlyAcceptance := preparationSourcePostAs(t, readonly, f.server.Config.ForgejoURL,
 		"/api/environments/"+preparationProject+"/preparation/acceptances", "bob", map[string]any{
-			"command_id": factory.NewID(), "decision_id": "d" + strings.Repeat("5", 24),
+			"decision_id":   "d" + strings.Repeat("5", 24),
 			"source_commit": f.commit, "setup_digest": strings.Repeat("a", 64), "inputs_digest": strings.Repeat("b", 64),
 			"source_inputs": map[string]string{"setup.sh": strings.Repeat("c", 64)},
 		})
@@ -326,7 +325,7 @@ func TestPreparationSourceProxyRequiresCurrentRepositoryWriterAndNativeAdministr
 	bob := preparationSourceProxy(t, f, "bob", "read")
 	approval := preparationSourcePostAs(t, bob, f.server.Config.ForgejoURL,
 		"/api/environments/"+preparationProject+"/preparation/actions", "bob", map[string]any{
-			"action": "approve-initial", "command_id": factory.NewID(), "decision_id": "d" + strings.Repeat("5", 24),
+			"action": "approve-initial", "decision_id": "d" + strings.Repeat("5", 24),
 			"requirement": requirementID, "verified": true,
 			"effects_evidence": "Reviewed effects.", "readiness_evidence": "Checked native readiness.",
 		})
@@ -376,7 +375,7 @@ func TestPreparationSourceStartRechecksInputsHeadsAndNativeWriters(t *testing.T)
 				require.NoError(t, err)
 				previous.Predecessor = previous.ID
 				previous.ID = "d" + strings.Repeat("6", 24)
-				receipt, err := f.server.Coordinator.AdmitRequirement(t.Context(), factory.NewID(), "native:1", previous)
+				receipt, err := f.server.Coordinator.AdmitRequirement(t.Context(), previous)
 				require.NoError(t, err)
 				require.Equal(t, previous.ID, receipt.Head)
 			}

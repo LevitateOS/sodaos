@@ -11,7 +11,6 @@ import (
 )
 
 type preparationAcceptanceRequest struct {
-	CommandID    string            `json:"command_id"`
 	DecisionID   string            `json:"decision_id"`
 	Predecessor  string            `json:"predecessor,omitempty"`
 	SourceCommit string            `json:"source_commit"`
@@ -36,7 +35,7 @@ func (s *API) apiPreparationAcceptances(w http.ResponseWriter, r *http.Request, 
 		return
 	}
 	var in preparationAcceptanceRequest
-	if !auth.DecodeAPIObject(w, r, &in) || !settingsCommandID(w, in.CommandID) {
+	if !auth.DecodeAPIObject(w, r, &in) {
 		return
 	}
 	decision := project.RequirementDecision{
@@ -48,7 +47,7 @@ func (s *API) apiPreparationAcceptances(w http.ResponseWriter, r *http.Request, 
 		auth.JSONError(w, 400, "invalid_acceptance", "Requirement acceptance must name its exact approved inputs.")
 		return
 	}
-	receipt, err := s.Coordinator.AdmitRequirement(r.Context(), in.CommandID, factoryPrincipal(v), decision)
+	receipt, err := s.Coordinator.AdmitRequirement(r.Context(), decision)
 	if err != nil {
 		factoryCommandError(w, err)
 		return
@@ -57,7 +56,6 @@ func (s *API) apiPreparationAcceptances(w http.ResponseWriter, r *http.Request, 
 }
 
 type preparationActionRequest struct {
-	CommandID         string   `json:"command_id,omitempty"`
 	Action            string   `json:"action"`
 	DecisionID        string   `json:"decision_id,omitempty"`
 	Predecessor       string   `json:"predecessor,omitempty"`
@@ -163,9 +161,6 @@ func (s *API) apiPreparationActionInspect(w http.ResponseWriter, r *http.Request
 }
 
 func (s *API) apiPreparationActionApprove(w http.ResponseWriter, r *http.Request, v store.Session, p store.Project, in preparationActionRequest) {
-	if !settingsCommandID(w, in.CommandID) {
-		return
-	}
 	decision := project.ApprovalDecision{
 		ID: in.DecisionID, Predecessor: in.Predecessor, Project: p.ID,
 		Requirement: in.Requirement, Approver: v.User.ID,
@@ -208,12 +203,12 @@ func (s *API) apiPreparationActionApprove(w http.ResponseWriter, r *http.Request
 			return
 		}
 		// The native observation may take time. Recheck the admitting session
-		// immediately before recording the approval receipt.
+		// immediately before saving the approval decision.
 		if !s.checkLifecycleSession(w, r, v) {
 			return
 		}
 	}
-	receipt, err := s.Coordinator.AdmitApproval(r.Context(), in.CommandID, factoryPrincipal(v), decision)
+	receipt, err := s.Coordinator.AdmitApproval(r.Context(), decision)
 	if err != nil {
 		factoryCommandError(w, err)
 		return

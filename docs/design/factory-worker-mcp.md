@@ -345,6 +345,9 @@ Pause and Resume act on the gate and current runs directly. They return the
 observed outcome without command receipts or a separate reopen-command journal;
 the Feed records the gate change. Resume still requires settled runs and current
 authority, and a repeated request reads or completes the same current state.
+Preparation requirement acceptance and privileged-effect approval use their
+immutable decision IDs and predecessor chains directly, without a second command
+receipt. Approval still binds the current requirement and preserves the maintenance hold.
 
 Worker context does not carry a submission-receipt history; communications and
 results are available through the work posts and discussion. Ordinary worker
