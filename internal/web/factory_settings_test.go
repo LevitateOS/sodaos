@@ -77,8 +77,8 @@ func factoryEncryptedServer(t *testing.T) *Server {
 	return New(config.Config{ForgejoURL: "https://forgejo.example.test", OperatorID: 1}, db)
 }
 
-func factoryPolicyBody(commandID string) string {
-	return `{"command_id":"` + commandID + `","expected_revision":0,"enabled":true,"paused":false,` +
+func factoryPolicyBody() string {
+	return `{"expected_revision":0,"enabled":true,"paused":false,` +
 		`"target_branch":"refs/heads/main",` +
 		`"roles":{"soda-coder":{"harness":"muse","harness_version":"muse-1.4.9","model":"test"},"soda-reviewer":{"harness":"muse","harness_version":"muse-1.4.9","model":"test"}},` +
 		`"required_checks":["native-ci/build"],"merge_method":"fast-forward-only",` +
@@ -138,20 +138,19 @@ func TestFactoryStatusShowsMissingAuthority(t *testing.T) {
 
 func TestFactoryPolicyJourney(t *testing.T) {
 	s := factorySettingsServer(t)
-	command := factory.NewID()
 	w := httptest.NewRecorder()
-	nativeAPIServe(t, s, w, apiTestRequest(http.MethodPut, "/api/repositories/7/factory/policy", factoryPolicyBody(command), "alice"))
+	nativeAPIServe(t, s, w, apiTestRequest(http.MethodPut, "/api/repositories/7/factory/policy", factoryPolicyBody(), "alice"))
 	if w.Code != 200 {
 		t.Fatal(w.Code, w.Body.String())
 	}
-	var receipt struct {
+	var result struct {
 		CommandID string `json:"command_id"`
 		Revision  int64  `json:"revision"`
 		Withdrawn bool   `json:"withdrawn"`
 	}
-	decodeBody(t, w, &receipt)
-	if receipt.CommandID != command || receipt.Revision != 1 || receipt.Withdrawn {
-		t.Fatalf("receipt: %+v", receipt)
+	decodeBody(t, w, &result)
+	if result.CommandID != "" || result.Revision != 1 || result.Withdrawn {
+		t.Fatalf("grant result: %+v", result)
 	}
 	policy, err := s.Store.RepositoryPolicy(t.Context(), 7)
 	if err != nil || policy.AttemptLimits != factory.DefaultAttemptLimits() {
@@ -159,39 +158,39 @@ func TestFactoryPolicyJourney(t *testing.T) {
 	}
 	assertNoSecrets(t, w.Body.String())
 	replay := httptest.NewRecorder()
-	nativeAPIServe(t, s, replay, apiTestRequest(http.MethodPut, "/api/repositories/7/factory/policy", factoryPolicyBody(command), "alice"))
-	if replay.Code != 200 || replay.Body.String() != w.Body.String() {
-		t.Fatal("identical command did not replay its receipt", replay.Code, replay.Body.String())
+	nativeAPIServe(t, s, replay, apiTestRequest(http.MethodPut, "/api/repositories/7/factory/policy", factoryPolicyBody(), "alice"))
+	if replay.Code != 412 {
+		t.Fatal("stale revision saved twice", replay.Code, replay.Body.String())
 	}
-	changed := strings.Replace(factoryPolicyBody(command), `"intent_minutes":2`, `"intent_minutes":3`, 1)
+	changed := strings.Replace(factoryPolicyBody(), `"intent_minutes":2`, `"intent_minutes":3`, 1)
 	conflict := httptest.NewRecorder()
 	nativeAPIServe(t, s, conflict, apiTestRequest(http.MethodPut, "/api/repositories/7/factory/policy", changed, "alice"))
-	if conflict.Code != 409 {
-		t.Fatal("changed payload reused its command identity", conflict.Code, conflict.Body.String())
+	if conflict.Code != 412 {
+		t.Fatal("changed settings overwrote a stale revision", conflict.Code, conflict.Body.String())
 	}
 	stale := httptest.NewRecorder()
-	nativeAPIServe(t, s, stale, apiTestRequest(http.MethodPut, "/api/repositories/7/factory/policy", factoryPolicyBody(factory.NewID()), "alice"))
+	nativeAPIServe(t, s, stale, apiTestRequest(http.MethodPut, "/api/repositories/7/factory/policy", factoryPolicyBody(), "alice"))
 	if stale.Code != 412 {
 		t.Fatal("stale revision applied", stale.Code, stale.Body.String())
 	}
 	denied := httptest.NewRecorder()
-	nativeAPIServe(t, s, denied, apiTestRequest(http.MethodPut, "/api/repositories/7/factory/policy", factoryPolicyBody(factory.NewID()), "bob"))
+	nativeAPIServe(t, s, denied, apiTestRequest(http.MethodPut, "/api/repositories/7/factory/policy", factoryPolicyBody(), "bob"))
 	if denied.Code != 403 {
 		t.Fatal("non-owner configured policy", denied.Code, denied.Body.String())
 	}
-	impersonate := strings.Replace(factoryPolicyBody(factory.NewID()), `"enabled":true`, `"enabled":true,"granted_by":"2"`, 1)
+	impersonate := strings.Replace(factoryPolicyBody(), `"enabled":true`, `"enabled":true,"granted_by":"2"`, 1)
 	forged := httptest.NewRecorder()
 	nativeAPIServe(t, s, forged, apiTestRequest(http.MethodPut, "/api/repositories/7/factory/policy", impersonate, "alice"))
 	if forged.Code != 400 {
 		t.Fatal("body-selected authorizer accepted", forged.Code, forged.Body.String())
 	}
-	invalidLimits := strings.Replace(factoryPolicyBody(factory.NewID()), `"intent_minutes":2`, `"attempt_limits":{"active_minutes":0,"correction_cycles":3}`, 1)
+	invalidLimits := strings.Replace(factoryPolicyBody(), `"intent_minutes":2`, `"attempt_limits":{"active_minutes":0,"correction_cycles":3}`, 1)
 	invalid := httptest.NewRecorder()
 	nativeAPIServe(t, s, invalid, apiTestRequest(http.MethodPut, "/api/repositories/7/factory/policy", invalidLimits, "alice"))
 	if invalid.Code != 400 {
 		t.Fatal("zero active attempt time accepted", invalid.Code, invalid.Body.String())
 	}
-	customLimits := strings.Replace(factoryPolicyBody(factory.NewID()), `"expected_revision":0`, `"expected_revision":1`, 1)
+	customLimits := strings.Replace(factoryPolicyBody(), `"expected_revision":0`, `"expected_revision":1`, 1)
 	customLimits = strings.Replace(customLimits, `"intent_minutes":2`, `"attempt_limits":{"active_minutes":45,"correction_cycles":1}`, 1)
 	custom := httptest.NewRecorder()
 	nativeAPIServe(t, s, custom, apiTestRequest(http.MethodPut, "/api/repositories/7/factory/policy", customLimits, "alice"))
@@ -209,11 +208,11 @@ func TestFactoryPolicyJourney(t *testing.T) {
 func TestFactoryPolicyPauseWithdrawsDispatch(t *testing.T) {
 	s := factorySettingsServer(t)
 	enable := httptest.NewRecorder()
-	nativeAPIServe(t, s, enable, apiTestRequest(http.MethodPut, "/api/repositories/7/factory/policy", factoryPolicyBody(factory.NewID()), "alice"))
+	nativeAPIServe(t, s, enable, apiTestRequest(http.MethodPut, "/api/repositories/7/factory/policy", factoryPolicyBody(), "alice"))
 	if enable.Code != 200 {
 		t.Fatal(enable.Code, enable.Body.String())
 	}
-	paused := strings.Replace(factoryPolicyBody(factory.NewID()), `"expected_revision":0`, `"expected_revision":1`, 1)
+	paused := strings.Replace(factoryPolicyBody(), `"expected_revision":0`, `"expected_revision":1`, 1)
 	paused = strings.Replace(paused, `"paused":false`, `"paused":true`, 1)
 	w := httptest.NewRecorder()
 	nativeAPIServe(t, s, w, apiTestRequest(http.MethodPut, "/api/repositories/7/factory/policy", paused, "alice"))
@@ -242,7 +241,7 @@ func TestFactoryPolicyPauseWithdrawsDispatch(t *testing.T) {
 
 func TestFactoryCapacityIsOperatorOnly(t *testing.T) {
 	s := factorySettingsServer(t)
-	body := `{"command_id":"` + factory.NewID() + `","expected_revision":0,"max_concurrent_runs":2}`
+	body := `{"expected_revision":0,"max_concurrent_runs":2}`
 	w := httptest.NewRecorder()
 	nativeAPIServe(t, s, w, apiTestRequest(http.MethodPut, "/api/factory/capacity", body, "alice"))
 	if w.Code != 200 {
@@ -253,7 +252,7 @@ func TestFactoryCapacityIsOperatorOnly(t *testing.T) {
 	if denied.Code != 403 {
 		t.Fatal("non-operator changed capacity", denied.Code, denied.Body.String())
 	}
-	grant := `{"command_id":"` + factory.NewID() + `","expected_revision":0,"active":true}`
+	grant := `{"expected_revision":0,"active":true}`
 	allowed := httptest.NewRecorder()
 	nativeAPIServe(t, s, allowed, apiTestRequest(http.MethodPut, "/api/repositories/7/factory/operator-grant", grant, "alice"))
 	if allowed.Code != 200 {
@@ -264,7 +263,7 @@ func TestFactoryCapacityIsOperatorOnly(t *testing.T) {
 func TestFactoryEnvironmentGrantIsOwnerOnly(t *testing.T) {
 	s := factorySettingsServer(t)
 	profile := `{"id":"rocky-headless","distribution":"rocky","version":"9.6","interface":"headless","architecture":"amd64","image":"sha256:` + strings.Repeat("b", 64) + `","revision":"` + strings.Repeat("c", 40) + `"}`
-	body := `{"command_id":"` + factory.NewID() + `","expected_revision":0,"profile":` + profile + `,"active":true}`
+	body := `{"expected_revision":0,"profile":` + profile + `,"active":true}`
 	w := httptest.NewRecorder()
 	nativeAPIServe(t, s, w, apiTestRequest(http.MethodPut, "/api/repositories/7/factory/environment-grant", body, "alice"))
 	if w.Code != 200 {
@@ -293,8 +292,8 @@ func TestFactorySponsorshipNeedsConnectionOwner(t *testing.T) {
 			{ID: "grant-3", ConnectionID: "conn-2", UserID: 2, ProjectID: factorySettingsProject},
 		},
 	}
-	sponsor := func(command string, revision int64) string {
-		return `{"command_id":"` + command + `","expected_revision":` + strconv.FormatInt(revision, 10) +
+	sponsor := func(revision int64) string {
+		return `{"expected_revision":` + strconv.FormatInt(revision, 10) +
 			`,"roles":["soda-coder"],"allowance_minutes":60,"active":true}`
 	}
 	put := func(connection, body, login string) *httptest.ResponseRecorder {
@@ -302,7 +301,7 @@ func TestFactorySponsorshipNeedsConnectionOwner(t *testing.T) {
 		nativeAPIServe(t, s, w, apiTestRequest(http.MethodPut, "/api/repositories/7/factory/sponsorships/"+connection, body, login))
 		return w
 	}
-	w := put("conn-1", sponsor(factory.NewID(), 0), "alice")
+	w := put("conn-1", sponsor(0), "alice")
 	if w.Code != 200 {
 		t.Fatal(w.Code, w.Body.String())
 	}
@@ -310,7 +309,7 @@ func TestFactorySponsorshipNeedsConnectionOwner(t *testing.T) {
 	if err != nil || stored.GrantID != "grant-1" || stored.Generation != 1 || stored.ActorID != 1 || stored.ProjectID != factorySettingsProject {
 		t.Fatalf("sponsorship did not resolve the live broker grant: %+v %v", stored, err)
 	}
-	delegated := put("conn-2", sponsor(factory.NewID(), 0), "alice")
+	delegated := put("conn-2", sponsor(0), "alice")
 	if delegated.Code != http.StatusOK {
 		t.Fatal("connection owner could not sponsor through a delegated grant", delegated.Code, delegated.Body.String())
 	}
@@ -319,20 +318,20 @@ func TestFactorySponsorshipNeedsConnectionOwner(t *testing.T) {
 		t.Fatalf("delegated sponsorship did not separate sponsor from broker actor: %+v %v", stored, err)
 	}
 	assertNoSecrets(t, w.Body.String())
-	foreign := put("conn-1", sponsor(factory.NewID(), 1), "bob")
+	foreign := put("conn-1", sponsor(1), "bob")
 	if foreign.Code != 404 {
 		t.Fatal("non-owner saw the connection", foreign.Code, foreign.Body.String())
 	}
 	stub := s.API.Identity.(*stubIdentityClient)
 	stub.connections[0].Generation = 2
-	if rotated := put("conn-1", sponsor(factory.NewID(), 1), "alice"); rotated.Code != 200 {
+	if rotated := put("conn-1", sponsor(1), "alice"); rotated.Code != 200 {
 		t.Fatal("a rotated credential needed a re-pick", rotated.Code, rotated.Body.String())
 	}
 	if stored, err = s.Store.Sponsorship(t.Context(), 7, "conn-1"); err != nil || stored.Generation != 2 || stored.GrantID != "grant-1" {
 		t.Fatalf("sponsorship did not record the current generation: %+v %v", stored, err)
 	}
 	stub.grants[0].Revoked = true
-	if revoked := put("conn-1", sponsor(factory.NewID(), 2), "alice"); revoked.Code != 409 {
+	if revoked := put("conn-1", sponsor(2), "alice"); revoked.Code != 409 {
 		t.Fatal("sponsorship without a live grant accepted", revoked.Code, revoked.Body.String())
 	}
 	stub.grants[0].Revoked = false
@@ -351,21 +350,21 @@ func TestFactorySponsorshipNeedsConnectionOwner(t *testing.T) {
 		t.Fatalf("allowance leaked to non-owner: %+v", view.Sponsorships)
 	}
 	stub.grantsErr = identity.ErrDenied
-	if w := put("conn-1", sponsor(factory.NewID(), 2), "alice"); w.Code != 403 {
+	if w := put("conn-1", sponsor(2), "alice"); w.Code != 403 {
 		t.Fatal("denied broker grant accepted", w.Code, w.Body.String())
 	}
 	stub.grantsErr = errStubIdentity
-	if w := put("conn-1", sponsor(factory.NewID(), 2), "alice"); w.Code != 503 {
+	if w := put("conn-1", sponsor(2), "alice"); w.Code != 503 {
 		t.Fatal("broken broker grant accepted", w.Code, w.Body.String())
 	}
 	stub.grantsErr = nil
 	stub.connErr = errStubIdentity
-	if w := put("conn-1", sponsor(factory.NewID(), 2), "alice"); w.Code != 503 {
+	if w := put("conn-1", sponsor(2), "alice"); w.Code != 503 {
 		t.Fatal("broken broker connection accepted", w.Code, w.Body.String())
 	}
 	stub.connErr = nil
 	s.API.Identity = nil
-	if w := put("conn-1", sponsor(factory.NewID(), 2), "alice"); w.Code != 503 {
+	if w := put("conn-1", sponsor(2), "alice"); w.Code != 503 {
 		t.Fatal("missing identity service accepted", w.Code, w.Body.String())
 	}
 }

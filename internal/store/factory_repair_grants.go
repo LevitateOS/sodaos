@@ -100,7 +100,7 @@ func (s *Store) ApplyRepairGrantCommand(ctx context.Context, cmd factory.Command
 	if _, err = tx.ExecContext(ctx, `SELECT pg_advisory_xact_lock(hashtextextended($1,0))`, factory.RepairTarget(grant.Repository)); err != nil {
 		return factory.Command{}, false, err
 	}
-	receipt, err := json.Marshal(factory.GrantReceipt{CommandID: cmd.ID, Revision: grant.Revision + 1})
+	receipt, err := json.Marshal(factory.GrantResult{CommandID: cmd.ID, Revision: grant.Revision + 1})
 	if err != nil {
 		return factory.Command{}, false, err
 	}
@@ -436,7 +436,7 @@ func (s *Store) ApplyIntentExecutionLimitCommand(ctx context.Context, cmd factor
 		return factory.Command{}, false, err
 	}
 	defer func() { _ = tx.Rollback() }()
-	receipt, err := json.Marshal(factory.GrantReceipt{CommandID: cmd.ID, Revision: limit.Revision + 1})
+	receipt, err := json.Marshal(factory.GrantResult{CommandID: cmd.ID, Revision: limit.Revision + 1})
 	if err != nil {
 		return factory.Command{}, false, err
 	}

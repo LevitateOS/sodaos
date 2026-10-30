@@ -157,11 +157,9 @@ test('Factory settings render current authority and submit capacity through the 
   assert.equal(capacity.method, 'PUT');
   assert.equal(capacity.headers['x-extension-session-generation'], 'fixture-generation');
   const payload = JSON.parse(capacity.body || '{}') as Record<string, unknown>;
-  assert.match(String(payload.command_id), /^[a-f0-9]{32}$/);
   assert.deepEqual(
-    {...payload, command_id: '<generated>'},
+    payload,
     {
-      command_id: '<generated>',
       expected_revision: 4,
       max_concurrent_runs: 2,
     }
@@ -375,13 +373,11 @@ test('repository policy preserves canonical role selections and submits only act
   assert.equal(call.method, 'PUT');
   assert.equal(call.headers['x-extension-session-generation'], 'fixture-generation');
   const payload = JSON.parse(call.body || '{}') as Record<string, unknown>;
-  assert.match(String(payload.command_id), /^[a-f0-9]{32}$/);
   assert.deepEqual(
-    {rendered, submitted: {...payload, command_id: '<generated>'}},
+    {rendered, submitted: payload},
     {
       rendered: selected,
       submitted: {
-        command_id: '<generated>',
         expected_revision: 6,
         enabled: true,
         paused: true,
@@ -1041,7 +1037,6 @@ test('sponsorship sends only the owner choices and surfaces stale authority once
   assert.deepEqual(Object.keys(payload).sort(), [
     'active',
     'allowance_minutes',
-    'command_id',
     'expected_revision',
     'roles',
   ]);

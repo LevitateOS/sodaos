@@ -84,8 +84,8 @@ func TestFactoryRunsListNewestFirst(t *testing.T) {
 func TestFactoryCommandIdentityConflictsOnChangedPayload(t *testing.T) {
 	s, now := factoryFixture(t)
 	ctx := context.Background()
-	target, payload := "repository/7/policy", `{"paused":true}`
-	c := factory.Command{ID: factory.NewID(), Type: factory.CommandPolicy, Target: target, Payload: payload, Principal: "os-uid:0", Digest: factory.SettingsDigest(factory.CommandPolicy, target, payload)}
+	target, payload := "7/9", `{"reason":"retry"}`
+	c := factory.Command{ID: factory.NewID(), Type: factory.CommandRetry, Target: target, Payload: payload, Principal: "os-uid:0", Digest: factory.SettingsDigest(factory.CommandRetry, target, payload)}
 	stored, created, err := s.RecordFactoryCommand(ctx, c, now)
 	if err != nil || !created || stored.Finished != "" {
 		t.Fatal(stored, created, err)

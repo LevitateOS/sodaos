@@ -17,28 +17,29 @@ record families include:
 | Records | Purpose |
 | --- | --- |
 | `Run`, `RunAdmission`, `Outcome` | Execution identity, captured authority/profile, provenance and settlement. |
-| `Command` | Settings changes and queued owner actions such as Retry. |
+| `Command` | Queued owner actions such as Retry and finite funding. |
 | `RepositoryPolicy`, `Capacity`, `OperatorGrant`, `Sponsorship` | Explicit operating authority and resource limits. |
 | `Acceptance`, `IssueControl`, readiness records | Accepted native issue inputs and eligibility observations. |
 | `Assignment`, result and allowance records | Bounded dispatch, attempts and reported work. |
 | `Publication`, review, check and merge records | Persisted native-operation intent and outcome evidence. |
 
 Construct records using admitted inputs and call their `Validate` methods before
-crossing persistence or execution boundaries. For example, validating a pause
-command performs no pause:
+crossing persistence or execution boundaries. For example, validating a Retry
+command does not queue work:
 
 ```go
-target, payload := "repository/7/policy", `{"paused":true}`
-cmd := factory.Command{ID: factory.NewID(), Type: factory.CommandPolicy,
+target, payload := "7/9", `{"reason":"retry"}`
+cmd := factory.Command{ID: factory.NewID(), Type: factory.CommandRetry,
     Target: target, Principal: principal, Payload: payload,
-    Digest: factory.SettingsDigest(factory.CommandPolicy, target, payload)}
+    Digest: factory.SettingsDigest(factory.CommandRetry, target, payload)}
 err := cmd.Validate()
 ```
 
 Here `principal` comes from the admitting service.
 `NewID` creates a random 32-character lowercase hexadecimal identity. Reuse the
 recorded command ID for an identical replay; changed content requires a new ID.
-Status, Stop and Reconcile use run state directly and carry no durable command.
+Standing settings use their own expected revisions. Status, Stop and Reconcile
+use run state directly and carry no durable command.
 
 ## Constraints
 

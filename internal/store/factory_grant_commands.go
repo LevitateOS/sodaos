@@ -6,7 +6,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"strconv"
 	"time"
 
 	"github.com/levitateos/sodaos/internal/factory"
@@ -20,7 +19,7 @@ type grantCommandSQL interface {
 }
 
 // FactoryAuthorityInput returns the current grant and preparation inputs used
-// by both visible authority reads and atomic grant-command receipts.
+// by both visible authority reads and atomic grant changes.
 func (s *Store) FactoryAuthorityInput(ctx context.Context, repository int64) (factory.AuthorityInput, error) {
 	return factoryAuthorityInput(ctx, s.db, repository)
 }
@@ -162,66 +161,44 @@ func factoryAuthorityInput(ctx context.Context, q grantCommandSQL, repository in
 	return in, nil
 }
 
-// grantCommandResolution binds one grant change to its command
-// target, scope, revision, withdrawal cause and validator.
-type grantCommandResolution struct {
-	target     string
+// grantChangeScope binds a change to its repository, expected revision and
+// withdrawal cause.
+type grantChangeScope struct {
 	repository int64
 	revision   int64
 	withdraw   bool
 	cause      string
-	validate   func() error
 }
 
-// resolveGrantCommandTarget maps one grant change to its command
-// target and withdrawal terms.
-func resolveGrantCommandTarget(change any) (grantCommandResolution, error) {
-	var resolved grantCommandResolution
+// resolveGrantChangeScope identifies the gate and withdrawal terms for a change.
+func resolveGrantChangeScope(change any) (grantChangeScope, error) {
+	var resolved grantChangeScope
 	switch g := change.(type) {
 	case factory.RepositoryPolicy:
-		resolved.target, resolved.repository, resolved.revision = grantCommandTarget("policy", g.Repository), g.Repository, g.Revision
+		resolved.repository, resolved.revision = g.Repository, g.Revision
 		resolved.withdraw, resolved.cause = !g.Enabled || g.Paused, "policy_disabled"
 		if g.Paused {
 			resolved.cause = "policy_paused"
 		}
-		resolved.validate = g.Validate
 	case factory.Capacity:
-		resolved.target, resolved.revision, resolved.validate = "capacity", g.Revision, g.Validate
+		resolved.revision = g.Revision
 	case factory.OperatorGrant:
-		resolved.target, resolved.repository, resolved.revision = grantCommandTarget("operator-grant", g.Repository), g.Repository, g.Revision
-		resolved.withdraw, resolved.cause, resolved.validate = !g.Active, "operator_grant_withdrawn", g.Validate
+		resolved.repository, resolved.revision = g.Repository, g.Revision
+		resolved.withdraw, resolved.cause = !g.Active, "operator_grant_withdrawn"
 	case factory.Sponsorship:
-		resolved.target, resolved.repository, resolved.revision = grantCommandTarget("sponsorship/"+g.Connection, g.Repository), g.Repository, g.Revision
-		resolved.cause, resolved.validate = "sponsorship_withdrawn", g.Validate
+		resolved.repository, resolved.revision = g.Repository, g.Revision
+		resolved.cause = "sponsorship_withdrawn"
 	case project.EnvironmentGrant:
-		resolved.target, resolved.repository, resolved.revision = grantCommandTarget("environment-grant", g.Repository), g.Repository, g.Revision
-		resolved.withdraw, resolved.cause, resolved.validate = !g.Active, "environment_grant_withdrawn", g.Validate
+		resolved.repository, resolved.revision = g.Repository, g.Revision
+		resolved.withdraw, resolved.cause = !g.Active, "environment_grant_withdrawn"
 	default:
-		return resolved, errors.New("unsupported factory grant command")
+		return resolved, errors.New("unsupported factory grant")
 	}
 	return resolved, nil
 }
 
-// grantCommandExpectedType names the command type one grant change
-// requires.
-func grantCommandExpectedType(change any) string {
-	switch change.(type) {
-	case factory.RepositoryPolicy:
-		return factory.CommandPolicy
-	case factory.Capacity:
-		return factory.CommandCapacity
-	case factory.OperatorGrant:
-		return factory.CommandOperatorGrant
-	case factory.Sponsorship:
-		return factory.CommandSponsorship
-	case project.EnvironmentGrant:
-		return factory.CommandEnvironmentGrant
-	}
-	return ""
-}
-
 // lockGrantScopeTx locks the repository gate or the appliance
-// capacity row behind one grant command, matching dispatch lock
+// capacity row for a grant change, matching dispatch lock
 // order.
 func lockGrantScopeTx(ctx context.Context, tx *sql.Tx, repository int64) error {
 	if repository > 0 {
@@ -250,10 +227,10 @@ func refreshSponsorshipWithdrawTx(ctx context.Context, tx *sql.Tx, change any, w
 	return !active, nil
 }
 
-// settleGrantWithdrawalTx folds dispatch, publication and merge
-// withdrawals into one grant receipt. A save that withdraws nothing
+// settleGrantWithdrawalTx records dispatch closure and publication/merge
+// cancellation intents in the grant transaction. A save that withdraws nothing
 // (a changed number, a re-enabled grant) leaves open work alone.
-func settleGrantWithdrawalTx(ctx context.Context, tx *sql.Tx, repository int64, withdraw bool, cause, principal string, receipt *factory.GrantReceipt) error {
+func settleGrantWithdrawalTx(ctx context.Context, tx *sql.Tx, repository int64, withdraw bool, cause, principal string, result *factory.GrantResult) error {
 	if repository <= 0 || !withdraw {
 		return nil
 	}
@@ -261,90 +238,48 @@ func settleGrantWithdrawalTx(ctx context.Context, tx *sql.Tx, repository int64, 
 	if err != nil {
 		return err
 	}
-	if receipt.PublicationsPending, err = requestPublicationWithdrawalsTx(ctx, tx, repository); err != nil {
+	if result.PublicationsPending, err = requestPublicationWithdrawalsTx(ctx, tx, repository); err != nil {
 		return err
 	}
-	if receipt.MergesPending, err = requestMergeWithdrawalsTx(ctx, tx, repository); err != nil {
+	if result.MergesPending, err = requestMergeWithdrawalsTx(ctx, tx, repository); err != nil {
 		return err
 	}
 	return nil
 }
 
-// ApplyFactoryGrantCommand records one settings command and saves its grant
-// (a policy, capacity, operator grant, sponsorship or environment grant)
-// under the record's expected revision in one transaction.
-func (s *Store) ApplyFactoryGrantCommand(ctx context.Context, cmd factory.Command, change any, now time.Time) (factory.Command, bool, error) {
-	if err := cmd.Validate(); err != nil {
-		return factory.Command{}, false, err
-	}
-	payload, err := json.Marshal(change)
+// ApplyFactoryGrant saves a settings change under its expected revision. Any
+// dispatch closure and native cancellation intents commit in this transaction.
+func (s *Store) ApplyFactoryGrant(ctx context.Context, principal string, change any) (factory.GrantResult, error) {
+	var result factory.GrantResult
+	scope, err := resolveGrantChangeScope(change)
 	if err != nil {
-		return factory.Command{}, false, err
-	}
-	if string(payload) != cmd.Payload || cmd.Digest != factory.SettingsDigest(cmd.Type, cmd.Target, cmd.Payload) {
-		return factory.Command{}, false, ErrCommandConflict
-	}
-	resolved, err := resolveGrantCommandTarget(change)
-	if err != nil {
-		return factory.Command{}, false, err
-	}
-	if err = resolved.validate(); err != nil {
-		return factory.Command{}, false, err
-	}
-	if cmd.Type != grantCommandExpectedType(change) || cmd.Target != resolved.target || resolved.revision < 0 {
-		return factory.Command{}, false, errors.New("grant command does not match its target")
+		return result, err
 	}
 	tx, err := s.db.BeginTx(ctx, nil)
 	if err != nil {
-		return factory.Command{}, false, err
+		return result, err
 	}
-	defer func() { _ = tx.Rollback() }()
-	if err = lockGrantScopeTx(ctx, tx, resolved.repository); err != nil {
-		return factory.Command{}, false, err
-	}
-	stored, created, err := recordFactoryCommandTx(ctx, tx, cmd, now)
-	if err != nil || !created {
-		return stored, false, err
+	defer tx.Rollback()
+	if err = lockGrantScopeTx(ctx, tx, scope.repository); err != nil {
+		return result, err
 	}
 	if err = saveFactoryGrantChangeTx(ctx, tx, change); err != nil {
-		return factory.Command{}, false, err
+		return result, err
 	}
-	withdraw, err := refreshSponsorshipWithdrawTx(ctx, tx, change, resolved.withdraw)
+	withdraw, err := refreshSponsorshipWithdrawTx(ctx, tx, change, scope.withdraw)
 	if err != nil {
-		return factory.Command{}, false, err
+		return result, err
 	}
-	receipt := factory.GrantReceipt{CommandID: cmd.ID, Revision: resolved.revision + 1, Withdrawn: withdraw}
-	if err = settleGrantWithdrawalTx(ctx, tx, resolved.repository, withdraw, resolved.cause, cmd.Principal, &receipt); err != nil {
-		return factory.Command{}, false, err
+	result = factory.GrantResult{Revision: scope.revision + 1, Withdrawn: withdraw}
+	if err = settleGrantWithdrawalTx(ctx, tx, scope.repository, withdraw, scope.cause, principal, &result); err != nil {
+		return result, err
 	}
-	return finishGrantReceiptTx(ctx, tx, cmd, now, stored, resolved.repository, &receipt)
-}
-
-// finishGrantReceiptTx evaluates authority for one settled grant
-// receipt, records its outcome and commits the command.
-func finishGrantReceiptTx(ctx context.Context, tx *sql.Tx, cmd factory.Command, now time.Time, stored factory.Command, repository int64, receipt *factory.GrantReceipt) (factory.Command, bool, error) {
-	input, err := factoryAuthorityInput(ctx, tx, repository)
+	input, err := factoryAuthorityInput(ctx, tx, scope.repository)
 	if err != nil {
-		return factory.Command{}, false, err
+		return result, err
 	}
-	receipt.Effective = factory.EvaluateAuthority(input)
-	outcome, err := json.Marshal(receipt)
-	if err != nil {
-		return factory.Command{}, false, err
-	}
-	if err = finishFactoryCommandTx(ctx, tx, cmd.ID, string(outcome), now); err != nil {
-		return factory.Command{}, false, err
-	}
-	stored.Outcome = string(outcome)
-	stored.Finished = now.UTC().Format(time.RFC3339Nano)
-	if err = tx.Commit(); err != nil {
-		return factory.Command{}, false, err
-	}
-	return stored, true, nil
-}
-
-func grantCommandTarget(record string, repository int64) string {
-	return "repository/" + strconv.FormatInt(repository, 10) + "/" + record
+	result.Effective = factory.EvaluateAuthority(input)
+	return result, tx.Commit()
 }
 
 func saveFactoryGrantChangeTx(ctx context.Context, tx *sql.Tx, change any) error {
@@ -385,7 +320,7 @@ func saveFactoryGrantChangeTx(ctx context.Context, tx *sql.Tx, change any) error
 		next.Revision++
 		return saveRevisionedGrantQuery(ctx, tx, "project_environment_grants", "repository", g.Repository, g.Revision, next, "environment grant")
 	default:
-		return errors.New("unsupported factory grant command")
+		return errors.New("unsupported factory grant")
 	}
 }
 

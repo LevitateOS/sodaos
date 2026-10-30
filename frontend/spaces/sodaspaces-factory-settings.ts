@@ -1,7 +1,6 @@
 import {LitElement, html, nothing} from 'lit';
 import type {PreparedExtensionMount} from './soda-extension.js';
 import {object, readSodaJSON} from './sodaspaces-api.js';
-import {factoryCommandId} from './sodaspaces-factory-response.js';
 import {resumeResult} from './sodaspaces-factory-work-response.js';
 import {factoryAccessResponse} from './sodaspaces-factory-access-response.js';
 import type {FactoryAccess, FactoryAccessEditable, FactoryAccessUsage} from './sodaspaces-factory-access-response.js';
@@ -793,7 +792,6 @@ export class SodaFactorySettings extends LitElement {
     const status = this.view.status || {};
     const capacity = asObject(status.appliance || status.capacity || {});
     await this.request('/api/factory/capacity', 'PUT', {
-      command_id: factoryCommandId(),
       expected_revision: Number(capacity.revision || 0),
       max_concurrent_runs: integer(form, 'max_concurrent_runs', 1),
     });
@@ -817,7 +815,6 @@ export class SodaFactorySettings extends LitElement {
       `/api/repositories/${context.repository}/factory/sponsorships/${encodeURIComponent(connection)}`,
       'PUT',
       {
-        command_id: factoryCommandId(),
         expected_revision: Number(existing.revision || 0),
         roles,
         allowance_minutes: integer(form, 'allowance_minutes', 1),
@@ -832,7 +829,6 @@ export class SodaFactorySettings extends LitElement {
     const status = this.view.status || {};
     const grant = asObject(status.operator_grant || {});
     await this.request(`/api/repositories/${context.repository}/factory/operator-grant`, 'PUT', {
-      command_id: factoryCommandId(),
       expected_revision: Number(grant.revision || 0),
       active: inputChecked(form, 'operator_active'),
     });
@@ -845,7 +841,6 @@ export class SodaFactorySettings extends LitElement {
     const grant = asObject(status.environment_grant || {});
     if (!context.profile) throw Error('Choose and review a supported Project profile first.');
     await this.request(`/api/repositories/${context.repository}/factory/environment-grant`, 'PUT', {
-      command_id: factoryCommandId(),
       expected_revision: Number(grant.revision || 0),
       active: inputChecked(form, 'environment_active'),
       project: context.environment || undefined,
@@ -897,7 +892,6 @@ export class SodaFactorySettings extends LitElement {
       .map((check) => check.trim())
       .filter(Boolean);
     return {
-      command_id: factoryCommandId(),
       expected_revision: Number(policy.revision || 0),
       enabled: inputChecked(form, 'policy_enabled'),
       paused: inputChecked(form, 'policy_paused'),

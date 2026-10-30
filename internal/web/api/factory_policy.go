@@ -16,7 +16,6 @@ type factoryPolicyRequest struct {
 	ReviewActor         actorRefRequest                  `json:"review_actor"`
 	ResolveActor        *actorRefRequest                 `json:"resolve_actor,omitempty"`
 	MergeActor          actorRefRequest                  `json:"merge_actor"`
-	CommandID           string                           `json:"command_id"`
 	TargetBranch        string                           `json:"target_branch"`
 	MergeMethod         string                           `json:"merge_method"`
 	RequiredChecks      []string                         `json:"required_checks"`
@@ -33,7 +32,7 @@ func (s *API) apiFactoryPolicy(w http.ResponseWriter, r *http.Request, v store.S
 		return
 	}
 	var in factoryPolicyRequest
-	if !auth.DecodeAPIObject(w, r, &in) || !settingsCommandID(w, in.CommandID) {
+	if !auth.DecodeAPIObject(w, r, &in) {
 		return
 	}
 	publish, ok := in.PublishActor.resolve(factory.OpRefPublish)
@@ -81,18 +80,17 @@ func (s *API) apiFactoryPolicy(w http.ResponseWriter, r *http.Request, v store.S
 		auth.JSONError(w, 400, "invalid_policy", "Repository policy is incomplete or invalid.")
 		return
 	}
-	receipt, err := s.Coordinator.ApplyPolicy(r.Context(), in.CommandID, factoryPrincipal(v), policy)
+	result, err := s.Coordinator.ApplyPolicy(r.Context(), factoryPrincipal(v), policy)
 	if err != nil {
 		factoryCommandError(w, err)
 		return
 	}
-	auth.JSONResponse(w, 200, receipt)
+	auth.JSONResponse(w, 200, result)
 }
 
 type factoryCapacityRequest struct {
-	CommandID         string `json:"command_id"`
-	ExpectedRevision  int64  `json:"expected_revision"`
-	MaxConcurrentRuns int    `json:"max_concurrent_runs"`
+	ExpectedRevision  int64 `json:"expected_revision"`
+	MaxConcurrentRuns int   `json:"max_concurrent_runs"`
 }
 
 func (s *API) apiFactoryCapacity(w http.ResponseWriter, r *http.Request, v store.Session) {
@@ -104,7 +102,7 @@ func (s *API) apiFactoryCapacity(w http.ResponseWriter, r *http.Request, v store
 		return
 	}
 	var in factoryCapacityRequest
-	if !auth.DecodeAPIObject(w, r, &in) || !settingsCommandID(w, in.CommandID) {
+	if !auth.DecodeAPIObject(w, r, &in) {
 		return
 	}
 	capacity := factory.Capacity{
@@ -115,18 +113,17 @@ func (s *API) apiFactoryCapacity(w http.ResponseWriter, r *http.Request, v store
 		auth.JSONError(w, 400, "invalid_capacity", "Appliance capacity is incomplete or invalid.")
 		return
 	}
-	receipt, err := s.Coordinator.ApplyCapacity(r.Context(), in.CommandID, factoryPrincipal(v), capacity)
+	result, err := s.Coordinator.ApplyCapacity(r.Context(), factoryPrincipal(v), capacity)
 	if err != nil {
 		factoryCommandError(w, err)
 		return
 	}
-	auth.JSONResponse(w, 200, receipt)
+	auth.JSONResponse(w, 200, result)
 }
 
 type factoryOperatorGrantRequest struct {
-	CommandID        string `json:"command_id"`
-	ExpectedRevision int64  `json:"expected_revision"`
-	Active           bool   `json:"active"`
+	ExpectedRevision int64 `json:"expected_revision"`
+	Active           bool  `json:"active"`
 }
 
 func (s *API) apiFactoryOperatorGrant(w http.ResponseWriter, r *http.Request, v store.Session) {
@@ -135,7 +132,7 @@ func (s *API) apiFactoryOperatorGrant(w http.ResponseWriter, r *http.Request, v 
 		return
 	}
 	var in factoryOperatorGrantRequest
-	if !auth.DecodeAPIObject(w, r, &in) || !settingsCommandID(w, in.CommandID) {
+	if !auth.DecodeAPIObject(w, r, &in) {
 		return
 	}
 	grant := factory.OperatorGrant{
@@ -146,10 +143,10 @@ func (s *API) apiFactoryOperatorGrant(w http.ResponseWriter, r *http.Request, v 
 		auth.JSONError(w, 400, "invalid_operator_grant", "Operator grant is incomplete or invalid.")
 		return
 	}
-	receipt, err := s.Coordinator.ApplyOperatorGrant(r.Context(), in.CommandID, factoryPrincipal(v), grant)
+	result, err := s.Coordinator.ApplyOperatorGrant(r.Context(), factoryPrincipal(v), grant)
 	if err != nil {
 		factoryCommandError(w, err)
 		return
 	}
-	auth.JSONResponse(w, 200, receipt)
+	auth.JSONResponse(w, 200, result)
 }

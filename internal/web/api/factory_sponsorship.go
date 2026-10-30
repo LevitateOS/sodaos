@@ -25,7 +25,6 @@ func sponsorshipView(sp factory.Sponsorship, owner bool) factory.Sponsorship {
 // which roles may use the connection, the allowance and whether it is on.
 // The server picks the broker grant and reads the credential generation.
 type factorySponsorshipRequest struct {
-	CommandID        string   `json:"command_id"`
 	ExpectedRevision int64    `json:"expected_revision"`
 	Roles            []string `json:"roles"`
 	AllowanceMinutes int      `json:"allowance_minutes"`
@@ -39,7 +38,7 @@ func (s *API) apiFactorySponsorship(w http.ResponseWriter, r *http.Request, v st
 	}
 	connection := r.PathValue("connection")
 	var in factorySponsorshipRequest
-	if !auth.DecodeAPIObject(w, r, &in) || !settingsCommandID(w, in.CommandID) {
+	if !auth.DecodeAPIObject(w, r, &in) {
 		return
 	}
 	sponsorship := factory.Sponsorship{
@@ -57,12 +56,12 @@ func (s *API) apiFactorySponsorship(w http.ResponseWriter, r *http.Request, v st
 		auth.JSONError(w, 400, "invalid_sponsorship", "Sponsorship is incomplete or invalid.")
 		return
 	}
-	receipt, err := s.Coordinator.ApplySponsorship(r.Context(), in.CommandID, factoryPrincipal(v), sponsorship)
+	result, err := s.Coordinator.ApplySponsorship(r.Context(), factoryPrincipal(v), sponsorship)
 	if err != nil {
 		factoryCommandError(w, err)
 		return
 	}
-	auth.JSONResponse(w, 200, receipt)
+	auth.JSONResponse(w, 200, result)
 }
 
 // resolveSponsorshipBroker fills the sponsorship's broker references from
@@ -150,7 +149,6 @@ func (s *API) resolveSponsorshipBroker(w http.ResponseWriter, r *http.Request, v
 
 type factoryEnvironmentGrantRequest struct {
 	Profile          *project.Profile `json:"profile"`
-	CommandID        string           `json:"command_id"`
 	Project          string           `json:"project,omitempty"`
 	ExpectedRevision int64            `json:"expected_revision"`
 	Active           bool             `json:"active"`
@@ -178,7 +176,7 @@ func (s *API) apiFactoryEnvironmentGrant(w http.ResponseWriter, r *http.Request,
 		return
 	}
 	var in factoryEnvironmentGrantRequest
-	if !auth.DecodeAPIObject(w, r, &in) || !settingsCommandID(w, in.CommandID) {
+	if !auth.DecodeAPIObject(w, r, &in) {
 		return
 	}
 	grant := project.EnvironmentGrant{
@@ -189,10 +187,10 @@ func (s *API) apiFactoryEnvironmentGrant(w http.ResponseWriter, r *http.Request,
 		auth.JSONError(w, 400, "invalid_environment_grant", "Environment grant is incomplete or invalid.")
 		return
 	}
-	receipt, err := s.Coordinator.ApplyEnvironmentGrant(r.Context(), in.CommandID, factoryPrincipal(v), grant)
+	result, err := s.Coordinator.ApplyEnvironmentGrant(r.Context(), factoryPrincipal(v), grant)
 	if err != nil {
 		factoryCommandError(w, err)
 		return
 	}
-	auth.JSONResponse(w, 200, receipt)
+	auth.JSONResponse(w, 200, result)
 }

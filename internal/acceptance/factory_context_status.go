@@ -10,7 +10,6 @@ import (
 	"io"
 	"os"
 	"path/filepath"
-	"strconv"
 	"strings"
 	"syscall"
 	"time"
@@ -28,7 +27,6 @@ var FactoryContextToolRevision string
 
 type factoryContextScope struct {
 	InstalledSource     string `json:"installed_source_revision"`
-	PolicyCommandID     string `json:"policy_command_id"`
 	Owner               int64  `json:"owner,string"`
 	Operation           string `json:"operation"`
 	ReviewerPreparation string `json:"reviewer_preparation"`
@@ -67,7 +65,7 @@ func readFactoryContextScope(scopePath string) (*factoryContextScope, string, er
 	var out factoryContextScope
 	decoder := json.NewDecoder(bytes.NewReader(raw))
 	decoder.DisallowUnknownFields()
-	if decoder.Decode(&out) != nil || decoder.Decode(new(any)) != io.EOF || out.Format != 1 || out.ToolSource != FactoryContextToolRevision || !factory.ValidCommit(FactoryContextToolRevision) || !factory.ValidCommit(out.InstalledSource) || !factory.ValidID(out.PolicyCommandID) || !factory.ValidDigest(out.PayloadSHA) || out.Repository <= 0 || out.Issue <= 0 || !factory.ValidProjectID(out.Project) || !project.ValidDecisionID(out.Acceptance) || !factory.ValidCommit(out.SourceCommit) || !factory.ValidPreparationRef(out.Preparation) || !factory.ValidID(out.Connection) || out.Owner <= 0 || !factory.ValidID(out.Operation) || !factory.ValidPreparationRef(out.ReviewerPreparation) {
+	if decoder.Decode(&out) != nil || decoder.Decode(new(any)) != io.EOF || out.Format != 1 || out.ToolSource != FactoryContextToolRevision || !factory.ValidCommit(FactoryContextToolRevision) || !factory.ValidCommit(out.InstalledSource) || !factory.ValidDigest(out.PayloadSHA) || out.Repository <= 0 || out.Issue <= 0 || !factory.ValidProjectID(out.Project) || !project.ValidDecisionID(out.Acceptance) || !factory.ValidCommit(out.SourceCommit) || !factory.ValidPreparationRef(out.Preparation) || !factory.ValidID(out.Connection) || out.Owner <= 0 || !factory.ValidID(out.Operation) || !factory.ValidPreparationRef(out.ReviewerPreparation) {
 		return nil, "", errors.New("scope unavailable")
 	}
 	digest := sha256.Sum256(raw)
@@ -232,11 +230,6 @@ func observeFactoryContextOwnerOperation(ctx context.Context, st *store.Store, b
 	generation, err := st.ConnectionGeneration(ctx, bound.Connection, bound.Owner)
 	if err != nil {
 		return 0, err
-	}
-	commandID := bound.PolicyCommandID
-	command, err := st.FactoryCommand(ctx, commandID)
-	if err != nil || command.ID != commandID || command.Type != factory.CommandPolicy || command.Target != "repository/"+strconv.FormatInt(bound.Repository, 10)+"/policy" || command.Principal != "native:"+strconv.FormatInt(bound.Owner, 10) || command.Finished == "" || command.Validate() != nil {
-		return 0, errors.New("collector operation unavailable")
 	}
 	return generation, nil
 }

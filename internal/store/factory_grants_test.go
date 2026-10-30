@@ -201,13 +201,13 @@ func TestProjectStopCauseComposesAfterExistingPause(t *testing.T) {
 	}
 }
 
-func TestSettingsCommandReplay(t *testing.T) {
+func TestQueuedCommandIdentityReplay(t *testing.T) {
 	db := grantStoreFixture(t)
 	ctx := context.Background()
 	payload := `{"enabled":true}`
 	cmd := factory.Command{
-		ID: factory.NewID(), Type: factory.CommandPolicy, Target: "repository/42/policy",
-		Principal: "native:7", Payload: payload, Digest: factory.SettingsDigest(factory.CommandPolicy, "repository/42/policy", payload),
+		ID: factory.NewID(), Type: factory.CommandRetry, Target: "repository/42/policy",
+		Principal: "native:7", Payload: payload, Digest: factory.SettingsDigest(factory.CommandRetry, "repository/42/policy", payload),
 	}
 	stored, created, err := db.RecordFactoryCommand(ctx, cmd, grantTestTime())
 	if err != nil || !created || stored.Payload != payload {
@@ -225,7 +225,7 @@ func TestSettingsCommandReplay(t *testing.T) {
 	}
 }
 
-func TestPolicyCommandCommitsReceiptAndCancellationIntentsTogether(t *testing.T) {
+func TestPolicyWithdrawalCommitsWithCancellationIntents(t *testing.T) {
 	db := grantStoreFixture(t)
 	ctx := context.Background()
 	publication := publicationTestRecord()
@@ -241,34 +241,18 @@ func TestPolicyCommandCommitsReceiptAndCancellationIntentsTogether(t *testing.T)
 
 	policy := grantTestPolicy()
 	policy.Paused = true
-	payload, err := json.Marshal(policy)
-	if err != nil {
-		t.Fatal(err)
+	result, err := db.ApplyFactoryGrant(ctx, "native:7", policy)
+	if err != nil || result.Revision != 1 {
+		t.Fatalf("apply policy: %+v %v", result, err)
 	}
-	target := "repository/42/policy"
-	cmd := factory.Command{
-		ID: factory.NewID(), Type: factory.CommandPolicy, Target: target, Principal: "native:7",
-		Payload: string(payload), Digest: factory.SettingsDigest(factory.CommandPolicy, target, string(payload)),
+	if !result.Withdrawn || result.Revision != 1 {
+		t.Fatalf("result omitted policy withdrawal: %+v", result)
 	}
-	stored, created, err := db.ApplyFactoryGrantCommand(ctx, cmd, policy, grantTestTime())
-	if err != nil || !created || stored.Finished == "" {
-		t.Fatalf("apply policy command: %+v created=%t err=%v", stored, created, err)
+	if !result.PublicationsPending {
+		t.Fatalf("result omitted publication intent: %+v", result)
 	}
-	var receipt factory.GrantReceipt
-	if err = json.Unmarshal([]byte(stored.Outcome), &receipt); err != nil {
-		t.Fatal("decode durable receipt", err)
-	}
-	if !receipt.Withdrawn || receipt.Revision != 1 {
-		t.Fatalf("receipt omitted policy withdrawal: %+v", receipt)
-	}
-	if !receipt.PublicationsPending {
-		t.Fatalf("receipt omitted publication intent: %+v", receipt)
-	}
-	if !receipt.MergesPending {
-		t.Fatalf("receipt omitted merge intent: %+v", receipt)
-	}
-	if len(stored.Outcome) > 64<<10 {
-		t.Fatalf("bounded grant receipt grew to %d bytes", len(stored.Outcome))
+	if !result.MergesPending {
+		t.Fatalf("result omitted merge intent: %+v", result)
 	}
 	withdrawnPublication, err := db.PublicationByAssignment(ctx, publication.AssignmentID)
 	if err != nil || !withdrawnPublication.WithdrawRequested {
@@ -278,71 +262,49 @@ func TestPolicyCommandCommitsReceiptAndCancellationIntentsTogether(t *testing.T)
 	if err != nil || !withdrawnMerge.WithdrawRequested {
 		t.Fatalf("merge intent not committed: %+v %v", withdrawnMerge, err)
 	}
-	replay, created, err := db.ApplyFactoryGrantCommand(ctx, cmd, policy, grantTestTime().Add(time.Minute))
-	if err != nil || created || replay.Outcome != stored.Outcome || replay.Finished != stored.Finished {
-		t.Fatalf("command replay changed immutable receipt: %+v created=%t err=%v", replay, created, err)
+	if _, err := db.ApplyFactoryGrant(ctx, "native:7", policy); !errors.Is(err, ErrStaleRevision) {
+		t.Fatal("stale policy save was accepted", err)
+	}
+	var commands int
+	if err := db.db.QueryRowContext(ctx, `SELECT count(*) FROM factory_commands`).Scan(&commands); err != nil || commands != 0 {
+		t.Fatal("policy wrote command receipts", commands, err)
 	}
 }
 
-func TestPolicyReceiptFailureDoesNotCommitPartialWithdrawal(t *testing.T) {
+func TestPolicyWithdrawalFailureRollsBackGrant(t *testing.T) {
 	db := grantStoreFixture(t)
 	ctx := context.Background()
 	if err := db.SaveRepositoryPolicy(ctx, grantTestPolicy()); err != nil {
 		t.Fatal("save initial policy", err)
 	}
-	_, err := db.db.ExecContext(ctx, `CREATE FUNCTION refuse_factory_command_receipt() RETURNS trigger LANGUAGE plpgsql AS $$
-BEGIN
-  IF NEW.finished <> '' THEN
-    RAISE EXCEPTION 'injected command receipt write failure';
-  END IF;
-  RETURN NEW;
-END $$;`)
+	_, err := db.db.ExecContext(ctx, `CREATE FUNCTION refuse_dispatch_closure() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN IF NOT NEW.open THEN RAISE EXCEPTION 'injected dispatch closure failure'; END IF; RETURN NEW; END $$; CREATE TRIGGER refuse_dispatch_closure BEFORE UPDATE ON factory_dispatch FOR EACH ROW EXECUTE FUNCTION refuse_dispatch_closure()`)
 	if err != nil {
-		t.Fatal("install isolated command receipt failure trigger", err)
+		t.Fatal("install closure failure trigger", err)
 	}
-	_, err = db.db.ExecContext(ctx, `CREATE TRIGGER refuse_factory_command_receipt BEFORE INSERT OR UPDATE ON factory_commands FOR EACH ROW EXECUTE FUNCTION refuse_factory_command_receipt()`)
-	if err != nil {
-		t.Fatal("install isolated command receipt failure trigger", err)
-	}
-
-	commandID := factory.NewID()
 	paused := grantTestPolicy()
 	paused.Revision, paused.Paused = 1, true
-	payload, err := json.Marshal(paused)
-	if err != nil {
-		t.Fatal("marshal paused policy", err)
-	}
-	target := "repository/42/policy"
-	cmd := factory.Command{
-		ID: commandID, Type: factory.CommandPolicy, Target: target, Principal: "native:7",
-		Payload: string(payload), Digest: factory.SettingsDigest(factory.CommandPolicy, target, string(payload)),
-	}
-	_, _, err = db.ApplyFactoryGrantCommand(ctx, cmd, paused, grantTestTime())
+	_, err = db.ApplyFactoryGrant(ctx, "native:7", paused)
 	var pgErr *pgconn.PgError
-	if !errors.As(err, &pgErr) || pgErr.Message != "injected command receipt write failure" {
-		t.Fatalf("policy withdrawal did not reach the injected receipt failure: %v", err)
+	if !errors.As(err, &pgErr) || pgErr.Message != "injected dispatch closure failure" {
+		t.Fatalf("policy did not reach closure failure: %v", err)
 	}
-
 	storedPolicy, err := db.RepositoryPolicy(ctx, 42)
 	if err != nil {
 		t.Fatal("read policy after failed withdrawal", err)
 	}
 	if storedPolicy.Revision != 1 || storedPolicy.Paused || !storedPolicy.Enabled {
-		t.Errorf("policy changed without a durable command receipt: %+v", storedPolicy)
+		t.Errorf("policy committed despite failed closure: %+v", storedPolicy)
 	}
 	open, _, _, err := db.DispatchState(ctx, 42)
 	if err != nil {
 		t.Fatal("read dispatch after failed withdrawal", err)
 	}
 	if !open {
-		t.Error("dispatch closed without a durable command receipt")
-	}
-	if _, err := db.FactoryCommand(ctx, commandID); !errors.Is(err, ErrNotFound) {
-		t.Errorf("failed atomic command remained recorded: err=%v", err)
+		t.Error("dispatch remained closed after rollback")
 	}
 }
 
-func TestPolicyCommandReceiptStaysBoundedAcrossOutstandingWork(t *testing.T) {
+func TestPolicyWithdrawalIgnoresCompletedHistory(t *testing.T) {
 	db := grantStoreFixture(t)
 	ctx := context.Background()
 	// Retained history must not limit withdrawal. Only the two current
@@ -390,40 +352,25 @@ func TestPolicyCommandReceiptStaysBoundedAcrossOutstandingWork(t *testing.T) {
 
 	policy := grantTestPolicy()
 	policy.Paused = true
-	payload, err := json.Marshal(policy)
-	if err != nil {
-		t.Fatal(err)
+	result, err := db.ApplyFactoryGrant(ctx, "native:7", policy)
+	if err != nil || result.Revision != 1 {
+		t.Fatalf("apply policy: %+v %v", result, err)
 	}
-	target := "repository/42/policy"
-	cmd := factory.Command{
-		ID: factory.NewID(), Type: factory.CommandPolicy, Target: target, Principal: "native:7",
-		Payload: string(payload), Digest: factory.SettingsDigest(factory.CommandPolicy, target, string(payload)),
-	}
-	stored, created, err := db.ApplyFactoryGrantCommand(ctx, cmd, policy, grantTestTime())
-	if err != nil || !created || stored.Finished == "" {
-		t.Fatalf("apply bounded policy command: %+v created=%t err=%v", stored, created, err)
-	}
-	var receipt factory.GrantReceipt
-	if err = json.Unmarshal([]byte(stored.Outcome), &receipt); err != nil {
-		t.Fatal("decode durable receipt", err)
-	}
-	if !receipt.PublicationsPending || !receipt.MergesPending {
-		t.Fatalf("settings result omitted outstanding effects: %+v", receipt)
+
+	if !result.PublicationsPending || !result.MergesPending {
+		t.Fatalf("settings result omitted outstanding effects: %+v", result)
 	}
 	cards := factoryEventCards(t, db, 42)["F08"]
 	if len(cards) != 1 || len(cards[0].Payload.Communication.Items) != 2 || cards[0].Payload.Communication.Items[1].Detail != "2 assigned work items" {
 		t.Fatalf("pause post did not report current assignments: %+v", cards)
 	}
-	if len(stored.Outcome) > 64<<10 {
-		t.Fatalf("maximum-work grant receipt grew to %d bytes", len(stored.Outcome))
-	}
 	policyAfter, err := db.RepositoryPolicy(ctx, 42)
 	if err != nil || !policyAfter.Paused || policyAfter.Revision != 1 {
-		t.Fatalf("policy decision did not commit with bounded receipt: %+v %v", policyAfter, err)
+		t.Fatalf("policy decision did not commit: %+v %v", policyAfter, err)
 	}
 	open, _, _, err := db.DispatchState(ctx, 42)
 	if err != nil || open {
-		t.Fatalf("dispatch gate did not close with bounded receipt: open=%t err=%v", open, err)
+		t.Fatalf("dispatch gate did not close: open=%t err=%v", open, err)
 	}
 	var publicationCount, mergeCount int
 	if err = db.db.QueryRowContext(ctx, `SELECT count(*) FROM factory_publications WHERE repository=42 AND COALESCE((data->>'withdraw_requested')::boolean,FALSE)`).Scan(&publicationCount); err != nil {

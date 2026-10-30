@@ -27,8 +27,7 @@ these commands can write local state and execute remote Git or workload actions.
 `factory-context-status` is a guest-side read-only observation. Its scope must be
 an absolute `/home` file, root-owned mode `0600`, in a root-owned `0700` directory
 with no symlink or writable ancestors. The bounded stdin object contains only
-`run_id` and `assignment_id`. Scope binds the owner, operation, exact opening
-policy command ID, repository/issue/Project, accepted input, initial source,
+`run_id` and `assignment_id`. Scope binds the owner, operation, repository/issue/Project, accepted input, initial source,
 standing coder/reviewer preparations, connection, installed source/payload and
 independent tool source. It uses canonical Store/control methods with read-only
 database transactions; raw run bodies, output and credentials are never returned.

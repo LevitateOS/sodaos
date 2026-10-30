@@ -37,15 +37,9 @@ func ValidOperationKind(kind string) bool {
 // MergeFastForward is the only supported conditional merge method.
 const MergeFastForward = "fast-forward-only"
 
-// Settings command types carried on the shared command ledger. Each one
-// binds a client-generated command ID to normalized admitted fields; the
-// same ID with different content conflicts instead of executing twice.
+// Queued actions and finite funding records use the command ledger. Standing
+// settings use their own revisions directly.
 const (
-	CommandPolicy                = "policy"
-	CommandOperatorGrant         = "operator-grant"
-	CommandCapacity              = "capacity"
-	CommandSponsorship           = "sponsorship"
-	CommandEnvironmentGrant      = "environment-grant"
 	CommandAcceptance            = "acceptance"
 	CommandWithdrawal            = "withdrawal"
 	CommandRetry                 = "retry"
@@ -77,9 +71,7 @@ const (
 // command. Pause, resume and stop operate directly on their current state.
 func SettingsCommandType(typ string) bool {
 	switch typ {
-	case CommandPolicy, CommandOperatorGrant, CommandCapacity, CommandSponsorship,
-		CommandEnvironmentGrant,
-		CommandAcceptance, CommandWithdrawal,
+	case CommandAcceptance, CommandWithdrawal,
 		CommandRetry, CommandRetryImplementation, CommandPlanIntent, CommandCompletionRetry,
 		CommandRepairGrant, CommandIntentExecutionLimit, CommandRepairCharge, CommandVerificationAllowance, CommandDeliveryRepair:
 		return true
@@ -371,14 +363,14 @@ type EffectiveAuthority struct {
 	DispatchOpen bool         `json:"dispatch_open"`
 }
 
-// GrantReceipt is the immutable outcome of one grant command. Withdrawal
-// fields report the durable requested state at commit; later external
-// outcomes remain on their publication and merge records.
-type GrantReceipt struct {
+// GrantResult reports the saved revision, authority and requested withdrawal
+// state. External outcomes remain on publication and merge records. Repair
+// funding also returns its canonical grant identity as CommandID.
+type GrantResult struct {
 	PublicationsPending bool               `json:"publications_pending"`
 	MergesPending       bool               `json:"merges_pending"`
 	Effective           EffectiveAuthority `json:"effective"`
-	CommandID           string             `json:"command_id"`
+	CommandID           string             `json:"command_id,omitempty"`
 	Revision            int64              `json:"revision"`
 	Withdrawn           bool               `json:"withdrawn"`
 }

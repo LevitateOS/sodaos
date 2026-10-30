@@ -357,6 +357,11 @@ receipt duplicates it. Native retirement, membership and destination checks rema
 Explicit delivery repair queues the existing cause/cycle directly. It does not
 write a second owner-request receipt or recover one in the browser; native
 failure evidence, current owner authority, funding and finite-cycle limits remain.
+Standing policy, capacity, operator permission, sponsorship and environment grants
+save directly under their expected revisions. Saving the grant, closing dispatch
+and recording native cancellation intents remain one transaction; no separate
+command journal repeats the settings result. Finite repair funding retains its
+grant identity for actual spending and charges.
 
 Worker context does not carry a submission-receipt history; communications and
 results are available through the work posts and discussion. Ordinary worker
