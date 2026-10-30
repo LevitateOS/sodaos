@@ -428,8 +428,7 @@ export interface PauseRunOutcome {
   outcome?: string;
   reason?: string;
 }
-export interface PauseReceipt {
-  command_id: string;
+export interface PauseResult {
   paused: boolean;
   repository: string;
   revision: number;
@@ -437,8 +436,7 @@ export interface PauseReceipt {
   closed_by: string;
   runs: PauseRunOutcome[];
 }
-export interface ResumeReceipt {
-  command_id: string;
+export interface ResumeResult {
   revision: number;
   reopened: boolean;
   effective: FactoryEffectiveSummary;
@@ -490,13 +488,12 @@ export function runStopOutcome(value: unknown): PauseRunOutcome {
   const raw = record(value);
   return {id: text(raw.id), ...stopFields(raw)};
 }
-// pauseReceipt reads one pause outcome. Uncertain runs stay fenced; they
+// pauseResult reads one pause outcome. Uncertain runs stay fenced; they
 // never read as cancelled.
-export function pauseReceipt(value: unknown, commandID: string, repository: string): PauseReceipt {
+export function pauseResult(value: unknown, repository: string): PauseResult {
   const data = object(value);
   const withdrawal = record(data.withdrawal);
   return {
-    command_id: commandID,
     paused: data.paused !== false,
     repository,
     revision: num(withdrawal.revision),
@@ -505,10 +502,9 @@ export function pauseReceipt(value: unknown, commandID: string, repository: stri
     runs: list(data.runs).map(runStopOutcome),
   };
 }
-export function resumeReceipt(value: unknown, commandID: string): ResumeReceipt {
+export function resumeResult(value: unknown): ResumeResult {
   const data = object(value);
   return {
-    command_id: commandID,
     revision: num(data.revision),
     reopened: flag(data.reopened),
     effective: effectiveSummary(data.effective),

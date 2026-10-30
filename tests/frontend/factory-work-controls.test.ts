@@ -641,9 +641,7 @@ test('work detail retries the same completion command after lost replies and run
       path: 'repositories/7/factory/actions',
       action: 'pause',
       status: 200,
-      echoCommand: true,
       json: {
-        command_id: '',
         paused: true,
         withdrawal: {repository: '7', revision: 6, cause: 'control_paused', closed_by: 'os-uid:1000'},
         runs: [{id: RUN, confirmed: true, uncertain: false, outcome: 'cancelled'}],
@@ -654,9 +652,7 @@ test('work detail retries the same completion command after lost replies and run
       path: 'repositories/7/factory/actions',
       action: 'resume',
       status: 200,
-      echoCommand: true,
       json: {
-        command_id: '',
         revision: 7,
         reopened: true,
         effective: {effective: true, dispatch_open: true, missing: []},
@@ -788,15 +784,25 @@ test('work detail retries the same completion command after lost replies and run
     required_digest: SNAPSHOT,
   });
   const pause = posts.find((call) => (call.body as {action?: string}).action === 'pause');
-  const pauseBody = pause?.body as {command_id: string} | undefined;
-  assert(pauseBody !== undefined);
-  assert.match(pauseBody.command_id, /^[0-9a-f]{32}$/);
+  assert.deepEqual(pause?.body, {action: 'pause'});
+  const resume = posts.find((call) => (call.body as {action?: string}).action === 'resume');
+  assert.deepEqual(resume?.body, {action: 'resume'});
   assert.equal(pause?.path, 'repositories/7/factory/actions');
   const stop = posts.find((call) => (call.body as {action?: string}).action === 'stop');
   assert.equal(stop?.path, `factory/runs/${RUN}/actions`);
   assert.deepEqual(stop?.body, {action: 'stop'});
   const projectStop = posts.find((call) => call.path === `environments/${ENVIRONMENT}/lifecycle`);
   assert.deepEqual(projectStop?.body, {action: 'stop', confirm_stop: true});
+
+  await page.evaluate(() => window.factoryWork.setRoutes([{
+    method: 'POST', path: 'repositories/7/factory/actions', action: 'pause',
+    status: 200, json: {paused: true, withdrawal: {repository: '7', revision: 8}, runs: []}, loseReply: true,
+  }]));
+  await detail.getByRole('button', {name: 'Pause Factory work'}).click();
+  await detail.getByText('No reply was confirmed. Refresh before acting again.').waitFor();
+  const afterLostPause = await workCalls(page);
+  assert.equal(afterLostPause.filter((call) => call.path.startsWith('factory/commands/')).length, 0);
+  assert.deepEqual(afterLostPause.at(-1)?.body, {action: 'pause'});
 
   await page.evaluate(
     (run) => window.factoryWork.setRoutes([{
@@ -806,7 +812,8 @@ test('work detail retries the same completion command after lost replies and run
     RUN
   );
   await detail.getByRole('button', {name: 'Stop run'}).click();
-  await detail.getByText('No reply was confirmed. Refresh before acting again.').waitFor();
+  await detail.getByRole('region', {name: 'Collaborator controls'})
+    .getByText('No reply was confirmed. Refresh before acting again.').waitFor();
   const afterLostStop = await workCalls(page);
   assert.equal(afterLostStop.filter((call) => call.path.startsWith('factory/commands/')).length, 0);
   assert.deepEqual(afterLostStop.at(-1)?.body, {action: 'stop'});

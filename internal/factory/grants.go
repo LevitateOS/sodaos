@@ -48,11 +48,8 @@ const (
 	CommandEnvironmentGrant      = "environment-grant"
 	CommandRequirement           = "preparation-requirement"
 	CommandApproval              = "preparation-approval"
-	CommandReopen                = "reopen"
 	CommandAcceptance            = "acceptance"
 	CommandWithdrawal            = "withdrawal"
-	CommandPause                 = "pause"
-	CommandResume                = "resume"
 	CommandRetry                 = "retry"
 	CommandRetryImplementation   = "retry_implementation"
 	CommandVerificationAllowance = "verification-allowance"
@@ -80,16 +77,14 @@ const (
 	CommandDeliveryRepairRequest = "request-delivery-repair"
 )
 
-// SettingsCommandType reports whether typ is a grant/settings command. The
-// operator stop/reconcile commands stay payload-free with their own digest.
-// Lifecycle pause/resume/retry/takeover ride the same idempotent ledger
-// through the admitted browser controls, never the operator endpoint.
+// SettingsCommandType reports whether typ is a settings or queued-decision
+// command. Pause, resume and stop operate directly on their current state.
 func SettingsCommandType(typ string) bool {
 	switch typ {
 	case CommandPolicy, CommandOperatorGrant, CommandCapacity, CommandSponsorship,
-		CommandEnvironmentGrant, CommandRequirement, CommandApproval, CommandReopen,
+		CommandEnvironmentGrant, CommandRequirement, CommandApproval,
 		CommandAcceptance, CommandWithdrawal,
-		CommandPause, CommandResume, CommandRetry, CommandRetryImplementation, CommandTakeover, CommandPlanIntent, CommandContextCurrent, CommandCompletionRetry,
+		CommandRetry, CommandRetryImplementation, CommandTakeover, CommandPlanIntent, CommandContextCurrent, CommandCompletionRetry,
 		CommandRepairGrant, CommandIntentExecutionLimit, CommandRepairCharge, CommandVerificationAllowance, CommandDeliveryRepair, CommandDeliveryRepairRequest:
 		return true
 	default:

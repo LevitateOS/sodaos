@@ -28,10 +28,10 @@ crossing persistence or execution boundaries. For example, validating a pause
 command performs no pause:
 
 ```go
-target, payload := "dispatch/7", `{"cause":"control-paused"}`
-cmd := factory.Command{ID: factory.NewID(), Type: factory.CommandPause,
+target, payload := "repository/7/policy", `{"paused":true}`
+cmd := factory.Command{ID: factory.NewID(), Type: factory.CommandPolicy,
     Target: target, Principal: principal, Payload: payload,
-    Digest: factory.SettingsDigest(factory.CommandPause, target, payload)}
+    Digest: factory.SettingsDigest(factory.CommandPolicy, target, payload)}
 err := cmd.Validate()
 ```
 

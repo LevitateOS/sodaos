@@ -341,6 +341,10 @@ outstanding work; pausing records the cause and current assignment count in its
 Feed post, without a parallel dispatch-registration ledger or a history-size limit.
 Pending launches use their admitted tool bundle; a missing recorded identity
 does not trigger reconstruction from the current host selection.
+Pause and Resume act on the gate and current runs directly. They return the
+observed outcome without command receipts or a separate reopen-command journal;
+the Feed records the gate change. Resume still requires settled runs and current
+authority, and a repeated request reads or completes the same current state.
 
 Worker context does not carry a submission-receipt history; communications and
 results are available through the work posts and discussion. Ordinary worker

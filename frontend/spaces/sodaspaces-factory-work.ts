@@ -17,9 +17,9 @@ import {
   factoryIssueDetail,
   factoryRepositorySummary,
   pendingRuns,
-  pauseReceipt,
+  pauseResult,
   projectStopResult,
-  resumeReceipt,
+  resumeResult,
   retryDecision,
   sodaErrorDetail,
   stopReceipt,
@@ -723,7 +723,7 @@ export class SodaFactoryWorkDetail extends LitElement {
       return;
     }
     const serial = this.serial;
-    const commandID = kind === 'stop' || kind === 'project_stop' ? '' : factoryCommandId();
+    const commandID = kind === 'retry' || kind === 'takeover' ? factoryCommandId() : '';
     this.acting = kind;
     this.setMark(kind, 'pending', 'Requested; awaiting confirmation.');
     await this.executeIntervention(context, kind, commandID, serial, runID);
@@ -743,7 +743,7 @@ export class SodaFactoryWorkDetail extends LitElement {
       if (refreshesDetail(kind)) void this.load();
     } catch {
       if (serial !== this.serial) return;
-      if (kind === 'stop' || kind === 'project_stop') {
+      if (kind !== 'retry' && kind !== 'takeover') {
         this.setMark(kind, 'pending', 'No reply was confirmed. Refresh before acting again.');
         return;
       }
@@ -913,7 +913,6 @@ async function postIntervention(
 ): Promise<Posted> {
   if (kind === 'pause' || kind === 'resume')
     return postJSON(context.transport, `repositories/${context.repository}/factory/actions`, {
-      command_id: commandID,
       action: kind,
     });
   if (kind === 'project_stop' && context.environmentID)
@@ -928,15 +927,9 @@ async function postIntervention(
   throw Error('Intervention target is not available in this context.');
 }
 
-function parseRepositoryReceipt(
-  kind: 'pause' | 'resume',
-  context: WorkDetailContext,
-  posted: Posted,
-  commandID: string
-) {
-  if (kind === 'pause')
-    return {kind: 'pause' as const, receipt: pauseReceipt(posted.value, commandID, context.repository)};
-  return {kind: 'resume' as const, receipt: resumeReceipt(posted.value, commandID)};
+function parseRepositoryReceipt(kind: 'pause' | 'resume', context: WorkDetailContext, posted: Posted) {
+  if (kind === 'pause') return {kind: 'pause' as const, receipt: pauseResult(posted.value, context.repository)};
+  return {kind: 'resume' as const, receipt: resumeResult(posted.value)};
 }
 function parseRunReceipt(
   kind: 'stop' | 'retry' | 'takeover',
@@ -957,7 +950,7 @@ function parsePostedReceipt(
   commandID: string,
   runID: string | undefined
 ) {
-  if (kind === 'pause' || kind === 'resume') return parseRepositoryReceipt(kind, context, posted, commandID);
+  if (kind === 'pause' || kind === 'resume') return parseRepositoryReceipt(kind, context, posted);
   if (kind === 'project_stop')
     return {kind: 'project_stop' as const, receipt: projectStopResult(posted.value, context.projectID ?? '')};
   return parseRunReceipt(kind, context, posted, commandID, runID);

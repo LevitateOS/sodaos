@@ -5,10 +5,10 @@ import {id} from './sodaspaces-api.js';
 import type {
   FactoryCommandRecord,
   FactoryIssueDetail,
-  PauseReceipt,
+  PauseResult,
   PendingRuns,
   ProjectStopResult,
-  ResumeReceipt,
+  ResumeResult,
   RetryDecision,
   StopReceipt,
   TakeoverRecord,
@@ -427,8 +427,8 @@ export function describeIntervention(input: InterventionInput): InterventionMode
 }
 
 export type InterventionOutcome =
-  | {kind: 'pause'; receipt: PauseReceipt}
-  | {kind: 'resume'; receipt: ResumeReceipt}
+  | {kind: 'pause'; receipt: PauseResult}
+  | {kind: 'resume'; receipt: ResumeResult}
   | {kind: 'stop'; receipt: StopReceipt}
   | {kind: 'retry'; receipt: RetryDecision}
   | {kind: 'takeover'; receipt: TakeoverRecord}
@@ -447,7 +447,7 @@ function settledRunCount(runs: readonly {confirmed: boolean; uncertain: boolean}
     uncertain: runs.filter((run) => run.uncertain).length,
   };
 }
-function pauseOutcomeText(receipt: PauseReceipt): {result: InterventionResult; text: string} {
+function pauseOutcomeText(receipt: PauseResult): {result: InterventionResult; text: string} {
   const {settled, uncertain} = settledRunCount(receipt.runs);
   const fence = uncertain > 0 ? ` ${uncertain} run${uncertain === 1 ? ' stays' : 's stay'} fenced, not cancelled.` : '';
   return {

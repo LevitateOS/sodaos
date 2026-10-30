@@ -63,22 +63,19 @@ type RunStopOutcome struct {
 	Uncertain bool   `json:"uncertain"`
 }
 
-// PauseReceipt is the durable outcome of one pause command: the withdrawal
-// that closed dispatch first, then every outstanding run's stop outcome.
+// PauseResult reports the closed dispatch gate and each outstanding run's
+// current stop outcome.
 // Uncertain runs stay fenced; they never appear cancelled.
-type PauseReceipt struct {
+type PauseResult struct {
 	Withdrawal Withdrawal       `json:"withdrawal"`
 	Runs       []RunStopOutcome `json:"runs"`
-	CommandID  string           `json:"command_id"`
 	Paused     bool             `json:"paused"`
 }
 
-// ResumeReceipt is the durable outcome of one resume command: the reopened
-// gate revision and the visible effective authority afterwards. Queued work
+// ResumeResult reports the gate revision and current authority. Queued work
 // stays queued; resume launches nothing.
-type ResumeReceipt struct {
+type ResumeResult struct {
 	Effective EffectiveAuthority `json:"effective"`
-	CommandID string             `json:"command_id"`
 	Revision  int64              `json:"revision"`
 	Reopened  bool               `json:"reopened"`
 }

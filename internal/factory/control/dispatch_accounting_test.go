@@ -86,11 +86,7 @@ func TestDispatchAccountingNeverRefreshes(t *testing.T) {
 	if _, _, err := coord.withdrawAndStopRuns(ctx, fx.repo, "test", "tester"); err != nil {
 		t.Fatal(err)
 	}
-	_, revision, _, err := db.DispatchState(ctx, fx.repo)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if _, err := coord.ReopenDispatch(ctx, factory.NewID(), "tester", fx.repo, revision); err != nil {
+	if _, err := coord.ResumeRepository(ctx, fx.repo); err != nil {
 		t.Fatal(err)
 	}
 	fourth := DispatchPass(ctx, fx.deps())

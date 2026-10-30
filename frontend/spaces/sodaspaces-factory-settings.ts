@@ -2,7 +2,7 @@ import {LitElement, html, nothing} from 'lit';
 import type {PreparedExtensionMount} from './soda-extension.js';
 import {object, readSodaJSON} from './sodaspaces-api.js';
 import {factoryCommandId} from './sodaspaces-factory-response.js';
-import {resumeReceipt} from './sodaspaces-factory-work-response.js';
+import {resumeResult} from './sodaspaces-factory-work-response.js';
 import {factoryAccessResponse} from './sodaspaces-factory-access-response.js';
 import type {FactoryAccess, FactoryAccessEditable, FactoryAccessUsage} from './sodaspaces-factory-access-response.js';
 import './sodaspaces-factory-work.js';
@@ -867,12 +867,10 @@ export class SodaFactorySettings extends LitElement {
   private submitDispatch = async (_form: HTMLFormElement) => {
     const context = this.contextValue;
     if (!context) throw Error('Reload this Forgejo page before changing factory settings.');
-    const commandID = factoryCommandId();
     const payload = await this.request(`/api/repositories/${context.repository}/factory/actions`, 'POST', {
-      command_id: commandID,
       action: 'resume',
     });
-    resumeReceipt(payload, commandID);
+    resumeResult(payload);
   };
 
   private policyInput(form: HTMLFormElement, policy: Record<string, unknown>) {

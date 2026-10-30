@@ -130,40 +130,61 @@ func lifecycleAction(t *testing.T, s *Server, method, path, body, login string) 
 func TestFactoryPauseAndResumeJourney(t *testing.T) {
 	s := lifecycleWebFixture(t)
 	lifecycleWebGrants(t, s, 8, false)
-	pause := factory.NewID()
-	w := lifecycleAction(t, s, "POST", "/api/repositories/8/factory/actions", `{"command_id":"`+pause+`","action":"pause"}`, "alice")
+	w := lifecycleAction(t, s, "POST", "/api/repositories/8/factory/actions", `{"action":"pause"}`, "alice")
 	if w.Code != 200 {
 		t.Fatal(w.Code, w.Body.String())
 	}
-	var receipt factory.PauseReceipt
+	var receipt factory.PauseResult
 	decodeBody(t, w, &receipt)
 	if !receipt.Paused || receipt.Withdrawal.Cause != factory.CauseControlPaused || len(receipt.Runs) != 0 {
 		t.Fatalf("pause: %+v", receipt)
 	}
 	assertNoSecrets(t, w.Body.String())
-	replay := lifecycleAction(t, s, "POST", "/api/repositories/8/factory/actions", `{"command_id":"`+pause+`","action":"pause"}`, "alice")
+	replay := lifecycleAction(t, s, "POST", "/api/repositories/8/factory/actions", `{"action":"pause"}`, "alice")
 	if replay.Code != 200 {
 		t.Fatal(replay.Code, replay.Body.String())
 	}
-	resume := lifecycleAction(t, s, "POST", "/api/repositories/8/factory/actions", `{"command_id":"`+factory.NewID()+`","action":"resume"}`, "alice")
+	grant, err := s.Store.OperatorGrant(t.Context(), 8)
+	if err != nil {
+		t.Fatal(err)
+	}
+	grant.Active = false
+	if err := s.Store.SaveOperatorGrant(t.Context(), grant); err != nil {
+		t.Fatal(err)
+	}
+	refused := lifecycleAction(t, s, "POST", "/api/repositories/8/factory/actions", `{"action":"resume"}`, "alice")
+	if refused.Code != 409 || !strings.Contains(refused.Body.String(), `"authority_ineffective"`) {
+		t.Fatal("resume bypassed withdrawn authority", refused.Code, refused.Body.String())
+	}
+	if open, _, _, err := s.Store.DispatchState(t.Context(), 8); err != nil || open {
+		t.Fatal("refused resume opened dispatch", open, err)
+	}
+	grant, err = s.Store.OperatorGrant(t.Context(), 8)
+	if err != nil {
+		t.Fatal(err)
+	}
+	grant.Active = true
+	if err := s.Store.SaveOperatorGrant(t.Context(), grant); err != nil {
+		t.Fatal(err)
+	}
+	resume := lifecycleAction(t, s, "POST", "/api/repositories/8/factory/actions", `{"action":"resume"}`, "alice")
 	if resume.Code != 200 {
 		t.Fatal(resume.Code, resume.Body.String())
 	}
-	var reopened factory.ResumeReceipt
+	var reopened factory.ResumeResult
 	decodeBody(t, resume, &reopened)
 	if !reopened.Reopened || !reopened.Effective.Effective {
 		t.Fatalf("resume: %+v", reopened)
 	}
-	read := lifecycleAction(t, s, "GET", "/api/factory/commands/"+pause, "", "alice")
-	if read.Code != 200 {
-		t.Fatal(read.Code, read.Body.String())
+	var repeated factory.PauseResult
+	decodeBody(t, replay, &repeated)
+	if repeated.Withdrawal.Revision != receipt.Withdrawal.Revision {
+		t.Fatal("repeated pause changed its gate revision")
 	}
-	var cmd factory.Command
-	decodeBody(t, read, &cmd)
-	if cmd.ID != pause || cmd.Finished == "" {
-		t.Fatalf("command read: %+v", cmd)
+	again := lifecycleAction(t, s, "POST", "/api/repositories/8/factory/actions", `{"action":"resume"}`, "alice")
+	if again.Code != 200 {
+		t.Fatal(again.Code, again.Body.String())
 	}
-	assertNoSecrets(t, read.Body.String())
 }
 
 func TestFactoryActionsRequireCurrentCodeWrite(t *testing.T) {
@@ -172,7 +193,7 @@ func TestFactoryActionsRequireCurrentCodeWrite(t *testing.T) {
 		return extensions.CallbackResponse{Repository: &extensions.Repository{ID: in.RepositoryID, Owner: "alice", Name: "repo", Permission: "read"}}
 	}
 	w := httptest.NewRecorder()
-	nativeAPIServeWithCallback(t, s, w, apiTestRequest("POST", "/api/repositories/7/factory/actions", `{"command_id":"`+factory.NewID()+`","action":"pause"}`, "bob"), readOnly)
+	nativeAPIServeWithCallback(t, s, w, apiTestRequest("POST", "/api/repositories/7/factory/actions", `{"action":"pause"}`, "bob"), readOnly)
 	if w.Code != 403 {
 		t.Fatal(w.Code, w.Body.String())
 	}
@@ -205,6 +226,10 @@ func TestFactoryUncertainStopAndUnownedRunRetryRefusal(t *testing.T) {
 	// The test broker socket is dead, so the stop fences instead of settling.
 	if stopped.Confirmed || !stopped.Uncertain {
 		t.Fatalf("stop: %+v", stopped)
+	}
+	resume := lifecycleAction(t, s, "POST", "/api/repositories/7/factory/actions", `{"action":"resume"}`, "alice")
+	if resume.Code != 409 || !strings.Contains(resume.Body.String(), `"pending_runs"`) {
+		t.Fatal("resume bypassed unsettled native work", resume.Code, resume.Body.String())
 	}
 	// Even a settled standalone run has no accepted assignment/root authority.
 	// This is a refusal subject, not a substitute for successful native Stop.

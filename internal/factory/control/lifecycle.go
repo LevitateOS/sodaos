@@ -2,7 +2,6 @@ package control
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"time"
 
@@ -23,60 +22,25 @@ func (e ErrPendingRuns) Error() string { return "factory runs are not settled" }
 // PauseRepository latches one repository's dispatch closed and then stops
 // its outstanding runs. Withdrawal precedes every stop, so a delayed
 // dispatch cannot pass the closed gate and a delayed start meets
-// the stop tombstone. Uncertain runs stay fenced inside the receipt.
-func (c *Coordinator) PauseRepository(ctx context.Context, commandID, principal string, repository int64) (factory.PauseReceipt, error) {
+// the stop tombstone. The result reports each native stop outcome.
+func (c *Coordinator) PauseRepository(ctx context.Context, principal string, repository int64) (factory.PauseResult, error) {
 	bounded, stop := context.WithTimeout(ctx, 10*time.Minute)
 	defer stop()
 	if repository <= 0 {
-		return factory.PauseReceipt{}, errors.New("invalid pause target")
-	}
-	payload := `{"cause":"` + factory.CauseControlPaused + `"}`
-	target := grantTarget("dispatch", repository)
-	cmd := factory.Command{
-		ID: commandID, Type: factory.CommandPause, Target: target, Principal: principal,
-		Payload: payload, Digest: factory.SettingsDigest(factory.CommandPause, target, payload),
-	}
-	if err := cmd.Validate(); err != nil {
-		return factory.PauseReceipt{}, err
-	}
-	stored, created, err := c.Store.RecordFactoryCommand(bounded, cmd, time.Now())
-	if err != nil {
-		return factory.PauseReceipt{}, err
-	}
-	if !created {
-		return replayPause(stored)
+		return factory.PauseResult{}, errors.New("invalid pause target")
 	}
 	withdrawal, outcomes, err := c.withdrawAndStopRuns(bounded, repository, factory.CauseControlPaused, principal)
 	if err != nil {
-		return factory.PauseReceipt{}, err
+		return factory.PauseResult{}, err
 	}
 	_, gateRevision, _, err := c.Store.DispatchState(bounded, repository)
 	if err != nil {
-		return factory.PauseReceipt{}, err
+		return factory.PauseResult{}, err
 	}
 	if err = c.Store.FreezeAttemptAllowances(bounded, repository, gateRevision, time.Now()); err != nil {
-		return factory.PauseReceipt{}, err
+		return factory.PauseResult{}, err
 	}
-	receipt := factory.PauseReceipt{Withdrawal: withdrawal, Runs: outcomes, CommandID: cmd.ID, Paused: true}
-	outcome, err := json.Marshal(receipt)
-	if err != nil {
-		return factory.PauseReceipt{}, err
-	}
-	if err = c.Store.FinishFactoryCommand(bounded, cmd.ID, string(outcome), time.Now()); err != nil {
-		return factory.PauseReceipt{}, err
-	}
-	return receipt, nil
-}
-
-func replayPause(stored factory.Command) (factory.PauseReceipt, error) {
-	if stored.Finished == "" {
-		return factory.PauseReceipt{}, ErrCommandRunning
-	}
-	var receipt factory.PauseReceipt
-	if err := json.Unmarshal([]byte(stored.Outcome), &receipt); err != nil {
-		return factory.PauseReceipt{}, err
-	}
-	return receipt, nil
+	return factory.PauseResult{Withdrawal: withdrawal, Runs: outcomes, Paused: true}, nil
 }
 
 // withdrawAndStopRuns closes dispatch first and then settles every
@@ -237,18 +201,17 @@ func (c *Coordinator) ClearProjectStopAfterStart(ctx context.Context, projectID 
 }
 
 // ResumeRepository reopens a paused gate after every recorded run settles
-// and every grant revalidates. It consumes the coordinator-only reopen
-// hook and launches nothing; queued work stays queued.
-func (c *Coordinator) ResumeRepository(ctx context.Context, commandID, principal string, repository int64) (factory.ResumeReceipt, error) {
+// and current authority permits it. Queued work stays queued.
+func (c *Coordinator) ResumeRepository(ctx context.Context, repository int64) (factory.ResumeResult, error) {
 	bounded, stop := context.WithTimeout(ctx, 2*time.Minute)
 	defer stop()
 	if repository <= 0 {
-		return factory.ResumeReceipt{}, errors.New("invalid resume target")
+		return factory.ResumeResult{}, errors.New("invalid resume target")
 	}
 	if p, err := c.Store.ProjectByRepository(bounded, repository); err == nil {
 		runs, err := c.projectRuns(bounded, p.ID)
 		if err != nil {
-			return factory.ResumeReceipt{}, err
+			return factory.ResumeResult{}, err
 		}
 		pending := []string{}
 		for _, run := range runs {
@@ -257,60 +220,38 @@ func (c *Coordinator) ResumeRepository(ctx context.Context, commandID, principal
 			}
 		}
 		if len(pending) > 0 {
-			return factory.ResumeReceipt{}, ErrPendingRuns{Runs: pending}
+			return factory.ResumeResult{}, ErrPendingRuns{Runs: pending}
 		}
 	} else if !errors.Is(err, store.ErrNotFound) {
-		return factory.ResumeReceipt{}, err
+		return factory.ResumeResult{}, err
 	}
 	open, revision, _, err := c.Store.DispatchState(bounded, repository)
 	if err != nil {
-		return factory.ResumeReceipt{}, err
+		return factory.ResumeResult{}, err
 	}
 	if open {
 		effective, err := c.EffectiveAuthority(bounded, repository)
 		if err != nil {
-			return factory.ResumeReceipt{}, err
+			return factory.ResumeResult{}, err
 		}
-		return factory.ResumeReceipt{Effective: effective, CommandID: commandID, Revision: revision}, nil
+		return factory.ResumeResult{Effective: effective, Revision: revision}, nil
 	}
-	payload := `{"cause":"control_resume"}`
-	target := grantTarget("dispatch", repository)
-	cmd := factory.Command{
-		ID: commandID, Type: factory.CommandResume, Target: target, Principal: principal,
-		Payload: payload, Digest: factory.SettingsDigest(factory.CommandResume, target, payload),
-	}
-	if err := cmd.Validate(); err != nil {
-		return factory.ResumeReceipt{}, err
-	}
-	stored, created, err := c.Store.RecordFactoryCommand(bounded, cmd, time.Now())
+	effective, err := c.EffectiveAuthority(bounded, repository)
 	if err != nil {
-		return factory.ResumeReceipt{}, err
+		return factory.ResumeResult{}, err
 	}
-	if !created {
-		return replayResume(stored)
+	for _, reason := range effective.Missing {
+		if reason != factory.MissingDispatch {
+			return factory.ResumeResult{}, ErrIneffectiveAuthority
+		}
 	}
-	reopened, err := c.ReopenDispatch(bounded, factory.NewID(), principal, repository, revision)
+	_, revision, err = c.Store.ReopenDispatch(bounded, repository, revision)
 	if err != nil {
-		return factory.ResumeReceipt{}, err
+		return factory.ResumeResult{}, err
 	}
-	receipt := factory.ResumeReceipt{Effective: reopened.Effective, CommandID: cmd.ID, Revision: reopened.Revision, Reopened: reopened.Effective.DispatchOpen}
-	outcome, err := json.Marshal(receipt)
+	after, err := c.EffectiveAuthority(bounded, repository)
 	if err != nil {
-		return factory.ResumeReceipt{}, err
+		return factory.ResumeResult{}, err
 	}
-	if err = c.Store.FinishFactoryCommand(bounded, cmd.ID, string(outcome), time.Now()); err != nil {
-		return factory.ResumeReceipt{}, err
-	}
-	return receipt, nil
-}
-
-func replayResume(stored factory.Command) (factory.ResumeReceipt, error) {
-	if stored.Finished == "" {
-		return factory.ResumeReceipt{}, ErrCommandRunning
-	}
-	var receipt factory.ResumeReceipt
-	if err := json.Unmarshal([]byte(stored.Outcome), &receipt); err != nil {
-		return factory.ResumeReceipt{}, err
-	}
-	return receipt, nil
+	return factory.ResumeResult{Effective: after, Revision: revision, Reopened: after.DispatchOpen}, nil
 }

@@ -59,11 +59,19 @@ func (s *API) apiFactoryActions(w http.ResponseWriter, r *http.Request, v store.
 		return
 	}
 	var in factoryActionsRequest
-	if !auth.DecodeAPIObject(w, r, &in) || !settingsCommandID(w, in.CommandID) {
+	if !auth.DecodeAPIObject(w, r, &in) {
 		return
 	}
 	if !factory.ValidRepositoryAction(in.Action) {
 		auth.JSONError(w, 400, "invalid_action", "Choose pause, resume or retry completion review.")
+		return
+	}
+	if in.Action == factory.ActionCompletionRetry {
+		if !settingsCommandID(w, in.CommandID) {
+			return
+		}
+	} else if in.CommandID != "" {
+		auth.JSONError(w, 400, "invalid_request", "Pause and resume do not use command IDs.")
 		return
 	}
 	if (in.Action == factory.ActionCompletionRetry) != (in.Completion != nil) ||
@@ -84,14 +92,14 @@ func (s *API) apiFactoryActions(w http.ResponseWriter, r *http.Request, v store.
 		}
 		auth.JSONResponse(w, 200, receipt)
 	case factory.ActionPause:
-		receipt, err := s.Coordinator.PauseRepository(r.Context(), in.CommandID, factoryPrincipal(v), repository)
+		receipt, err := s.Coordinator.PauseRepository(r.Context(), factoryPrincipal(v), repository)
 		if err != nil {
 			lifecycleControlError(w, err)
 			return
 		}
 		auth.JSONResponse(w, 200, receipt)
 	case factory.ActionResume:
-		receipt, err := s.Coordinator.ResumeRepository(r.Context(), in.CommandID, factoryPrincipal(v), repository)
+		receipt, err := s.Coordinator.ResumeRepository(r.Context(), repository)
 		if err != nil {
 			lifecycleControlError(w, err)
 			return
