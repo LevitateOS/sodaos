@@ -699,6 +699,10 @@ func TestDeliveredIntentAdmitsScopedTestPilotOnce(t *testing.T) {
 				if err != nil || !decision.Queued {
 					t.Fatal("explicit verifier Retry refused", decision, err)
 				}
+				admitted, err := db.FactoryCommand(ctx, command)
+				if err != nil || admitted.Finished == "" || admitted.Outcome != "" {
+					t.Fatalf("verifier Retry retained a response or was not admitted: %+v %v", admitted, err)
+				}
 				if replay, err := c.RetryRun(ctx, command, "native:7", run.ID); err != nil || replay != decision {
 					t.Fatal("verifier Retry lost-reply recovery", replay, err)
 				}

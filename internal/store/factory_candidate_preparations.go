@@ -653,25 +653,22 @@ func checkCandidatePreparationOwnerTx(ctx context.Context, tx *sql.Tx, preparati
 // fresh allowance exist. Recheck the same normal Retry facts; setup cannot
 // consume an old root, invent a run, or outlive its first native deadline.
 func checkRetryPreparationOwnerTx(ctx context.Context, tx *sql.Tx, r CandidatePreparationRegistration) error {
-	var typ, target, payload, outcome, finished string
-	if err := tx.QueryRowContext(ctx, `SELECT type,target,payload,outcome,finished FROM factory_commands WHERE id=$1 FOR UPDATE`, r.OwnerAssignment).Scan(&typ, &target, &payload, &outcome, &finished); err != nil {
+	var typ, target, payload, finished string
+	if err := tx.QueryRowContext(ctx, `SELECT type,target,payload,finished FROM factory_commands WHERE id=$1 FOR UPDATE`, r.OwnerAssignment).Scan(&typ, &target, &payload, &finished); err != nil {
 		return err
 	}
-	var decision factory.RetryDecision
 	var prior struct {
 		Run     string `json:"prior_run"`
 		Outcome string `json:"prior_outcome"`
 	}
-	if typ != factory.CommandRetry || finished == "" || json.Unmarshal([]byte(outcome), &decision) != nil ||
-		decision.CommandID != r.OwnerAssignment ||
-		json.Unmarshal([]byte(payload), &prior) != nil || prior.Run != decision.Prior || target != "run/"+prior.Run {
+	if typ != factory.CommandRetry || finished == "" || json.Unmarshal([]byte(payload), &prior) != nil || target != "run/"+prior.Run {
 		return ErrExplicitRetryIneligible
 	}
 	selected, err := pendingExplicitRetry(ctx, tx, r.Repository, r.Issue, r.Control.Acceptance)
 	if err != nil {
 		return err
 	}
-	if selected != decision {
+	if selected.CommandID != r.OwnerAssignment || selected.Prior != prior.Run {
 		return ErrExplicitRetryIneligible
 	}
 	return validateExplicitRetryFactsTx(ctx, tx, prior.Run, r.Repository, r.Issue, r.Control.Acceptance, prior.Outcome)

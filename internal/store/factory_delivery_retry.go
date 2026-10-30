@@ -11,15 +11,15 @@ import (
 	"github.com/levitateos/sodaos/internal/project"
 )
 
-// RecordDeliveryRetryCommand uses the ordinary owner Retry receipt for a
+// RecordDeliveryRetryCommand uses the ordinary owner Retry request for a
 // terminal, accounted issue-zero verifier. It does not reopen its old root.
 func (s *Store) RecordDeliveryRetryCommand(ctx context.Context, cmd factory.Command, decision factory.RetryDecision, repository int64, now time.Time) (factory.Command, bool, error) {
 	var payload struct {
 		PriorRun     string `json:"prior_run"`
 		PriorOutcome string `json:"prior_outcome"`
 	}
-	if cmd.Validate() != nil || decision.Validate() != nil || cmd.Type != factory.CommandRetry || cmd.ID != decision.CommandID || cmd.Target != "run/"+decision.Prior || repository <= 0 ||
-		json.Unmarshal([]byte(cmd.Payload), &payload) != nil || payload.PriorRun != decision.Prior || !retryableRunOutcome(payload.PriorOutcome) || cmd.Digest != factory.SettingsDigest(cmd.Type, cmd.Target, cmd.Payload) {
+	if decision.Validate() != nil || cmd.Type != factory.CommandRetry || cmd.ID != decision.CommandID || cmd.Target != "run/"+decision.Prior || repository <= 0 ||
+		json.Unmarshal([]byte(cmd.Payload), &payload) != nil || payload.PriorRun != decision.Prior || !retryableRunOutcome(payload.PriorOutcome) {
 		return factory.Command{}, false, ErrExplicitRetryIneligible
 	}
 	tx, err := s.db.BeginTx(ctx, nil)
@@ -53,14 +53,10 @@ func (s *Store) RecordDeliveryRetryCommand(ctx context.Context, cmd factory.Comm
 	if occupied {
 		return factory.Command{}, false, ErrExplicitRetryIneligible
 	}
-	outcome, err := json.Marshal(decision)
-	if err != nil {
+	if err = finishFactoryCommandTx(ctx, tx, cmd.ID, "", now); err != nil {
 		return factory.Command{}, false, err
 	}
-	if err = finishFactoryCommandTx(ctx, tx, cmd.ID, string(outcome), now); err != nil {
-		return factory.Command{}, false, err
-	}
-	stored.Outcome, stored.Finished = string(outcome), now.UTC().Format(time.RFC3339Nano)
+	stored.Finished = now.UTC().Format(time.RFC3339Nano)
 	if err = tx.Commit(); err != nil {
 		return factory.Command{}, false, err
 	}
@@ -74,23 +70,19 @@ func (s *Store) PendingDeliveryRetry(ctx context.Context, repository int64, subj
 	if err != nil {
 		return factory.RetryDecision{}, err
 	}
-	var outcome, command, prior string
-	err = s.db.QueryRowContext(ctx, `SELECT c.outcome,c.id,a.run FROM factory_commands c
+	var cmd factory.Command
+	err = s.db.QueryRowContext(ctx, `SELECT c.id,c.type,c.payload FROM factory_commands c
 		JOIN factory_run_views v ON c.target='run/'||v.run
 		JOIN factory_assignments a ON a.id=v.attempt
 		WHERE c.type=$1 AND c.finished<>'' AND v.repository=$2 AND v.issue=0
 		AND a.data->>'phase'='verify' AND a.data->'subject'->>'kind'='delivery'
 		AND (a.data->'subject'->'delivery')-'delivery_id'=($3::jsonb)-'delivery_id'
 		AND NOT EXISTS(SELECT 1 FROM factory_assignments consumed WHERE consumed.id=c.id)
-		ORDER BY c.created,c.id LIMIT 1`, factory.CommandRetry, repository, string(raw)).Scan(&outcome, &command, &prior)
+		ORDER BY c.created,c.id LIMIT 1`, factory.CommandRetry, repository, string(raw)).Scan(&cmd.ID, &cmd.Type, &cmd.Payload)
 	if err != nil {
 		return factory.RetryDecision{}, err
 	}
-	var decision factory.RetryDecision
-	if json.Unmarshal([]byte(outcome), &decision) != nil || decision.CommandID != command || decision.Prior != prior {
-		return decision, ErrExplicitRetryIneligible
-	}
-	return decision, nil
+	return cmd.RetryDecision()
 }
 
 func sameDeliveryVersion(left, right factory.DeliverySubject) bool {
@@ -194,16 +186,16 @@ func validateDeliveryRetryPacketTx(ctx context.Context, tx *sql.Tx, a factory.As
 	if !exists {
 		return nil
 	}
-	var outcome string
-	if err := tx.QueryRowContext(ctx, `SELECT outcome FROM factory_commands WHERE id=$1 AND type=$2 AND finished<>'' FOR UPDATE`, a.ID, factory.CommandRetry).Scan(&outcome); err != nil {
+	var cmd factory.Command
+	if err := tx.QueryRowContext(ctx, `SELECT id,type,payload FROM factory_commands WHERE id=$1 AND type=$2 AND finished<>'' FOR UPDATE`, a.ID, factory.CommandRetry).Scan(&cmd.ID, &cmd.Type, &cmd.Payload); err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return ErrExplicitRetryIneligible
 		}
 		return err
 	}
-	var decision factory.RetryDecision
-	if json.Unmarshal([]byte(outcome), &decision) != nil || decision.CommandID != a.ID {
-		return ErrExplicitRetryIneligible
+	decision, err := cmd.RetryDecision()
+	if err != nil {
+		return err
 	}
 	admitted, err := admitRetryCommandTx(ctx, tx, decision)
 	if err != nil {

@@ -5,6 +5,7 @@
 package factory
 
 import (
+	"encoding/json"
 	"errors"
 	"strings"
 )
@@ -80,7 +81,7 @@ type ResumeResult struct {
 	Reopened  bool               `json:"reopened"`
 }
 
-// RetryDecision is the durable outcome of one retry command. The prior run
+// RetryDecision projects one admitted retry request. The prior run
 // is reconciled and current authority revalidated, but remaining allowances
 // cannot be established without usage records, so the retry stays queued
 // instead of launching. A later scheduler consumes it; nothing else may.
@@ -89,6 +90,21 @@ type RetryDecision struct {
 	CommandID string `json:"command_id"`
 	Reason    string `json:"reason"`
 	Queued    bool   `json:"queued"`
+}
+
+// RetryDecision reads the queue identity from its canonical request payload.
+func (c Command) RetryDecision() (RetryDecision, error) {
+	var request struct {
+		Prior string `json:"prior_run"`
+	}
+	if err := json.Unmarshal([]byte(c.Payload), &request); err != nil {
+		return RetryDecision{}, err
+	}
+	reason := "new attempt queued; dispatch will revalidate current policy and provider budget"
+	if c.Type == CommandRetryImplementation {
+		reason = "implementation retry queued with the accepted plan and remaining attempt allowance"
+	}
+	return RetryDecision{Prior: request.Prior, CommandID: c.ID, Reason: reason, Queued: true}, nil
 }
 
 func (d RetryDecision) Validate() error {

@@ -385,6 +385,10 @@ compare against the charge already used by accounting.
 Completion retry retains the explicit request's identity and author alongside its
 single reassessment successor. The response is derived from that request; no
 second serialized decision or response-replay decoder is stored.
+Ordinary, implementation and application-verification retries likewise read
+their queue identity from the admitted request payload. Fresh preparation and
+dispatch bind that request directly, without a saved-response gate; current
+authority, accepted inputs and remaining allowance still govern each launch.
 
 Worker context does not carry a submission-receipt history; communications and
 results are available through the work posts and discussion. Ordinary worker

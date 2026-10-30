@@ -22,7 +22,7 @@ type implementationRetryFacts struct {
 }
 
 func implementationRetryPayload(cmd factory.Command, decision factory.RetryDecision, repository, issue int64, acceptance string) error {
-	if cmd.Validate() != nil || decision.Validate() != nil || cmd.Type != factory.CommandRetryImplementation || cmd.ID != decision.CommandID || cmd.Target != "run/"+decision.Prior || repository <= 0 || issue <= 0 || acceptance == "" || !decision.Queued {
+	if decision.Validate() != nil || cmd.Type != factory.CommandRetryImplementation || cmd.ID != decision.CommandID || cmd.Target != "run/"+decision.Prior || repository <= 0 || issue <= 0 || acceptance == "" || !decision.Queued {
 		return ErrExplicitRetryIneligible
 	}
 	var payload struct {
@@ -31,9 +31,6 @@ func implementationRetryPayload(cmd factory.Command, decision factory.RetryDecis
 	}
 	if json.Unmarshal([]byte(cmd.Payload), &payload) != nil || payload.PriorRun != decision.Prior || payload.PriorOutcome != string(factory.Cancelled) {
 		return ErrExplicitRetryIneligible
-	}
-	if cmd.Digest != factory.SettingsDigest(cmd.Type, cmd.Target, cmd.Payload) {
-		return ErrCommandConflict
 	}
 	return nil
 }
@@ -148,28 +145,23 @@ func (s *Store) RecordImplementationRetryCommand(ctx context.Context, cmd factor
 	if _, err = implementationRetryFactsTx(ctx, tx, decision.Prior, repository, issue, acceptance, now); err != nil {
 		return factory.Command{}, false, err
 	}
-	data, err := json.Marshal(decision)
-	if err != nil {
+	if err = finishFactoryCommandTx(ctx, tx, cmd.ID, "", now); err != nil {
 		return factory.Command{}, false, err
 	}
-	if err = finishFactoryCommandTx(ctx, tx, cmd.ID, string(data), now); err != nil {
-		return factory.Command{}, false, err
-	}
-	stored.Outcome, stored.Finished = string(data), now.UTC().Format(time.RFC3339Nano)
+	stored.Finished = now.UTC().Format(time.RFC3339Nano)
 	return stored, true, tx.Commit()
 }
 
 func implementationRetryCommandTx(ctx context.Context, tx *sql.Tx, decision factory.RetryDecision, repository, issue int64, acceptance string) error {
 	var cmd factory.Command
-	if err := tx.QueryRowContext(ctx, `SELECT id,type,target,principal,payload,digest,outcome,finished FROM factory_commands WHERE id=$1 FOR UPDATE`, decision.CommandID).Scan(&cmd.ID, &cmd.Type, &cmd.Target, &cmd.Principal, &cmd.Payload, &cmd.Digest, &cmd.Outcome, &cmd.Finished); err != nil {
+	if err := tx.QueryRowContext(ctx, `SELECT id,type,target,principal,payload,digest,finished FROM factory_commands WHERE id=$1 FOR UPDATE`, decision.CommandID).Scan(&cmd.ID, &cmd.Type, &cmd.Target, &cmd.Principal, &cmd.Payload, &cmd.Digest, &cmd.Finished); err != nil {
 		return err
 	}
 	if err := implementationRetryPayload(cmd, decision, repository, issue, acceptance); err != nil {
 		return err
 	}
-	var stored factory.RetryDecision
-	if cmd.Finished == "" || json.Unmarshal([]byte(cmd.Outcome), &stored) != nil || stored != decision {
-		return ErrCommandConflict
+	if cmd.Finished == "" {
+		return ErrExplicitRetryIneligible
 	}
 	return nil
 }
@@ -201,8 +193,8 @@ func (s *Store) PendingImplementationRetry(ctx context.Context, repository, issu
 // explicit continuation invalidates a previously recorded terminal wait.
 func pendingImplementationRetry(ctx context.Context, q explicitRetryQuerier, repository, issue int64, acceptance string) (factory.RetryDecision, error) {
 	var decision factory.RetryDecision
-	var data string
-	err := q.QueryRowContext(ctx, `SELECT c.outcome FROM factory_commands c
+	var cmd factory.Command
+	err := q.QueryRowContext(ctx, `SELECT c.id,c.type,c.payload FROM factory_commands c
 	JOIN factory_runs r ON c.target='run/'||r.id
 	JOIN factory_run_views v ON v.run=r.id
 	JOIN factory_assignments a ON a.id=v.attempt
@@ -219,14 +211,11 @@ func pendingImplementationRetry(ctx context.Context, q explicitRetryQuerier, rep
 	AND p.plan_id=owner.data#>>'{result,phase_result,output,plan,id}'
 	AND a.id=(SELECT id FROM factory_assignments WHERE repository=$2 AND issue=$3 ORDER BY seq DESC LIMIT 1)
 	AND NOT EXISTS(SELECT 1 FROM factory_assignments consumed WHERE consumed.id=c.id)
-	ORDER BY c.created,c.id LIMIT 1`, factory.CommandRetryImplementation, repository, issue, acceptance, project.ExecutionImplement, string(factory.Cancelled), project.ExecutionInvestigate, string(factory.Succeeded)).Scan(&data)
+	ORDER BY c.created,c.id LIMIT 1`, factory.CommandRetryImplementation, repository, issue, acceptance, project.ExecutionImplement, string(factory.Cancelled), project.ExecutionInvestigate, string(factory.Succeeded)).Scan(&cmd.ID, &cmd.Type, &cmd.Payload)
 	if err != nil {
 		return decision, err
 	}
-	if json.Unmarshal([]byte(data), &decision) != nil {
-		return decision, ErrExplicitRetryIneligible
-	}
-	return decision, nil
+	return cmd.RetryDecision()
 }
 
 func (s *Store) RecordImplementationRetryPacket(ctx context.Context, decision factory.RetryDecision, expected factory.IssueControl, a factory.Assignment, r factory.Reservation, run factory.Run, view factory.RunView) error {
@@ -273,13 +262,13 @@ func checkImplementationRetryPacket(facts implementationRetryFacts, a factory.As
 }
 
 func validateImplementationRetryChildTx(ctx context.Context, tx *sql.Tx, a factory.Assignment) error {
-	var data string
-	if err := tx.QueryRowContext(ctx, `SELECT outcome FROM factory_commands WHERE id=$1 AND type=$2 AND finished<>'' FOR UPDATE`, a.ID, factory.CommandRetryImplementation).Scan(&data); err != nil {
+	var cmd factory.Command
+	if err := tx.QueryRowContext(ctx, `SELECT id,type,payload FROM factory_commands WHERE id=$1 AND type=$2 AND finished<>'' FOR UPDATE`, a.ID, factory.CommandRetryImplementation).Scan(&cmd.ID, &cmd.Type, &cmd.Payload); err != nil {
 		return err
 	}
-	var decision factory.RetryDecision
-	if json.Unmarshal([]byte(data), &decision) != nil || decision.CommandID != a.ID {
-		return ErrExplicitRetryIneligible
+	decision, err := cmd.RetryDecision()
+	if err != nil {
+		return err
 	}
 	if err := implementationRetryCommandTx(ctx, tx, decision, a.Repository, a.Issue, a.Acceptance); err != nil {
 		return err
@@ -288,7 +277,7 @@ func validateImplementationRetryChildTx(ctx context.Context, tx *sql.Tx, a facto
 	// exact assignment. Its root is active and its prior is historical now;
 	// the immutable owner admission must not be treated as a new command.
 	var stored factory.Assignment
-	err := contextJSONRow(ctx, tx, &stored, `SELECT data FROM factory_assignments WHERE id=$1 FOR UPDATE`, a.ID)
+	err = contextJSONRow(ctx, tx, &stored, `SELECT data FROM factory_assignments WHERE id=$1 FOR UPDATE`, a.ID)
 	if err == nil {
 		if !reflect.DeepEqual(stored, a) {
 			return ErrExplicitRetryIneligible

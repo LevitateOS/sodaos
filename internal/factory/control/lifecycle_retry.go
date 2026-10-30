@@ -44,12 +44,9 @@ func (c *Coordinator) RetryRun(ctx context.Context, commandID, principal, runID 
 	if prior, done, err := c.replayRetryCommand(bounded, cmd); done || err != nil {
 		return prior, err
 	}
-	decision := factory.RetryDecision{
-		Prior: runID, CommandID: cmd.ID, Queued: true,
-		Reason: "new attempt queued; dispatch will revalidate current policy and provider budget",
-	}
-	if implementation {
-		decision.Reason = "implementation retry queued with the accepted plan and remaining attempt allowance"
+	decision, err := cmd.RetryDecision()
+	if err != nil {
+		return factory.RetryDecision{}, err
 	}
 	if assignment.Subject.Kind == factory.SubjectDelivery && assignment.Phase == project.ExecutionVerify && assignment.Issue == 0 {
 		if err := c.checkDeliveryRetrySource(bounded, assignment); err != nil {
@@ -248,9 +245,5 @@ func replayRetry(stored factory.Command) (factory.RetryDecision, error) {
 	if stored.Finished == "" {
 		return factory.RetryDecision{}, ErrCommandRunning
 	}
-	var decision factory.RetryDecision
-	if err := json.Unmarshal([]byte(stored.Outcome), &decision); err != nil {
-		return factory.RetryDecision{}, err
-	}
-	return decision, nil
+	return stored.RetryDecision()
 }

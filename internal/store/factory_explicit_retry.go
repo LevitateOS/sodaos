@@ -32,8 +32,8 @@ ORDER BY seq DESC LIMIT 1`, repository, issue).Scan(&id, &data)
 	return assignment, err
 }
 
-// RecordExplicitRetryCommand atomically records a retry intent and its
-// immutable receipt after verifying the failed assignment still names the
+// RecordExplicitRetryCommand atomically records the request after verifying
+// the failed assignment still names the
 // issue's current accepted head and its prior run is accounted or confirmed
 // unused.
 type admittedRetryPayload struct {
@@ -42,23 +42,17 @@ type admittedRetryPayload struct {
 
 func admitRetryCommand(cmd factory.Command, decision factory.RetryDecision, repository, issue int64, acceptance string) (admittedRetryPayload, error) {
 	var admitted admittedRetryPayload
-	if err := cmd.Validate(); err != nil {
-		return admitted, err
-	}
 	if err := decision.Validate(); err != nil || cmd.ID != decision.CommandID || cmd.Type != factory.CommandRetry || cmd.Target != "run/"+decision.Prior || repository <= 0 || issue <= 0 || acceptance == "" {
 		return admitted, ErrExplicitRetryIneligible
 	}
 	// The payload includes the immutable prior outcome. Run truth below
-	// verifies that value before the retry receipt is committed.
+	// verifies that value before the retry request is committed.
 	var payload struct {
 		PriorRun     string `json:"prior_run"`
 		PriorOutcome string `json:"prior_outcome"`
 	}
 	if err := json.Unmarshal([]byte(cmd.Payload), &payload); err != nil || payload.PriorRun != decision.Prior || !retryableRunOutcome(payload.PriorOutcome) {
 		return admitted, ErrExplicitRetryIneligible
-	}
-	if cmd.Digest != factory.SettingsDigest(cmd.Type, cmd.Target, cmd.Payload) {
-		return admitted, ErrCommandConflict
 	}
 	return admittedRetryPayload{priorOutcome: payload.PriorOutcome}, nil
 }
@@ -96,14 +90,9 @@ func (s *Store) RecordExplicitRetryCommand(ctx context.Context, cmd factory.Comm
 	if err = validateExplicitRetryFactsTx(ctx, tx, decision.Prior, repository, issue, acceptance, admitted.priorOutcome); err != nil {
 		return factory.Command{}, false, err
 	}
-	outcome, err := json.Marshal(decision)
-	if err != nil {
+	if err = finishFactoryCommandTx(ctx, tx, cmd.ID, "", now); err != nil {
 		return factory.Command{}, false, err
 	}
-	if err = finishFactoryCommandTx(ctx, tx, cmd.ID, string(outcome), now); err != nil {
-		return factory.Command{}, false, err
-	}
-	stored.Outcome = string(outcome)
 	stored.Finished = now.UTC().Format(time.RFC3339Nano)
 	if err = tx.Commit(); err != nil {
 		return factory.Command{}, false, err
@@ -125,8 +114,8 @@ type explicitRetryQuerier interface {
 }
 
 func pendingExplicitRetry(ctx context.Context, q explicitRetryQuerier, repository, issue int64, acceptance string) (factory.RetryDecision, error) {
-	var id, outcome string
-	err := q.QueryRowContext(ctx, `SELECT c.id,c.outcome FROM factory_assignments owner
+	var cmd factory.Command
+	err := q.QueryRowContext(ctx, `SELECT c.id,c.type,c.payload FROM factory_assignments owner
 		JOIN factory_commands c ON c.type=$1 AND c.finished<>''
 		JOIN factory_runs prior ON c.target='run/'||prior.id
 		JOIN factory_run_views v ON v.run=prior.id
@@ -160,18 +149,11 @@ func pendingExplicitRetry(ctx context.Context, q explicitRetryQuerier, repositor
 			AND p.data#>'{factory_admission,stopped}'='true'::jsonb
 			AND p.data#>>'{factory_admission,retirement}'='confirmed')
 		ORDER BY c.created,c.id LIMIT 1`, factory.CommandRetry, repository, issue, acceptance,
-		string(factory.Succeeded), string(factory.Failed), string(factory.Cancelled), project.RoleCoder).Scan(&id, &outcome)
+		string(factory.Succeeded), string(factory.Failed), string(factory.Cancelled), project.RoleCoder).Scan(&cmd.ID, &cmd.Type, &cmd.Payload)
 	if err != nil {
 		return factory.RetryDecision{}, err
 	}
-	var decision factory.RetryDecision
-	if err = json.Unmarshal([]byte(outcome), &decision); err != nil {
-		return factory.RetryDecision{}, err
-	}
-	if decision.CommandID != id {
-		return factory.RetryDecision{}, ErrExplicitRetryIneligible
-	}
-	return decision, nil
+	return cmd.RetryDecision()
 }
 
 // RecordExplicitRetryPacket serializes competing dispatchers on the gate and
@@ -197,19 +179,12 @@ func admitRetryGateTx(ctx context.Context, tx *sql.Tx, a factory.Assignment) err
 
 func admitRetryCommandTx(ctx context.Context, tx *sql.Tx, decision factory.RetryDecision) (admittedRetryCommand, error) {
 	var admitted admittedRetryCommand
-	var typ, target, payload, outcome, finished string
-	if err := tx.QueryRowContext(ctx, `SELECT type,target,payload,outcome,finished FROM factory_commands WHERE id=$1 FOR UPDATE`, decision.CommandID).Scan(&typ, &target, &payload, &outcome, &finished); err != nil {
+	var typ, target, payload, finished string
+	if err := tx.QueryRowContext(ctx, `SELECT type,target,payload,finished FROM factory_commands WHERE id=$1 FOR UPDATE`, decision.CommandID).Scan(&typ, &target, &payload, &finished); err != nil {
 		return admitted, err
 	}
 	if typ != factory.CommandRetry || target != "run/"+decision.Prior || finished == "" {
 		return admitted, ErrExplicitRetryIneligible
-	}
-	var storedDecision factory.RetryDecision
-	if err := json.Unmarshal([]byte(outcome), &storedDecision); err != nil {
-		return admitted, err
-	}
-	if storedDecision != decision {
-		return admitted, ErrCommandConflict
 	}
 	var priorPayload struct {
 		PriorRun     string `json:"prior_run"`

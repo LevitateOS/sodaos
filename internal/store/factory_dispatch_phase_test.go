@@ -229,14 +229,14 @@ func TestPhasedInvestigateRootAdvancesImplementChild(t *testing.T) {
 	payload, _ := json.Marshal(map[string]string{"prior_run": decision.Prior, "prior_outcome": string(factory.Cancelled)})
 	cmd := factory.Command{ID: decision.CommandID, Type: factory.CommandRetryImplementation, Target: "run/" + decision.Prior, Principal: "native:7", Payload: string(payload)}
 	cmd.Digest = factory.SettingsDigest(cmd.Type, cmd.Target, cmd.Payload)
-	if _, created, err := db.RecordImplementationRetryCommand(ctx, cmd, decision, root.Repository, root.Issue, root.Acceptance, time.Now()); err != nil || !created {
+	if admitted, created, err := db.RecordImplementationRetryCommand(ctx, cmd, decision, root.Repository, root.Issue, root.Acceptance, time.Now()); err != nil || !created || admitted.Outcome != "" {
 		t.Fatalf("continuation command refused: created=%v %v", created, err)
 	}
 	if _, created, err := db.RecordImplementationRetryCommand(ctx, cmd, decision, root.Repository, root.Issue, root.Acceptance, time.Now()); err != nil || created {
 		t.Fatalf("continuation replay changed: created=%v %v", created, err)
 	}
 	pending, err := db.PendingImplementationRetry(ctx, root.Repository, root.Issue, root.Acceptance)
-	if err != nil || pending != decision {
+	if err != nil || pending.CommandID != decision.CommandID || pending.Prior != decision.Prior || !pending.Queued {
 		t.Fatalf("pending continuation absent: %+v %v", pending, err)
 	}
 	if _, err = db.PendingImplementationRetry(ctx, root.Repository+1, root.Issue, root.Acceptance); !errors.Is(err, ErrNotFound) {

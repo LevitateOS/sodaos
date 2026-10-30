@@ -309,8 +309,8 @@ func TestRetryRetiresPendingPreparationBeforeEarlyPlanningWait(t *testing.T) {
 			if _, err = fixtureDB.ExecContext(ctx, `UPDATE project_preparations SET data=$2 WHERE id=$1`, prepID, string(tombstone)); err != nil {
 				t.Fatal(err)
 			}
-			var prior factory.RetryDecision
-			if err = json.Unmarshal([]byte(oldCommand.Outcome), &prior); err != nil {
+			prior, err := oldCommand.RetryDecision()
+			if err != nil {
 				t.Fatal(err)
 			}
 			newCommand := factory.NewID()
