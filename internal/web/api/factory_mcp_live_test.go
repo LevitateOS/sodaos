@@ -509,11 +509,8 @@ func exerciseFactoryLiveMCP(t *testing.T, wire *liveMCPTypeSafeTransport) {
 
 	assertHeldRead := func() {
 		t.Helper()
-		var countBefore, countAfter, spentBefore, spentAfter int
+		var countBefore, countAfter int
 		if err := db.QueryRowContext(ctx, "SELECT count(*) FROM factory_priority_judgments").Scan(&countBefore); err != nil {
-			t.Fatal(err)
-		}
-		if err := db.QueryRowContext(ctx, "SELECT spent FROM factory_judgment_budget WHERE id=1").Scan(&spentBefore); err != nil {
 			t.Fatal(err)
 		}
 		result, err := session.CallTool(ctx, &mcp.CallToolParams{Name: "factory.context", Arguments: map[string]any{}})
@@ -534,10 +531,7 @@ func exerciseFactoryLiveMCP(t *testing.T, wire *liveMCPTypeSafeTransport) {
 		if err := db.QueryRowContext(ctx, "SELECT count(*) FROM factory_priority_judgments").Scan(&countAfter); err != nil {
 			t.Fatal(err)
 		}
-		if err := db.QueryRowContext(ctx, "SELECT spent FROM factory_judgment_budget WHERE id=1").Scan(&spentAfter); err != nil {
-			t.Fatal(err)
-		}
-		if countAfter != countBefore || spentAfter != spentBefore {
+		if countAfter != countBefore {
 			t.Fatal("context read wrote rows or spent a consultation")
 		}
 	}

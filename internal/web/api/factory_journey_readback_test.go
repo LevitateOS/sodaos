@@ -1491,7 +1491,7 @@ func TestFactoryIssueJourneyChainPageBound(t *testing.T) {
 	}
 }
 
-func journeyStoreCounts(t *testing.T, raw *sql.DB) (map[string]int64, string) {
+func journeyStoreCounts(t *testing.T, raw *sql.DB) map[string]int64 {
 	t.Helper()
 	counts := make(map[string]int64)
 	for _, table := range []string{
@@ -1505,11 +1505,7 @@ func journeyStoreCounts(t *testing.T, raw *sql.DB) (map[string]int64, string) {
 		}
 		counts[table] = count
 	}
-	var spent int64
-	if err := raw.QueryRow(`SELECT COALESCE(sum(spent),0) FROM factory_judgment_budget`).Scan(&spent); err != nil {
-		t.Fatalf("budget spent: %v", err)
-	}
-	return counts, fmt.Sprintf("%d", spent)
+	return counts
 }
 
 func TestFactoryIssueJourneyReadsChangeNothing(t *testing.T) {
@@ -1520,7 +1516,7 @@ func TestFactoryIssueJourneyReadsChangeNothing(t *testing.T) {
 	if code, body := call(http.MethodGet, path, ""); code != http.StatusOK {
 		t.Fatalf("warmup status=%d body=%s", code, body)
 	}
-	before, spentBefore := journeyStoreCounts(t, fx.raw)
+	before := journeyStoreCounts(t, fx.raw)
 	var baseline []byte
 	for i := 0; i < 3; i++ {
 		code, body := call(http.MethodGet, path, "")
@@ -1539,14 +1535,11 @@ func TestFactoryIssueJourneyReadsChangeNothing(t *testing.T) {
 			t.Fatalf("repeat %d changed the journey:\n%s\n%s", i, baseline, encoded)
 		}
 	}
-	after, spentAfter := journeyStoreCounts(t, fx.raw)
+	after := journeyStoreCounts(t, fx.raw)
 	for table, count := range before {
 		if after[table] != count {
 			t.Fatalf("table %s moved %d -> %d", table, count, after[table])
 		}
-	}
-	if spentAfter != spentBefore {
-		t.Fatalf("judgment budget moved %s -> %s", spentBefore, spentAfter)
 	}
 }
 

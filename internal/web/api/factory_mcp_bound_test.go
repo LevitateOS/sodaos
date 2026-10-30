@@ -371,7 +371,7 @@ func TestFactoryBoundCurrentContextUsesRecordedScopeAndState(t *testing.T) {
 	counts := func() string {
 		t.Helper()
 		var value string
-		if err := db.QueryRowContext(ctx, `SELECT jsonb_build_array((SELECT count(*) FROM factory_priority_judgments),(SELECT spent FROM factory_judgment_budget WHERE id=1),(SELECT count(*) FROM factory_feed_posts WHERE data ? 'work'))::text`).Scan(&value); err != nil {
+		if err := db.QueryRowContext(ctx, `SELECT jsonb_build_array((SELECT count(*) FROM factory_priority_judgments),(SELECT count(*) FROM factory_feed_posts WHERE data ? 'work'))::text`).Scan(&value); err != nil {
 			t.Fatal(err)
 		}
 		return value

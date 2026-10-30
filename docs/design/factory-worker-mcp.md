@@ -348,6 +348,8 @@ read `factory.status` for current progress. A repeated question is a new provide
 call; a failed call returns its error. Reading the discussion never calls the
 provider. Controller-owned
 JEV judgments, confidence cutoffs, roles and stage transitions are unchanged.
+The unused global judgment-credit counter and planning-call ledger are no
+longer created. JEV decisions and the actual work grants retain their owners.
 
 `factory.context` supplies typed required role inputs independently of optional
 history selection. Large role fields travel as ordered UTF-8 JSON fragments in
