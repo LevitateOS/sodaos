@@ -7,8 +7,8 @@ package control
 // recorded (CheckMCPTerminalFinish): a refusal goes straight back to the
 // worker, which corrects and finishes again. The settler runs the same
 // mapping on the recorded proposal and finishes the assignment through the
-// joints every result shares (phase binding, decompose semantic settlement,
-// repair chain). Nothing here coerces worker prose into settlement facts,
+// joints every result shares (phase binding and decompose semantic settlement).
+// Nothing here coerces worker prose into settlement facts,
 // and no downstream effect runs here: finished typed results advance through
 // the existing dispatch, publication, review and adoption consumers.
 

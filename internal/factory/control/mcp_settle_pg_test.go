@@ -19,8 +19,8 @@ import (
 )
 
 // The authenticated correction terminal must retain its whole typed report
-// through the PostgreSQL finish/receipt transaction. Changed or omitted keys
-// fence rather than silently dropping dispositions through the legacy mapper.
+// through PostgreSQL settlement. Changed or omitted keys are refused before
+// recording, so the worker can correct them without freezing its assignment.
 func TestSettleCorrectionTerminalPGDrive(t *testing.T) {
 	db, dsn := postgresFixture(t)
 	ctx, cancel := context.WithTimeout(context.Background(), 90*time.Second)
@@ -30,7 +30,7 @@ func TestSettleCorrectionTerminalPGDrive(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer sqlDB.Close()
-	for index, malformed := range []bool{false, true, false} {
+	for index, malformed := range []bool{false, true, false, false} {
 		a := phaseTestAssignment(t, project.ExecutionCorrect, project.RoleCoder, false)
 		a.Issue, a.Subject.Issue.Issue = int64(11+index), int64(11+index)
 		finding := correctionTestFinding(1, true, factory.FindingFixCode)
@@ -82,6 +82,17 @@ func TestSettleCorrectionTerminalPGDrive(t *testing.T) {
 			payload, _ = json.Marshal(map[string]any{"candidate": candidate})
 		}
 		submission := testMCPSubmission(capability, factory.MCPToolFinishCorrection, factory.NewID(), payload)
+		if err := CheckMCPTerminalFinish(a, submission, time.Now()); malformed || index == 2 {
+			if err == nil {
+				t.Fatal("invalid correction did not return a correctable refusal")
+			}
+			if _, frozen, err := db.TerminalMCPProposal(ctx, a.ID); err != nil || frozen {
+				t.Fatal("invalid correction froze its assignment", err)
+			}
+			continue
+		} else if err != nil {
+			t.Fatal(err)
+		}
 		if _, err := db.RecordMCPSubmission(ctx, submission); err != nil {
 			t.Fatal(err)
 		}
@@ -94,7 +105,7 @@ func TestSettleCorrectionTerminalPGDrive(t *testing.T) {
 		if handled, err := settleRecordedMCPBeforeRun(ctx, db, a, foreign, time.Now()); err != nil || handled {
 			t.Fatalf("foreign retired run claimed terminal: %v/%v", handled, err)
 		}
-		if index != 1 {
+		if index != 3 {
 			if err := finishFromRun(ctx, db, a, retired, time.Now()); err != nil {
 				t.Fatal(err)
 			}
@@ -110,13 +121,7 @@ func TestSettleCorrectionTerminalPGDrive(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		// A recorded finish the settler cannot map (a foreign finding
-		// key, or no dispositions at all) fences instead of parking.
-		if malformed || index == 2 {
-			if finished.Outcome != factory.NeedsHuman {
-				t.Fatal("unmappable correction finish did not fence")
-			}
-		} else if finished.Outcome != factory.Succeeded || finished.Result == nil || finished.Result.PhaseResult == nil || finished.Result.PhaseResult.Output.Correction == nil || finished.Result.Candidate != candidate || len(finished.Result.PhaseResult.Output.Correction.Evidence) != 1 || finished.Result.PhaseResult.Output.Correction.Findings[0].Defect != finding.Defect {
+		if finished.Outcome != factory.Succeeded || finished.Result == nil || finished.Result.PhaseResult == nil || finished.Result.PhaseResult.Output.Correction == nil || finished.Result.Candidate != candidate || len(finished.Result.PhaseResult.Output.Correction.Evidence) != 1 || finished.Result.PhaseResult.Output.Correction.Findings[0].Defect != finding.Defect {
 			t.Fatalf("typed correction report lost: %+v", finished)
 		}
 		receipt, err := db.MCPWorkStatus(ctx, a.ID, submission.SubmissionID)
@@ -209,11 +214,9 @@ func TestSettleMCPTerminalsPGDrive(t *testing.T) {
 	}
 }
 
-// Fenced terminals share one seeding drive: a recorded terminal on a
-// code-phase assignment settles exactly once and fences blocked whether
-// the tool is a verify finish with full carriers or a reassessment
-// finish naming a repair report.
-func TestSettleVerifyRepairWrongSubjectFencedPGDrive(t *testing.T) {
+// These fixtures bypass the public admission check. Settlement must propagate
+// their mapping errors without manufacturing replacement worker results.
+func TestSettleVerifyRepairWrongSubjectReturnsErrorPGDrive(t *testing.T) {
 	db, dsn := postgresFixture(t)
 	ctx, cancel := context.WithTimeout(context.Background(), 90*time.Second)
 	defer cancel()
@@ -276,10 +279,6 @@ func TestSettleVerifyRepairWrongSubjectFencedPGDrive(t *testing.T) {
 	repairPayload := map[string]any{"subject": "stall:" + factory.NewID(), "report": map[string]any{}}
 	repairAssignment, repairSubmission := seed(t, sqlDB, 12, factory.MCPToolFinishReassessment, factory.MCPProfileStrategist, repairPayload)
 
-	coordinator := &Coordinator{Store: db}
-	if settled := coordinator.settleMCPTerminals(ctx); settled != 2 {
-		t.Fatalf("settled %d, want 2", settled)
-	}
 	for _, tc := range []struct {
 		name       string
 		assignment factory.Assignment
@@ -288,27 +287,26 @@ func TestSettleVerifyRepairWrongSubjectFencedPGDrive(t *testing.T) {
 		{"verify", verifyAssignment, verifySubmission},
 		{"repair", repairAssignment, repairSubmission},
 	} {
+		if settled, err := SettleMCPTerminalProposal(ctx, db, tc.assignment.ID, time.Now()); err == nil || settled {
+			t.Fatalf("%s invalid finish did not return its error: settled=%v err=%v", tc.name, settled, err)
+		}
 		finished, err := db.Assignment(ctx, tc.assignment.ID)
 		if err != nil {
 			t.Fatal(err)
 		}
-		if finished.Stage != factory.AssignmentFinished || finished.Outcome != factory.NeedsHuman ||
-			finished.Result == nil || finished.Result.Status != "blocked" {
-			t.Fatalf("%s wrong-subject finish not fenced blocked: %+v", tc.name, finished)
+		if finished.Stage != factory.AssignmentAssigned || finished.Result != nil {
+			t.Fatalf("%s invalid report manufactured a terminal result: %+v", tc.name, finished)
 		}
 		advanced, err := db.MCPWorkStatus(ctx, tc.assignment.ID, tc.submission.SubmissionID)
 		if err != nil {
 			t.Fatal(err)
 		}
-		if advanced.State != factory.MCPWorkAccepted {
-			t.Fatalf("%s receipt state %q, want accepted", tc.name, advanced.State)
+		if advanced.State != factory.MCPWorkRecorded {
+			t.Fatalf("%s posted work changed after refusal: %q", tc.name, advanced.State)
 		}
 	}
-	if settled := coordinator.settleMCPTerminals(ctx); settled != 0 {
-		t.Fatalf("second drive settled %d, want 0", settled)
-	}
 	// A real stall report arriving before native completion must survive the
-	// generic empty-stdout finish. A foreign sealed inventory still fences.
+	// generic empty-stdout finish. A foreign inventory returns a mapping error.
 	for _, foreign := range []bool{false, true} {
 		a := phaseTestAssignment(t, project.ExecutionRepair, project.RoleCoder, false)
 		a.Issue, a.Acceptance, a.PublicationAssignment = 0, "", ""
@@ -351,21 +349,21 @@ func TestSettleVerifyRepairWrongSubjectFencedPGDrive(t *testing.T) {
 		}
 		run := phaseTestRun(a, factory.Succeeded)
 		run.Reconciled = true
-		if err := finishFromRun(ctx, db, a, run, time.Now()); err != nil {
-			t.Fatal(err)
+		if err := finishFromRun(ctx, db, a, run, time.Now()); (err != nil) != foreign {
+			t.Fatalf("foreign=%v settlement error=%v", foreign, err)
 		}
 		finished, err := db.Assignment(ctx, a.ID)
 		if err != nil {
 			t.Fatal(err)
 		}
 		if foreign {
-			if finished.Outcome != factory.NeedsHuman || finished.Result.Reported {
-				t.Fatal("foreign stall inventory did not fence")
+			if finished.Stage != factory.AssignmentAssigned || finished.Result != nil {
+				t.Fatal("foreign stall inventory manufactured a result")
 			}
 		} else if finished.Outcome != factory.Succeeded || !finished.Result.Reported || finished.Result.PhaseResult.Output.Repair == nil || finished.Result.PhaseResult.Output.Repair.Outcome != factory.RepairOutcomeIncomplete {
 			t.Fatalf("typed stall diagnosis lost behind native completion: %+v", finished.Result)
 		}
-		if settled, err := SettleMCPTerminalProposal(ctx, db, a.ID, time.Now()); err != nil || settled {
+		if settled, err := SettleMCPTerminalProposal(ctx, db, a.ID, time.Now()); (err != nil) != foreign || settled {
 			t.Fatalf("stall terminal replay changed finish: %v/%v", settled, err)
 		}
 	}

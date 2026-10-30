@@ -97,14 +97,11 @@ func SettleMCPTerminalProposal(ctx context.Context, st MCPTerminalSettleStore, a
 	if assigned.Stage != factory.AssignmentAssigned {
 		return advanceSettledTerminal(ctx, st, submission, "assignment already finished; proposal recorded for inspection")
 	}
-	// Admission already ran this mapping; a refusal here (inputs that
-	// changed after recording) fences instead of wedging the assignment.
+	// Admission already checked the posted result. Mapping errors propagate
+	// without replacing the worker's report with a synthetic result.
 	finished, note, err := mapMCPTerminalFinish(assigned, submission, now)
-	if err == nil {
-		err = finished.Validate()
-	}
 	if err != nil {
-		finished, note = fenceMCPTerminal(assigned, submission, now, "terminal refused: "+err.Error()), "refused terminal fenced for human attention"
+		return false, err
 	}
 	ready, refusal, err := checkpointTerminalReady(ctx, st, finished)
 	if err != nil {
@@ -169,8 +166,7 @@ func advanceSettledTerminal(ctx context.Context, st MCPTerminalSettleStore, subm
 // mapMCPTerminalFinish maps one terminal proposal to its finished
 // assignment, or refuses it with the defect the worker must correct. The
 // MCP handler runs it before recording (CheckMCPTerminalFinish), so a
-// recorded proposal normally maps; the settler fences any refusal instead
-// of leaving the assignment wedged.
+// recorded proposal normally maps; a mapping error remains an error.
 func mapMCPTerminalFinish(assigned factory.Assignment, submission factory.MCPSubmission, now time.Time) (factory.Assignment, string, error) {
 	if assigned.Stage != factory.AssignmentAssigned {
 		return factory.Assignment{}, "", errors.New("the assignment is no longer assigned")
