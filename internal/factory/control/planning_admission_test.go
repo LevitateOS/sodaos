@@ -174,6 +174,11 @@ func progressCheckpointsAuthenticatedOutputPG(t *testing.T, retired bool) {
 	if calls != 0 {
 		t.Fatal("unproposed observed output started a checkpoint")
 	}
+	assignment.Result = &factory.AssignmentResult{Candidate: candidate}
+	publication := PublishReport{}
+	if c.gatePhasedPublication(ctx, assignment, &publication) || len(publication.Waits) != 1 || publication.Waits[0].Reason != PlanWaitTasksIncomplete {
+		t.Fatalf("unsettled task output bypassed publication gate: %+v", publication)
+	}
 	payload, err := json.Marshal(taskOutputProposal{TaskID: plan.Tasks[0].ID, ManifestDigest: project.ExecutionManifestDigest(run.ExecutionManifest), OutputDigest: output, NativeChildRef: events[2].ChildID, EvidenceRefs: []string{"observed native output"}})
 	if err != nil {
 		t.Fatal(err)
@@ -194,8 +199,7 @@ func progressCheckpointsAuthenticatedOutputPG(t *testing.T, retired bool) {
 	if err != nil || calls != 2 || receipt.State != factory.MCPWorkAccepted {
 		t.Fatalf("checkpoint readback: %+v calls=%d err=%v", receipt, calls, err)
 	}
-	assignment.Result = &factory.AssignmentResult{Candidate: candidate}
-	publication := PublishReport{}
+	publication = PublishReport{}
 	if c.gatePhasedPublication(ctx, assignment, &publication) || len(publication.Waits) != 1 || publication.Waits[0].Reason != PlanWaitFinalIntegration {
 		t.Fatalf("tasks bypassed final checks: %+v", publication)
 	}

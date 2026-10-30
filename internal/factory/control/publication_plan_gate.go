@@ -42,9 +42,8 @@ const (
 	// PlanRefuseTasksFailed reports a failed or cancelled task: incomplete
 	// work cannot publish.
 	PlanRefuseTasksFailed = "plan_tasks_failed"
-	// PlanRefuseEvidence reports malformed evidence: an invalid plan, a
-	// receipt outside the admitted revision, an unknown task or check, or
-	// a candidate no task accounts for.
+	// PlanRefuseEvidence reports a candidate outside its admitted plan or
+	// without completed task evidence.
 	PlanRefuseEvidence = "plan_evidence_refused"
 	// PlanRefuseUnchanged reports a wholly unchanged issue: no task
 	// produced a commit and the candidate is the admitted base, so there
@@ -54,129 +53,54 @@ const (
 	PlanRefuseCandidate = "candidate_invalid"
 )
 
-// PlanPublicationEvidence is the checkpoint evidence a ready verdict binds
-// to the candidate: every task commit in plan order plus the check IDs the
-// executor verified. Verification-only tasks contribute checks without a
-// commit; no empty commit is manufactured for them.
-type PlanPublicationEvidence struct {
-	Commits          []string `json:"commits"`
-	Trees            []string `json:"trees"`
-	Checks           []string `json:"checks"`
-	TaskCount        int      `json:"task_count"`
-	VerificationOnly bool     `json:"verification_only"`
-}
-
-// PlanPublicationVerdict is the pure join decision. Exactly one of Ready,
-// WaitReason, RefuseReason is set.
+// PlanPublicationVerdict reports whether admitted tasks are ready to publish.
+// Exactly one of Ready, WaitReason and RefuseReason is set.
 type PlanPublicationVerdict struct {
-	Evidence     PlanPublicationEvidence
 	WaitReason   string
 	RefuseReason string
 	Ready        bool
 }
 
-// judgePlanPublication decides the join over one admitted plan revision,
-// its persisted receipts and the reported candidate. It is pure: loading
-// stays with the caller, so restarts observe receipts instead of redoing
-// completed writes and exact replays decide identically.
+// judgePlanPublication joins current task state to its admitted plan. The store
+// validates plans, task identities and check references when saving them; its
+// plan-scoped query and task primary key supply the matching, unique rows here.
+// Native final-candidate checks own ancestry, tree and integration proof.
 func judgePlanPublication(plan factory.InvestigationPlan, receipts []store.PlanTaskReceipt, candidate string) PlanPublicationVerdict {
-	refuse := func(reason string) PlanPublicationVerdict {
-		return PlanPublicationVerdict{RefuseReason: reason}
-	}
-	if err := plan.Validate(); err != nil {
-		return refuse(PlanRefuseEvidence)
-	}
+	refuse := func(reason string) PlanPublicationVerdict { return PlanPublicationVerdict{RefuseReason: reason} }
 	if !factory.ValidCommit(candidate) {
 		return refuse(PlanRefuseCandidate)
 	}
-	byTask, knownChecks := indexPlanPublicationKeys(plan)
-	stored, verdict, decided := admitPlanTaskReceipts(plan, receipts, byTask)
-	if decided {
-		return verdict
-	}
-	return collectPlanPublicationEvidence(plan, candidate, stored, knownChecks)
-}
-
-func indexPlanPublicationKeys(plan factory.InvestigationPlan) (map[string]int, map[string]bool) {
-	byTask := make(map[string]int, len(plan.Tasks))
-	for i, task := range plan.Tasks {
-		byTask[task.ID] = i
-	}
-	knownChecks := make(map[string]bool, len(plan.Checks))
-	for _, check := range plan.Checks {
-		knownChecks[check.ID] = true
-	}
-	return byTask, knownChecks
-}
-
-func admitPlanTaskReceipts(plan factory.InvestigationPlan, receipts []store.PlanTaskReceipt, byTask map[string]int) (map[string]store.PlanTaskReceipt, PlanPublicationVerdict, bool) {
-	refused := PlanPublicationVerdict{RefuseReason: PlanRefuseEvidence}
-	stored := make(map[string]store.PlanTaskReceipt, len(receipts))
+	tasks := make(map[string]store.PlanTaskReceipt, len(receipts))
 	for _, receipt := range receipts {
-		if receipt.AttemptRoot != plan.AttemptRoot || receipt.PlanID != plan.ID {
-			return nil, refused, true
-		}
-		if _, ok := byTask[receipt.TaskID]; !ok {
-			return nil, refused, true
-		}
-		if _, dup := stored[receipt.TaskID]; dup {
-			return nil, refused, true
-		}
-		stored[receipt.TaskID] = receipt
+		tasks[receipt.TaskID] = receipt
 	}
-	return stored, PlanPublicationVerdict{}, false
-}
-
-func collectPlanPublicationEvidence(plan factory.InvestigationPlan, candidate string, stored map[string]store.PlanTaskReceipt, knownChecks map[string]bool) PlanPublicationVerdict {
-	refuse := func(reason string) PlanPublicationVerdict {
-		return PlanPublicationVerdict{RefuseReason: reason}
-	}
-	wait := func(reason string) PlanPublicationVerdict {
-		return PlanPublicationVerdict{WaitReason: reason}
-	}
-	evidence := PlanPublicationEvidence{TaskCount: len(plan.Tasks)}
+	changed := false
 	for _, task := range plan.Tasks {
-		receipt, ok := stored[task.ID]
+		receipt, ok := tasks[task.ID]
 		if !ok {
-			return wait(PlanWaitTasksIncomplete)
+			return PlanPublicationVerdict{WaitReason: PlanWaitTasksIncomplete}
 		}
 		switch receipt.State {
 		case store.PlanTaskFailed, store.PlanTaskCancelled:
 			return refuse(PlanRefuseTasksFailed)
 		case store.PlanTaskCompleted:
-		case store.PlanTaskPending, store.PlanTaskRunning, store.PlanTaskOutputReady:
-			return wait(PlanWaitTasksIncomplete)
 		default:
-			return refuse(PlanRefuseEvidence)
+			return PlanPublicationVerdict{WaitReason: PlanWaitTasksIncomplete}
 		}
-		for _, id := range receipt.Checks {
-			if !knownChecks[id] {
+		if receipt.Commit != "" {
+			if receipt.Tree == "" {
 				return refuse(PlanRefuseEvidence)
 			}
-			evidence.Checks = unionKeys(evidence.Checks, []string{id})
-		}
-		if receipt.Commit == "" && receipt.Tree == "" {
-			continue
-		}
-		if !factory.ValidCommit(receipt.Tree) || receipt.Commit != "" && !factory.ValidCommit(receipt.Commit) {
-			return refuse(PlanRefuseEvidence)
-		}
-		evidence.Trees = append(evidence.Trees, receipt.Tree)
-		if receipt.Commit != "" {
-			evidence.Commits = append(evidence.Commits, receipt.Commit)
+			changed = true
 		}
 	}
-	if len(evidence.Commits) == 0 {
-		evidence.VerificationOnly = true
-		if candidate == plan.SourceCommit {
-			return refuse(PlanRefuseUnchanged)
-		}
+	if !changed && candidate == plan.SourceCommit {
+		return refuse(PlanRefuseUnchanged)
+	}
+	if !changed || candidate == plan.SourceCommit {
 		return refuse(PlanRefuseEvidence)
 	}
-	if candidate == plan.SourceCommit {
-		return refuse(PlanRefuseEvidence)
-	}
-	return PlanPublicationVerdict{Ready: true, Evidence: evidence}
+	return PlanPublicationVerdict{Ready: true}
 }
 
 // gatePhasedPublication requires completed plan task evidence before an

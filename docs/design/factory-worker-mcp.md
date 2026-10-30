@@ -331,6 +331,11 @@ preserve those bytes and check their current scope, acceptance head and
 withdrawals; review evidence is selected for the current candidate and check
 policy.
 
+Publication reads the admitted plan and task states to require completed work
+and a changed candidate. It does not rebuild an unused task-evidence summary or
+repeat the store's plan, task-key and check-reference validation. Native final
+checkpoints still establish candidate ancestry, the clean tree and integration checks.
+
 Dispatch admission and pause share the repository gate lock. Assignments own the
 outstanding work; pausing records the cause and current assignment count in its
 Feed post, without a parallel dispatch-registration ledger or a history-size limit.
