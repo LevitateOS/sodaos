@@ -348,6 +348,9 @@ authority, and a repeated request reads or completes the same current state.
 Preparation requirement acceptance and privileged-effect approval use their
 immutable decision IDs and predecessor chains directly, without a second command
 receipt. Approval still binds the current requirement and preserves the maintenance hold.
+An owner's current-context choice is stored once on the capability, with its
+author and exact scope. Reads and repeated choices use that record directly;
+there is no duplicate command receipt or browser command-recovery request.
 
 Worker context does not carry a submission-receipt history; communications and
 results are available through the work posts and discussion. Ordinary worker

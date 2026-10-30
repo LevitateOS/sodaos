@@ -2,7 +2,6 @@ package control
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"time"
 
@@ -65,7 +64,7 @@ func ContextSelectionStatus(ctx context.Context, st *store.Store, run factory.Ru
 	return view, nil
 }
 
-func (c *Coordinator) UseCurrentContext(ctx context.Context, commandID, principal, runID string, request factory.ContextCurrentRequest) (factory.ContextCurrentResolution, error) {
+func (c *Coordinator) UseCurrentContext(ctx context.Context, principal, runID string, request factory.ContextCurrentRequest) (factory.ContextCurrentResolution, error) {
 	var zero factory.ContextCurrentResolution
 	run, err := c.Store.FactoryRun(ctx, runID)
 	if err != nil {
@@ -75,20 +74,11 @@ func (c *Coordinator) UseCurrentContext(ctx context.Context, commandID, principa
 	if err != nil {
 		return zero, err
 	}
-	payload, _ := json.Marshal(request)
-	cmd := factory.Command{ID: commandID, Type: factory.CommandContextCurrent, Target: "run/" + runID, Principal: principal, Payload: string(payload)}
-	cmd.Digest = factory.SettingsDigest(cmd.Type, cmd.Target, cmd.Payload)
-	// Exact lost-reply recovery remains available after activation/expiry.
-	if saved, err := c.Store.FactoryCommand(ctx, commandID); err == nil {
-		if saved.Digest != cmd.Digest || saved.Principal != principal || saved.Type != cmd.Type || saved.Target != cmd.Target {
-			return zero, store.ErrCommandConflict
-		}
-		if json.Unmarshal([]byte(saved.Outcome), &zero) != nil || zero.ValidateFor(cap) != nil {
+	if saved := cap.ContextCurrentResolution; saved != nil {
+		if saved.Principal != principal || saved.ValidateFor(cap) != nil || saved.ScopeDigest != request.ScopeDigest || saved.Fingerprint != request.Fingerprint || saved.RequiredDigest != request.RequiredDigest {
 			return zero, store.ErrContextResolutionIneligible
 		}
-		return zero, nil
-	} else if !errors.Is(err, store.ErrNotFound) {
-		return zero, err
+		return *saved, nil
 	}
 	view, err := ContextSelectionStatus(ctx, c.Store, run)
 	if err != nil {
@@ -105,5 +95,5 @@ func (c *Coordinator) UseCurrentContext(ctx context.Context, commandID, principa
 	if wait != nil || terminal {
 		return zero, store.ErrContextResolutionIneligible
 	}
-	return c.Store.RecordContextCurrentCommand(ctx, cmd, cap, request, time.Now())
+	return c.Store.SaveContextCurrentResolution(ctx, cap, request, principal, time.Now())
 }

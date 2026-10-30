@@ -7,13 +7,12 @@ import (
 	"errors"
 )
 
-const CommandContextCurrent = "use-current-context"
 const ActionContextCurrent = "use_current_context"
 
 // ContextCurrentResolution is an explicit owner's choice of the complete
 // required-current projection. It is separate from the original model receipt.
 type ContextCurrentResolution struct {
-	CommandID      string `json:"command_id"`
+	Principal      string `json:"principal"`
 	RunID          string `json:"run_id"`
 	AssignmentID   string `json:"assignment_id"`
 	ScopeDigest    string `json:"scope_digest"`
@@ -30,7 +29,7 @@ type ContextCurrentRequest struct {
 }
 
 func (r ContextCurrentResolution) ValidateFor(cap MCPCapability) error {
-	if !ValidID(r.CommandID) || r.RunID != cap.RunID || r.AssignmentID != cap.AssignmentID || r.ScopeDigest != cap.ScopeDigest() || r.Fingerprint != cap.ContextSelectionSnapshot || !ValidDigest(r.Fingerprint) || !ValidDigest(r.RequiredDigest) || r.Bundle != ContextBundleCurrent || r.RecordedUnix <= 0 {
+	if r.RunID != cap.RunID || r.AssignmentID != cap.AssignmentID || r.ScopeDigest != cap.ScopeDigest() || r.Fingerprint != cap.ContextSelectionSnapshot || !ValidDigest(r.Fingerprint) || !ValidDigest(r.RequiredDigest) || r.Bundle != ContextBundleCurrent || r.RecordedUnix <= 0 {
 		return errors.New("owner context resolution differs from its capability")
 	}
 	return nil

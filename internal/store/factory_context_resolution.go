@@ -12,12 +12,11 @@ import (
 
 var ErrContextResolutionIneligible = errors.New("current context resolution is no longer admissible")
 
-// RecordContextCurrentCommand records one owner decision without rewriting
-// the paid selection receipt, capability scope, deadline or attempt allowance.
-func (s *Store) RecordContextCurrentCommand(ctx context.Context, cmd factory.Command, expected factory.MCPCapability, request factory.ContextCurrentRequest, now time.Time) (factory.ContextCurrentResolution, error) {
+// SaveContextCurrentResolution saves the owner's choice on its capability.
+// Scope, deadlines, paid judgment and attempt allowances retain their owners.
+func (s *Store) SaveContextCurrentResolution(ctx context.Context, expected factory.MCPCapability, request factory.ContextCurrentRequest, principal string, now time.Time) (factory.ContextCurrentResolution, error) {
 	var result factory.ContextCurrentResolution
-	payload, _ := json.Marshal(request)
-	if cmd.Validate() != nil || cmd.Type != factory.CommandContextCurrent || cmd.Target != "run/"+expected.RunID || cmd.Payload != string(payload) || request.ScopeDigest != expected.ScopeDigest() || request.Fingerprint != expected.ContextSelectionSnapshot || !factory.ValidDigest(request.RequiredDigest) {
+	if principal == "" || len(principal) > 128 || request.ScopeDigest != expected.ScopeDigest() || request.Fingerprint != expected.ContextSelectionSnapshot || !factory.ValidDigest(request.RequiredDigest) {
 		return result, ErrContextResolutionIneligible
 	}
 	tx, err := s.db.BeginTx(ctx, &sql.TxOptions{Isolation: sql.LevelSerializable})
@@ -25,19 +24,6 @@ func (s *Store) RecordContextCurrentCommand(ctx context.Context, cmd factory.Com
 		return result, err
 	}
 	defer tx.Rollback()
-	stored, created, err := recordFactoryCommandTx(ctx, tx, cmd, now)
-	if err != nil {
-		return result, err
-	}
-	if !created {
-		if stored.Principal != cmd.Principal || stored.Type != cmd.Type || stored.Target != cmd.Target {
-			return result, ErrCommandConflict
-		}
-		if json.Unmarshal([]byte(stored.Outcome), &result) != nil || result.ValidateFor(expected) != nil {
-			return result, ErrContextResolutionIneligible
-		}
-		return result, tx.Commit()
-	}
 	var cap factory.MCPCapability
 	var raw []byte
 	var state string
@@ -83,18 +69,12 @@ func (s *Store) RecordContextCurrentCommand(ctx context.Context, cmd factory.Com
 	if err != nil || digest != request.RequiredDigest {
 		return result, ErrContextResolutionIneligible
 	}
-	result = factory.ContextCurrentResolution{CommandID: cmd.ID, RunID: cap.RunID, AssignmentID: cap.AssignmentID, ScopeDigest: cap.ScopeDigest(), Fingerprint: request.Fingerprint, RequiredDigest: digest, Bundle: factory.ContextBundleCurrent, RecordedUnix: now.Unix()}
-	if err = result.ValidateFor(cap); err != nil {
-		return result, err
-	}
+	result = factory.ContextCurrentResolution{Principal: principal, RunID: cap.RunID, AssignmentID: cap.AssignmentID, ScopeDigest: cap.ScopeDigest(), Fingerprint: request.Fingerprint, RequiredDigest: digest, Bundle: factory.ContextBundleCurrent, RecordedUnix: now.Unix()}
 	out, err := json.Marshal(result)
 	if err != nil {
 		return result, err
 	}
 	if _, err = tx.ExecContext(ctx, `UPDATE factory_mcp_capabilities SET data=jsonb_set(data,'{context_current_resolution}',$2::jsonb) WHERE id=$1`, cap.ID, string(out)); err != nil {
-		return result, err
-	}
-	if err = finishFactoryCommandTx(ctx, tx, cmd.ID, string(out), now); err != nil {
 		return result, err
 	}
 	return result, tx.Commit()

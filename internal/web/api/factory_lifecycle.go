@@ -109,7 +109,7 @@ func (s *API) apiFactoryActions(w http.ResponseWriter, r *http.Request, v store.
 }
 
 type factoryRunActionsRequest struct {
-	CommandID string                         `json:"command_id"`
+	CommandID string                         `json:"command_id,omitempty"`
 	Action    string                         `json:"action"`
 	Context   *factory.ContextCurrentRequest `json:"context,omitempty"`
 }
@@ -167,7 +167,7 @@ func (s *API) apiFactoryRunActions(w http.ResponseWriter, r *http.Request, v sto
 		auth.JSONError(w, 400, "invalid_action", "Choose stop, retry, delivery repair or takeover.")
 		return
 	}
-	if in.Action != factory.ActionStop && !settingsCommandID(w, in.CommandID) {
+	if in.Action != factory.ActionStop && in.Action != factory.ActionContextCurrent && !settingsCommandID(w, in.CommandID) {
 		return
 	}
 	if (in.Action == factory.ActionContextCurrent) != (in.Context != nil) {
@@ -180,7 +180,7 @@ func (s *API) apiFactoryRunActions(w http.ResponseWriter, r *http.Request, v sto
 	}
 	switch in.Action {
 	case factory.ActionContextCurrent:
-		receipt, err := s.Coordinator.UseCurrentContext(r.Context(), in.CommandID, factoryPrincipal(v), run.ID, *in.Context)
+		receipt, err := s.Coordinator.UseCurrentContext(r.Context(), factoryPrincipal(v), run.ID, *in.Context)
 		if err != nil {
 			lifecycleControlError(w, err)
 			return

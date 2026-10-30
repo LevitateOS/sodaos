@@ -149,6 +149,37 @@ func TestDispatchPassLaunchesOldestWithinShortLimit(t *testing.T) {
 		t.Fatalf("missing tool identity was reconstructed: wait=%+v terminal=%t", wait, terminal)
 	}
 	fx.host.harness = currentHarness
+	// Save the owner choice on this real admitted capability. It remains the
+	// only effective choice record and its author survives later activation.
+	run.ContextPending = true
+	if err := db.SaveFactoryRun(ctx, run); err != nil {
+		t.Fatal(err)
+	}
+	current, err := db.FactoryCurrentContext(ctx, capability, time.Now())
+	if err != nil {
+		t.Fatal(err)
+	}
+	digest, err := factory.CurrentRequiredSemanticDigest(current.Role)
+	if err != nil {
+		t.Fatal(err)
+	}
+	request := factory.ContextCurrentRequest{Fingerprint: capability.ContextSelectionSnapshot, ScopeDigest: capability.ScopeDigest(), RequiredDigest: digest}
+	resolution, err := db.SaveContextCurrentResolution(ctx, capability, request, "native:7", time.Now())
+	if err != nil || resolution.Principal != "native:7" {
+		t.Fatalf("canonical context choice: %+v %v", resolution, err)
+	}
+	capability, err = db.GetMCPCapability(ctx, run.ID)
+	if err != nil || capability.ContextCurrentResolution == nil || *capability.ContextCurrentResolution != resolution {
+		t.Fatal("context choice was not saved on its capability", err)
+	}
+	coord := &Coordinator{Store: db}
+	if repeated, err := coord.UseCurrentContext(ctx, "native:7", run.ID, request); err != nil || repeated != resolution {
+		t.Fatalf("current choice changed: %+v %v", repeated, err)
+	}
+	run.ContextPending = false
+	if err := db.SaveFactoryRun(ctx, run); err != nil {
+		t.Fatal(err)
+	}
 	if err := db.ActivateObservedMCPCapability(ctx, capability); err != nil {
 		t.Fatal(err)
 	}

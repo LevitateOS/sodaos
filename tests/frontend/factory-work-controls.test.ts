@@ -626,9 +626,7 @@ test('work detail retries the same completion command after lost replies and run
       path: `factory/runs/${RUN}/actions`,
       action: 'use_current_context',
       status: 200,
-      echoCommand: true,
       json: {
-        command_id: '',
         run_id: RUN,
         bundle: 'current',
         scope_digest: SNAPSHOT,
@@ -817,6 +815,16 @@ test('work detail retries the same completion command after lost replies and run
   const afterLostStop = await workCalls(page);
   assert.equal(afterLostStop.filter((call) => call.path.startsWith('factory/commands/')).length, 0);
   assert.deepEqual(afterLostStop.at(-1)?.body, {action: 'stop'});
+
+  await page.evaluate((run) => window.factoryWork.setRoutes([{
+    method: 'POST', path: `factory/runs/${run}/actions`, action: 'use_current_context',
+    status: 200, json: {run_id: run, bundle: 'current'}, loseReply: true,
+  }]), RUN);
+  await contextChoice.getByRole('button', {name: 'Use current required context', exact: true}).click();
+  await contextChoice.getByText('No result was confirmed. Retry this same choice or refresh the work detail.', {exact: true}).waitFor();
+  const afterLostChoice = await workCalls(page);
+  assert.equal(afterLostChoice.filter((call) => call.path.startsWith('factory/commands/')).length, 0);
+  assert.equal('command_id' in (afterLostChoice.at(-1)?.body as Record<string, unknown>), false);
 });
 
 test('held context refresh with the same run ID enables use-current from the new selection', async (t) => {
@@ -883,10 +891,8 @@ test('held context refresh with the same run ID enables use-current from the new
         path: `factory/runs/${RUN}/actions`,
         action: 'use_current_context',
         status: 200,
-        echoCommand: true,
-        json: {
-          command_id: '',
-          run_id: RUN,
+          json: {
+            run_id: RUN,
           bundle: 'current',
           scope_digest: FRESH,
           fingerprint: FRESH,
@@ -1278,9 +1284,7 @@ test('delayed use-current confirmation for issue A never renders on issue B', as
           await new Promise<Response>((resolve) => {
             releaseA = resolve;
           });
-          const body = JSON.parse(String(init?.body ?? '{}')) as {command_id?: string};
           return Response.json({
-            command_id: body.command_id,
             run_id: RUN_A,
             bundle: 'current',
             scope_digest: DIGEST,
@@ -1426,7 +1430,6 @@ test('same-issue project refresh during a delayed use-current unbinds the stale 
           if (posted.length === 1) await new Promise<void>((resolve) => void (state.releaseOld = resolve));
           const context = body.context as {fingerprint?: unknown; scope_digest?: unknown; required_digest?: unknown};
           return Response.json({
-            command_id: body.command_id,
             run_id: RUN_A,
             bundle: 'current',
             scope_digest: context?.scope_digest,
@@ -1478,7 +1481,7 @@ test('same-issue project refresh during a delayed use-current unbinds the stale 
         afterOld: {status: '', enabled: false, posts: posted.length, resolved: state.resolved, commandReads},
         successAfterNew: false,
         resolvedFinal: state.resolved,
-        posts: [] as {command: unknown; context: unknown}[],
+        posts: [] as {hasCommand: boolean; context: unknown}[],
       };
     }
     details.open = true;
@@ -1546,7 +1549,7 @@ test('same-issue project refresh during a delayed use-current unbinds the stale 
       successAfterNew,
       resolvedFinal: state.resolved,
       posts: posted.map((body) => ({
-        command: body.command_id,
+        hasCommand: 'command_id' in body,
         context: body.context,
       })),
     };
@@ -1575,9 +1578,8 @@ test('same-issue project refresh during a delayed use-current unbinds the stale 
     scope_digest: 'b'.repeat(64),
     required_digest: 'b'.repeat(64),
   });
-  assert.match(String(outcome.posts[0]?.command), /^[a-f0-9]{32}$/);
-  assert.match(String(outcome.posts[1]?.command), /^[a-f0-9]{32}$/);
-  assert.notEqual(outcome.posts[0]?.command, outcome.posts[1]?.command);
+  assert.equal(outcome.posts[0]?.hasCommand, false);
+  assert.equal(outcome.posts[1]?.hasCommand, false);
 });
 
 test('intent overview failures surface unavailable with no fallback reads', async (t) => {

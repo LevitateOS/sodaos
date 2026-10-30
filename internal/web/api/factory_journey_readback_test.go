@@ -525,7 +525,7 @@ func TestFactoryIssueJourneyRefusals(t *testing.T) {
 	if code, body := call(http.MethodGet, path+"?limit=1", ""); code != http.StatusBadRequest || journeyErrorCode(t, body) != "invalid_request" {
 		t.Fatalf("query status=%d body=%s", code, body)
 	}
-	// Registered owner-route authentication and immutable lost-reply recovery.
+	// Registered owner-route authentication and the canonical capability choice.
 	// The completed decision below is an explicit persisted fixture; fresh
 	// complete-Builder admission is exercised by the controller integration.
 	ctx := context.Background()
@@ -546,23 +546,13 @@ func TestFactoryIssueJourneyRefusals(t *testing.T) {
 		t.Fatal(err)
 	}
 	request := factory.ContextCurrentRequest{Fingerprint: capability.ContextSelectionSnapshot, ScopeDigest: capability.ScopeDigest(), RequiredDigest: strings.Repeat("f", 64)}
-	resolution := factory.ContextCurrentResolution{CommandID: factory.NewID(), RunID: run.ID, AssignmentID: capability.AssignmentID, Fingerprint: request.Fingerprint, ScopeDigest: request.ScopeDigest, RequiredDigest: request.RequiredDigest, Bundle: factory.ContextBundleCurrent, RecordedUnix: time.Now().Unix()}
+	resolution := factory.ContextCurrentResolution{Principal: "native:1", RunID: run.ID, AssignmentID: capability.AssignmentID, Fingerprint: request.Fingerprint, ScopeDigest: request.ScopeDigest, RequiredDigest: request.RequiredDigest, Bundle: factory.ContextBundleCurrent, RecordedUnix: time.Now().Unix()}
 	capability.ContextCurrentResolution = &resolution
 	if err := fx.db.StageMCPCapability(ctx, capability); err != nil {
 		t.Fatal(err)
 	}
-	payload, _ := json.Marshal(request)
-	command := factory.Command{ID: resolution.CommandID, Type: factory.CommandContextCurrent, Target: "run/" + run.ID, Principal: "native:1", Payload: string(payload)}
-	command.Digest = factory.SettingsDigest(command.Type, command.Target, command.Payload)
-	if _, _, err := fx.db.RecordFactoryCommand(ctx, command, time.Now()); err != nil {
-		t.Fatal(err)
-	}
-	outcome, _ := json.Marshal(resolution)
-	if err := fx.db.FinishFactoryCommand(ctx, command.ID, string(outcome), time.Now()); err != nil {
-		t.Fatal(err)
-	}
 	actionPath := "/api/factory/runs/" + run.ID + "/actions"
-	body, _ := json.Marshal(factoryRunActionsRequest{CommandID: command.ID, Action: factory.ActionContextCurrent, Context: &request})
+	body, _ := json.Marshal(factoryRunActionsRequest{Action: factory.ActionContextCurrent, Context: &request})
 	if code, _ := journeyCall(t, mux, http.MethodPost, actionPath, string(body), "", "", false); code != 403 {
 		t.Fatal("context owner action accepted missing native authority", code)
 	}
@@ -590,21 +580,21 @@ func TestFactoryIssueJourneyRefusals(t *testing.T) {
 		code, reply := call(http.MethodPost, actionPath, string(body))
 		var observed factory.ContextCurrentResolution
 		if code != 200 || json.Unmarshal(reply, &observed) != nil || observed != resolution {
-			t.Fatalf("context owner exact receipt recovery: %d %s", code, reply)
+			t.Fatalf("canonical context choice: %d %s", code, reply)
 		}
 	}
 	changed := request
 	changed.ScopeDigest = strings.Repeat("0", 64)
-	conflict, _ := json.Marshal(factoryRunActionsRequest{CommandID: command.ID, Action: factory.ActionContextCurrent, Context: &changed})
-	if code, reply := call(http.MethodPost, actionPath, string(conflict)); code != 409 || journeyErrorCode(t, reply) != "command_conflict" {
-		t.Fatalf("context owner changed scope replay: %d %s", code, reply)
+	conflict, _ := json.Marshal(factoryRunActionsRequest{Action: factory.ActionContextCurrent, Context: &changed})
+	if code, reply := call(http.MethodPost, actionPath, string(conflict)); code != 409 || journeyErrorCode(t, reply) != "context_resolution_ineligible" {
+		t.Fatalf("context owner changed scope: %d %s", code, reply)
 	}
 	var commands, choices int
 	if err := fx.raw.QueryRow(`SELECT count(*) FROM factory_commands`).Scan(&commands); err != nil {
 		t.Fatal(err)
 	}
-	if err := fx.raw.QueryRow(`SELECT count(*) FROM factory_priority_judgments`).Scan(&choices); err != nil || commands != 1 || choices != 0 {
-		t.Fatal("HTTP context recovery/refusals refilled work or choices", commands, choices, err)
+	if err := fx.raw.QueryRow(`SELECT count(*) FROM factory_priority_judgments`).Scan(&choices); err != nil || commands != 0 || choices != 0 {
+		t.Fatal("HTTP context choices wrote a duplicate command or consulted again", commands, choices, err)
 	}
 
 	// The completion Retry has the same current native maintainer/session
@@ -665,7 +655,7 @@ func TestFactoryIssueJourneyRefusals(t *testing.T) {
 	if err := fx.raw.QueryRow(`SELECT count(*) FROM factory_commands`).Scan(&commands); err != nil {
 		t.Fatal(err)
 	}
-	if err := fx.raw.QueryRow(`SELECT count(*) FROM factory_priority_judgments`).Scan(&choices); err != nil || cycles != 2 || commands != 2 || choices != 1 {
+	if err := fx.raw.QueryRow(`SELECT count(*) FROM factory_priority_judgments`).Scan(&choices); err != nil || cycles != 2 || commands != 1 || choices != 1 {
 		t.Fatal("completion retry replay refilled cycles or judgments", cycles, commands, choices, err)
 	}
 	// Registered run reads distinguish an issue-zero verifier from a Product
@@ -755,7 +745,7 @@ func TestFactoryIssueJourneyRefusals(t *testing.T) {
 	if code, reply := call(http.MethodPost, "/api/factory/runs/"+verifierRun.ID+"/actions", string(repairBody)); code != 409 || journeyErrorCode(t, reply) != "command_conflict" {
 		t.Fatalf("delivery repair changed run replay: %d %s", code, reply)
 	}
-	if err := fx.raw.QueryRow(`SELECT count(*) FROM factory_commands`).Scan(&commands); err != nil || commands != 3 {
+	if err := fx.raw.QueryRow(`SELECT count(*) FROM factory_commands`).Scan(&commands); err != nil || commands != 2 {
 		t.Fatal("delivery repair recovery created another command", commands, err)
 	}
 	var repairs, allowances, usage int
@@ -846,7 +836,7 @@ func TestFactoryIssueJourneyRefusals(t *testing.T) {
 	if code, _ := journeyCall(t, mux, http.MethodGet, readPath, "", "generation-1", "generation-2", true); code != 409 {
 		t.Fatal("stale session saw repair progress", code)
 	}
-	if err = fx.raw.QueryRow(`SELECT (SELECT count(*) FROM factory_commands),(SELECT count(*) FROM factory_attempt_allowances),(SELECT count(*) FROM factory_usage)`).Scan(&commands, &allowances, &usage); err != nil || commands != 4 || allowances != 0 || usage != 0 {
+	if err = fx.raw.QueryRow(`SELECT (SELECT count(*) FROM factory_commands),(SELECT count(*) FROM factory_attempt_allowances),(SELECT count(*) FROM factory_usage)`).Scan(&commands, &allowances, &usage); err != nil || commands != 3 || allowances != 0 || usage != 0 {
 		t.Fatal("repair progress reads admitted or spent work", commands, allowances, usage, err)
 	}
 	// A settled run needs no command identity or separate outcome record to stop.
@@ -867,7 +857,7 @@ func TestFactoryIssueJourneyRefusals(t *testing.T) {
 			t.Fatalf("direct stop result: %d %s", code, reply)
 		}
 	}
-	if err := fx.raw.QueryRow(`SELECT count(*) FROM factory_commands`).Scan(&commands); err != nil || commands != 4 {
+	if err := fx.raw.QueryRow(`SELECT count(*) FROM factory_commands`).Scan(&commands); err != nil || commands != 3 {
 		t.Fatal("stop recorded a separate command receipt", commands, err)
 	}
 }
