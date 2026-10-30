@@ -599,29 +599,26 @@ impl<E: Executor, T: FactoryTerminal, B: FactoryBroker> Factory<E, T, B> {
         Ok(response(&op))
     }
 
-    /// Observe an already retained operation after parent retirement. This
+    /// Observe a retained final-candidate operation after parent retirement. This
     /// path never launches a check, changes Git or completes an unfinished op.
     pub fn checkpoint_receipt(
         &self,
         req: &FactoryTaskCheckpoint,
-        final_candidate: bool,
         deadline: Instant,
     ) -> Result<FactoryTaskCheckpointState, FactoryError> {
-        req.validate(final_candidate).map_err(err)?;
+        req.validate(true).map_err(err)?;
         let _lock = self.lock_run(&req.project, &req.id, deadline)?;
-        let admitted = self.admit_checkpoint(req, final_candidate, false, deadline)?;
+        let admitted = self.admit_checkpoint(req, true, false, deadline)?;
         match admitted
             .state
-            .read::<CheckpointOperation>(&operation_name(req, final_candidate))
+            .read::<CheckpointOperation>(&operation_name(req, true))
             .map_err(err)?
         {
-            Some(op) if op.request == *req && op.final_candidate == final_candidate => {
-                Ok(response(&op))
-            }
+            Some(op) if op.request == *req && op.final_candidate => Ok(response(&op)),
             Some(_) => Err(FactoryError::Stale),
             None => Ok(FactoryTaskCheckpointState {
                 request: req.clone(),
-                final_candidate,
+                final_candidate: true,
                 status: "pending".into(),
                 reason: "checkpoint_receipt_unavailable".into(),
                 ..FactoryTaskCheckpointState::default()

@@ -119,11 +119,7 @@ pub trait ExecBackend: Send + Sync {
     ) -> Result<Vec<u8>, BackendError> {
         Err(BackendError::Unimplemented)
     }
-    fn factory_checkpoint_receipt(
-        &self,
-        _body: &[u8],
-        _final_candidate: bool,
-    ) -> Result<Vec<u8>, BackendError> {
+    fn factory_checkpoint_receipt(&self, _body: &[u8]) -> Result<Vec<u8>, BackendError> {
         Err(BackendError::Unimplemented)
     }
     /// `image` is the daemon config image Go stamps onto the harness pin

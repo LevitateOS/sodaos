@@ -42,7 +42,6 @@ pub const NATIVE_CLEAN_PATHS: &[&str] = &[
     "/factory-native-task",
     "/factory-task-checkpoint",
     "/factory-final-candidate",
-    "/factory-task-checkpoint-receipt",
     "/factory-final-candidate-receipt",
     "/factory-harness",
     "/factory-export",

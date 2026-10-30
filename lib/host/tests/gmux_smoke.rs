@@ -543,7 +543,7 @@ fn terminal_gate_caps_and_releases() {
 
 #[test]
 fn route_table_has_every_go_route() {
-    assert_eq!(ROUTE_TABLE.len(), 50);
+    assert_eq!(ROUTE_TABLE.len(), 49);
     let count = |prefix: &str| {
         ROUTE_TABLE
             .iter()
@@ -591,7 +591,6 @@ fn route_table_has_every_go_route() {
         "/factory-native-task",
         "/factory-task-checkpoint",
         "/factory-final-candidate",
-        "/factory-task-checkpoint-receipt",
         "/factory-final-candidate-receipt",
         "/factory-harness",
         "/factory-export",

@@ -465,16 +465,11 @@ impl ExecBackend for DaemonBackend {
             .map_err(|_| BackendError::Internal)
     }
 
-    fn factory_checkpoint_receipt(
-        &self,
-        body: &[u8],
-        final_candidate: bool,
-    ) -> Result<Vec<u8>, BackendError> {
+    fn factory_checkpoint_receipt(&self, body: &[u8]) -> Result<Vec<u8>, BackendError> {
         let factory = self.factory()?;
         let req = factory::FactoryTaskCheckpoint::decode(body).map_err(internal)?;
-        req.validate(final_candidate).map_err(internal)?;
         let out = factory
-            .checkpoint_receipt(&req, final_candidate, native_deadline())
+            .checkpoint_receipt(&req, native_deadline())
             .map_err(|e| map_factory_err(e, BackendError::ExportStale))?;
         Ok(out.encode().into_bytes())
     }
