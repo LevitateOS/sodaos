@@ -52,6 +52,10 @@ func TestCompletionRetryAfterSettledReassessmentPG(t *testing.T) {
 	if !decision.Queued || decision.CommandID != commandID || successor != commandID || decision.PriorCycle != cycleID || decision.EventID != request.EventID || decision.Repository != fx.publish.seed.repo {
 		t.Fatalf("owner command did not bind its one successor: %+v", decision)
 	}
+	admitted, err := db.FactoryCommand(ctx, commandID)
+	if err != nil || admitted.Finished == "" || admitted.Outcome != "" {
+		t.Fatalf("completion retry retained a response or did not commit: %+v %v", admitted, err)
+	}
 	if replay, err := coord.RetryCompletion(ctx, commandID, "native:1", fx.publish.seed.repo, request); err != nil || replay != decision {
 		t.Fatalf("owner retry lost-reply replay changed the successor: %+v %v", replay, err)
 	}

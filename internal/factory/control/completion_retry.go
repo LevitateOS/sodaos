@@ -25,21 +25,15 @@ func (c *Coordinator) RetryCompletion(ctx context.Context, commandID, principal 
 	cmd := factory.Command{ID: commandID, Type: factory.CommandCompletionRetry, Principal: principal,
 		Target: fmt.Sprintf("repository/%d/completion/%s", repository, request.EventID), Payload: string(payload)}
 	cmd.Digest = factory.SettingsDigest(cmd.Type, cmd.Target, cmd.Payload)
-	if err := cmd.Validate(); err != nil {
-		return zero, err
-	}
 	bounded, unlock := c.progressPass(bounded)
 	defer unlock()
-	// Immutable lost-reply recovery remains available after the successor
+	// An admitted request retains its identity and author after the successor
 	// advances. Current native repository/session authority is checked by API.
 	if saved, err := c.Store.FactoryCommand(bounded, cmd.ID); err == nil {
-		if saved.Digest != cmd.Digest || saved.Principal != cmd.Principal || saved.Type != cmd.Type || saved.Target != cmd.Target {
+		if saved.Digest != cmd.Digest || saved.Principal != cmd.Principal {
 			return zero, store.ErrCommandConflict
 		}
-		if json.Unmarshal([]byte(saved.Outcome), &zero) != nil {
-			return factory.CompletionRetryDecision{}, store.ErrCompletionRetryIneligible
-		}
-		return zero, nil
+		return factory.CompletionRetryDecision{CommandID: cmd.ID, EventID: request.EventID, PriorCycle: request.ExpectedPriorCycle, SuccessorCycle: cmd.ID, Repository: repository, Queued: true}, nil
 	} else if !errors.Is(err, store.ErrNotFound) {
 		return zero, err
 	}

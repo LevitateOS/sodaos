@@ -382,6 +382,9 @@ and cumulative execution accounting continue to reference those grant identities
 Repair charges keep only the actual charge record. Admission returns whether it
 spent new allowance; there is no copied charge receipt, and repeated identities
 compare against the charge already used by accounting.
+Completion retry retains the explicit request's identity and author alongside its
+single reassessment successor. The response is derived from that request; no
+second serialized decision or response-replay decoder is stored.
 
 Worker context does not carry a submission-receipt history; communications and
 results are available through the work posts and discussion. Ordinary worker

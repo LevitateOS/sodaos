@@ -677,9 +677,6 @@ func startReassessmentRetryTx(ctx context.Context, tx *sql.Tx, retry factory.Rea
 	if err := json.Unmarshal(raw, &prior); err != nil {
 		return "", err
 	}
-	if err := prior.Validate(); err != nil {
-		return "", err
-	}
 	if repository > 0 && prior.Cycle.Repository != repository {
 		return "", ErrCompletionRetryIneligible
 	}
@@ -717,9 +714,6 @@ func startReassessmentRetryTx(ctx context.Context, tx *sql.Tx, retry factory.Rea
 	successor := factory.ReassessmentCycle{
 		EventID: retry.EventID, CycleID: retry.SuccessorCycleID, RetryOf: retry.ExpectedPriorCycle,
 		State: factory.ReassessmentCollecting, Repository: prior.Cycle.Repository, Generation: prior.Cycle.Generation,
-	}
-	if err := successor.Validate(); err != nil {
-		return "", err
 	}
 	successorRecord := ReassessmentRecord{Cycle: successor, Issue: prior.Issue, Completion: prior.Completion}
 	successorData, err := json.Marshal(successorRecord)
