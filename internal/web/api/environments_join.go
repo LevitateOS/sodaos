@@ -5,8 +5,8 @@ import (
 	"errors"
 	"net/http"
 
-	"github.com/levitateos/sodaos/internal/project"
-	"github.com/levitateos/sodaos/internal/store"
+	"github.com/levitateos/factory/pkg/project"
+	"github.com/levitateos/factory/pkg/store"
 	"github.com/levitateos/sodaos/internal/web/auth"
 )
 

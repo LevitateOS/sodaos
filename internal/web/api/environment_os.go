@@ -5,9 +5,8 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/levitateos/factory/pkg/store"
 	"github.com/levitateos/sodaos/internal/web/auth"
-
-	"github.com/levitateos/sodaos/internal/store"
 )
 
 func rejectOSQuery(w http.ResponseWriter, r *http.Request) bool {

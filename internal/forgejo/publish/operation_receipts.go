@@ -8,7 +8,7 @@ import (
 
 	extensions "forgejo.org/extension-sdk"
 
-	"github.com/levitateos/sodaos/internal/factory"
+	"github.com/levitateos/factory/pkg/factory"
 )
 
 // PublishReceipt decodes one committed branch-publication receipt: the

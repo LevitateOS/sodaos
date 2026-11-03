@@ -16,10 +16,10 @@ import (
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/stdlib"
-	"github.com/levitateos/sodaos/internal/factory"
-	"github.com/levitateos/sodaos/internal/factory/control"
-	"github.com/levitateos/sodaos/internal/project"
-	"github.com/levitateos/sodaos/internal/store"
+	"github.com/levitateos/factory/pkg/factory"
+	"github.com/levitateos/factory/pkg/factory/control"
+	"github.com/levitateos/factory/pkg/project"
+	"github.com/levitateos/factory/pkg/store"
 )
 
 // FactoryContextToolRevision is pinned at build time; an unpinned probe refuses.

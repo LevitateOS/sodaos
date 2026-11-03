@@ -2,6 +2,7 @@ package web
 
 import (
 	"context"
+	"database/sql"
 	"encoding/json"
 	"errors"
 	"io"
@@ -9,13 +10,18 @@ import (
 	"net/http/httptest"
 	"strconv"
 	"strings"
+	"sync/atomic"
 	"testing"
 
 	extensions "forgejo.org/extension-sdk"
 
-	"github.com/levitateos/sodaos/internal/factory"
-	"github.com/levitateos/sodaos/internal/factory/control"
-	"github.com/levitateos/sodaos/internal/store"
+	"github.com/levitateos/factory/pkg/collaboration"
+	"github.com/levitateos/factory/pkg/factory"
+	"github.com/levitateos/factory/pkg/factory/control"
+	factoryhttpapi "github.com/levitateos/factory/pkg/factory/httpapi"
+	factoryservice "github.com/levitateos/factory/pkg/factory/service"
+	"github.com/levitateos/factory/pkg/store"
+	"github.com/levitateos/sodaos/internal/config"
 )
 
 type issueWebSource struct {
@@ -23,9 +29,13 @@ type issueWebSource struct {
 	err      error
 	comments []string
 	reads    int
+	hook     func(context.Context, string, string)
 }
 
-func (s *issueWebSource) ReadAcceptanceEvidence(_ context.Context, _, _ string, comments []string) (control.AcceptanceEvidence, error) {
+func (s *issueWebSource) ReadAcceptanceEvidence(ctx context.Context, repository, issue string, comments []string) (control.AcceptanceEvidence, error) {
+	if s.hook != nil {
+		s.hook(ctx, repository, issue)
+	}
 	s.reads++
 	s.comments = append([]string(nil), comments...)
 	if s.err != nil {
@@ -197,6 +207,366 @@ func issueAcceptanceBody(decisionID, predecessor string) string {
 		`"sources":[{"id":"11","digest":"` + strings.Repeat("c", 64) + `","content_version":0}],` +
 		`"prerequisites":[{"occurrence":"21","depends_on":"9","endpoint_repository":"7","endpoint_issue":"2","outcome":"result"}],` +
 		`"resolutions":[{"id":"12","digest":"` + strings.Repeat("d", 64) + `","content_version":1}]}`
+}
+
+func TestSharedIssueAcceptanceAdmission(t *testing.T) {
+	ctx := t.Context()
+	admin, ok := store.TestFixtureDSN()
+	if !ok {
+		t.Skip("private PostgreSQL required")
+	}
+	db, dsn, cleanup, err := store.OpenEphemeral(ctx, admin)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(cleanup)
+	raw, err := sql.Open("pgx", dsn)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = raw.Close() })
+	const actor collaboration.ActorID = 9007199254740993
+	const repository collaboration.RepositoryID = 9223372036854775807
+	source := &issueWebSource{evidence: issueWebEvidence()}
+	source.evidence.Dependencies = nil
+	coordinator := control.NewCoordinator(db, nil, nil)
+	coordinator.AcceptanceReads = source
+	allowed, checks, denyAt := true, 0, 0
+	denied := errors.New("declared current acceptance write authority denied")
+	application := factoryservice.Acceptances{Writer: coordinator, Evidence: source, WriteAccess: func(ctx context.Context, admitted collaboration.ActorID, repo collaboration.RepositoryID) error {
+		if admitted != actor || repo != repository {
+			t.Fatal("acceptance changed canonical actor/repository", admitted, repo)
+		}
+		checks++
+		if !allowed || checks == denyAt {
+			return denied
+		}
+		return nil
+	}}
+	assertEvidenceScope := func(ctx context.Context, repo, issue string) {
+		if repo != strconv.FormatInt(int64(repository), 10) || issue != "3" {
+			t.Fatal("acceptance evidence changed scope", repo, issue)
+		}
+	}
+	source.hook = assertEvidenceScope
+	var in factoryservice.AcceptanceChange
+	if err := json.Unmarshal([]byte(issueAcceptanceBody("d0123456789abcdef01234567", "")), &in); err != nil {
+		t.Fatal(err)
+	}
+	in.Prerequisites = nil
+	preview, err := application.Preview(ctx, actor, repository, "3", []string{"11"})
+	if err != nil || preview.Repository != strconv.FormatInt(int64(repository), 10) || preview.Issue != "3" || len(preview.Comments) != 1 || preview.Comments[0].ID != "11" {
+		t.Fatal("shared preview", preview, err)
+	}
+	encoded, _ := json.Marshal(preview)
+	if strings.Contains(string(encoded), "poster") || strings.Contains(string(encoded), "body\"") {
+		t.Fatal("preview exposed unselected native material", string(encoded))
+	}
+	snapshot := func() string {
+		t.Helper()
+		var data string
+		if err := raw.QueryRowContext(ctx, `SELECT jsonb_build_array(
+		 (SELECT jsonb_agg(to_jsonb(d) ORDER BY id) FROM issue_acceptance_decisions d),
+		 (SELECT jsonb_agg(to_jsonb(w) ORDER BY repository,issue,decision) FROM issue_acceptance_withdrawals w),
+		 (SELECT count(*) FROM factory_commands),(SELECT count(*) FROM factory_runs),(SELECT count(*) FROM projects))::text`).Scan(&data); err != nil {
+			t.Fatal(err)
+		}
+		return data
+	}
+	before := snapshot()
+	source.hook = func(ctx context.Context, repo, issue string) { assertEvidenceScope(ctx, repo, issue); allowed = false }
+	if result, err := application.Admit(ctx, actor, repository, "3", in); !errors.Is(err, denied) || result.DecisionID != "" {
+		t.Fatal("late evidence permission loss admitted decision", result, err)
+	}
+	if _, err := db.AcceptanceDecision(ctx, in.DecisionID); !errors.Is(err, store.ErrNotFound) {
+		t.Fatal("revoked evidence wrote acceptance", err)
+	}
+	allowed = true
+	if result, err := application.Preview(ctx, actor, repository, "3", []string{"11"}); result != nil || !errors.Is(err, denied) {
+		t.Fatal("late preview authority returned selected facts", result, err)
+	}
+	allowed = true
+	source.hook = assertEvidenceScope
+	cancelled, cancel := context.WithCancel(ctx)
+	source.hook = func(ctx context.Context, repo, issue string) { assertEvidenceScope(ctx, repo, issue); cancel() }
+	if _, err := application.Admit(cancelled, actor, repository, "3", in); !errors.Is(err, context.Canceled) {
+		t.Fatal("cancelled evidence admitted acceptance", err)
+	}
+	source.hook = assertEvidenceScope
+	missing := application
+	missing.WriteAccess = nil
+	if _, err := missing.Admit(ctx, actor, repository, "3", in); !errors.Is(err, factoryservice.ErrAcceptanceUnavailable) {
+		t.Fatal("missing write authority admitted decision", err)
+	}
+	if snapshot() != before {
+		t.Fatal("preview/refused/cancelled acceptance changed records")
+	}
+	result, err := application.Admit(ctx, actor, repository, "3", in)
+	if err != nil || result.Depth != 1 || result.Head != in.DecisionID {
+		t.Fatal("shared acceptance", result, err)
+	}
+	stored, err := db.AcceptanceDecision(ctx, in.DecisionID)
+	if err != nil || stored.Repository != int64(repository) || stored.Approver != int64(actor) {
+		t.Fatal("shared acceptance lost canonical attribution", stored, err)
+	}
+	if _, err := coordinator.AdmitAcceptance(ctx, stored, nil); !errors.Is(err, control.ErrIneffectiveAuthority) {
+		t.Fatal("missing controller authorization admitted replay", err)
+	}
+	before = snapshot()
+	source.evidence.Revision++
+	source.evidence.Issue.ContentVer++
+	if replay, err := application.Admit(ctx, actor, repository, "3", in); err != nil || replay.Head != in.DecisionID || snapshot() != before {
+		t.Fatal("exact replay reapproved changed inputs", replay, err)
+	}
+	changed := in
+	changed.ContentVersion++
+	if _, err := application.Admit(ctx, actor, repository, "3", changed); !errors.Is(err, store.ErrCommandConflict) {
+		t.Fatal("changed inputs reused acceptance", err)
+	}
+	withdraw := factoryservice.AcceptanceWithdrawal{DecisionID: in.DecisionID}
+	checks, denyAt = 0, 2
+	if _, err := application.Withdraw(ctx, actor, repository, "3", withdraw); !errors.Is(err, denied) {
+		t.Fatal("withdrawal bypassed final current authority", err)
+	}
+	denyAt = 0
+	if snapshot() != before {
+		t.Fatal("refused replay/withdrawal changed history")
+	}
+	withdrawn, err := application.Withdraw(ctx, actor, repository, "3", withdraw)
+	if err != nil || !withdrawn.Withdrawn {
+		t.Fatal("shared withdrawal", withdrawn, err)
+	}
+	if latched, by, err := db.AcceptanceWithdrawn(ctx, int64(repository), 3, in.DecisionID); err != nil || !latched || by != int64(actor) {
+		t.Fatal("withdrawal lost canonical actor", latched, by, err)
+	}
+	if _, err := coordinator.WithdrawAcceptance(ctx, int64(repository), 3, in.DecisionID, int64(actor), nil); !errors.Is(err, control.ErrIneffectiveAuthority) {
+		t.Fatal("withdrawal omitted controller authority", err)
+	}
+	before = snapshot()
+	if err := db.Close(); err != nil {
+		t.Fatal(err)
+	}
+	reopened, err := store.Open(dsn)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = reopened.Close() })
+	coordinator.Store = reopened
+	allowed = false
+	if _, err := application.Admit(ctx, actor, repository, "3", in); !errors.Is(err, denied) {
+		t.Fatal("reopen bypassed current acceptance authority", err)
+	}
+	allowed = true
+	if replay, err := application.Withdraw(ctx, actor, repository, "3", withdraw); err != nil || !replay.Withdrawn || snapshot() != before {
+		t.Fatal("reopened withdrawal changed latch/history", replay, err)
+	}
+	var admitted atomic.Bool
+	admitted.Store(true)
+	var currentCalls, loseAt atomic.Int64
+	shared := application
+	shared.WriteAccess = func(ctx context.Context, selected collaboration.ActorID, repo collaboration.RepositoryID) error {
+		if !admitted.Load() {
+			return denied
+		}
+		return application.WriteAccess(ctx, selected, repo)
+	}
+	transport := factoryhttpapi.Acceptances{Service: shared,
+		Host: collaboration.HostID(factory.NewID()), Actor: actor,
+		Visibility: func(ctx context.Context, selected collaboration.ActorID, repo collaboration.RepositoryID) error {
+			if selected != actor || repo != repository {
+				return denied
+			}
+			return ctx.Err()
+		},
+		Current: func(w http.ResponseWriter, r *http.Request) bool {
+			check := currentCalls.Add(1)
+			if !admitted.Load() || check == loseAt.Load() || r.Header.Get("Authorization") != "Bearer declared-acceptance-client" {
+				w.WriteHeader(http.StatusUnauthorized)
+				return false
+			}
+			return true
+		},
+		AuthorityError: func(w http.ResponseWriter, err error) { w.WriteHeader(http.StatusForbidden) },
+	}
+	server := httptest.NewServer(transport.Handler())
+	t.Cleanup(server.Close)
+	call := func(target *httptest.Server, method, path, data string, expected int) []byte {
+		t.Helper()
+		currentCalls.Store(0)
+		req, err := http.NewRequestWithContext(ctx, method, target.URL+path, strings.NewReader(data))
+		if err != nil {
+			t.Fatal(err)
+		}
+		req.Header.Set("Authorization", "Bearer declared-acceptance-client")
+		res, err := target.Client().Do(req)
+		if err != nil {
+			t.Fatal(err)
+		}
+		defer res.Body.Close()
+		body, err := io.ReadAll(res.Body)
+		if err != nil || res.StatusCode != expected || (expected == 200 || expected == 201) && res.Header.Get("Cache-Control") != "no-store" {
+			t.Fatal("shared acceptance HTTP", method, path, res.StatusCode, string(body), err)
+		}
+		return body
+	}
+	base := "/api/repositories/9223372036854775807/factory/issues/3"
+	preview, err = application.Preview(ctx, actor, repository, "3", []string{"11"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	expectedPreview, _ := json.Marshal(preview)
+	if body := call(server, http.MethodGet, base+"/acceptance-preview?comment_id=11", "", 200); strings.TrimSpace(string(body)) != string(expectedPreview) {
+		t.Fatal("HTTP changed exact preview scope/selection", string(body))
+	}
+	encodedDecision, _ := json.Marshal(in)
+	call(server, http.MethodPost, base+"/acceptances", string(encodedDecision), 201)
+	if snapshot() != before {
+		t.Fatal("HTTP replay rewrote captured acceptance after source changes")
+	}
+	fresh := in
+	fresh.DecisionID, fresh.Predecessor = "d"+strings.Repeat("e", 24), in.DecisionID
+	fresh.NativeRevision, fresh.ContentVersion = source.evidence.Revision, source.evidence.Issue.ContentVer
+	encodedFresh, _ := json.Marshal(fresh)
+	loseAt.Store(2) // Account changes after decoding, before the service command.
+	call(server, http.MethodPost, base+"/acceptances", string(encodedFresh), 401)
+	loseAt.Store(0)
+	source.hook = func(ctx context.Context, repo, issue string) {
+		assertEvidenceScope(ctx, repo, issue)
+		admitted.Store(false)
+	}
+	call(server, http.MethodPost, base+"/acceptances", string(encodedFresh), 403)
+	if _, err := reopened.AcceptanceDecision(ctx, fresh.DecisionID); !errors.Is(err, store.ErrNotFound) || snapshot() != before {
+		t.Fatal("account withdrawal during evidence persisted a decision", err)
+	}
+	source.hook = assertEvidenceScope
+	admitted.Store(true)
+	first := call(server, http.MethodPost, base+"/acceptances", string(encodedFresh), 201)
+	var accepted control.AcceptanceResult
+	if json.Unmarshal(first, &accepted) != nil || accepted.Head != fresh.DecisionID || accepted.Depth != 2 {
+		t.Fatal("HTTP did not admit the exact reviewed successor", string(first))
+	}
+	if stored, err := reopened.AcceptanceDecision(ctx, fresh.DecisionID); err != nil || stored.Approver != int64(actor) || stored.Repository != int64(repository) {
+		t.Fatal("HTTP changed canonical decision attribution", stored, err)
+	}
+	if replay := call(server, http.MethodPost, base+"/acceptances", string(encodedFresh), 201); string(replay) != string(first) {
+		t.Fatal("HTTP replay changed acceptance receipt", string(replay))
+	}
+	withdrawJSON := `{"decision_id":"` + fresh.DecisionID + `"}`
+	call(server, http.MethodPost, base+"/withdrawal", withdrawJSON, 200)
+	call(server, http.MethodPost, base+"/withdrawal", withdrawJSON, 200)
+	if latched, by, err := reopened.AcceptanceWithdrawn(ctx, int64(repository), 3, fresh.DecisionID); err != nil || !latched || by != int64(actor) {
+		t.Fatal("HTTP withdrawal lost canonical owner/latch", latched, by, err)
+	}
+	before = snapshot()
+	for _, query := range []string{"?", "?unknown=1", "?comment_id=11&comment_id=11", "?comment_id=01", "?comment_id=" + strings.Repeat("1", 8193)} {
+		call(server, http.MethodGet, base+"/acceptance-preview"+query, "", 400)
+	}
+	call(server, http.MethodGet, "/api/repositories/09223372036854775807/factory/issues/3/acceptance-preview", "", 404)
+	call(server, http.MethodHead, base+"/acceptance-preview", "", 405)
+	call(server, http.MethodPost, base+"/acceptances", string(encodedFresh)+string(encodedFresh), 400)
+	call(server, http.MethodPost, base+"/acceptances", `{"approver":"9"}`, 400)
+	call(server, http.MethodPost, base+"/acceptances", `{"decision_id":"`+strings.Repeat("x", 65536)+`"}`, 413)
+	fresh.ContentVersion++
+	changedJSON, _ := json.Marshal(fresh)
+	call(server, http.MethodPost, base+"/acceptances", string(changedJSON), 409)
+	allowed = false
+	previousReads := source.reads
+	call(server, http.MethodGet, base+"/acceptance-preview", "", 403)
+	call(server, http.MethodPost, base+"/withdrawal", withdrawJSON, 403)
+	if source.reads != previousReads {
+		t.Fatal("denied HTTP acceptance reached evidence")
+	}
+	allowed = true
+	loseAt.Store(2) // Current preview facts cannot reach a changed host account.
+	if body := call(server, http.MethodGet, base+"/acceptance-preview", "", 401); len(body) != 0 {
+		t.Fatal("late host withdrawal exposed acceptance preview", string(body))
+	}
+	loseAt.Store(0)
+	source.err = errors.New("private declared evidence outage")
+	if body := call(server, http.MethodGet, base+"/acceptance-preview", "", 503); strings.Contains(string(body), "private declared") {
+		t.Fatal("HTTP exposed evidence failure detail", string(body))
+	}
+	source.err = nil
+	missingAdmission := transport
+	missingAdmission.Current = nil
+	missingServer := httptest.NewServer(missingAdmission.Handler())
+	t.Cleanup(missingServer.Close)
+	call(missingServer, http.MethodGet, base+"/acceptance-preview", "", 503)
+	if snapshot() != before {
+		t.Fatal("HTTP previews/replay/refusals changed retained journals or work")
+	}
+}
+
+func TestIssueAcceptanceUsesCanonicalScope(t *testing.T) {
+	ctx := t.Context()
+	admin, ok := store.TestFixtureDSN()
+	if !ok {
+		t.Skip("private PostgreSQL required")
+	}
+	db, dsn, cleanup, err := store.OpenEphemeral(ctx, admin)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(cleanup)
+	raw, err := sql.Open("pgx", dsn)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = raw.Close() })
+	s, err := NewFactory(config.Config{ForgejoURL: "https://forgejo.example.test", OperatorID: 1}, db)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := raw.ExecContext(ctx, `SELECT setval('collaboration_repositories_id_seq',9007199254740992,true),setval('collaboration_actors_id_seq',9007199254740992,true)`); err != nil {
+		t.Fatal(err)
+	}
+	repository, err := s.API.FountainIdentities.LocalRepository(ctx, 7)
+	if err != nil {
+		t.Fatal(err)
+	}
+	actor, err := s.API.FountainIdentities.LocalActor(ctx, "1")
+	if err != nil || actor <= 9007199254740991 {
+		t.Fatal(actor, err)
+	}
+	if err := db.UpsertUser(ctx, store.User{ID: 1, Login: "alice", Name: "Alice"}); err != nil {
+		t.Fatal(err)
+	}
+	source := &issueWebSource{evidence: issueWebEvidence()}
+	s.Coordinator.AcceptanceReads = source
+	path := "/api/repositories/" + strconv.FormatInt(int64(repository), 10) + "/factory/issues/3"
+	call := func(suffix, body string) *httptest.ResponseRecorder {
+		t.Helper()
+		w := httptest.NewRecorder()
+		nativeAPIServeWithCallback(t, s, w, apiTestRequest(http.MethodPost, path+suffix, body, "alice"), func(in extensions.CallbackRequest) extensions.CallbackResponse {
+			switch in.Operation {
+			case extensions.OperationCurrentActor:
+				return extensions.CallbackResponse{Actor: &extensions.Actor{ID: "1", Username: "alice"}}
+			case extensions.OperationRepository:
+				if in.RepositoryID != "7" {
+					return extensions.CallbackResponse{ErrorCode: "not_found"}
+				}
+				return extensions.CallbackResponse{Repository: &extensions.Repository{ID: "7", Owner: "alice", Name: "mapped", Permission: "write"}}
+			default:
+				return extensions.CallbackResponse{ErrorCode: "forbidden"}
+			}
+		})
+		return w
+	}
+	decision := "d0123456789abcdef01234567"
+	body := strings.ReplaceAll(issueAcceptanceBody(decision, ""), `"endpoint_repository":"7"`, `"endpoint_repository":"`+strconv.FormatInt(int64(repository), 10)+`"`)
+	if response := call("/acceptances", body); response.Code != 201 {
+		t.Fatal("canonical acceptance could not use native scope", response.Code, response.Body.String())
+	}
+	stored, err := db.AcceptanceDecision(ctx, decision)
+	if err != nil || stored.Repository != int64(repository) || stored.Approver != int64(actor) {
+		t.Fatal("acceptance confused canonical/native attribution", stored, err)
+	}
+	if response := call("/withdrawal", `{"decision_id":"`+decision+`"}`); response.Code != 200 {
+		t.Fatal("canonical withdrawal", response.Code, response.Body.String())
+	}
+	if latched, by, err := db.AcceptanceWithdrawn(ctx, int64(repository), 3, decision); err != nil || !latched || by != int64(actor) {
+		t.Fatal("native withdrawal lost canonical attribution", latched, by, err)
+	}
 }
 
 func TestIssueAcceptanceJourney(t *testing.T) {

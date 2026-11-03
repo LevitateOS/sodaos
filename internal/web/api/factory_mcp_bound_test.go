@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"encoding/json"
+	"errors"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -12,13 +13,22 @@ import (
 	"sync/atomic"
 	"testing"
 	"time"
+	"unicode/utf8"
 
-	"github.com/levitateos/sodaos/internal/config"
-	"github.com/levitateos/sodaos/internal/factory"
-	"github.com/levitateos/sodaos/internal/factory/control"
-	"github.com/levitateos/sodaos/internal/project"
-	"github.com/levitateos/sodaos/internal/store"
 	"github.com/modelcontextprotocol/go-sdk/mcp"
+
+	"github.com/levitateos/factory/pkg/collaboration"
+	"github.com/levitateos/factory/pkg/factory"
+	"github.com/levitateos/factory/pkg/factory/control"
+	"github.com/levitateos/factory/pkg/factory/execution"
+	factoryhttpapi "github.com/levitateos/factory/pkg/factory/httpapi"
+	factorymcp "github.com/levitateos/factory/pkg/factory/mcpserver"
+	"github.com/levitateos/factory/pkg/factory/mcpwire"
+	factoryservice "github.com/levitateos/factory/pkg/factory/service"
+	"github.com/levitateos/factory/pkg/project"
+	"github.com/levitateos/factory/pkg/store"
+	"github.com/levitateos/sodaos/internal/config"
+	"github.com/levitateos/sodaos/internal/forgejo"
 )
 
 func TestFactoryBoundMCPIdentityDiscoveryAndRevocation(t *testing.T) {
@@ -32,10 +42,10 @@ func TestFactoryBoundMCPIdentityDiscoveryAndRevocation(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	srv := httptest.NewServer(factoryBoundCatalogHandler(FactoryMCPDeps{Capabilities: sink, Submissions: sink, Assignments: sink, PriorityJudgments: sink}, key))
+	srv := httptest.NewServer(factorymcp.NewHandler(factorymcp.Dependencies{Capabilities: sink, Submissions: sink, Assignments: sink, PriorityJudgments: sink}, key))
 	defer srv.Close()
 	client := mcp.NewClient(&mcp.Implementation{Name: "bound-worker-test"}, nil)
-	session, err := client.Connect(ctx, &mcp.StreamableClientTransport{Endpoint: srv.URL + FactoryMCPRoute, HTTPClient: &http.Client{Transport: workerMCPTransport{sink.capability.ID, secret}}}, nil)
+	session, err := client.Connect(ctx, &mcp.StreamableClientTransport{Endpoint: srv.URL + factoryhttpapi.WorkerRoute, HTTPClient: &http.Client{Transport: workerMCPTransport{sink.capability.ID, secret}}}, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -80,7 +90,7 @@ func TestFactoryBoundMCPIdentityDiscoveryAndRevocation(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		server := httptest.NewServer(factoryBoundCatalogHandler(FactoryMCPDeps{Capabilities: strategist, Submissions: strategist, Assignments: strategist, RepairPreview: func(_ context.Context, cap factory.MCPCapability, raw json.RawMessage) (factory.RepairPreview, error) {
+		server := httptest.NewServer(factorymcp.NewHandler(factorymcp.Dependencies{Capabilities: strategist, Submissions: strategist, Assignments: strategist, RepairPreview: func(_ context.Context, cap factory.MCPCapability, raw json.RawMessage) (factory.RepairPreview, error) {
 			var proposal factory.StallRepairReport
 			if err := json.Unmarshal(raw, &proposal); err != nil {
 				t.Fatal(err)
@@ -94,7 +104,7 @@ func TestFactoryBoundMCPIdentityDiscoveryAndRevocation(t *testing.T) {
 		}}, key))
 		defer server.Close()
 		worker := mcp.NewClient(&mcp.Implementation{Name: "preview-worker"}, nil)
-		bound, err := worker.Connect(ctx, &mcp.StreamableClientTransport{Endpoint: server.URL + FactoryMCPRoute, HTTPClient: &http.Client{Transport: workerMCPTransport{strategist.capability.ID, secret}}}, nil)
+		bound, err := worker.Connect(ctx, &mcp.StreamableClientTransport{Endpoint: server.URL + factoryhttpapi.WorkerRoute, HTTPClient: &http.Client{Transport: workerMCPTransport{strategist.capability.ID, secret}}}, nil)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -264,8 +274,8 @@ func (f *fakeCatalogSink) ReadRepairObservation(_ context.Context, cap factory.M
 
 func TestFactoryBoundMCPRejectsForeignSecret(t *testing.T) {
 	sink := newFakeCatalogSink()
-	handler := factoryBoundCatalogHandler(FactoryMCPDeps{Capabilities: sink, Submissions: sink, Assignments: sink}, []byte(strings.Repeat("k", 32)))
-	request := httptest.NewRequest(http.MethodPost, FactoryMCPRoute, strings.NewReader(`{"jsonrpc":"2.0","id":1,"method":"tools/list"}`))
+	handler := factorymcp.NewHandler(factorymcp.Dependencies{Capabilities: sink, Submissions: sink, Assignments: sink}, []byte(strings.Repeat("k", 32)))
+	request := httptest.NewRequest(http.MethodPost, factoryhttpapi.WorkerRoute, strings.NewReader(`{"jsonrpc":"2.0","id":1,"method":"tools/list"}`))
 	request.Header.Set("X-Soda-Factory-Capability", sink.capability.ID)
 	request.Header.Set("Authorization", "Bearer "+strings.Repeat("a", 64))
 	response := httptest.NewRecorder()
@@ -318,9 +328,7 @@ func TestFactoryBoundCurrentContextUsesRecordedScopeAndState(t *testing.T) {
 	}
 	raw, _ := json.Marshal(a)
 	write(`INSERT INTO factory_assignments(id,repository,issue,run,stage,revision,data) VALUES($1,7,42,$2,'assigned',1,$3)`, a.ID, cap.RunID, string(raw))
-	prep := project.StoredPreparation{Preparation: project.Preparation{ID: prepID, Project: cap.Project, Role: project.RoleCoder, SetupDigest: cap.PreparationDigest}}
-	raw, _ = json.Marshal(prep)
-	write(`INSERT INTO project_preparations(id,project_id,role,revision,requirements,approval,data) VALUES($1,$2,$3,1,'','',$4)`, prepID, cap.Project, project.RoleCoder, string(raw))
+	seedRecordedMCPPreparation(t, ctx, st, a, cap.PreparationDigest)
 	write(`INSERT INTO factory_dispatch(repository,revision,open,data) VALUES(7,1,true,'{}')`)
 	run := factory.Run{ID: cap.RunID, ProjectID: cap.Project, Role: project.RoleCoder, InputSHA: cap.SourceDigest}
 	raw, _ = json.Marshal(run)
@@ -348,22 +356,23 @@ func TestFactoryBoundCurrentContextUsesRecordedScopeAndState(t *testing.T) {
 	clock.Store(time.Now().Unix())
 	provider := &fakeSystemOne{}
 	var verificationEvidence factory.CurrentVerificationEvidence
-	server := httptest.NewServer(factoryBoundCatalogHandler(FactoryMCPDeps{Capabilities: st, Submissions: st, Assignments: st, Runs: st, PriorityJudgments: st, SystemOne: provider, VerificationEvidence: func(_ context.Context, bound factory.MCPCapability) (map[string]any, error) {
-		if bound.Profile != factory.MCPProfileTestPilot {
-			t.Fatal("verification evidence reached a foreign profile")
+	var afterEvidenceRead func()
+	var evidenceReadErr error
+	evidenceReads := 0
+	workerViews := factoryservice.WorkerVerification{Store: st, Read: func(_ context.Context, bound factory.Assignment) (factory.CurrentVerificationEvidence, error) {
+		evidenceReads++
+		if bound.Phase != project.ExecutionVerify || bound.Role != project.RoleReviewer {
+			t.Fatal("verification evidence reached a foreign assignment")
 		}
-		outcome := "native_check_passed"
-		if verificationEvidence.ExecutionRequired {
-			outcome = "native_preparation_check_passed"
-			if verificationEvidence.ExecutionReceipt != nil {
-				outcome = "native_manifest_passed"
-			}
+		if afterEvidenceRead != nil {
+			afterEvidenceRead()
 		}
-		return map[string]any{"available": true, "evidence": verificationEvidence, "outcome": outcome}, nil
-	}, Now: func() time.Time { return time.Unix(clock.Load(), 0) }}, key))
+		return verificationEvidence, evidenceReadErr
+	}}
+	server := httptest.NewServer(factorymcp.NewHandler(factorymcp.Dependencies{Capabilities: st, Submissions: st, Assignments: st, Runs: st, PriorityJudgments: st, SystemOne: provider, VerificationEvidence: workerViews.Evidence, Now: func() time.Time { return time.Unix(clock.Load(), 0) }}, key))
 	defer server.Close()
 	client := mcp.NewClient(&mcp.Implementation{Name: "current-context-pg"}, nil)
-	session, err := client.Connect(ctx, &mcp.StreamableClientTransport{Endpoint: server.URL + FactoryMCPRoute, HTTPClient: &http.Client{Transport: workerMCPTransport{active.ID, secret}}}, nil)
+	session, err := client.Connect(ctx, &mcp.StreamableClientTransport{Endpoint: server.URL + factoryhttpapi.WorkerRoute, HTTPClient: &http.Client{Transport: workerMCPTransport{active.ID, secret}}}, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -395,15 +404,18 @@ func TestFactoryBoundCurrentContextUsesRecordedScopeAndState(t *testing.T) {
 	manifest := factory.ApprovedAppCheck{IntentID: accepted.Intent, AcceptedRevision: accepted.ID, Outcomes: []string{idea.ID}}
 	manifestJSON, _ := json.Marshal(manifest)
 	approvedCheck := "#!/bin/sh\n" + factory.ApprovedAppCheckPrefix + string(manifestJSON) + "\ncan test --artifact checked.can-artifact.json\n"
-	assertions := strings.Repeat("expect saved.title == requested.title // retained UTF-8: ✓\n", 100)
+	assertions := strings.Repeat("expect saved.title == requested.title // retained UTF-8: ✓\n", 400)
 	verificationEvidence = factory.CurrentVerificationEvidence{
 		Manifest: manifest, ManifestDigest: manifest.Digest(), PreparationDigest: strings.Repeat("b", 64), SourceCommit: a.SourceCommit,
 		Receipt:         factory.VerificationCheckReceipt{CheckID: factory.ApprovedAppCheckID, Outcome: factory.CheckReceiptPassed, ArtifactDigest: factory.MCPInputDigest([]byte("private native output")), LogExcerpt: "Native approved application check passed"},
 		ApprovedContext: factory.NewApprovedVerificationContext(project.FactoryPreparationContext{Project: cap.Project, ID: "f" + strings.Repeat("3", 24), Role: project.RoleReviewer, SourceCommit: a.SourceCommit, ApprovedBase: a.SourceCommit, DiffBase: a.SourceCommit, Candidate: a.SourceCommit, Setup: []byte("#!/bin/sh\ncan check app.can\n"), Check: []byte(approvedCheck), Files: []project.FactoryContextFile{{Path: "app.can", Content: []byte(assertions)}}}),
-		State:           project.PrepareState{Output: "private native output"},
+		State:           execution.PreparationState{Output: "private native output"},
 	}
 	pilot := a
 	pilot.ID, pilot.Run = factory.NewID(), factory.NewID()
+	// This reviewer has a native workspace with no appliance Project row.
+	pilot.ProjectID = "p" + strings.Repeat("f", 24)
+	verificationEvidence.ApprovedContext.Project = pilot.ProjectID
 	pilot.AttemptRoot, pilot.PublicationAssignment = pilot.ID, ""
 	pilot.Issue, pilot.Role, pilot.Phase = 0, project.RoleReviewer, project.ExecutionVerify
 	pilot.Preparation = verificationEvidence.ApprovedContext.ID
@@ -415,15 +427,23 @@ func TestFactoryBoundCurrentContextUsesRecordedScopeAndState(t *testing.T) {
 	verificationEvidence.DeliveryPrerequisites = &deliveryPrerequisites
 	raw, _ = json.Marshal(pilot)
 	write(`INSERT INTO factory_assignments(id,repository,issue,run,stage,revision,data) VALUES($1,7,0,$2,'assigned',1,$3)`, pilot.ID, pilot.Run, string(raw))
-	pilotRun := factory.Run{ID: pilot.Run, ProjectID: cap.Project, Role: project.RoleReviewer, InputSHA: a.SourceCommit}
+	workspace := &execution.NativeWorkspaceRef{Profile: collaboration.ProfileID(factory.NewID()), InstanceID: factory.NewID(), WorktreeID: "declared-verification-checkout"}
+	pilotRun := factory.Run{ID: pilot.Run, ProjectID: pilot.ProjectID, Role: project.RoleReviewer, InputSHA: a.SourceCommit, Native: &execution.NativeRecord{Tool: execution.NativeTool{Harness: "muse", Version: "1.0.0", SHA256: strings.Repeat("e", 64), Executable: "/home/vince/declared-tools/muse"}, Retirement: execution.Running, Provenance: execution.NativeProvenance{TrustMode: "same_user_trusted_host", Profile: workspace.Profile, InstanceID: workspace.InstanceID, WorktreeID: workspace.WorktreeID, Custody: execution.NativeCustody{State: execution.NotAcquired}, Process: &execution.NativeProcess{InvocationID: factory.NewID(), SystemInstance: "declared-boot", StartIdentity: "declared-start", PID: 123, StartedAt: time.Now().Add(-time.Minute), Executable: "/home/vince/declared-tools/muse", ExecutableSHA256: strings.Repeat("e", 64)}}}}
 	raw, _ = json.Marshal(pilotRun)
 	write(`INSERT INTO factory_runs(id,active,settled,data) VALUES($1,true,false,$2)`, pilot.Run, string(raw))
 	pilotCap := cap
 	pilotCap.ID, pilotCap.RunID, pilotCap.AssignmentID = factory.NewID(), pilot.Run, pilot.ID
+	pilotCap.Project = pilot.ProjectID
 	pilotCap.Profile, pilotCap.Subject = factory.MCPProfileTestPilot, pilot.Subject.SubjectKey(7)
-	pilotPrep := project.StoredPreparation{Preparation: project.Preparation{ID: pilot.Preparation, Project: cap.Project, Role: project.RoleReviewer, SourceCommit: a.SourceCommit, SetupDigest: pilotCap.PreparationDigest}}
-	raw, _ = json.Marshal(pilotPrep)
-	write(`INSERT INTO project_preparations(id,project_id,role,revision,requirements,approval,data) VALUES($1,$2,$3,1,'','',$4)`, pilot.Preparation, cap.Project, project.RoleReviewer, string(raw))
+	pilotPreparation := execution.PreparationRecord{Native: workspace, Preparation: project.Preparation{ID: pilot.Preparation, Project: pilot.ProjectID, Role: pilot.Role, SourceCommit: pilot.SourceCommit, SetupDigest: pilotCap.PreparationDigest, Requirements: project.RequirementAcceptance{ID: "d" + strings.Repeat("1", 24), Revision: 1, Approver: 7, SourceCommit: pilot.SourceCommit, Digest: strings.Repeat("c", 64)}, Approval: project.AdminApproval{ID: "d" + strings.Repeat("2", 24), Revision: 1, Approver: 7, EffectsDigest: strings.Repeat("d", 64)}}}
+	if _, _, err := st.AdmitPreparation(ctx, pilotPreparation); err != nil {
+		t.Fatal(err)
+	}
+	verificationEvidence.PreparationDigest = factory.DeliveryPreparationDigest(pilotPreparation.Preparation)
+	pilot.Subject.Delivery.PreparationDigest = verificationEvidence.PreparationDigest
+	raw, _ = json.Marshal(pilot)
+	write(`UPDATE factory_assignments SET data=$2 WHERE id=$1`, pilot.ID, string(raw))
+	pilotCap.Subject = pilot.Subject.SubjectKey(pilot.Repository)
 	if err := st.StageMCPCapability(ctx, pilotCap); err != nil {
 		t.Fatal(err)
 	}
@@ -438,7 +458,7 @@ func TestFactoryBoundCurrentContextUsesRecordedScopeAndState(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	pilotSession, err := client.Connect(ctx, &mcp.StreamableClientTransport{Endpoint: server.URL + FactoryMCPRoute, HTTPClient: &http.Client{Transport: workerMCPTransport{pilotCap.ID, pilotSecret}}}, nil)
+	pilotSession, err := client.Connect(ctx, &mcp.StreamableClientTransport{Endpoint: server.URL + factoryhttpapi.WorkerRoute, HTTPClient: &http.Client{Transport: workerMCPTransport{pilotCap.ID, pilotSecret}}}, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -472,7 +492,7 @@ func TestFactoryBoundCurrentContextUsesRecordedScopeAndState(t *testing.T) {
 		t.Helper()
 		verificationJSON, nextVerificationPart, cursor := "", 0, ""
 		for pages := 0; ; pages++ {
-			if pages >= maxContextPages {
+			if pages >= mcpwire.MaxContextPages {
 				t.Fatal("approved assertion context exceeded its finite page bound")
 			}
 			args := map[string]any{}
@@ -484,7 +504,7 @@ func TestFactoryBoundCurrentContextUsesRecordedScopeAndState(t *testing.T) {
 				t.Fatal("approved assertion current context refused", err)
 			}
 			var response struct {
-				Page currentContextPage `json:"current_role_page"`
+				Page mcpwire.ContextPage `json:"current_role_page"`
 			}
 			if json.Unmarshal([]byte(catalogText(t, result)), &response) != nil {
 				t.Fatal("invalid approved assertion page")
@@ -513,10 +533,199 @@ func TestFactoryBoundCurrentContextUsesRecordedScopeAndState(t *testing.T) {
 	if currentVerification.ValidateFor(*pilot.Subject.Delivery) != nil || currentVerification.ApprovedContext.Files[0].Content != assertions || len(currentVerification.DeliveryPrerequisites.Tasks) != 1 || currentVerification.DeliveryPrerequisites.Tasks[0].Completion != event || counts() != beforeVerification {
 		t.Fatal("required current context lost assertions or spent/settled during a read")
 	}
+	// Native hosts use the same required-input service and wire renderer directly;
+	// the actual canonical PostgreSQL rows and verification port are unchanged.
+	inputs := factoryservice.WorkerInputs{Source: st, Verification: workerViews.Evidence}
+	required, err := inputs.Read(ctx, pilotCap)
+	// Verification does not supply this fixture's missing native reviewer allowance.
+	if err != nil || required.Role.Verification == nil || required.Evidence.Availability != "incomplete" || !slices.Equal(required.Evidence.MissingReasons, []string{"bound_allowance_unavailable"}) {
+		t.Fatalf("shared required inputs: err=%v verification=%v availability=%s missing=%v", err, required.Role.Verification != nil, required.Evidence.Availability, required.Evidence.MissingReasons)
+	}
+	view, err := mcpwire.RenderCurrent(required, pilotCap, nil, true)
+	if err != nil || !view.Hold || view.Page.NextCursor == "" || view.Current.Role.RecordSource != "required_current" {
+		t.Fatal("shared current view lost the allowance hold or finite assertion stream", err)
+	}
+	firstCursor := view.Page.NextCursor
+	verificationJSON, nextPart, pages := "", 0, 0
+	for {
+		pages++
+		if pages > mcpwire.MaxContextPages {
+			t.Fatal("shared context exceeded finite page count")
+		}
+		for _, record := range view.Page.Records {
+			if !utf8.ValidString(record.Content) {
+				t.Fatal("shared context split a UTF-8 rune")
+			}
+			if record.Field == "verification" {
+				if record.Part != nextPart {
+					t.Fatal("shared context lost ordered assertion fragments")
+				}
+				verificationJSON += record.Content
+				nextPart++
+			}
+		}
+		if view.Page.CollectionComplete {
+			break
+		}
+		view, err = mcpwire.RenderCurrent(required, pilotCap, map[string]any{"cursor": view.Page.NextCursor}, true)
+		if err != nil {
+			t.Fatal("shared current continuation refused its snapshot", err)
+		}
+	}
+	var reconstructed factory.CurrentVerificationEvidence
+	if pages < 2 || json.Unmarshal([]byte(verificationJSON), &reconstructed) != nil || reconstructed.ValidateFor(*pilot.Subject.Delivery) != nil || reconstructed.ApprovedContext.Files[0].Content != assertions || strings.Contains(verificationJSON, "private native output") {
+		t.Fatal("shared finite stream lost assertions or exposed supervisor output")
+	}
+	changed := required
+	changedEvidence := *required.Role.Verification
+	changedEvidence.Receipt.LogExcerpt += " updated observation"
+	changed.Role.Verification = &changedEvidence
+	if value, err := mcpwire.RenderCurrent(changed, pilotCap, map[string]any{"cursor": firstCursor}, true); err == nil || value.Current.Version != "" || value.Page.Records != nil {
+		t.Fatal("stale context cursor served a different observation", err)
+	}
+	for _, payload := range []map[string]any{{"cursor": true}, {"cursor": "not-base64!"}, {"cursor": strings.Repeat("a", 1025)}, {"cursor": firstCursor, "foreign": "value"}} {
+		if value, err := mcpwire.RenderCurrent(required, pilotCap, payload, true); err == nil || value.Current.Version != "" || value.Page.Records != nil {
+			t.Fatal("invalid shared cursor returned a partial view", err)
+		}
+	}
+	huge := required
+	huge.Role.RecordSource = strings.Repeat("é", 1<<20)
+	limited, err := mcpwire.RenderCurrent(huge, pilotCap, nil, true)
+	if err != nil || !limited.Hold || limited.Current.Evidence.Availability != "incomplete" || limited.Page.Availability != "unavailable" || limited.Page.CollectionComplete || len(limited.Page.Records) != 0 {
+		t.Fatal("oversized current collection was reported complete", err)
+	}
+	missing := inputs
+	missing.Verification = nil
+	unavailable, err := missing.Read(ctx, pilotCap)
+	if err != nil || unavailable.Evidence.Availability != "incomplete" || unavailable.Role.Verification != nil {
+		t.Fatal("missing verification became successful complete input", err)
+	}
+	unknown, err := (factoryservice.WorkerInputs{}).Read(ctx, pilotCap)
+	if err != nil || unknown.Evidence.Availability != "unknown" || unknown.Role.Kind != pilotCap.Profile {
+		t.Fatal("missing required source invented current facts", err)
+	}
+	cancelledInputs, stopInputs := context.WithCancel(ctx)
+	stopInputs()
+	if value, err := inputs.Read(cancelledInputs, pilotCap); !errors.Is(err, context.Canceled) || value.Version != "" {
+		t.Fatal("cancelled required read returned partial input", err)
+	}
+	if counts() != beforeVerification || verificationReadState() != beforeVerificationState {
+		t.Fatal("shared required-input rendering spent or changed canonical work")
+	}
+	// Shared reads use actual recorded admission even without the HTTP wrapper.
+	// This native reviewer has no Project inventory and performs no execution.
+	pilotResults := factoryservice.WorkerResults{Assignments: st, Runs: st, Current: st}
+	for _, tool := range []factory.MCPTool{factory.MCPToolFinishAppVerify, factory.MCPToolRecordJourneyResult} {
+		payload := map[string]any{"delivery_id": "worker value", "input_digest": "worker value"}
+		pilotResults.Bind(ctx, pilotCap, tool, payload)
+		if payload["delivery_id"] != pilot.Subject.Delivery.DeliveryID || payload["input_digest"] != pilotCap.ScopeDigest() {
+			t.Fatal("shared verification binding retained worker identity")
+		}
+		if tool == factory.MCPToolRecordJourneyResult && (payload["source_commit"] != pilot.SourceCommit || payload["preparation"] != pilot.Preparation || payload["manifest_digest"] != pilot.Subject.Delivery.VerificationManifestDigest) {
+			t.Fatal("shared journey binding lost the recorded delivery scope")
+		}
+	}
+	if verificationReadState() != beforeVerificationState {
+		t.Fatal("shared delivery binding changed canonical work")
+	}
+	var inventory int
+	if err := db.QueryRowContext(ctx, `SELECT count(*) FROM projects WHERE id=$1`, pilot.ProjectID).Scan(&inventory); err != nil || inventory != 0 {
+		t.Fatal("native verification unexpectedly needs an appliance Project", err)
+	}
+	for _, fault := range []string{"profile", "source", "project", "subject", "revision", "state", "cancelled", "missing-source"} {
+		wrong, reader := pilotCap, workerViews
+		readCtx := ctx
+		switch fault {
+		case "profile":
+			wrong.Profile = factory.MCPProfileArchitect
+		case "source":
+			wrong.SourceDigest = strings.Repeat("f", 40)
+		case "project":
+			wrong.Project = cap.Project
+		case "subject":
+			wrong.Subject += "-foreign"
+		case "revision":
+			wrong.AcceptedRevision = "999"
+		case "state":
+			wrong.State = factory.MCPCapabilityStaged
+		case "cancelled":
+			cancelled, stop := context.WithCancel(ctx)
+			stop()
+			readCtx = cancelled
+		case "missing-source":
+			reader.Read = nil
+		}
+		beforeReads := evidenceReads
+		if view, err := reader.Evidence(readCtx, wrong); err == nil || view != nil || evidenceReads != beforeReads {
+			t.Fatalf("shared evidence accepted/read for %s: %v", fault, err)
+		}
+	}
+	evidenceReadErr = errors.New("approved check has no passing receipt")
+	if view, err := workerViews.Evidence(ctx, pilotCap); err != nil || view["available"] != false || view["reason"] != evidenceReadErr.Error() || view["next_step"] == "" || view["evidence"] != nil {
+		t.Fatal("missing-check readback lost its unavailable guidance", err)
+	}
+	evidenceReadErr = nil
+	for _, fault := range []string{"source", "preparation", "project"} {
+		savedSource, savedID, savedProject := verificationEvidence.SourceCommit, verificationEvidence.ApprovedContext.ID, verificationEvidence.ApprovedContext.Project
+		switch fault {
+		case "source":
+			verificationEvidence.SourceCommit = strings.Repeat("f", 40)
+		case "preparation":
+			verificationEvidence.ApprovedContext.ID = "f" + strings.Repeat("f", 24)
+		case "project":
+			verificationEvidence.ApprovedContext.Project = cap.Project
+		}
+		if view, err := workerViews.Evidence(ctx, pilotCap); err == nil || view != nil {
+			t.Fatalf("shared evidence exposed foreign %s", fault)
+		}
+		verificationEvidence.SourceCommit, verificationEvidence.ApprovedContext.ID, verificationEvidence.ApprovedContext.Project = savedSource, savedID, savedProject
+	}
+	for _, fault := range []string{"dispatch", "capability", "assignment", "cancelled"} {
+		readCtx, stop := context.WithCancel(ctx)
+		afterEvidenceRead = func() {
+			switch fault {
+			case "dispatch":
+				write(`UPDATE factory_dispatch SET open=false WHERE repository=7`)
+			case "capability":
+				if err := st.RevokeMCPCapability(ctx, pilotCap.ID); err != nil {
+					t.Fatal(err)
+				}
+			case "assignment":
+				write(`UPDATE factory_assignments SET stage='finished' WHERE id=$1`, pilot.ID)
+			case "cancelled":
+				stop()
+			}
+		}
+		view, err := workerViews.Evidence(readCtx, pilotCap)
+		afterEvidenceRead = nil
+		stop()
+		if err == nil || view != nil {
+			t.Fatalf("shared evidence survived %s committed during read", fault)
+		}
+		write(`UPDATE factory_dispatch SET open=true WHERE repository=7`)
+		write(`UPDATE factory_mcp_capabilities SET state='active' WHERE id=$1`, pilotCap.ID)
+		write(`UPDATE factory_assignments SET stage='assigned' WHERE id=$1`, pilot.ID)
+	}
+	if counts() != beforeVerification || verificationReadState() != beforeVerificationState {
+		t.Fatal("shared evidence reads spent, settled or changed the recorded work")
+	}
+	fresh, err := store.Open(dsn)
+	if err != nil {
+		t.Fatal(err)
+	}
+	retainedViews := workerViews
+	retainedViews.Store = fresh
+	retained, retainedErr := retainedViews.Evidence(ctx, pilotCap)
+	if err := fresh.Close(); err != nil {
+		t.Fatal(err)
+	}
+	if retainedErr != nil || retained["available"] != true || retained["delivery_id"] != pilot.Subject.Delivery.DeliveryID || retained["input_digest"] != pilotCap.ScopeDigest() || verificationReadState() != beforeVerificationState {
+		t.Fatal("fresh store reader lost exact retained native evidence", retainedErr)
+	}
 	// A catalog-adopted definition is truthful before launch with only its
 	// preparation receipt. The distinct per-run receipt becomes visible only
 	// after the trusted executor has passed under this worker's invocation.
-	verificationEvidence.AdoptedManifest = &factory.AdoptedVerificationManifest{Intent: accepted.Intent, AcceptedRevision: accepted.ID, ScopeDigest: accepted.Digest(), Catalog: factory.ApprovedProjectCheckCatalog{Project: cap.Project, Preparation: pilot.Preparation, Requirements: "d" + strings.Repeat("8", 24), Approval: "d" + strings.Repeat("9", 24), SourceCommit: a.SourceCommit, PreparationDigest: verificationEvidence.PreparationDigest, CheckDigest: factory.MCPInputDigest([]byte(approvedCheck))}, Proposal: factory.VerificationManifestProposal{Outcomes: accepted.EffectiveOutcomes, Checks: []factory.ManifestCheckRef{{Outcome: idea.ID, CatalogID: factory.ApprovedAppCheckID, Artifacts: []string{factory.ProjectCheckReceiptArtifact}, Fixtures: []string{factory.ProjectCheckPreparedFixture}}}}}
+	verificationEvidence.AdoptedManifest = &factory.AdoptedVerificationManifest{Intent: accepted.Intent, AcceptedRevision: accepted.ID, ScopeDigest: accepted.Digest(), Catalog: factory.ApprovedProjectCheckCatalog{Project: pilot.ProjectID, Preparation: pilot.Preparation, Requirements: "d" + strings.Repeat("8", 24), Approval: "d" + strings.Repeat("9", 24), SourceCommit: a.SourceCommit, PreparationDigest: verificationEvidence.PreparationDigest, CheckDigest: factory.MCPInputDigest([]byte(approvedCheck))}, Proposal: factory.VerificationManifestProposal{Outcomes: accepted.EffectiveOutcomes, Checks: []factory.ManifestCheckRef{{Outcome: idea.ID, CatalogID: factory.ApprovedAppCheckID, Artifacts: []string{factory.ProjectCheckReceiptArtifact}, Fixtures: []string{factory.ProjectCheckPreparedFixture}}}}}
 	verificationEvidence.ExecutionRequired = true
 	currentVerification = readCurrentVerification()
 	if currentVerification.ValidateFor(*pilot.Subject.Delivery) != nil || !currentVerification.ExecutionRequired || currentVerification.Execution != nil || currentVerification.ExecutionReceipt != nil {
@@ -525,7 +734,7 @@ func TestFactoryBoundCurrentContextUsesRecordedScopeAndState(t *testing.T) {
 	zero := 0
 	checkExcerpt := "full-name.observed=Hello, Ada Lovelace!\n"
 	checkExcerpt += strings.Repeat("é", (project.MaxVerificationOutputExcerpt-len(checkExcerpt))/2)
-	verificationEvidence.Execution = &project.FactoryVerificationChecksState{Project: cap.Project, Run: pilot.Run, Incarnation: strings.Repeat("c", 32), ManifestDigest: strings.Repeat("d", 64), Phase: "passed", SourceCommit: a.SourceCommit, Preparation: pilot.Preparation, CheckDigest: verificationEvidence.AdoptedManifest.Catalog.CheckDigest, ExitCode: &zero, OutputDigest: factory.MCPInputDigest([]byte("native per-run output")), OutputExcerpt: checkExcerpt, OutputTruncated: true, Retirement: "confirmed"}
+	verificationEvidence.Execution = &project.FactoryVerificationChecksState{Project: pilot.ProjectID, Run: pilot.Run, Incarnation: strings.Repeat("c", 32), ManifestDigest: strings.Repeat("d", 64), Phase: "passed", SourceCommit: a.SourceCommit, Preparation: pilot.Preparation, CheckDigest: verificationEvidence.AdoptedManifest.Catalog.CheckDigest, ExitCode: &zero, OutputDigest: factory.MCPInputDigest([]byte("native per-run output")), OutputExcerpt: checkExcerpt, OutputTruncated: true, Retirement: "confirmed"}
 	verificationEvidence.ExecutionReceipt = &factory.VerificationCheckReceipt{CheckID: factory.ApprovedAppCheckID, Outcome: factory.CheckReceiptPassed, ArtifactDigest: verificationEvidence.Execution.OutputDigest, LogExcerpt: checkExcerpt}
 	result, err = pilotSession.CallTool(ctx, &mcp.CallToolParams{Name: string(factory.MCPToolVerificationEvidence), Arguments: map[string]any{}})
 	if catalogRefused(result, err) || json.Unmarshal([]byte(catalogText(t, result)), &observedEvidence) != nil || observedEvidence.Outcome != "native_manifest_passed" || observedEvidence.Evidence.ExecutionReceipt == nil || observedEvidence.Evidence.ExecutionReceipt.ArtifactDigest != verificationEvidence.Execution.OutputDigest || observedEvidence.Evidence.ExecutionReceipt.LogExcerpt != checkExcerpt || observedEvidence.Evidence.Execution == nil || !observedEvidence.Evidence.Execution.OutputTruncated || observedEvidence.Evidence.Execution.OutputExcerpt != checkExcerpt {
@@ -810,7 +1019,7 @@ func TestFactoryBoundCurrentContextUsesRecordedScopeAndState(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	decidedSession, err := client.Connect(ctx, &mcp.StreamableClientTransport{Endpoint: server.URL + FactoryMCPRoute, HTTPClient: &http.Client{Transport: workerMCPTransport{legacyPilotCap.ID, decidedSecret}}}, nil)
+	decidedSession, err := client.Connect(ctx, &mcp.StreamableClientTransport{Endpoint: server.URL + factoryhttpapi.WorkerRoute, HTTPClient: &http.Client{Transport: workerMCPTransport{legacyPilotCap.ID, decidedSecret}}}, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -946,11 +1155,11 @@ func TestFactoryBoundCurrentContextUsesRecordedScopeAndState(t *testing.T) {
 		}
 	}
 	encodePlan()
-	catalog := &factoryCatalogServer{deps: FactoryMCPDeps{Submissions: st, Assignments: st}}
+	results := factoryservice.WorkerResults{Assignments: st}
 	// The admission path: a retained identity replays, anything new runs
 	// the settler's own mapping before it can freeze the assignment.
 	validateFinish := func() error {
-		return catalog.checkNewFinish(ctx, architectCap, proposal, nil)
+		return results.CheckNewFinish(ctx, architectCap, proposal, nil)
 	}
 	if err := validateFinish(); err == nil || !strings.Contains(err.Error(), "expected_plan_digest=") || !strings.Contains(err.Error(), "nothing recorded") {
 		t.Fatal("invalid plan did not return a correctable refusal", err)
@@ -991,7 +1200,7 @@ func TestFactoryBoundCurrentContextUsesRecordedScopeAndState(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	settledBody := catalog.workStatusBody(ctx, architect.ID, settledReceipt)
+	settledBody := results.Status(ctx, architect.ID, settledReceipt)
 	settlement, ok := settledBody["settlement"].(map[string]any)
 	if !ok || settlement["outcome"] != factory.Outcome(factory.Succeeded) || settlement["reported"] != true {
 		t.Fatal("receipt hid the actual settled result", settledBody)
@@ -999,20 +1208,85 @@ func TestFactoryBoundCurrentContextUsesRecordedScopeAndState(t *testing.T) {
 
 	// The normal owner overview reports only controller-adopted evidence for
 	// the current accepted scope, independently of a successful worker finish.
-	ownerRead := actorCall(t, &API{Config: &config.Config{ForgejoURL: "https://soda.test"}, Store: st}, "7", "current-worker")
+	ledger, err := st.BindConfiguredFountainLedger(ctx, "https://soda.test")
+	if err != nil {
+		t.Fatal(err)
+	}
+	identities, err := forgejo.NewFountainIdentities(ctx, st, ledger.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	// Binding adopts the retained fixture's actor/repository 7 before
+	// HTTP reads; identity discovery never manufactures those mappings.
+	if local, err := identities.LocalActor(ctx, "7"); err != nil || int64(local) != 7 {
+		t.Fatal("fixture actor namespace changed", local, err)
+	}
+	if local, err := identities.LocalRepository(ctx, 7); err != nil || int64(local) != 7 {
+		t.Fatal("fixture repository namespace changed", local, err)
+	}
+	ownerRead := actorCall(t, &API{Config: &config.Config{ForgejoURL: "https://soda.test"}, Store: st, FountainIdentities: identities}, "7", "current-worker")
 	readOverview := func(want int) {
 		t.Helper()
 		before := verificationReadState()
 		code, body := ownerRead(http.MethodGet, "/api/factory/intents/"+accepted.Intent+"/overview", "")
-		var view factoryRequestOverviewView
+		var view factoryservice.RequestOverview
 		if code != http.StatusOK || json.Unmarshal(body, &view) != nil || view.Intent != accepted.Intent || view.WorkItems.OutcomesTotal != len(accepted.EffectiveOutcomes) || view.WorkItems.OutcomesEvidenced != want {
 			t.Fatalf("owner overview evidence status=%d body=%s expected=%d", code, body, want)
+		}
+		setupCalls := 0
+		requests := factoryservice.Requests{Store: st, Setup: func(ctx context.Context, repository int64) (factoryservice.RequestSetup, error) {
+			setupCalls++
+			if ctx.Err() != nil || repository != accepted.Repository {
+				t.Fatal("shared overview changed the setup scope", repository, ctx.Err())
+			}
+			return factoryservice.RequestSetup{Project: "desktop-profile", State: factoryservice.RequestSetupPreparing}, nil
+		}}
+		direct, err := requests.Overview(ctx, 7, accepted.Intent)
+		if err != nil || setupCalls != 1 || direct.Setup.Project != "desktop-profile" || direct.Setup.State != factoryservice.RequestSetupPreparing {
+			t.Fatal("standalone overview did not use its runtime port", direct, setupCalls, err)
+		}
+		// Runtime setup and observation time are supplied independently;
+		// all recorded request facts must remain identical across hosts.
+		view.Setup, view.ObservedUnix = direct.Setup, direct.ObservedUnix
+		httpFacts, _ := json.Marshal(view)
+		sharedFacts, _ := json.Marshal(direct)
+		if string(httpFacts) != string(sharedFacts) {
+			t.Fatal("shared request facts differ from the HTTP projection")
 		}
 		if verificationReadState() != before {
 			t.Fatal("overview read changed verification history or spending")
 		}
 	}
 	readOverview(0)
+	t.Run("shared_request_ownership_and_setup_failures", func(t *testing.T) {
+		before := verificationReadState()
+		setupCalls := 0
+		unavailable := errors.New("declared runtime setup unavailable")
+		requests := factoryservice.Requests{Store: st, Setup: func(context.Context, int64) (factoryservice.RequestSetup, error) {
+			setupCalls++
+			return factoryservice.RequestSetup{}, unavailable
+		}}
+		for _, actor := range []collaboration.ActorID{0, 8, 9007199254740993} {
+			if view, err := requests.Overview(ctx, actor, accepted.Intent); !errors.Is(err, factoryservice.ErrRequestNotFound) || view.Intent != "" || setupCalls != 0 {
+				t.Fatal("another actor reached private request facts or setup", actor, view, err)
+			}
+		}
+		if view, err := requests.Overview(ctx, 7, accepted.Intent); !errors.Is(err, unavailable) || view.Intent != "" || setupCalls != 1 {
+			t.Fatal("setup failure was represented as a completed overview", view, err)
+		}
+		requests.Setup = nil
+		if view, err := requests.Overview(ctx, 7, accepted.Intent); !errors.Is(err, factoryservice.ErrRequestSetupUnavailable) || view.Intent != "" {
+			t.Fatal("missing setup port fabricated readiness", view, err)
+		}
+		cancelled, stop := context.WithCancel(ctx)
+		stop()
+		if _, err := requests.Overview(cancelled, 7, accepted.Intent); !errors.Is(err, context.Canceled) {
+			t.Fatal("cancelled overview returned request facts", err)
+		}
+		if verificationReadState() != before {
+			t.Fatal("failed request reads changed verification history or spending")
+		}
+	})
 	pilot.Stage, pilot.Outcome = factory.AssignmentFinished, factory.Succeeded
 	pilot.Result = &factory.AssignmentResult{PhaseResult: &factory.PhaseResult{Output: &factory.PhaseOutput{Verification: &factory.AppVerificationReport{Outcome: factory.AppVerificationVerified}}}}
 	raw, _ = json.Marshal(pilot)

@@ -8,7 +8,7 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/levitateos/sodaos/internal/strictjson"
+	"github.com/levitateos/factory/pkg/strictjson"
 )
 
 // APIBodyLimit is the maximum JSON request body accepted by protected APIs.

@@ -3,25 +3,37 @@ package api
 import (
 	"context"
 	"crypto/sha256"
+	"database/sql"
 	"encoding/base64"
 	"encoding/hex"
 	"encoding/json"
 	"errors"
+	"io"
+	"net"
 	"net/http"
 	"net/http/httptest"
+	"os"
+	"strconv"
 	"strings"
 	"sync/atomic"
 	"testing"
 	"time"
 	"unicode/utf8"
 
+	"github.com/levitateos/factory/pkg/factory/execution"
+
 	extensions "forgejo.org/extension-sdk"
-	"github.com/levitateos/sodaos/internal/factory"
-	"github.com/levitateos/sodaos/internal/factory/control"
+	"github.com/levitateos/factory/pkg/collaboration"
+	"github.com/levitateos/factory/pkg/factory"
+	"github.com/levitateos/factory/pkg/factory/control"
+	factoryhttpapi "github.com/levitateos/factory/pkg/factory/httpapi"
+	factorymcp "github.com/levitateos/factory/pkg/factory/mcpserver"
+	factoryservice "github.com/levitateos/factory/pkg/factory/service"
+	"github.com/levitateos/factory/pkg/identity"
+	"github.com/levitateos/factory/pkg/project"
+	"github.com/levitateos/factory/pkg/store"
+	"github.com/levitateos/sodaos/internal/forgejo"
 	"github.com/levitateos/sodaos/internal/host"
-	"github.com/levitateos/sodaos/internal/identity"
-	"github.com/levitateos/sodaos/internal/project"
-	"github.com/levitateos/sodaos/internal/store"
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 )
 
@@ -42,7 +54,7 @@ func planSourceDigest() string {
 // no provider call or native activation happens in the test.
 type planStubHost struct {
 	launches          []project.FactoryLaunch
-	preparation       *project.PrepareState
+	preparation       *execution.PreparationState
 	launchUnconfirmed bool
 }
 
@@ -65,7 +77,12 @@ func (h *planStubHost) FactoryHarness(_ context.Context, family string) (project
 	return project.FactoryHarnessPin{Harness: family, Version: "1.2.3", SHA256: strings.Repeat("a", 64), Image: "sha256:" + strings.Repeat("b", 64)}, nil
 }
 
-func (h *planStubHost) ReadPreparationContext(_ context.Context, in project.FactoryPreparationContextRequest, role string) (project.FactoryPreparationContext, error) {
+func (h *planStubHost) InspectTool(ctx context.Context, family string) (execution.ToolObservation, error) {
+	return host.NewFactoryObserver(h, nil).InspectTool(ctx, family)
+}
+
+func (h *planStubHost) ReadWorkspaceContext(_ context.Context, scoped execution.PreparationContextRequest) (execution.PreparationContext, error) {
+	in, role := scoped.Input, scoped.Role
 	files := make([]project.FactoryContextFile, 0, len(in.Paths))
 	for _, path := range in.Paths {
 		content := "synthetic selected source: " + path
@@ -74,7 +91,7 @@ func (h *planStubHost) ReadPreparationContext(_ context.Context, in project.Fact
 		}
 		files = append(files, project.FactoryContextFile{Path: path, Content: []byte(content)})
 	}
-	return project.FactoryPreparationContext{
+	return execution.PreparationContext{Material: project.FactoryPreparationContext{
 		Project: in.Project, ID: in.ID, Role: role,
 		SourceCommit: in.SourceCommit, ApprovedBase: in.ApprovedBase,
 		DiffBase: in.DiffBase, Candidate: in.Candidate,
@@ -82,7 +99,7 @@ func (h *planStubHost) ReadPreparationContext(_ context.Context, in project.Fact
 		Check: []byte("synthetic required checks"),
 		Files: files,
 		Diff:  []byte("synthetic exact candidate diff"),
-	}, nil
+	}}, nil
 }
 
 func (h *planStubHost) FactoryStop(_ context.Context, in project.FactoryStop) (project.FactoryState, error) {
@@ -93,23 +110,33 @@ func (h *planStubHost) FactoryTakeover(_ context.Context, _ project.FactoryTakeo
 	return project.TakeoverResult{}, errors.New("unexpected host takeover")
 }
 
+func (h *planStubHost) RecoverWork(ctx context.Context, r execution.WorkRecoveryRequest) (execution.WorkRecoveryReceipt, error) {
+	return host.NewFactoryObserver(h, nil).RecoverWork(ctx, r)
+}
+
 func (h *planStubHost) FactoryExport(_ context.Context, _ project.FactoryExport) (project.FactoryExportState, error) {
 	return project.FactoryExportState{}, errors.New("unexpected host export")
 }
 
-func (h *planStubHost) PrepareCandidate(_ context.Context, in project.FactoryCandidate) (project.PrepareState, error) {
-	return project.PrepareState{ID: in.Preparation.ID, Project: in.Preparation.Project, Role: in.Preparation.Role, SourceCommit: in.Preparation.SourceCommit, SetupDigest: in.Preparation.SetupDigest, Container: strings.Repeat("c", 64), Phase: project.PrepareReady, Ready: true}, nil
+func (*planStubHost) PrepareWorkspace(context.Context, execution.StandingPreparationRequest) (execution.PreparationState, error) {
+	return execution.PreparationState{}, errors.New("unexpected standing preparation")
 }
 
-func (h *planStubHost) InspectPreparation(_ context.Context, _ project.PrepareInspect) (project.PrepareState, error) {
+func (h *planStubHost) PrepareWorkspaceCandidate(_ context.Context, request execution.CandidatePreparationRequest) (execution.PreparationState, error) {
+	in := request.Input
+	return execution.PreparationState{ID: in.Preparation.ID, Project: in.Preparation.Project, Role: in.Preparation.Role, SourceCommit: in.Preparation.SourceCommit, SetupDigest: in.Preparation.SetupDigest, Container: strings.Repeat("c", 64), Phase: project.PrepareReady, Ready: true}, nil
+}
+
+func (h *planStubHost) InspectWorkspacePreparation(_ context.Context, _ execution.PreparationAddress) (execution.PreparationState, error) {
 	if h.preparation != nil {
 		return *h.preparation, nil
 	}
-	return project.PrepareState{}, project.ErrPreparationNotFound
+	return execution.PreparationState{}, execution.ErrPreparationNotObserved
 }
 
-func (h *planStubHost) StopPreparation(_ context.Context, in project.PrepareStop) (project.PrepareState, error) {
-	return project.PrepareState{ID: in.ID, Project: in.Project, Stopped: true, Retirement: "confirmed"}, nil
+func (h *planStubHost) RetireWorkspacePreparation(_ context.Context, address execution.PreparationAddress) (execution.PreparationState, error) {
+	in := project.PrepareStop{Project: address.Workspace, ID: address.ID}
+	return execution.PreparationState{ID: in.ID, Project: in.Project, Stopped: true, Retirement: "confirmed"}, nil
 }
 
 type planStubBroker struct{}
@@ -191,23 +218,23 @@ func seedPlanFundingWithPreparations(t *testing.T, ctx context.Context, s *store
 	if !preparations {
 		return
 	}
-	prep := project.StoredPreparation{Preparation: project.Preparation{
+	prep := execution.PreparationRecord{Preparation: project.Preparation{
 		ID: "f111111111111111111111111", Project: proj, Role: project.RoleCoder,
 		Requirements: project.RequirementAcceptance{ID: "d111111111111111111111111", Revision: 1, Approver: 1, SourceCommit: commit, Digest: digest, SourceInputs: map[string]string{planSourcePath: planSourceDigest()}},
 		Approval:     project.AdminApproval{ID: "d222222222222222222222222", Revision: 1, Approver: 1, EffectsDigest: digest},
 		SourceCommit: commit, SetupDigest: digest, Tools: []string{"python3"},
 	}}
-	prep.State = project.PrepareState{ID: "f111111111111111111111111", Project: proj, Role: project.RoleCoder, Phase: project.PrepareReady, Ready: true}
+	prep.State = execution.PreparationState{Container: strings.Repeat("c", 64), SourceCommit: prep.Preparation.SourceCommit, SetupDigest: prep.Preparation.SetupDigest, ID: "f111111111111111111111111", Project: proj, Role: project.RoleCoder, Phase: project.PrepareReady, Ready: true}
 	if _, _, err := s.AdmitPreparation(ctx, prep); err != nil {
 		t.Fatal(err)
 	}
-	review := project.StoredPreparation{Preparation: project.Preparation{
+	review := execution.PreparationRecord{Preparation: project.Preparation{
 		ID: "f222222222222222222222222", Project: proj, Role: project.RoleReviewer,
 		Requirements: project.RequirementAcceptance{ID: "d111111111111111111111111", Revision: 1, Approver: 1, SourceCommit: commit, Digest: digest},
 		Approval:     project.AdminApproval{ID: "d222222222222222222222222", Revision: 1, Approver: 1, EffectsDigest: digest},
 		SourceCommit: commit, SetupDigest: digest, Tools: []string{"python3"},
 	}}
-	review.State = project.PrepareState{ID: "f222222222222222222222222", Project: proj, Role: project.RoleReviewer, Phase: project.PrepareReady, Ready: true}
+	review.State = execution.PreparationState{Container: strings.Repeat("c", 64), SourceCommit: review.Preparation.SourceCommit, SetupDigest: review.Preparation.SetupDigest, ID: "f222222222222222222222222", Project: proj, Role: project.RoleReviewer, Phase: project.PrepareReady, Ready: true}
 	if _, _, err := s.AdmitPreparation(ctx, review); err != nil {
 		t.Fatal(err)
 	}
@@ -219,7 +246,7 @@ const planDraftBody = `{"id":"d888888888888888888888888","intent":"d777777777777
 	`{"id":"d555555555555555555555555","description":"Delete requests automatically","consequence":"Old requests vanish","decision":"decline","source":"requested","provenance":"human","actor":"1"}]}`
 
 func TestIssueMakerBoundMCPPublishesIssuesDuringItsOwnRun(t *testing.T) {
-	product, s, _, _ := q05Mux(t, "")
+	product, s, dsn, _, _ := q05MuxFull(t, "")
 	ctx := context.Background()
 	if err := s.UpsertUser(ctx, store.User{ID: 1, Login: "alice"}); err != nil {
 		t.Fatal(err)
@@ -236,15 +263,15 @@ func TestIssueMakerBoundMCPPublishesIssuesDuringItsOwnRun(t *testing.T) {
 	if err = s.RecordIssueMakerIntake(ctx, id, revision); err != nil {
 		t.Fatal(err)
 	}
-	seedIntakeGrant(t, s, ctx, id)
-	wired := &PostCollaborators{Judge: &fakePostJudge{judgment: PostJudgment{Route: factory.PostRouteNewIssue}}, IssueMaker: product.drivePostIssueMaker}
-	if _, err = drivePostIntake(ctx, s, wired, id); err != nil {
+	graph.identities = seedIntakeGrant(t, s, ctx, id)
+	wired := &factoryservice.PostCollaborators{Judge: &fakePostJudge{judgment: factoryservice.PostJudgment{Route: factory.PostRouteNewIssue}}, IssueMaker: product.FactoryApplication().IssueMaker().Drive}
+	if _, err = factoryservice.DrivePostIntake(ctx, s, wired, id); err != nil {
 		t.Fatal(err)
 	}
 	if len(stub.launches) != 0 || len(graph.issues) != 1 {
 		t.Fatal("initial capture waited for a model run")
 	}
-	if _, err = drivePostIntake(ctx, s, wired, id); err != nil {
+	if _, err = factoryservice.DrivePostIntake(ctx, s, wired, id); err != nil {
 		t.Fatal(err)
 	}
 	if len(stub.launches) != 1 {
@@ -290,10 +317,10 @@ func TestIssueMakerBoundMCPPublishesIssuesDuringItsOwnRun(t *testing.T) {
 	}
 	key := []byte(strings.Repeat("k", 32))
 	secret, _ := factory.DeriveMCPCapabilitySecret(key, cap)
-	server := httptest.NewServer(factoryBoundCatalogHandler(FactoryMCPDeps{Capabilities: s, Submissions: s, Assignments: s, Runs: s, PriorityJudgments: selection, IssueMaker: product.factoryIssueMakerTool}, key))
+	server := httptest.NewServer(factorymcp.NewHandler(factorymcp.Dependencies{Capabilities: s, Submissions: s, Assignments: s, Runs: s, PriorityJudgments: selection, IssueMaker: product.factoryIssueMakerTool}, key))
 	defer server.Close()
 	client := mcp.NewClient(&mcp.Implementation{Name: "issue-maker-bound-pg"}, nil)
-	session, err := client.Connect(ctx, &mcp.StreamableClientTransport{Endpoint: server.URL + FactoryMCPRoute, HTTPClient: &http.Client{Transport: workerMCPTransport{cap.ID, secret}}}, nil)
+	session, err := client.Connect(ctx, &mcp.StreamableClientTransport{Endpoint: server.URL + factoryhttpapi.WorkerRoute, HTTPClient: &http.Client{Transport: workerMCPTransport{cap.ID, secret}}}, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -381,6 +408,77 @@ func TestIssueMakerBoundMCPPublishesIssuesDuringItsOwnRun(t *testing.T) {
 	if count, err := s.MCPSubmissionCount(ctx, attempt.ID); err != nil || count != 0 {
 		t.Fatal("worker actions acquired a duplicate submission journal", count, err)
 	}
+	// Finish through the admitted MCP transport, then lose the final native
+	// refinement reply. The shared workflow must recover the same operation
+	// after recomposition, without another run or another issue/reply.
+	head, err := s.IntentRevision(ctx, factory.PostDecisionID("intent", id, revision), 1)
+	if err != nil {
+		t.Fatal(err)
+	}
+	candidates := []factory.SemanticCandidate{{Key: "one", Rationale: "Preserve the requested login and notification preferences.", Tasks: []factory.IntentTask{{Key: factory.PostDecisionID("task", id, revision), Objective: "Login and notification preferences", Outcomes: []string{"Valid credentials open the app and notification preferences are retained"}, IdeaIDs: head.EffectiveOutcomes}}}}
+	finish, err := session.CallTool(ctx, &mcp.CallToolParams{Name: string(factory.MCPToolFinishProductPlan), Arguments: map[string]any{"submission_id": factory.NewID(), "payload": map[string]any{"candidates": candidates, "coverage": "The recorded request is covered.", "evidence_refs": []string{"recorded request and captured issues"}}}})
+	if catalogRefused(finish, err) {
+		t.Fatal("Issue Maker finish refused", err, catalogText(t, finish))
+	}
+	// The shared command must retain the terminal fence even when a host calls
+	// it directly, without the MCP handler's earlier admission checks.
+	beforeTerminalWrite := len(graph.operations)
+	if _, err := product.capturedIssueEffects().Tool(ctx, cap, factory.MCPToolCreateIssue, map[string]any{"key": "late", "title": "Late issue", "body": "Must refuse after finish"}, "after-terminal"); !errors.Is(err, store.ErrMCPSubmissionFrozen) || len(graph.operations) != beforeTerminalWrite {
+		t.Fatal("shared issue command bypassed terminal proposal", err)
+	}
+	run.Outcome, run.Summary, run.Reconciled = factory.Succeeded, "planning done", true
+	if err := s.SaveFactoryRun(ctx, run); err != nil {
+		t.Fatal(err)
+	}
+	if _, ok := control.AccountSettledRun(ctx, s, run, time.Now()); !ok {
+		t.Fatal("Issue Maker run did not settle")
+	}
+	replies, _, err = s.FeedReplyIDs(ctx, 7, "post", post.Scope.Post, 0)
+	if err != nil {
+		t.Fatal(err)
+	}
+	graph.lostReply = true
+	if _, err := factoryservice.DrivePostIntake(ctx, s, wired, id); err != nil {
+		t.Fatal(err)
+	}
+	post, err = s.PostIssueMaker(ctx, id, revision)
+	if err != nil || post.State != "unknown" || graph.issues[1].Title != candidates[0].Tasks[0].Objective {
+		t.Fatal("lost refinement reply was not retained as unknown", post, err)
+	}
+	committed, version := len(graph.operations), graph.issues[1].ContentVersion
+	ledger, err := s.FountainLedgerHost(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := s.Close(); err != nil {
+		t.Fatal(err)
+	}
+	reopened, err := store.Open(dsn)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = reopened.Close() })
+	identities, err := forgejo.NewFountainIdentities(ctx, reopened, ledger.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	graph.identities = identities
+	recomposed := &API{Store: reopened, FountainIdentities: identities, IssueMakerNative: graph, Coordinator: &control.Coordinator{Store: reopened, Host: stub, Broker: planStubBroker{}, DispatchReads: planStubReads{}}}
+	resumed := &factoryservice.PostCollaborators{IssueMaker: recomposed.FactoryApplication().IssueMaker().Drive}
+	if count := factoryservice.DrivePendingPosts(ctx, reopened, resumed, 16); count != 1 {
+		t.Fatal("unknown refinement was lost from durable continuation", count)
+	}
+	post, err = reopened.PostIssueMaker(ctx, id, revision)
+	if err != nil || post.State != "completed" || len(graph.operations) != committed || graph.issues[1].ContentVersion != version || len(stub.launches) != 1 || len(graph.issues) != 2 {
+		t.Fatal("recovery did not settle exactly the original refinement", post, err)
+	}
+	after, _, err := reopened.FeedReplyIDs(ctx, 7, "post", post.Scope.Post, 0)
+	if err != nil || len(after) != len(replies) {
+		t.Fatal("refinement recovery duplicated a role-thread reply", after, err)
+	}
+	if count := factoryservice.DrivePendingPosts(ctx, reopened, resumed, 16); count != 0 {
+		t.Fatal("completed Issue Maker stayed in the work queue", count)
+	}
 }
 
 // Exercise the public preparation read with real PostgreSQL decisions and the
@@ -405,13 +503,13 @@ func TestPreparationDecisionPreviewReadsBoundedNativeContextHTTP(t *testing.T) {
 	if err := s.AdmitApprovalDecision(ctx, approval); err != nil {
 		t.Fatal(err)
 	}
-	states := map[string]project.PrepareState{}
+	states := map[string]execution.PreparationState{}
 	zero := 0
 	for i, role := range []string{project.RoleCoder, project.RoleReviewer} {
 		id := "f" + strings.Repeat(string(rune('1'+i)), 24)
 		prep := project.Preparation{ID: id, Project: projectID, Role: role, SourceCommit: requirement.SourceCommit, SetupDigest: requirement.SetupDigest, Requirements: requirement.Ref(2), Approval: project.AdminApproval{ID: approval.ID, Revision: 2, Approver: 1, EffectsDigest: approval.EffectsDigest}, Tools: []string{"node"}}
-		state := project.PrepareState{ID: id, Project: projectID, Role: role, SourceCommit: prep.SourceCommit, SetupDigest: prep.SetupDigest, Phase: project.PrepareReady, Ready: true, SetupExit: &zero, CheckExit: &zero, Container: strings.Repeat("a", 64)}
-		if _, _, err := s.AdmitPreparation(ctx, project.StoredPreparation{Preparation: prep, State: state}); err != nil {
+		state := execution.PreparationState{ID: id, Project: projectID, Role: role, SourceCommit: prep.SourceCommit, SetupDigest: prep.SetupDigest, Phase: project.PrepareReady, Ready: true, SetupExit: &zero, CheckExit: &zero, Container: strings.Repeat("a", 64)}
+		if _, _, err := s.AdmitPreparation(ctx, execution.PreparationRecord{Preparation: prep, State: state}); err != nil {
 			t.Fatal(err)
 		}
 		states[id] = state
@@ -500,8 +598,8 @@ func seedBoundedPreviewSelection(t *testing.T, ctx context.Context, s *store.Sto
 	for i, role := range []string{project.RoleCoder, project.RoleReviewer} {
 		id := "f" + strings.Repeat(string(rune('1'+i)), 24)
 		prep := project.Preparation{ID: id, Project: projectID, Role: role, SourceCommit: requirement.SourceCommit, SetupDigest: requirement.SetupDigest, Requirements: requirement.Ref(2), Approval: project.AdminApproval{ID: approval.ID, Revision: 2, Approver: 1, EffectsDigest: approval.EffectsDigest}, Tools: []string{"node"}}
-		state := project.PrepareState{ID: id, Project: projectID, Role: role, SourceCommit: prep.SourceCommit, SetupDigest: prep.SetupDigest, Phase: project.PrepareReady, Ready: true, SetupExit: &zero, CheckExit: &zero, Container: strings.Repeat("a", 64)}
-		if _, _, err := s.AdmitPreparation(ctx, project.StoredPreparation{Preparation: prep, State: state}); err != nil {
+		state := execution.PreparationState{ID: id, Project: projectID, Role: role, SourceCommit: prep.SourceCommit, SetupDigest: prep.SetupDigest, Phase: project.PrepareReady, Ready: true, SetupExit: &zero, CheckExit: &zero, Container: strings.Repeat("a", 64)}
+		if _, _, err := s.AdmitPreparation(ctx, execution.PreparationRecord{Preparation: prep, State: state}); err != nil {
 			t.Fatal(err)
 		}
 	}
@@ -521,11 +619,11 @@ func TestPreparationDecisionPreviewBatchTransportFailureFailsClosed(t *testing.T
 	sum := sha256.Sum256(content)
 	digest := hex.EncodeToString(sum[:])
 	projectID := seedBoundedPreviewSelection(t, ctx, s, map[string]string{"one.mjs": digest, "two.mjs": digest})
-	states := map[string]project.PrepareState{}
+	states := map[string]execution.PreparationState{}
 	zero := 0
 	for i, role := range []string{project.RoleCoder, project.RoleReviewer} {
 		id := "f" + strings.Repeat(string(rune('1'+i)), 24)
-		states[id] = project.PrepareState{ID: id, Project: projectID, Role: role, SourceCommit: strings.Repeat("c", 40), SetupDigest: strings.Repeat("d", 64), Phase: project.PrepareReady, Ready: true, SetupExit: &zero, CheckExit: &zero, Container: strings.Repeat("a", 64)}
+		states[id] = execution.PreparationState{ID: id, Project: projectID, Role: role, SourceCommit: strings.Repeat("c", 40), SetupDigest: strings.Repeat("d", 64), Phase: project.PrepareReady, Ready: true, SetupExit: &zero, CheckExit: &zero, Container: strings.Repeat("a", 64)}
 	}
 	var reads atomic.Int32
 	native := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -584,11 +682,11 @@ func TestPreparationDecisionPreviewShortParentCancelsFast(t *testing.T) {
 	sum := sha256.Sum256(content)
 	digest := hex.EncodeToString(sum[:])
 	projectID := seedBoundedPreviewSelection(t, ctx, s, map[string]string{"one.mjs": digest, "two.mjs": digest})
-	states := map[string]project.PrepareState{}
+	states := map[string]execution.PreparationState{}
 	zero := 0
 	for i, role := range []string{project.RoleCoder, project.RoleReviewer} {
 		id := "f" + strings.Repeat(string(rune('1'+i)), 24)
-		states[id] = project.PrepareState{ID: id, Project: projectID, Role: role, SourceCommit: strings.Repeat("c", 40), SetupDigest: strings.Repeat("d", 64), Phase: project.PrepareReady, Ready: true, SetupExit: &zero, CheckExit: &zero, Container: strings.Repeat("a", 64)}
+		states[id] = execution.PreparationState{ID: id, Project: projectID, Role: role, SourceCommit: strings.Repeat("c", 40), SetupDigest: strings.Repeat("d", 64), Phase: project.PrepareReady, Ready: true, SetupExit: &zero, CheckExit: &zero, Container: strings.Repeat("a", 64)}
 	}
 	var reads atomic.Int32
 	native := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -675,8 +773,13 @@ func planRequestBody(revision string) string {
 // bounded host double, while stale, non-draft and malformed callers
 // refuse and missing live capabilities fail truthfully.
 func TestIntentPlanConsumerLaunchesBoundDecompose(t *testing.T) {
-	product, s, call, errorCode := q05Mux(t, "")
+	product, s, dsn, call, errorCode := q05MuxFull(t, "")
 	ctx := context.Background()
+	rawDB, err := sql.Open("pgx", dsn)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer rawDB.Close()
 
 	// FJ-v3-580 long-objective leg: the recorded objective itself exceeds
 	// 4000 UTF-8 bytes while staying within its 16000-byte authored
@@ -723,7 +826,7 @@ func TestIntentPlanConsumerLaunchesBoundDecompose(t *testing.T) {
 	if code != http.StatusCreated {
 		t.Fatalf("plan status=%d body=%s", code, body)
 	}
-	var responded intentPlanResponse
+	var responded factoryservice.PlanningLaunch
 	if err := json.Unmarshal(body, &responded); err != nil {
 		t.Fatal(err)
 	}
@@ -803,13 +906,67 @@ func TestIntentPlanConsumerLaunchesBoundDecompose(t *testing.T) {
 		t.Fatal("activated fixture lost its exact context point")
 	}
 	zero := 0
-	stub.preparation = &project.PrepareState{ID: preparation.Preparation.ID, Project: preparation.Preparation.Project, Role: preparation.Preparation.Role, SourceCommit: preparation.Preparation.SourceCommit, SetupDigest: preparation.Preparation.SetupDigest, Ready: true, Phase: project.PrepareReady, SetupExit: &zero, CheckExit: &zero}
+	stub.preparation = &execution.PreparationState{Container: strings.Repeat("c", 64), ID: preparation.Preparation.ID, Project: preparation.Preparation.Project, Role: preparation.Preparation.Role, SourceCommit: preparation.Preparation.SourceCommit, SetupDigest: preparation.Preparation.SetupDigest, Ready: true, Phase: project.PrepareReady, SetupExit: &zero, CheckExit: &zero}
 	catalog, err := product.factoryApprovedVerificationCatalog(ctx, cap)
 	if err != nil {
 		t.Fatalf("production capability catalog: %v", err)
 	}
 	if _, ok := catalog.LookupCheck(factory.ApprovedAppCheckID); !ok {
 		t.Fatal("approved project.check absent")
+	}
+	// Exercise the production protected-preparation reader through the shared
+	// service, with mutations committed after its runtime I/O has succeeded.
+	views := factoryservice.WorkerVerification{Store: s, Catalog: product.Coordinator.ApprovedProjectCheckCatalog}
+	checkReadState := func() string {
+		var digest string
+		if err := rawDB.QueryRowContext(ctx, `SELECT md5(jsonb_build_array((SELECT jsonb_agg(to_jsonb(c) ORDER BY id) FROM factory_mcp_capabilities c),(SELECT jsonb_agg(to_jsonb(a) ORDER BY id) FROM factory_assignments a),(SELECT jsonb_agg(to_jsonb(r) ORDER BY id) FROM factory_runs r),(SELECT jsonb_agg(to_jsonb(p) ORDER BY id) FROM project_preparations p),(SELECT count(*) FROM factory_commands),(SELECT count(*) FROM factory_feed_posts))::text)`).Scan(&digest); err != nil {
+			t.Fatal(err)
+		}
+		return digest
+	}
+	beforeCheckReads := checkReadState()
+	if _, err := (factoryservice.WorkerVerification{Store: s}).ApprovedCatalog(ctx, cap); err == nil {
+		t.Fatal("planning catalog invented a missing protected source")
+	}
+	for _, fault := range []string{"project", "preparation", "source", "digest", "dispatch", "cancelled", "unknown"} {
+		readCtx, stop := context.WithCancel(ctx)
+		reader := views
+		reader.Catalog = func(ctx context.Context, assignment factory.Assignment) (factory.ApprovedProjectCheckCatalog, error) {
+			observed, err := product.Coordinator.ApprovedProjectCheckCatalog(ctx, assignment)
+			if err != nil {
+				return observed, err
+			}
+			switch fault {
+			case "project":
+				observed.Project = "p" + strings.Repeat("f", 24)
+			case "preparation":
+				observed.Preparation = "f" + strings.Repeat("f", 24)
+			case "source":
+				observed.SourceCommit = strings.Repeat("f", 40)
+			case "digest":
+				observed.PreparationDigest = strings.Repeat("f", 64)
+			case "dispatch":
+				if _, err := rawDB.ExecContext(ctx, `UPDATE factory_dispatch SET open=false WHERE repository=$1`, cap.Repository); err != nil {
+					t.Fatal(err)
+				}
+			case "cancelled":
+				stop()
+			case "unknown":
+				return observed, errors.New("protected check read is unknown")
+			}
+			return observed, nil
+		}
+		view, err := reader.ApprovedCatalog(readCtx, cap)
+		stop()
+		if err == nil || view != nil {
+			t.Fatalf("planning catalog accepted %s after protected read", fault)
+		}
+		if _, err := rawDB.ExecContext(ctx, `UPDATE factory_dispatch SET open=true WHERE repository=$1`, cap.Repository); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if checkReadState() != beforeCheckReads {
+		t.Fatal("planning catalog reads changed work, capabilities or effects")
 	}
 	for _, fault := range []string{"source", "setup", "subject", "revision", "project"} {
 		wrong := cap
@@ -834,10 +991,10 @@ func TestIntentPlanConsumerLaunchesBoundDecompose(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	server := httptest.NewServer(factoryBoundCatalogHandler(FactoryMCPDeps{Capabilities: s, Submissions: s, Assignments: s, Runs: s, PriorityJudgments: selection, Catalog: product.factoryApprovedVerificationCatalog}, key))
+	server := httptest.NewServer(factorymcp.NewHandler(factorymcp.Dependencies{Capabilities: s, Submissions: s, Assignments: s, Runs: s, PriorityJudgments: selection, Catalog: product.factoryApprovedVerificationCatalog}, key))
 	defer server.Close()
 	client := mcp.NewClient(&mcp.Implementation{Name: "approved-pl-catalog-pg"}, nil)
-	session, err := client.Connect(ctx, &mcp.StreamableClientTransport{Endpoint: server.URL + FactoryMCPRoute, HTTPClient: &http.Client{Transport: workerMCPTransport{cap.ID, secret}}}, nil)
+	session, err := client.Connect(ctx, &mcp.StreamableClientTransport{Endpoint: server.URL + factoryhttpapi.WorkerRoute, HTTPClient: &http.Client{Transport: workerMCPTransport{cap.ID, secret}}}, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -1051,8 +1208,17 @@ func TestIntentPlanConsumerLaunchesBoundDecompose(t *testing.T) {
 	if err != nil || !found {
 		t.Fatal("approved finish was not posted", found, err)
 	}
-	if err := s.AdmitApprovalDecision(ctx, project.ApprovalDecision{ID: "d" + strings.Repeat("a", 24), Predecessor: preparation.Preparation.Approval.ID, Project: cap.Project, Requirement: preparation.Preparation.Requirements.ID, Approver: 1, EffectsDigest: strings.Repeat("d", 64), ReadinessDigest: strings.Repeat("d", 64), Verified: true}); err != nil {
-		t.Fatal(err)
+	lateApproval := views
+	lateApproval.Catalog = func(ctx context.Context, assignment factory.Assignment) (factory.ApprovedProjectCheckCatalog, error) {
+		observed, err := product.Coordinator.ApprovedProjectCheckCatalog(ctx, assignment)
+		if err != nil {
+			return observed, err
+		}
+		err = s.AdmitApprovalDecision(ctx, project.ApprovalDecision{ID: "d" + strings.Repeat("a", 24), Predecessor: preparation.Preparation.Approval.ID, Project: cap.Project, Requirement: preparation.Preparation.Requirements.ID, Approver: 1, EffectsDigest: strings.Repeat("d", 64), ReadinessDigest: strings.Repeat("d", 64), Verified: true})
+		return observed, err
+	}
+	if view, err := lateApproval.ApprovedCatalog(ctx, cap); err == nil || view != nil {
+		t.Fatal("planning catalog survived approval changed during protected read", err)
 	}
 	if _, err := product.factoryApprovedVerificationCatalog(ctx, cap); err == nil {
 		t.Fatal("moved approval retained current catalog")
@@ -1193,7 +1359,7 @@ func TestIntentPlanConsumerLaunchesBoundDecompose(t *testing.T) {
 // route answers 202 with waits, leaving no run, assignment or allowance
 // behind.
 func TestIntentPlanWaitsWithoutReadyPreparation(t *testing.T) {
-	product, s, call, _ := q05Mux(t, "")
+	product, s, dsn, call, _ := q05MuxFull(t, "")
 	ctx := context.Background()
 	if code, body := call(http.MethodPost, "/api/factory/intents", planDraftBody); code != http.StatusCreated {
 		t.Fatalf("save: %d %s", code, body)
@@ -1223,6 +1389,75 @@ func TestIntentPlanWaitsWithoutReadyPreparation(t *testing.T) {
 	if _, err := s.IntentAttemptAllowance(ctx, 7, factory.IntentAttemptScope{IntentID: "d777777777777777777777777", OwnerID: 1}, ""); err == nil {
 		t.Fatal("missing preparation funded an allowance")
 	}
+	// The direct host uses the shared HTTP path with declared current authority
+	// and the actual coordinator/store, without an API or native session object.
+	requests := factoryservice.Requests{Store: s, WriteAccess: func(ctx context.Context, actor collaboration.ActorID, repository int64) error {
+		if actor != 1 || repository != 7 {
+			return errors.New("declared planning authority unavailable")
+		}
+		return ctx.Err()
+	}}
+	chooser := &exploreFixtureChooser{fail: true}
+	transport := factoryhttpapi.Requests{Service: requests, Host: product.FountainIdentities.HostID(), Actor: 1,
+		Planning:    factoryservice.RequestPlanning{Requests: requests, Planner: product.Coordinator},
+		Exploration: factoryservice.RequestExploration{Requests: requests, Chooser: chooser},
+		Current: func(w http.ResponseWriter, r *http.Request) bool {
+			if r.Header.Get("Authorization") != "Bearer declared-planning-client" {
+				http.Error(w, "declared account admission unavailable", 401)
+				return false
+			}
+			return true
+		}}
+	server := httptest.NewServer(transport.Handler())
+	t.Cleanup(server.Close)
+	direct := func(method, path, body string, status int) []byte {
+		t.Helper()
+		r, err := http.NewRequestWithContext(t.Context(), method, server.URL+path, strings.NewReader(body))
+		if err != nil {
+			t.Fatal(err)
+		}
+		r.Header.Set("Authorization", "Bearer declared-planning-client")
+		response, err := server.Client().Do(r)
+		if err != nil {
+			t.Fatal(err)
+		}
+		defer response.Body.Close()
+		data, err := io.ReadAll(response.Body)
+		if err != nil || response.StatusCode != status {
+			t.Fatalf("shared planning HTTP %s %s: %d %s %v", method, path, response.StatusCode, data, err)
+		}
+		return data
+	}
+	base := "/api/factory/intents/d777777777777777777777777"
+	if err := json.Unmarshal(direct(http.MethodPost, base+"/plan", planRequestBody("d888888888888888888888888"), 202), &waited); err != nil || waited.Launched || len(waited.Waits) == 0 {
+		t.Fatal("direct planning transport lost actual preparation wait", waited, err)
+	}
+	direct(http.MethodGet, base+"/plan", "", 200)
+	direct(http.MethodGet, base+"/plan?unexpected=1", "", 400)
+	direct(http.MethodGet, base+"/generation", "", 200)
+	direct(http.MethodPost, base+"/generate", `{"revision":"d888888888888888888888888"}`, 409)
+	direct(http.MethodPost, base+"/plan", planRequestBody("d999999999999999999999999"), 412)
+	server.Close()
+	if err := s.Close(); err != nil {
+		t.Fatal(err)
+	}
+	s, err := store.Open(dsn)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = s.Close() })
+	transport.Service.Store, transport.Planning.Requests.Store, transport.Exploration.Requests.Store = s, s, s
+	transport.Planning.Planner = &control.Coordinator{Store: s, Host: stub, Broker: planStubBroker{}, DispatchReads: planStubReads{}}
+	server = httptest.NewServer(transport.Handler())
+	t.Cleanup(server.Close)
+	direct(http.MethodPost, base+"/plan", planRequestBody("d888888888888888888888888"), 202)
+	direct(http.MethodGet, base+"/plan", "", 200)
+	if len(stub.launches) != 0 || chooser.calls != 0 {
+		t.Fatal("HTTP wait/status/recovery launched work or consulted", len(stub.launches), chooser.calls)
+	}
+	if _, err := s.IntentAttemptAllowance(ctx, 7, factory.IntentAttemptScope{IntentID: "d777777777777777777777777", OwnerID: 1}, ""); err == nil {
+		t.Fatal("HTTP planning wait/recovery funded an allowance")
+	}
 }
 
 // TestIntentPlanRefusesMismatchedPreparationContext proves server-assembled
@@ -1236,13 +1471,13 @@ func TestIntentPlanRefusesMismatchedPreparationContext(t *testing.T) {
 	}
 	seedPlanFundingWithPreparations(t, ctx, s, false)
 	commit, digest := strings.Repeat("c", 40), strings.Repeat("d", 64)
-	bad := project.StoredPreparation{Preparation: project.Preparation{
+	bad := execution.PreparationRecord{Preparation: project.Preparation{
 		ID: "f111111111111111111111111", Project: "p765432109876543210987654", Role: project.RoleCoder,
 		Requirements: project.RequirementAcceptance{ID: "d111111111111111111111111", Revision: 1, Approver: 1, SourceCommit: commit, Digest: digest, SourceInputs: map[string]string{planSourcePath: digest}},
 		Approval:     project.AdminApproval{ID: "d222222222222222222222222", Revision: 1, Approver: 1, EffectsDigest: digest},
 		SourceCommit: commit, SetupDigest: digest, Tools: []string{"python3"},
 	}}
-	bad.State = project.PrepareState{ID: "f111111111111111111111111", Project: "p765432109876543210987654", Role: project.RoleCoder, Phase: project.PrepareReady, Ready: true}
+	bad.State = execution.PreparationState{Container: strings.Repeat("c", 64), SourceCommit: bad.Preparation.SourceCommit, SetupDigest: bad.Preparation.SetupDigest, ID: "f111111111111111111111111", Project: "p765432109876543210987654", Role: project.RoleCoder, Phase: project.PrepareReady, Ready: true}
 	if _, _, err := s.AdmitPreparation(ctx, bad); err != nil {
 		t.Fatal(err)
 	}
@@ -1395,7 +1630,8 @@ func settlePlanRun(t *testing.T, ctx context.Context, s *store.Store, runID, ans
 		t.Fatal(err)
 	}
 	if _, ok := control.AccountSettledRun(ctx, s, run, time.Now()); !ok {
-		t.Fatal("plan run unsettled")
+		status, _, readErr := s.TerminalMCPProposal(ctx, launched.ID)
+		t.Fatal("plan run unsettled", status, readErr, control.CheckMCPTerminalFinish(launched, submission, time.Now()))
 	}
 }
 
@@ -1404,7 +1640,7 @@ func settlePlanRun(t *testing.T, ctx context.Context, s *store.Store, runID, ans
 // is outstanding, and the reported completed shape with its candidate
 // count once the run settles.
 func TestIntentPlanStatusReadsAttemptLifecycle(t *testing.T) {
-	product, s, call, _ := q05Mux(t, "")
+	product, s, dsn, call, _ := q05MuxFull(t, "")
 	ctx := context.Background()
 	if code, body := call(http.MethodPost, "/api/factory/intents", planDraftBody); code != http.StatusCreated {
 		t.Fatalf("save: %d %s", code, body)
@@ -1427,6 +1663,23 @@ func TestIntentPlanStatusReadsAttemptLifecycle(t *testing.T) {
 			t.Fatalf("empty status not exact: %+v", viewed)
 		}
 	}
+	const receiptURL = "/api/factory/intents/d777777777777777777777777/revisions/d888888888888888888888888/plan"
+	readReceipt := func() factoryservice.PlanningReceipt {
+		t.Helper()
+		code, body := call(http.MethodGet, receiptURL, "")
+		if code != 200 {
+			t.Fatalf("planning receipt: %d %s", code, body)
+		}
+		var result factoryservice.PlanningReceipt
+		if err := json.Unmarshal(body, &result); err != nil {
+			t.Fatal(err)
+		}
+		return result
+	}
+	absent := readReceipt()
+	if absent.Intent != "d777777777777777777777777" || absent.Revision != "d888888888888888888888888" || absent.State != "none" || absent.Operation != "" || absent.AssignmentID != "" || absent.RunID != "" {
+		t.Fatal("empty planning receipt fabricated an attempt", absent)
+	}
 	code, body := call(http.MethodPost, "/api/factory/intents/d777777777777777777777777/plan", planRequestBody("d888888888888888888888888"))
 	if code != http.StatusAccepted {
 		t.Fatalf("plan status=%d body=%s", code, body)
@@ -1444,6 +1697,64 @@ func TestIntentPlanStatusReadsAttemptLifecycle(t *testing.T) {
 	if replayCode, replayBody := call(http.MethodPost, statusURL, planRequestBody("d888888888888888888888888")); replayCode != http.StatusAccepted || len(stub.launches) != 1 {
 		t.Fatalf("uncertain launch replay duplicated work or failed recovery: %d %s launches=%d", replayCode, replayBody, len(stub.launches))
 	}
+	pending := readReceipt()
+	if pending.Intent != absent.Intent || pending.Revision != absent.Revision || pending.State != "pending" || pending.Operation != factory.IntentPlanningPropose || pending.RunID != launched.RunID || pending.AssignmentID == "" {
+		t.Fatal("pending planning receipt lost the recorded attempt", pending)
+	}
+	if _, body := call(http.MethodGet, receiptURL, ""); strings.Contains(string(body), "launch_confirmed") {
+		t.Fatal("recorded attempt claimed native start", string(body))
+	}
+	t.Run("shared_planning_recomposition_and_current_authority", func(t *testing.T) {
+		fresh, err := store.Open(dsn)
+		if err != nil {
+			t.Fatal(err)
+		}
+		defer fresh.Close()
+		const intent, revision = "d777777777777777777777777", "d888888888888888888888888"
+		attempt, err := fresh.IntentPlanAttempt(ctx, intent, revision)
+		if err != nil {
+			t.Fatal(err)
+		}
+		allowance, err := fresh.IntentAttemptAllowance(ctx, 7, factory.IntentAttemptScope{IntentID: intent, OwnerID: 1}, attempt.ID)
+		if err != nil {
+			t.Fatal(err)
+		}
+		before, _ := json.Marshal(allowance)
+		allowed, checks := true, 0
+		denied := errors.New("declared repository authority withdrawn")
+		requests := factoryservice.Requests{Store: fresh, WriteAccess: func(ctx context.Context, actor collaboration.ActorID, repository int64) error {
+			checks++
+			if actor != 1 || repository != 7 || !allowed {
+				return denied
+			}
+			return ctx.Err()
+		}}
+		planning := factoryservice.RequestPlanning{Requests: requests, Planner: &control.Coordinator{Store: fresh, Host: stub, Broker: planStubBroker{}, DispatchReads: planStubReads{}}}
+		resumed, err := planning.Plan(ctx, 1, intent, revision, factory.IntentPlanningPropose)
+		if err != nil || resumed.Launch == nil || resumed.Launch.AssignmentID != attempt.ID || resumed.Launch.RunID != launched.RunID || resumed.Launch.LaunchConfirmed == nil || *resumed.Launch.LaunchConfirmed || len(stub.launches) != 1 || checks != 1 {
+			t.Fatal("fresh shared planning duplicated or lost the uncertain launch", resumed, len(stub.launches), checks, err)
+		}
+		if _, err := planning.Plan(ctx, 1, intent, revision, factory.IntentPlanningOptions); !errors.Is(err, store.ErrCommandConflict) || checks != 2 {
+			t.Fatal("recorded attempt was adopted for a different operation", checks, err)
+		}
+		allowed = false
+		if _, err := planning.Plan(ctx, 1, intent, revision, factory.IntentPlanningPropose); !errors.Is(err, factoryservice.ErrRequestWriteAccess) || !errors.Is(err, denied) || checks != 3 {
+			t.Fatal("planning replay bypassed current authority", checks, err)
+		}
+		if _, err := planning.Plan(ctx, 7, intent, revision, factory.IntentPlanningPropose); !errors.Is(err, factoryservice.ErrRequestNotFound) || checks != 3 {
+			t.Fatal("foreign request reached planning admission", checks, err)
+		}
+		cancelled, stop := context.WithCancel(ctx)
+		stop()
+		if _, err := planning.Plan(cancelled, 1, intent, revision, factory.IntentPlanningPropose); !errors.Is(err, context.Canceled) || checks != 3 {
+			t.Fatal("shared service detached caller cancellation", checks, err)
+		}
+		allowance, err = fresh.IntentAttemptAllowance(ctx, 7, factory.IntentAttemptScope{IntentID: intent, OwnerID: 1}, attempt.ID)
+		after, _ := json.Marshal(allowance)
+		if err != nil || string(before) != string(after) || len(stub.launches) != 1 {
+			t.Fatal("planning recovery or refusal spent another attempt", err)
+		}
+	})
 	if code, body := call(http.MethodGet, statusURL, ""); code != http.StatusOK {
 		t.Fatalf("pending status=%d body=%s", code, body)
 	} else {
@@ -1485,6 +1796,16 @@ func TestIntentPlanStatusReadsAttemptLifecycle(t *testing.T) {
 	if judge.calls != 0 || !strings.Contains(string(body), `"walkthroughs"`) || strings.Contains(string(body), `"review"`) {
 		t.Fatalf("GET must expose authored content without consulting: calls=%d body=%s", judge.calls, body)
 	}
+	// A command-capable shared instance must also keep reads free of model
+	// access. Fail the configured chooser so an accidental consultation is
+	// observable even if its error would otherwise leave advice absent.
+	shared := factoryservice.RequestExploration{Requests: factoryservice.Requests{Store: s}, Chooser: judge}
+	judge.fail = true
+	status, err := shared.Status(ctx, 1, head.Intent)
+	if err != nil || status.State != "completed" || status.Walkthroughs == nil || status.Review != nil || judge.calls != 0 {
+		t.Fatal("shared status consulted or lost recorded planning facts", status.State, judge.calls, err)
+	}
+	judge.fail = false
 	code, body = call(http.MethodPost, statusURL+"/review", `{"revision":"`+head.ID+`"}`)
 	if code != http.StatusOK || judge.calls != 2 || !strings.Contains(string(body), `"recommended":"guided"`) {
 		t.Fatalf("explicit walkthrough review failed: status=%d calls=%d body=%s", code, judge.calls, body)
@@ -1494,11 +1815,166 @@ func TestIntentPlanStatusReadsAttemptLifecycle(t *testing.T) {
 		if code != http.StatusOK || judge.calls != 2 || !strings.Contains(string(body), `"review"`) {
 			t.Fatalf("GET must restore review without consulting: status=%d calls=%d body=%s", code, judge.calls, body)
 		}
+		judge.fail = true
+		status, err := shared.Status(ctx, 1, head.Intent)
+		if err != nil || status.Review == nil || judge.calls != 2 {
+			t.Fatal("shared status could not replay recorded advice without a chooser", judge.calls, err)
+		}
+		judge.fail = false
 	}
 	code, body = call(http.MethodPost, statusURL+"/review", `{"revision":"d999999999999999999999999"}`)
 	if code != http.StatusPreconditionFailed || judge.calls != 2 {
 		t.Fatalf("stale review consulted: status=%d calls=%d body=%s", code, judge.calls, body)
 	}
+	t.Run("historical_planning_receipt_read", func(t *testing.T) {
+		ctx := t.Context()
+		historical := readReceipt()
+		if historical.State != "completed" || historical.AssignmentID != pending.AssignmentID || historical.RunID != pending.RunID || historical.Operation != factory.IntentPlanningPropose || historical.Walkthroughs == nil || historical.Review != nil {
+			t.Fatal("recorded outcome was rejudged or lost its original identity", historical)
+		}
+		next := head
+		next.ID, next.Predecessor, next.State = "d"+strings.Repeat("6", 24), head.ID, "accepted"
+		recorded, err := s.IntentPlanAttempt(ctx, head.Intent, head.ID)
+		if err != nil || recorded.Result == nil || recorded.Result.PhaseResult == nil || recorded.Result.PhaseResult.Output == nil || recorded.Result.PhaseResult.Output.Decomposition == nil || len(recorded.Result.PhaseResult.Output.Decomposition.Candidates) != 1 {
+			t.Fatal("missing recorded graph for acceptance", err)
+		}
+		next.Tasks = recorded.Result.PhaseResult.Output.Decomposition.Candidates[0].Tasks
+		if err := s.SaveIntentRevision(ctx, next); err != nil {
+			t.Fatal(err)
+		}
+		// The original draft and its recorded attempt remain readable after acceptance.
+		same := readReceipt()
+		a, _ := json.Marshal(historical)
+		b, _ := json.Marshal(same)
+		if string(a) != string(b) || judge.calls != 2 || len(stub.launches) != 1 {
+			t.Fatal("advanced head changed planning history or relaunched")
+		}
+		// The private proxy uses the native product route and original SDK admission.
+		nativeMux := http.NewServeMux()
+		product.registerExtensionProductRoutes(nativeMux)
+		socket := "@soda-planning-receipt-" + strconv.Itoa(os.Getpid())
+		listener, err := net.Listen("unix", socket)
+		if err != nil {
+			t.Fatal(err)
+		}
+		native := httptest.NewUnstartedServer(nativeMux)
+		native.Listener.Close()
+		native.Listener = listener
+		native.Start()
+		t.Cleanup(native.Close)
+		proxy, closeProxy := Extension(socket)
+		t.Cleanup(closeProxy)
+		authority, err := json.Marshal(extensions.Authority{ExtensionID: "soda", InstanceID: "q05-test", SessionGeneration: "generation-1", Contribution: extensions.Contribution{ID: "spaces", Kind: "page", Scope: "global", Action: "get"}, Actor: extensions.Actor{ID: "1", Username: "alice"}})
+		if err != nil {
+			t.Fatal(err)
+		}
+		proxyPath := "/factory/intents/" + head.Intent + "/revisions/" + head.ID + "/plan"
+		for _, probe := range []struct {
+			method, path string
+			status       int
+		}{{http.MethodGet, proxyPath, 200}, {http.MethodPost, proxyPath, 404}, {http.MethodGet, proxyPath + "?", 404}, {http.MethodGet, proxyPath + "?operation=propose_intent", 404}, {http.MethodGet, proxyPath + "/extra", 404}, {http.MethodGet, "/factory/intents/" + head.Intent + "/revisions/bad/plan", 404}} {
+			r := httptest.NewRequest(probe.method, probe.path, nil)
+			r.Header.Set(extensions.ContextHeader, string(authority))
+			r.Header.Set(extensions.AdmissionHeader, "test-admission")
+			r.Header.Set(extensions.SessionGenerationHeader, "generation-1")
+			w := httptest.NewRecorder()
+			proxy.ServeHTTP(w, r)
+			if w.Code != probe.status {
+				t.Fatal("planning receipt proxy", probe.path, w.Code, w.Body.String())
+			}
+			if probe.status == 200 && (w.Body.String() != string(a)+"\n" || w.Header().Get("Cache-Control") != "no-store") {
+				t.Fatal("proxy changed or cached recorded planning result", w.Body.String())
+			}
+		}
+		native.Close()
+		if err := s.Close(); err != nil {
+			t.Fatal(err)
+		}
+		reopened, err := store.Open(dsn)
+		if err != nil {
+			t.Fatal(err)
+		}
+		defer reopened.Close()
+		inspect, err := sql.Open("pgx", dsn)
+		if err != nil {
+			t.Fatal(err)
+		}
+		defer inspect.Close()
+		snapshot := func() string {
+			var digest string
+			err := inspect.QueryRowContext(ctx, `SELECT md5(jsonb_build_array(
+      (SELECT jsonb_agg(to_jsonb(h) ORDER BY id) FROM factory_intent_heads h),
+      (SELECT jsonb_agg(to_jsonb(r) ORDER BY id) FROM factory_intent_revisions r),
+      (SELECT jsonb_agg(to_jsonb(a) ORDER BY id) FROM factory_assignments a),
+      (SELECT jsonb_agg(to_jsonb(r) ORDER BY id) FROM factory_runs r),
+      (SELECT jsonb_agg(to_jsonb(u) ORDER BY run) FROM factory_usage u),
+      (SELECT jsonb_agg(to_jsonb(j) ORDER BY snapshot) FROM factory_priority_judgments j),
+      (SELECT jsonb_agg(to_jsonb(c) ORDER BY id) FROM factory_commands c))::text)`).Scan(&digest)
+			if err != nil {
+				t.Fatal(err)
+			}
+			return digest
+		}
+		before := snapshot()
+		checks, revokeAt := 0, 0
+		requests := factoryservice.Requests{Store: reopened}
+		transport := factoryhttpapi.Requests{Service: requests, Actor: 1, Host: product.FountainIdentities.HostID(),
+			Exploration: factoryservice.RequestExploration{Requests: requests, Chooser: judge},
+			Current: func(w http.ResponseWriter, r *http.Request) bool {
+				checks++
+				if r.Header.Get("Authorization") != "Bearer declared-planning-reader" || (revokeAt > 0 && checks == revokeAt) {
+					http.Error(w, "declared account withdrawn", 401)
+					return false
+				}
+				return true
+			}}
+		server := httptest.NewServer(transport.Handler())
+		defer func() { server.Close() }()
+		read := func(method, path string, status int) []byte {
+			t.Helper()
+			r, err := http.NewRequestWithContext(ctx, method, server.URL+path, nil)
+			if err != nil {
+				t.Fatal(err)
+			}
+			r.Header.Set("Authorization", "Bearer declared-planning-reader")
+			response, err := server.Client().Do(r)
+			if err != nil {
+				t.Fatal(err)
+			}
+			defer response.Body.Close()
+			data, err := io.ReadAll(response.Body)
+			if err != nil || response.StatusCode != status {
+				t.Fatal("planning receipt HTTP", path, response.StatusCode, string(data), err)
+			}
+			if status == 200 && response.Header.Get("Cache-Control") != "no-store" {
+				t.Fatal("planning receipt was cached")
+			}
+			return data
+		}
+		if data := read(http.MethodGet, receiptURL, 200); string(data) != string(a)+"\n" {
+			t.Fatal("reopen changed recorded planning result", string(data))
+		}
+		for _, query := range []string{"?", "?owner=1", "?operation=decomposition_options"} {
+			read(http.MethodGet, receiptURL+query, 400)
+		}
+		read(http.MethodPost, receiptURL, 405)
+		read(http.MethodGet, "/api/factory/intents/"+head.Intent+"/revisions/"+next.ID+"/plan", 404)
+		read(http.MethodGet, "/api/factory/intents/"+head.Intent+"/revisions/d999999999999999999999999/plan", 404)
+		read(http.MethodGet, "/api/factory/intents/d999999999999999999999999/revisions/"+head.ID+"/plan", 404)
+		checks, revokeAt = 0, 2
+		if data := read(http.MethodGet, receiptURL, 401); strings.Contains(string(data), historical.AssignmentID) {
+			t.Fatal("retired read disclosed original planning identity")
+		}
+		revokeAt = 0
+		server.Close()
+		transport.Actor = 9007199254740993
+		server = httptest.NewServer(transport.Handler())
+		read(http.MethodGet, receiptURL, 404)
+		if snapshot() != before || judge.calls != 2 || len(stub.launches) != 1 {
+			t.Fatal("planning receipt reads changed records, judged or launched work")
+		}
+	})
+
 }
 
 // TestIntentPlanStatusReadsAttention proves a blocked plan surfaces as
@@ -1570,7 +2046,7 @@ func TestIntentPlanRefusesCandidateOutsideExplicitSubset(t *testing.T) {
 	if code != http.StatusCreated {
 		t.Fatalf("plan status=%d body=%s", code, body)
 	}
-	var responded intentPlanResponse
+	var responded factoryservice.PlanningLaunch
 	if err := json.Unmarshal(body, &responded); err != nil {
 		t.Fatal(err)
 	}
@@ -1666,7 +2142,7 @@ func TestIntentPlanReviewAdmitsPersistedCompatByteWindow(t *testing.T) {
 	if code != http.StatusCreated {
 		t.Fatalf("compat plan status=%d body=%s", code, body)
 	}
-	var launched intentPlanResponse
+	var launched factoryservice.PlanningLaunch
 	if err := json.Unmarshal(body, &launched); err != nil {
 		t.Fatal(err)
 	}
@@ -1753,11 +2229,11 @@ func TestIntentPlanReviewAdmitsPersistedCompatByteWindow(t *testing.T) {
 }
 
 // TestIntentPlanReviewPersistsMalformedAttention closes the FJ-v3-599 gap
-// through the real HTTP plan path: a genuinely malformed compat attempt
-// (unrelated substituted Outcomes[0] bound to the real saved head) is
-// settled through the production settle joint, which persists it as
-// blocked needs-human carrying the exact validator message — never a
-// completed decomposition. GET plan then surfaces persisted attention
+// through the real HTTP plan path: a genuinely malformed compat completion
+// (unrelated substituted Outcomes[0] bound to the real saved head) is refused
+// before a terminal identity freezes. The worker can report that blocker
+// through finish_incomplete, which persists needs-human with the validator
+// message rather than a completed decomposition. GET surfaces that attention
 // with that exact summary and zero candidates, and no generation is
 // written. No server binding check is touched.
 func TestIntentPlanReviewPersistsMalformedAttention(t *testing.T) {
@@ -1788,7 +2264,7 @@ func TestIntentPlanReviewPersistsMalformedAttention(t *testing.T) {
 	if code != http.StatusCreated {
 		t.Fatalf("compat plan status=%d body=%s", code, body)
 	}
-	var launched intentPlanResponse
+	var launched factoryservice.PlanningLaunch
 	if err := json.Unmarshal(body, &launched); err != nil {
 		t.Fatal(err)
 	}
@@ -1802,7 +2278,38 @@ func TestIntentPlanReviewPersistsMalformedAttention(t *testing.T) {
 	malformed := planLongWalkthroughContent(t, head)
 	malformed.Alternatives = append([]factory.ProductAlternative(nil), malformed.Alternatives...)
 	malformed.Alternatives[0].Outcomes = append([]string{"An unrelated invented outcome"}, malformed.Alternatives[0].Outcomes[1:]...)
-	settlePlanRun(t, ctx, s, launched.RunID, planSettledAnswer(t, "completed", "", malformed))
+	attempt, err := s.Assignment(ctx, launched.AssignmentID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	run, err := s.FactoryRun(ctx, launched.RunID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	preparation, err := s.Preparation(ctx, attempt.Preparation)
+	if err != nil {
+		t.Fatal(err)
+	}
+	capability, err := control.BuildMCPCapability(attempt, run, preparation)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var malformedResult factory.PhaseResult
+	if err := json.Unmarshal([]byte(planSettledAnswer(t, "completed", "", malformed)), &malformedResult); err != nil {
+		t.Fatal(err)
+	}
+	payload, err := json.Marshal(map[string]any{"candidates": malformedResult.Output.Decomposition.Candidates, "walkthroughs": malformed, "coverage": "Every authorized outcome is planned.", "evidence_refs": []string{"planning input"}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	submission := factory.MCPSubmission{AssignmentID: attempt.ID, CapabilityID: capability.ID, SubmissionID: factory.NewID(), Tool: factory.MCPToolFinishProductPlan, Payload: payload}
+	if err := control.CheckMCPTerminalFinish(attempt, submission, time.Now()); err == nil || !strings.Contains(err.Error(), mismatchDetail) {
+		t.Fatal("malformed completed walkthrough was not refused before persistence", err)
+	}
+	if count, err := s.MCPSubmissionCount(ctx, attempt.ID); err != nil || count != 0 {
+		t.Fatal("refused completion froze a terminal submission", count, err)
+	}
+	settlePlanRun(t, ctx, s, launched.RunID, planSettledAnswer(t, "blocked", mismatchDetail))
 	finished, err := s.Assignment(ctx, launched.AssignmentID)
 	if err != nil || finished.Outcome != factory.NeedsHuman || finished.Reason != factory.AssignReasonNoReport || finished.Result == nil || finished.Result.Reported {
 		t.Fatalf("malformed HTTP settlement reported: %+v %v", finished, err)
@@ -1829,4 +2336,28 @@ func TestIntentPlanReviewPersistsMalformedAttention(t *testing.T) {
 	if _, err := s.IntentGeneration(ctx, reloaded.ID); err == nil {
 		t.Fatal("malformed HTTP settlement recorded a generation")
 	}
+}
+
+func (f *planStubHost) InspectRun(ctx context.Context, address execution.RunAddress) (execution.RunObservation, error) {
+	return host.NewFactoryObserver(f, nil).InspectRun(ctx, address)
+}
+
+func (f *planStubHost) RetireRun(ctx context.Context, address execution.RunAddress) (execution.RunObservation, error) {
+	return host.NewFactoryObserver(f, nil).RetireRun(ctx, address)
+}
+
+func (f *planStubHost) LaunchRun(ctx context.Context, launch execution.LaunchRequest) (execution.RunObservation, error) {
+	return host.NewFactoryObserver(f, nil).LaunchRun(ctx, launch)
+}
+
+func (f planStubBroker) ReadCustody(ctx context.Context, address execution.RunAddress) (execution.CustodyObservation, error) {
+	return host.NewFactoryObserver(nil, f).ReadCustody(ctx, address)
+}
+
+func (f planStubBroker) SealCustody(ctx context.Context, address execution.RunAddress) error {
+	return host.NewFactoryObserver(nil, f).SealCustody(ctx, address)
+}
+
+func (f *planStubHost) ExportCandidate(ctx context.Context, request execution.CandidateRequest) (execution.CandidateBundle, error) {
+	return host.NewFactoryObserver(f, nil).ExportCandidate(ctx, request)
 }

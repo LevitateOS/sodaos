@@ -1,15 +1,17 @@
 #!/bin/bash
-# SQL locality: product PostgreSQL stays in internal/store.
+# SQL locality: product PostgreSQL stays in Factory's canonical pkg/store.
 # See docs/development/go.md. No appliance installation or provider setup.
 set -euo pipefail
 cd "$(dirname "$0")/.."
+factory_source=$(go list -m -f '{{.Dir}}' github.com/levitateos/factory)
+store_source="$factory_source/pkg/store"
 
 violations=""
 hits_file="$(mktemp "${TMPDIR:-/tmp}/soda-sql-locality.XXXXXX")"
 trap 'rm -f "$hits_file"' EXIT
 while IFS= read -r -d '' file; do
   case "$file" in
-    ./internal/store/*) continue ;;
+    "$store_source"/*) continue ;;
     # The workload-access acceptance probe issues PostgreSQL DML to ephemeral
     # test workloads through the psql CLI (ported from
     # tests/installed/workload-access.py). It never touches product Store or
@@ -85,11 +87,11 @@ while IFS= read -r -d '' file; do
       violations+="${file}:${hit}"$'\n'
     done <"$hits_file"
   fi
-done < <(find ./internal ./cmd ./tools -name '*.go' -print0)
+done < <(find ./internal ./cmd ./tools "$factory_source/pkg" "$factory_source/cmd" "$factory_source/tools" -name '*.go' -print0)
 
 if [ -n "$violations" ]; then
   printf '%s' "$violations"
-  printf 'SQL locality failed: database/sql, sql.Open, and SQL verb literals require internal/store or a named test fixture exception (docs/development/go.md).\n'
+  printf 'SQL locality failed: database/sql, sql.Open, and SQL verb literals require Factory pkg/store or a named test fixture exception (docs/development/go.md).\n'
   exit 1
 fi
 # Null-array guard: every jsonb_array_elements in product SQL must expand
@@ -103,10 +105,10 @@ while IFS= read -r -d '' file; do
       *) unguarded+="${file}:${line}"$'\n' ;;
     esac
   done < <(grep -n 'jsonb_array_elements(' "$file" 2>/dev/null || true)
-done < <(find ./internal/store -name '*.go' -print0)
+done < <(find "$store_source" -name '*.go' -print0)
 if [ -n "$unguarded" ]; then
   printf '%s' "$unguarded"
   printf 'SQL locality failed: jsonb_array_elements without a same-line jsonb_typeof guard expands JSON null; guard with CASE WHEN jsonb_typeof(...)=%s.\n' "'array'"
   exit 1
 fi
-printf 'SQL locality passed: product SQL stays in internal/store; named fixture exceptions only.\n'
+printf 'SQL locality passed: product SQL stays in published Factory pkg/store; named fixture exceptions only.\n'

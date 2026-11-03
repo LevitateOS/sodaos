@@ -1,11 +1,12 @@
 package api
 
 import (
-	"github.com/levitateos/sodaos/internal/application"
-	"github.com/levitateos/sodaos/internal/store"
-	"github.com/levitateos/sodaos/internal/web/auth"
 	"net/http"
 	"time"
+
+	"github.com/levitateos/factory/pkg/application"
+	"github.com/levitateos/factory/pkg/store"
+	"github.com/levitateos/sodaos/internal/web/auth"
 )
 
 func (s *API) apiApplicationSnapshots(w http.ResponseWriter, r *http.Request, session store.Session) {

@@ -15,7 +15,9 @@ import (
 	"time"
 
 	extensions "forgejo.org/extension-sdk"
-	"github.com/levitateos/sodaos/internal/factory"
+	"github.com/levitateos/factory/pkg/factory"
+	factoryhttpapi "github.com/levitateos/factory/pkg/factory/httpapi"
+	"github.com/levitateos/factory/pkg/project"
 	"github.com/levitateos/sodaos/internal/web/auth"
 )
 
@@ -26,7 +28,7 @@ var (
 
 const extensionResponseHeaderTimeout = stopOperationTimeout + time.Minute
 
-// Extension prepares the initial read/preferences bridge over a private Unix
+// Extension prepares the admitted product bridge over a private Unix
 // socket. The receiving Soda listener must verify the native admission itself;
 // this transport must never point at the public dashboard browser listener.
 func Extension(socket string) (http.Handler, func()) {
@@ -79,7 +81,55 @@ func Extension(socket string) (http.Handler, func()) {
 			return
 		}
 		if !extensionTerminalStreamRoute(r) && !extensionFactoryOutputStreamRoute(r) {
-			r.Body = http.MaxBytesReader(w, r.Body, auth.APIBodyLimit)
+			limit := int64(auth.APIBodyLimit)
+			parts := strings.Split(strings.TrimPrefix(r.URL.Path, "/"), "/")
+			commandRoute := extensionHumanCommandRoute(parts, r.Method) || extensionCreationCommandRoute(parts, r.Method)
+			if len(parts) == 7 && commandRoute && parts[6] == "comments" {
+				limit = factoryhttpapi.HumanCommentRequestLimit
+			}
+			if len(parts) == 7 && commandRoute && parts[6] == "edits" {
+				limit = factoryhttpapi.HumanEditRequestLimit
+			}
+			inlineSubmission := len(parts) == 7 && commandRoute && parts[6] == "inline-comments"
+			if inlineSubmission {
+				limit = factoryhttpapi.HumanInlineRequestLimit
+			}
+			reviewSubmission := len(parts) == 7 && commandRoute && parts[6] == "reviews"
+			if reviewSubmission {
+				limit = factoryhttpapi.HumanReviewRequestLimit
+			}
+			if len(parts) == 7 && commandRoute && parts[6] == "merges" {
+				limit = factoryhttpapi.HumanMergeRequestLimit
+			}
+			if len(parts) == 5 && extensionCreationCommandRoute(parts, r.Method) {
+				limit = factoryhttpapi.HumanPullCreateRequestLimit
+				if parts[4] == "issues" {
+					limit = factoryhttpapi.HumanIssueCreateRequestLimit
+				}
+			}
+			lockSubmission := len(parts) == 7 && commandRoute && parts[6] == "locks"
+			if lockSubmission {
+				limit = factoryhttpapi.HumanLockRequestLimit
+			}
+			r.Body = http.MaxBytesReader(w, r.Body, limit)
+			if commandRoute && r.Method == http.MethodPost {
+				// Reject before forwarding: a proxy body read error otherwise looks
+				// like uncertain delivery instead of a proved oversized request.
+				body, err := io.ReadAll(r.Body)
+				_ = r.Body.Close()
+				if err != nil {
+					var tooLarge *http.MaxBytesError
+					if errors.As(err, &tooLarge) {
+						auth.JSONError(w, http.StatusRequestEntityTooLarge, "body_too_large", "Command request exceeds the envelope limit.")
+					} else {
+						auth.JSONError(w, http.StatusBadRequest, "invalid_request", "Command request body could not be read.")
+					}
+					return
+				}
+				r.Body = io.NopCloser(bytes.NewReader(body))
+				r.ContentLength = int64(len(body))
+			}
+
 		}
 		proxy.ServeHTTP(w, r)
 	})
@@ -93,6 +143,15 @@ func boundExtensionResponse(response *http.Response) error {
 	limit := auth.APIBodyLimit
 	if response.Request != nil && response.Request.Method == http.MethodGet && extensionArtifactRoute(strings.TrimPrefix(response.Request.URL.Path, "/api")) {
 		limit = factory.MaxFeedArtifactBytes
+	}
+	if response.Request != nil && response.Request.Method == http.MethodGet {
+		parts := strings.Split(strings.TrimPrefix(response.Request.URL.Path, "/api/"), "/")
+		if (len(parts) == 5 || len(parts) == 6) && parts[0] == "factory" && parts[1] == "collaboration" && parts[4] == "issues" && extensionFactoryRoute(parts, http.MethodGet) {
+			limit = factoryhttpapi.CollaborationIssueResponseLimit
+		}
+		if len(parts) >= 7 && parts[0] == "factory" && parts[1] == "collaboration" && parts[6] == "threads" && extensionFactoryRoute(parts, http.MethodGet) {
+			limit = factoryhttpapi.CollaborationThreadResponseLimit
+		}
 	}
 	body, err := io.ReadAll(io.LimitReader(response.Body, int64(limit)+1))
 	closeErr := response.Body.Close()
@@ -149,17 +208,26 @@ func extensionDevelopmentKeyRoute(parts []string, method string) bool {
 
 func extensionQueryRoute(route string) bool {
 	switch route {
-	case "/repositories", "/environments", "/me/forgejo-keys", "/factory/intents", "/factory/feed", "/factory/library", "/factory/library/item", "/spaces":
+	case "/repositories", "/environments", "/me/forgejo-keys", "/factory/intents", "/factory/repositories", "/factory/feed", "/factory/library", "/factory/library/item", "/spaces":
 		return true
 	default:
 		if extensionArtifactRoute(route) {
 			return true
 		}
 		parts := strings.Split(strings.TrimPrefix(route, "/"), "/")
+		// Collaboration handlers own strict query validation. Keep the bridge
+		// aligned with its admitted GET routes so real paging/search reaches
+		// those handlers without maintaining a second route catalogue here.
+		if len(parts) >= 3 && parts[0] == "factory" && parts[1] == "collaboration" {
+			return extensionFactoryRoute(parts, http.MethodGet)
+		}
 		if len(parts) == 3 && parts[0] == "repositories" && extensionProductID(parts[1]) && parts[2] == "application-builds" {
 			return true
 		}
 		if len(parts) == 5 && parts[0] == "factory" && parts[1] == "feed" && parts[2] == "posts" && parts[3] != "" && parts[4] == "replies" {
+			return true
+		}
+		if len(parts) == 6 && parts[0] == "factory" && parts[1] == "feed" && parts[2] == "posts" && factory.ValidID(parts[3]) && parts[4] == "retry" && factory.ValidID(parts[5]) {
 			return true
 		}
 		if len(parts) == 6 && parts[0] == "repositories" && extensionProductID(parts[1]) &&
@@ -212,6 +280,12 @@ func extensionFactoryIntentsRoute(parts []string, method string) (admitted, hand
 }
 
 func extensionIntentsRevisionRoute(parts []string, method string) (admitted, handled bool) {
+	if len(parts) == 6 && parts[1] == "intents" && parts[3] == "revisions" && (parts[5] == "generation" || parts[5] == "plan" || parts[5] == "exploration") {
+		return method == http.MethodGet && project.ValidDecisionID(parts[2]) && project.ValidDecisionID(parts[4]), true
+	}
+	if len(parts) == 5 && parts[1] == "intents" && parts[3] == "revisions" {
+		return method == http.MethodGet && project.ValidDecisionID(parts[2]) && project.ValidDecisionID(parts[4]), true
+	}
 	if len(parts) == 4 && parts[1] == "intents" && parts[2] != "" && parts[3] == "verification-allowance" {
 		return method == http.MethodGet || method == http.MethodPost, true
 	}
@@ -324,7 +398,102 @@ func extensionRepositoryFactoryItem(parts []string, method string) bool {
 	return false
 }
 
+// Admit explicit human comment/edit/lock/state/review/inline/thread/merge submission and retained-command routes.
+// Other collaboration mutation families retain their existing bridge policy.
+func extensionHumanCommandRoute(parts []string, method string) bool {
+	if len(parts) < 7 || parts[0] != "factory" || parts[1] != "collaboration" || parts[2] != "repositories" || parts[4] != "issues" && parts[4] != "pulls" || parts[6] != "comments" && parts[6] != "edits" && parts[6] != "locks" && parts[6] != "state" && parts[6] != "reviews" && parts[6] != "inline-comments" && parts[6] != "thread-resolutions" && parts[6] != "review-requests" && parts[6] != "merges" || (parts[6] == "reviews" || parts[6] == "inline-comments" || parts[6] == "thread-resolutions" || parts[6] == "review-requests" || parts[6] == "merges") && parts[4] != "pulls" {
+		return false
+	}
+	_, repo := auth.PositiveID(parts[3])
+	_, number := auth.PositiveID(parts[5])
+	if !repo || !number {
+		return false
+	}
+	switch len(parts) {
+	case 7:
+		return method == http.MethodPost
+	case 9:
+		return parts[7] == "commands" && factory.ValidID(parts[8]) && method == http.MethodGet
+	case 10:
+		return parts[7] == "commands" && factory.ValidID(parts[8]) && parts[9] == "cancel" && method == http.MethodPost
+	default:
+		return false
+	}
+}
+
 func extensionFactoryRoute(parts []string, method string) bool {
+	if extensionHumanCommandRoute(parts, method) || extensionCreationCommandRoute(parts, method) {
+		return true
+	}
+	if len(parts) >= 2 && parts[1] == "collaboration" {
+		if len(parts) == 5 && parts[2] == "repositories" && parts[4] == "capabilities" && method == http.MethodGet {
+			_, ok := auth.PositiveID(parts[3])
+			return ok
+		}
+		if len(parts) == 7 && parts[2] == "repositories" && (parts[4] == "issues" || parts[4] == "pulls") && parts[6] == "capabilities" && method == http.MethodGet {
+			_, repo := auth.PositiveID(parts[3])
+			_, number := auth.PositiveID(parts[5])
+			return repo && number
+		}
+		if len(parts) == 3 && parts[2] == "repositories" {
+			return method == http.MethodGet
+		}
+		if len(parts) == 9 {
+			if parts[2] != "repositories" || parts[4] != "pulls" || parts[6] != "threads" || parts[8] != "comments" && parts[8] != "selection" || method != http.MethodGet {
+				return false
+			}
+			_, repo := auth.PositiveID(parts[3])
+			_, number := auth.PositiveID(parts[5])
+			_, thread := auth.PositiveID(parts[7])
+			return repo && number && thread
+		}
+		if len(parts) == 8 {
+			if parts[2] == "repositories" && parts[4] == "pulls" && parts[6] == "checks" && parts[7] == "jobs" && method == http.MethodGet {
+				_, repo := auth.PositiveID(parts[3])
+				_, number := auth.PositiveID(parts[5])
+				return repo && number
+			}
+			if parts[2] != "repositories" || parts[4] != "pulls" || parts[6] != "reviews" && parts[6] != "threads" || method != http.MethodGet {
+				return false
+			}
+			_, repo := auth.PositiveID(parts[3])
+			_, number := auth.PositiveID(parts[5])
+			_, review := auth.PositiveID(parts[7])
+			return repo && number && review
+		}
+		if len(parts) == 7 {
+			if parts[2] != "repositories" || parts[4] != "issues" && parts[4] != "pulls" || (parts[6] != "comments" && (parts[4] != "pulls" || parts[6] != "files" && parts[6] != "reviews" && parts[6] != "threads" && parts[6] != "checks")) || method != http.MethodGet {
+				return false
+			}
+			_, repo := auth.PositiveID(parts[3])
+			_, number := auth.PositiveID(parts[5])
+			return repo && number
+		}
+		if len(parts) != 5 && len(parts) != 6 || parts[2] != "repositories" || parts[4] != "issues" && parts[4] != "pulls" || method != http.MethodGet {
+			return false
+		}
+		_, valid := auth.PositiveID(parts[3])
+		if !valid {
+			return false
+		}
+		if len(parts) == 6 {
+			_, valid = auth.PositiveID(parts[5])
+		}
+		return valid
+	}
+	if len(parts) == 2 && parts[1] == "repositories" {
+		return method == http.MethodGet
+	}
+	if len(parts) == 2 && parts[1] == "identity" {
+		return method == http.MethodGet
+	}
+	if len(parts) == 3 && parts[1] == "native-repositories" && parts[2] == "resolve" {
+		return method == http.MethodPost
+	}
+	if len(parts) == 4 && parts[1] == "repositories" && parts[3] == "identity" {
+		_, valid := auth.PositiveID(parts[2])
+		return valid && method == http.MethodGet
+	}
 	if len(parts) >= 2 && parts[1] == "library" {
 		return method == http.MethodGet && (len(parts) == 2 || len(parts) == 3 && parts[2] == "item")
 	}
@@ -344,6 +513,8 @@ func extensionFactoryRoute(parts []string, method string) bool {
 			return parts[2] == "posts" && extensionProductID(parts[3]) &&
 				(parts[4] == "replies" && method == http.MethodGet ||
 					(parts[4] == "retry" || parts[4] == "review") && method == http.MethodPost)
+		case 6:
+			return parts[2] == "posts" && factory.ValidID(parts[3]) && parts[4] == "retry" && factory.ValidID(parts[5]) && method == http.MethodGet
 		}
 		return false
 	}
@@ -543,4 +714,22 @@ func rewriteExtensionRequest(request *httputil.ProxyRequest) {
 			}
 		}
 	}
+}
+
+// Canonical issue/PR creation has no predicted resource number. Cleanup recovers
+// original intent from the saved command under the current repository/actor scope.
+func extensionCreationCommandRoute(parts []string, method string) bool {
+	if len(parts) < 5 || parts[0] != "factory" || parts[1] != "collaboration" || parts[2] != "repositories" {
+		return false
+	}
+	if _, ok := auth.PositiveID(parts[3]); !ok {
+		return false
+	}
+	if len(parts) == 5 {
+		return (parts[4] == "issues" || parts[4] == "pulls") && method == http.MethodPost
+	}
+	if parts[4] != "issue-creation" && parts[4] != "pull-creation" || len(parts) < 7 || parts[5] != "commands" || !factory.ValidID(parts[6]) {
+		return false
+	}
+	return len(parts) == 7 && method == http.MethodGet || len(parts) == 8 && parts[7] == "cancel" && method == http.MethodPost
 }

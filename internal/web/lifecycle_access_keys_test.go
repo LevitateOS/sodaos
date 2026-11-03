@@ -13,7 +13,7 @@ import (
 	"testing"
 
 	extensions "forgejo.org/extension-sdk"
-	"github.com/levitateos/sodaos/internal/store"
+	"github.com/levitateos/factory/pkg/store"
 	"golang.org/x/crypto/ssh"
 )
 
@@ -86,6 +86,33 @@ func TestLifecycleAuthorizationAndExplicitStop(t *testing.T) {
 			}
 			if (len(*calls) > 0) != (tc.code == 200) {
 				t.Fatal("denial reached native mutation")
+			}
+		})
+	}
+}
+
+func TestForgeProjectLifecycleWithoutFactory(t *testing.T) {
+	for _, retained := range []bool{false, true} {
+		t.Run(fmt.Sprintf("retained_factory_work_%t", retained), func(t *testing.T) {
+			fixture, calls := managementWebFixture(t)
+			forge := NewForge(fixture.Config, fixture.Store)
+			forge.SetHost(fixture.Host)
+			if retained {
+				factoryViewsRun(t, forge)
+			}
+			for _, action := range []string{`{"action":"start"}`, `{"action":"stop","confirm_stop":true}`} {
+				w := httptest.NewRecorder()
+				nativeAPIServe(t, forge, w, apiTestRequest("POST", "/api/environments/"+webTerminalProject+"/lifecycle", action, "alice"))
+				want := http.StatusOK
+				if retained {
+					want = http.StatusServiceUnavailable
+				}
+				if w.Code != want {
+					t.Fatalf("Forge without Factory: %d, want %d: %s", w.Code, want, w.Body.String())
+				}
+			}
+			if retained && len(*calls) != 0 {
+				t.Fatal("disabled Factory integration bypassed retained work")
 			}
 		})
 	}

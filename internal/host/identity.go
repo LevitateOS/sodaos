@@ -3,7 +3,7 @@ package host
 import (
 	"context"
 
-	"github.com/levitateos/sodaos/internal/identity"
+	"github.com/levitateos/factory/pkg/identity"
 )
 
 func (c *Client) IdentityLaunch(ctx context.Context, in identity.TerminalStart) (identity.Lease, error) {

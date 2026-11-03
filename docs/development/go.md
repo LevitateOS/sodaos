@@ -1,11 +1,12 @@
 # Go ownership
 
 Navigate as **package + concern file**. A package owns one job you can say in
-one sentence. `internal/` is a shallow domain hierarchy: top-level names are
-major Soda concepts (`project`, `host`, `web`, `tailnet`,
-`store`, `forgejo`, `factory`, `identity`); subpackages are genuine
-subordinate boundaries (`web/api`, `forgejo/publish`, `identity/client`,
-`factory/control`). Release construction, installation and privileged
+one sentence. Forge's `internal/` owns its host, web, tailnet, Fountain adapters
+and private identity client. The canonical Factory `project`, `application`,
+`store`, `collaboration`, `factory`, `identity` and GitHub packages now live under
+`github.com/levitateos/factory/pkg/`; consume the pinned module instead of adding
+local copies. Subpackages are genuine subordinate boundaries (`web/api`,
+`forgejo/publish`, `identity/client`, Factory `factory/control`). Release construction, installation and privileged
 execution live in Rust (`lib/`, `cmd/`). Appliance entrypoints live in
 `cmd/`; support tools live in `tools/`. This
 guide owns Go package placement and house style. Product/security boundaries
@@ -25,8 +26,9 @@ remain in [architecture](../architecture/overview.md).
 | Codex app-server protocol | `cmd/soda-identity` providers (codex) — verified CLI protocol and private credential files |
 | Trusted broker Unix transport | `identity/client` — service callers only; never mounted in workspaces |
 | Native extension identity / profile / me keys | `web/auth` |
+| GitHub REST transport and collaboration translation | `github`; native server composition may import it, while engine/store keep neutral contracts and no provider SDK dependency |
 | Product HTTP/WS (environments, spaces, factory views, terminal, lifecycle, tailnet settings, pages) | `web/api` |
-| Dashboard mux root, namespace gate, `web.New` wiring only | `web` (`Server` wires `Auth` + `API`; no handlers, no aliases) |
+| Dashboard mux root, namespace gate, `web.NewForge` / `web.NewFactory` wiring only | `web` (`Server` wires `Auth` + `API`; no handlers, no aliases) |
 | Unix client for the privileged host daemon | `host` (`client.go`, `terminal_client.go`, `factory_client.go`; decode straight into `project` types — no translators) |
 | Privileged project env (create/inspect/lifecycle/keys/profiles/os) | `lib/host` (Rust; executes on admitted requests) — Go `host` only calls it |
 | Privileged terminal attach | `lib/host` terminal lifecycle (Rust); Go `host/terminal_client.go` calls it |
@@ -40,11 +42,12 @@ remain in [architecture](../architecture/overview.md).
 Keep files cohesive. Split by responsibility when it improves the change; line
 counts alone do not justify refactoring or block working code.
 
-`cmd/soda-dashboard` enters through `web` (plus `config`/`store`/`avatar`
-for process startup only). The `soda-host` daemon is the Rust
+`cmd/soda-dashboard` and `cmd/soda-factory-server` enter through `web/serve`,
+which loads configuration and storage before selecting the product constructor. The `soda-host` daemon is the Rust
 `lib/host` binary; `host` keeps the Go Unix client surface.
-`web.Server` constructs `auth`/`api` and the
-`factory/control` coordinator. `cmd/soda-factory` is a thin Unix client of the
+Both constructors build `auth`/`api`; only `web.NewFactory` constructs the
+`factory/control` coordinator. Forge uses the private Factory client for Project
+lifecycle coordination and forwards Factory browser requests to its service. `cmd/soda-factory` is a thin Unix client of the
 coordinator's private operator endpoint and keeps no database. Do not add
 forwarding packages or compatibility shims for moved code. The host
 client types live in `host` itself so `web` never imports
@@ -94,6 +97,7 @@ top-level package path (`internal/projectos`, `internal/linuxhost`,
 | `config` | Dashboard/operator JSON load | Secrets at rest, migrations | `config.go` |
 | `filelock` | Advisory file locks | Business policy | `filelock.go` |
 | `factory` | Supervised run identity/outcome and operator command records (references canonical `identity` leases and `project` IDs) | Forgejo collaboration, runtime execution, PostgreSQL store | `types.go`, `run.go` |
+| `factory/client` | Forge's private Factory Project coordination client | Coordinator lifecycle, SQL, credential delivery | `projects.go` |
 | `identity` | Connection, delegation, execution lease records and validation | HTTP, native execution, SQL | `types.go` |
 | `cmd/soda-identity` | Provider-specific account custody, enrollment, revocation and reconciliation | Browser authority, factory publication | concern files |
 | `cmd/soda-identity` providers | Muse native enrollment and immutable credential validation | Soda grants, custom upstream refresh | `providers/muse` |
@@ -109,6 +113,7 @@ top-level package path (`internal/projectos`, `internal/linuxhost`,
 | `strictjson` | Bounded single-object JSON decode | Domain validation | `decode.go` |
 | `tailnet` | Tailnet policy/identity/`Control` | Companion launch | `control.go`, `policy.go` |
 | `web` | HTTP root mux + wiring only | Business handlers | `server.go` |
+| `web/serve` | Forge/Factory process selection, listeners and shutdown | Product decisions, SQL | `server.go` |
 | `web/api` | Product API + settings + terminal WS | OAuth state machine | concern files |
 | `web/auth` | Native extension identity, profiles and account keys | Environment/terminal APIs | `service.go`, `provider.go` |
 
@@ -153,7 +158,7 @@ not as an invitation to reorganize `internal/`:
   records; privileged execution lives in the Rust host, not in Go.
 - `web` wires the coordinator and its explicit lifecycle. `web/api` admits calls
   into `factory/control`; it still cannot call native executor packages directly.
-  `cmd/soda-dashboard` continues to enter through `web`. `cmd/soda-factory`
+  Both service commands enter through `web/serve`; only Factory owns coordinator startup. `cmd/soda-factory`
   controls address the coordinator's private operator endpoint, not a second
   local controller/database.
 - `host` supplies typed Unix-client methods for the Rust host daemon. Fixed

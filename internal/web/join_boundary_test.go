@@ -10,7 +10,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/levitateos/sodaos/internal/store"
+	"github.com/levitateos/factory/pkg/store"
 )
 
 func TestConcurrentNewJoinsAndResultPersistenceFailure(t *testing.T) {

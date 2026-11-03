@@ -4,6 +4,8 @@ package web
 
 import (
 	"context"
+	"errors"
+	"fmt"
 	"net/http"
 	"net/url"
 	"os"
@@ -14,31 +16,36 @@ import (
 	"time"
 
 	extensions "forgejo.org/extension-sdk"
-	"github.com/levitateos/sodaos/internal/avatar"
+	"github.com/levitateos/factory/pkg/collaboration"
+	"github.com/levitateos/factory/pkg/factory/control"
+	factoryservice "github.com/levitateos/factory/pkg/factory/service"
+	"github.com/levitateos/factory/pkg/store"
 	"github.com/levitateos/sodaos/internal/config"
-	"github.com/levitateos/sodaos/internal/factory/control"
 	"github.com/levitateos/sodaos/internal/forgejo"
+	"github.com/levitateos/sodaos/internal/forgejo/observation"
 	"github.com/levitateos/sodaos/internal/host"
 	identityclient "github.com/levitateos/sodaos/internal/identity/client"
-	"github.com/levitateos/sodaos/internal/store"
 	"github.com/levitateos/sodaos/internal/web/api"
 	"github.com/levitateos/sodaos/internal/web/auth"
 )
 
 // Server is the dashboard HTTP facade. Handlers live in Auth and API.
 type Server struct {
-	Config      config.Config
-	Store       *store.Store
-	Forgejo     *forgejo.Client
-	Host        *host.Client
-	Auth        *auth.Service
-	API         *api.API
-	Coordinator *control.Coordinator
-	mux         *http.ServeMux
+	Config       config.Config
+	Store        *store.Store
+	Forgejo      *forgejo.Client
+	Host         *host.Client
+	Auth         *auth.Service
+	API          *api.API
+	Coordinator  *control.Coordinator
+	Application  factoryservice.Application
+	Broker       *identityclient.Client
+	FountainHost collaboration.Host
+	mux          *http.ServeMux
 }
 
-// New constructs auth and product APIs and registers all dashboard routes.
-func New(c config.Config, db *store.Store) *Server {
+// newServer constructs the shared transport and Project dependencies.
+func newServer(c config.Config, db *store.Store) *Server {
 	client := forgejo.New(c.ForgejoInternalURL)
 	hostClient := host.NewClient(c.HostSocket)
 	s := &Server{
@@ -48,13 +55,8 @@ func New(c config.Config, db *store.Store) *Server {
 	s.Auth = auth.New(&s.Config, db)
 	s.API = api.New(&s.Config, db, client, hostClient, s.Auth)
 	broker := identityclient.New(c.IdentitySocket)
+	s.Broker = broker
 	s.API.Identity = broker
-	s.Coordinator = control.NewCoordinator(db, hostClient, broker)
-	s.API.Coordinator = s.Coordinator
-	// Durable comment continuation rides the coordinator lifetime:
-	// stored comment requests advance at Start and on progress passes
-	// without any browser request driving them.
-	s.Coordinator.CommentDrive = s.API.DrivePendingPosts
 	// Manager control uses the pinned service callback, without a factory
 	// actor credential or background admission. Ordinary appliance activation
 	// must support optional extensions before any factory actor is configured.
@@ -63,44 +65,6 @@ func New(c config.Config, db *store.Store) *Server {
 	if filepath.IsAbs(callback) && err == nil {
 		s.API.ExtensionManager = forgejo.NewServiceBackground(callback, uint32(peer), "")
 	}
-	if c.TypeSafeAPIKeyFile != "" {
-		s.Coordinator.Planning = &control.PlanningJudgments{Chooser: &control.TypeSafePriority{APIKeyFile: c.TypeSafeAPIKeyFile, Model: c.TypeSafeModel}}
-	}
-	s.Coordinator.Priority = &control.PriorityJudgments{Journal: db, Chooser: &control.TypeSafePriority{APIKeyFile: c.TypeSafeAPIKeyFile, Model: c.TypeSafeModel}, MaxCalls: control.PriorityDefaultMaxCalls}
-	if c.BackgroundServiceConfigured() {
-		background := forgejo.NewServiceBackground(c.ForgejoBackgroundSocket, *c.ForgejoBackgroundHostUID, "")
-		observer := forgejo.NewServiceObserver(c.ForgejoBackgroundSocket, *c.ForgejoBackgroundHostUID,
-			c.ForgejoBackgroundCredentialFile, client)
-		observer.ShareBackground(background)
-		if c.ForgejoGraphCredentialFile != "" && c.ForgejoGraphActorID > 0 {
-			s.Coordinator.Graph = forgejo.NewIssueGraphWriter(background, client, c.ForgejoGraphCredentialFile)
-			s.Coordinator.GraphActorID = c.ForgejoGraphActorID
-		}
-		source := api.NewServiceReadinessSource(observer)
-		s.Coordinator.AcceptanceReads = source
-		s.Coordinator.Readiness = source
-		s.Coordinator.Creations = observer
-		s.Coordinator.DispatchReads = source
-		completionSource := api.NewCompletionSnapshotSource(observer)
-		completionSource.Store = db
-		s.Coordinator.CompletionEnumerator = completionSource
-		s.Coordinator.CompletionLocalCapture = completionSource.CaptureLocal
-		s.Coordinator.Publication = forgejo.NewPublisher(background, client, c.ForgejoInternalURL,
-			publicationRoot(c), c.ForgejoBackgroundCredentialFile)
-		if c.ForgejoReviewCredentialFile != "" {
-			s.Coordinator.Reviews = forgejo.NewReviewer(background, client, c.ForgejoReviewCredentialFile)
-		}
-		if c.ForgejoResolveCredentialFile != "" {
-			s.Coordinator.Resolutions = forgejo.NewResolver(background, client, c.ForgejoResolveCredentialFile)
-		}
-		if c.ForgejoMergeCredentialFile != "" {
-			s.Coordinator.Merges = forgejo.NewMerger(background, client, c.ForgejoMergeCredentialFile)
-			s.Coordinator.Checks = forgejo.NewCheckAssessor(background, client, c.ForgejoMergeCredentialFile)
-		}
-	}
-	s.mux.HandleFunc("POST /api/factory/intake", api.IntakeHandler{
-		Coordinator: s.Coordinator, Store: db, Secret: loadIntakeSecret(c),
-	}.ServeHTTP)
 
 	// Health doubles as readiness: beyond "ok" it reports the two
 	// dependencies admitted work needs — coordinator admission and the
@@ -122,15 +86,90 @@ func New(c config.Config, db *store.Store) *Server {
 		w.Header().Set("Content-Type", "text/plain")
 		_, _ = w.Write([]byte("ok\n"))
 	})
-	s.mux.HandleFunc("GET /{$}", s.forgejoHome)
-	s.mux.Handle(avatarPrefix, avatarHandler{render: avatar.Render})
-	s.mux.Handle(strings.TrimSuffix(avatarPrefix, "/"), avatarHandler{render: avatar.Render})
 	notFound := func(w http.ResponseWriter, r *http.Request) {
 		auth.JSONError(w, http.StatusNotFound, "not_found", "API route not found.")
 	}
 	s.mux.HandleFunc("/api", notFound)
 	s.mux.HandleFunc("/api/", notFound)
 	return s
+}
+
+// NewFactory composes the appliance-hosted Factory product. Only this product
+// constructor creates a coordinator or admits background work.
+func NewFactory(c config.Config, db *store.Store) (*Server, error) {
+	if db == nil {
+		return nil, errors.New("Factory store is required")
+	}
+	// This constructor composes the appliance Factory. Binding the operator's
+	// configured instance precedes all coordinator/background construction.
+	fountain, err := db.BindConfiguredFountainLedger(context.Background(), c.ForgejoURL)
+	if err != nil {
+		return nil, fmt.Errorf("bind configured Fountain ledger: %w", err)
+	}
+	identities, err := forgejo.NewFountainIdentities(context.Background(), db, fountain.ID)
+	if err != nil {
+		return nil, fmt.Errorf("resolve configured Fountain namespace: %w", err)
+	}
+	s := newServer(c, db)
+	s.FountainHost = fountain
+	s.API.FountainIdentities = identities
+	s.mux.HandleFunc("GET /{$}", func(w http.ResponseWriter, _ *http.Request) {
+		w.Header().Set("Content-Type", "text/plain")
+		_, _ = w.Write([]byte("Soda Factory\n"))
+	})
+	client, hostClient, broker := s.Forgejo, s.Host, s.Broker
+	factoryHost := &applianceFactoryHost{HostFactory: hostClient, identities: identities}
+	view := s.API.FactoryApplication()
+	ports := factoryservice.ApplicationPorts{Store: db, Host: factoryHost, Broker: host.NewFactoryObserver(hostClient, broker), CurrentChooser: view.Chooser, IssueEffects: view.IssueEffects}
+	if c.TypeSafeAPIKeyFile != "" {
+		ports.Planning = &control.TypeSafePriority{APIKeyFile: c.TypeSafeAPIKeyFile, Model: c.TypeSafeModel}
+	}
+	ports.Priority = &control.TypeSafePriority{APIKeyFile: c.TypeSafeAPIKeyFile, Model: c.TypeSafeModel}
+	if c.BackgroundServiceConfigured() {
+		background := forgejo.NewServiceBackground(c.ForgejoBackgroundSocket, *c.ForgejoBackgroundHostUID, "")
+		observer := forgejo.NewServiceObserver(c.ForgejoBackgroundSocket, *c.ForgejoBackgroundHostUID,
+			c.ForgejoBackgroundCredentialFile, client)
+		observer.Identities = identities
+		observer.ShareBackground(background)
+		if c.ForgejoGraphCredentialFile != "" && c.ForgejoGraphActorID > 0 {
+			graphActor, err := identities.LocalActor(context.Background(), strconv.FormatInt(c.ForgejoGraphActorID, 10))
+			if err != nil {
+				return nil, fmt.Errorf("resolve configured graph actor: %w", err)
+			}
+			ports.Graph = forgejo.NewIssueGraphWriter(background, client, c.ForgejoGraphCredentialFile, identities)
+			ports.GraphActorID = int64(graphActor)
+		}
+		source := observation.NewServiceReadinessSource(observer, identities)
+		ports.AcceptanceReads = source
+		ports.Readiness = source
+		ports.Creations = observer
+		ports.DispatchReads = source
+		completionSource := observation.NewCompletionSnapshotSource(observer, identities)
+		completionSource.Store = db
+		ports.CompletionEnumerator = completionSource
+		ports.CompletionLocalCapture = completionSource.CaptureLocal
+		ports.Publication = forgejo.NewPublisher(background, client, c.ForgejoInternalURL,
+			publicationRoot(c), c.ForgejoBackgroundCredentialFile, identities)
+		if c.ForgejoReviewCredentialFile != "" {
+			ports.Reviews = forgejo.NewReviewer(background, client, c.ForgejoReviewCredentialFile, identities)
+		}
+		if c.ForgejoResolveCredentialFile != "" {
+			ports.Resolutions = forgejo.NewResolver(background, client, c.ForgejoResolveCredentialFile, identities)
+		}
+		if c.ForgejoMergeCredentialFile != "" {
+			ports.Merges = forgejo.NewMerger(background, client, c.ForgejoMergeCredentialFile, identities)
+			ports.Checks = forgejo.NewCheckAssessor(background, client, c.ForgejoMergeCredentialFile, identities)
+		}
+	}
+	application := factoryservice.NewApplication(ports)
+	s.Application = application
+	s.Coordinator, s.API.Coordinator = application.Coordinator, application.Coordinator
+	s.mux.HandleFunc("POST /api/factory/intake", api.IntakeHandler{
+		Coordinator: s.Coordinator, Store: db, Secret: loadIntakeSecret(c), Identities: identities,
+	}.ServeHTTP)
+
+	s.API.FactoryProjects = s.Coordinator
+	return s, nil
 }
 
 func (s *Server) forgejoHome(w http.ResponseWriter, r *http.Request) {
@@ -195,14 +234,14 @@ func (s *Server) StartCoordinator(ctx context.Context) error {
 		return err
 	}
 	s.Coordinator.MCPKey = key
-	if err := s.Coordinator.Start(ctx, lockPath); err != nil {
+	if err := s.Application.Start(ctx, lockPath); err != nil {
 		return err
 	}
 	return nil
 }
 
 // CloseCoordinator releases factory-ledger ownership after admitted work ends.
-func (s *Server) CloseCoordinator() error { return s.Coordinator.Close() }
+func (s *Server) CloseCoordinator() error { return s.Application.Close() }
 
 // SetForgejo replaces the Forgejo client on the facade and product API.
 func (s *Server) SetForgejo(client *forgejo.Client) {

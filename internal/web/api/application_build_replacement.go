@@ -4,8 +4,8 @@ import (
 	"errors"
 	"net/http"
 
-	"github.com/levitateos/sodaos/internal/application"
-	"github.com/levitateos/sodaos/internal/factory"
+	"github.com/levitateos/factory/pkg/application"
+	"github.com/levitateos/factory/pkg/factory"
 )
 
 func (s *API) resolveApplicationBuildReplacement(r *http.Request, current application.Record, input *applicationAction) error {

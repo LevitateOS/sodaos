@@ -2,11 +2,14 @@ package api
 
 import (
 	"context"
+	"database/sql"
 	"encoding/json"
 	"errors"
+	"io"
 	"net"
 	"net/http"
 	"net/http/httptest"
+	"net/url"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -15,8 +18,12 @@ import (
 	"testing"
 
 	extensions "forgejo.org/extension-sdk"
-	"github.com/levitateos/sodaos/internal/factory"
-	"github.com/levitateos/sodaos/internal/store"
+
+	"github.com/levitateos/factory/pkg/collaboration"
+	"github.com/levitateos/factory/pkg/factory"
+	factoryhttpapi "github.com/levitateos/factory/pkg/factory/httpapi"
+	factoryservice "github.com/levitateos/factory/pkg/factory/service"
+	"github.com/levitateos/factory/pkg/store"
 )
 
 // actorCall serves the product mux as one fixed native actor through a
@@ -76,6 +83,9 @@ func actorCall(t *testing.T, product *API, actorID, username string) func(method
 			}
 		}()
 		r := httptest.NewRequest(method, path, strings.NewReader(body))
+		if method != http.MethodGet && method != http.MethodHead {
+			r.Header.Set("Origin", product.Config.ForgejoURL)
+		}
 		r.Header.Set(extensions.ContextHeader, string(authority))
 		r.Header.Set(extensions.AdmissionHeader, "test-admission")
 		r.Header.Set(extensions.SessionGenerationHeader, "generation-1")
@@ -90,10 +100,12 @@ func actorCall(t *testing.T, product *API, actorID, username string) func(method
 func TestCommentProductReviewHTTPPreservesOwnerAndExactSource(t *testing.T) {
 	product, db, _, call, _ := q05MuxFull(t, "")
 	ctx := context.Background()
-	accepted := factory.IntentRevision{ID: "d111111111111111111111111", Intent: "d222222222222222222222222", Owner: 1, Repository: 7,
+	accepted := factory.IntentRevision{
+		ID: "d111111111111111111111111", Intent: "d222222222222222222222222", Owner: 1, Repository: 7,
 		Objective: "Employees request equipment and Operations records delivery", State: "accepted", MaxIssues: 10, PlanningCalls: 8, CreatedUnix: 1729000000,
 		Ideas:             []factory.ProductIdea{{ID: "d333333333333333333333333", Description: "Keep request and approval history", Consequence: "Original records remain readable", Decision: "accept", Source: "requested", Provenance: "human", Actor: 1}},
-		EffectiveOutcomes: []string{"d333333333333333333333333"}, Tasks: []factory.IntentTask{{Key: "d444444444444444444444444", Objective: "Deliver equipment workflow", Outcomes: []string{"Recorded request history"}, IdeaIDs: []string{"d333333333333333333333333"}}}}
+		EffectiveOutcomes: []string{"d333333333333333333333333"}, Tasks: []factory.IntentTask{{Key: "d444444444444444444444444", Objective: "Deliver equipment workflow", Outcomes: []string{"Recorded request history"}, IdeaIDs: []string{"d333333333333333333333333"}}},
+	}
 	if err := db.SaveIntentRevision(ctx, accepted); err != nil {
 		t.Fatal(err)
 	}
@@ -101,7 +113,7 @@ func TestCommentProductReviewHTTPPreservesOwnerAndExactSource(t *testing.T) {
 	if err != nil || len(posts) != 1 {
 		t.Fatalf("accepted source posts=%d err=%v", len(posts), err)
 	}
-	code, body := call(http.MethodPost, "/api/factory/feed/posts", `{"repository":7,"body":"New requests above EUR 1000 also need Finance approval. Existing requests keep their route.","parent_id":"`+posts[0].ID+`","idempotency_key":"finance-change"}`)
+	code, body := call(http.MethodPost, "/api/factory/feed/posts", `{"repository":"7","body":"New requests above EUR 1000 also need Finance approval. Existing requests keep their route.","parent_id":"`+posts[0].ID+`","idempotency_key":"finance-change"}`)
 	if code != http.StatusOK {
 		t.Fatalf("comment save=%d %s", code, body)
 	}
@@ -124,7 +136,7 @@ func TestCommentProductReviewHTTPPreservesOwnerAndExactSource(t *testing.T) {
 	}
 	drafter := &fakePostDrafter{draft: validTestDraft(saved.SourcePost)}
 	creator := &fakePostCreator{next: 100, issues: map[string]int64{}}
-	response, err := drivePostIntake(ctx, db, &PostCollaborators{Drafter: drafter, Creator: creator}, saved.SourcePost)
+	response, err := factoryservice.DrivePostIntake(ctx, db, &factoryservice.PostCollaborators{Drafter: drafter, Creator: creator}, saved.SourcePost)
 	if err != nil || response.Issue != 0 || drafter.calls != 0 || creator.creates != 0 {
 		t.Fatalf("product proposal created detached work: response=%+v drafts=%d creates=%d err=%v", response, drafter.calls, creator.creates, err)
 	}
@@ -133,7 +145,7 @@ func TestCommentProductReviewHTTPPreservesOwnerAndExactSource(t *testing.T) {
 		t.Helper()
 		var response struct {
 			Change store.PostProductChange `json:"product_change"`
-			Issue  int64                      `json:"issue"`
+			Issue  int64                   `json:"issue"`
 		}
 		if code != http.StatusOK || json.Unmarshal(body, &response) != nil || response.Change.Intent != accepted.Intent || response.Change.AcceptedRevision != accepted.ID {
 			t.Fatalf("change projection=%d %s", code, body)
@@ -147,12 +159,24 @@ func TestCommentProductReviewHTTPPreservesOwnerAndExactSource(t *testing.T) {
 	if view.State != "review_required" || !view.CanReview || view.DraftRevision != "" {
 		t.Fatalf("owner proposal=%+v", view)
 	}
+	shared := factoryservice.Posts{Store: db, Visibility: func(context.Context, collaboration.ActorID, int64) error { return nil }}
+	if _, err := shared.ReviewProduct(ctx, 1, saved.SourcePost, 0); !errors.Is(err, factoryservice.ErrRequestWriteUnavailable) {
+		t.Fatal("shared product review invented write authority", err)
+	}
+	denied := errors.New("declared current product-review authority withdrawn")
+	shared.WriteAccess = func(context.Context, collaboration.ActorID, int64) error { return denied }
+	if _, err := shared.ReviewProduct(ctx, 1, saved.SourcePost, 0); !errors.Is(err, factoryservice.ErrRequestWriteAccess) || !errors.Is(err, denied) {
+		t.Fatal("shared product review bypassed withdrawn write authority", err)
+	}
+	if current, err := db.IntentRevision(ctx, accepted.Intent, 1); err != nil || current.ID != accepted.ID {
+		t.Fatal("refused shared product review advanced the accepted request", current.ID, err)
+	}
 	other := actorCall(t, product, "2", "bob")
 	view = decode(other(http.MethodGet, path, ""))
 	if view.CanReview {
 		t.Fatal("another native repository admin can review the owner's private intent")
 	}
-	if status, _ := other(http.MethodPost, path+"/review", `{"revision":0}`); status != http.StatusForbidden {
+	if status, _ := other(http.MethodPost, path+"/review", `{"revision":0}`); status != http.StatusNotFound {
 		t.Fatalf("other owner review=%d", status)
 	}
 	if status, _ := call(http.MethodPost, path+"/review", `{"revision":1}`); status != http.StatusPreconditionFailed {
@@ -213,7 +237,7 @@ func TestCommentProductReviewHTTPPreservesOwnerAndExactSource(t *testing.T) {
 	if status, _ := call(http.MethodPost, path+"/review", `{"revision":1}`); status != http.StatusPreconditionFailed {
 		t.Fatalf("stale source revision after adoption=%d", status)
 	}
-	if status, _ := other(http.MethodPost, path+"/review", `{"revision":0}`); status != http.StatusForbidden {
+	if status, _ := other(http.MethodPost, path+"/review", `{"revision":0}`); status != http.StatusNotFound {
 		t.Fatalf("collaborator review after adoption=%d", status)
 	}
 	view = decode(call(http.MethodPost, path+"/review", `{"revision":0}`))
@@ -253,7 +277,7 @@ func TestCommentProductReviewHTTPPreservesOwnerAndExactSource(t *testing.T) {
 		t.Helper()
 		var response struct {
 			Change store.PostProductChange `json:"product_change"`
-			Issue  int64                      `json:"issue"`
+			Issue  int64                   `json:"issue"`
 		}
 		if code != http.StatusOK || json.Unmarshal(body, &response) != nil || response.Change.State != store.PostProductStateUnavailable {
 			t.Fatalf("unavailable projection=%d %s", code, body)
@@ -282,13 +306,14 @@ func TestCommentProductReviewHTTPPreservesOwnerAndExactSource(t *testing.T) {
 // reads: current at the result head, stale past it, honestly missing without
 // a stored presentation. Reads perform no judgments and consume no funding.
 func TestIntentReviewReadCurrentStaleMissing(t *testing.T) {
-	product, _, call, errorCode := q05Mux(t, "")
+	product, st, dsn, call, errorCode := q05MuxFull(t, "")
 	const draftID = "d565656565656565656565656"
 	const intentID = "d676767676767676767676767"
 	draft := `{"id":"` + draftID + `","intent":"` + intentID + `","objective":"Time-off requests my manager can approve","state":"draft","max_issues":10,"planning_calls":8,` +
 		`"ideas":[{"id":"d787878787878787878787878","description":"Track leave requests","consequence":"Managers review requests","decision":"pending","assumption":true,"material":true}]}`
-	if code, body := call(http.MethodPost, "/api/factory/intents", draft); code != http.StatusCreated {
-		t.Fatalf("draft save status=%d body=%s", code, body)
+	originalCode, originalReceipt := call(http.MethodPost, "/api/factory/intents", draft)
+	if originalCode != http.StatusCreated {
+		t.Fatalf("draft save status=%d body=%s", originalCode, originalReceipt)
 	}
 	chooser := &exploreFixtureChooser{}
 	product.IntentExploreChooser = chooser
@@ -296,7 +321,7 @@ func TestIntentReviewReadCurrentStaleMissing(t *testing.T) {
 	if code != http.StatusCreated {
 		t.Fatalf("explore status=%d body=%s", code, body)
 	}
-	var responded exploreResponse
+	var responded factoryservice.ExplorationResult
 	if err := json.Unmarshal(body, &responded); err != nil {
 		t.Fatal(err)
 	}
@@ -312,6 +337,21 @@ func TestIntentReviewReadCurrentStaleMissing(t *testing.T) {
 		}
 		if err := out.Validate(); err != nil {
 			t.Fatalf("review read invalid: %v", err)
+		}
+		parsed, err := url.Parse(path)
+		if err != nil {
+			t.Fatal(err)
+		}
+		requests := factoryservice.Requests{Store: st}
+		direct, err := requests.Review(t.Context(), 1, intentID, parsed.Query().Get("revision"))
+		directBytes, _ := json.Marshal(direct)
+		httpBytes, _ := json.Marshal(out)
+		if err != nil || string(directBytes) != string(httpBytes) {
+			t.Fatal("standalone saved-review read changed the recorded answer", err)
+		}
+		view, err := requests.Overview(t.Context(), 1, intentID)
+		if err != nil || view.Setup.State != factoryservice.RequestSetupUnassigned || view.Revision != out.HeadRevision {
+			t.Fatal("private unbound request required a native setup host", view, err)
 		}
 		return code, out
 	}
@@ -353,6 +393,248 @@ func TestIntentReviewReadCurrentStaleMissing(t *testing.T) {
 	if code, body := call(http.MethodGet, "/api/factory/intents/d999999999999999999999999/review", ""); code != http.StatusNotFound || errorCode(body) != "not_found" {
 		t.Fatalf("unknown intent status=%d body=%s", code, body)
 	}
+	// A direct HTTP host consumes the same request transport without an API or
+	// native session. Its declared principal owns private, unassigned direction.
+	ctx := t.Context()
+	inspection, err := sql.Open("pgx", dsn)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer inspection.Close()
+	workSnapshot := func() string {
+		var value string
+		if err := inspection.QueryRowContext(ctx, `SELECT jsonb_build_array((SELECT count(*) FROM factory_runs),(SELECT count(*) FROM factory_commands),(SELECT count(*) FROM factory_usage),(SELECT count(*) FROM factory_priority_judgments))::text`).Scan(&value); err != nil {
+			t.Fatal(err)
+		}
+		return value
+	}
+	beforeWork := workSnapshot()
+	const nativeActor collaboration.ActorID = 9007199254740993
+	var checks, revokeAt atomic.Int32
+	shared := factoryhttpapi.Requests{Service: factoryservice.Requests{Store: st},
+		Host: product.FountainIdentities.HostID(), Actor: nativeActor,
+		Current: func(w http.ResponseWriter, r *http.Request) bool {
+			count := checks.Add(1)
+			if r.Header.Get("Authorization") != "Bearer declared-request-client" || revokeAt.Load() > 0 && count >= revokeAt.Load() {
+				http.Error(w, "declared account admission unavailable", 401)
+				return false
+			}
+			return true
+		}}
+	server := httptest.NewServer(shared.Handler())
+	t.Cleanup(server.Close)
+	request := func(method, path, body string, status int) []byte {
+		t.Helper()
+		r, err := http.NewRequestWithContext(ctx, method, server.URL+path, strings.NewReader(body))
+		if err != nil {
+			t.Fatal(err)
+		}
+		r.Header.Set("Authorization", "Bearer declared-request-client")
+		response, err := server.Client().Do(r)
+		if err != nil {
+			t.Fatal(err)
+		}
+		defer response.Body.Close()
+		data, err := io.ReadAll(response.Body)
+		if err != nil || response.StatusCode != status {
+			t.Fatalf("shared request HTTP %s %s: %d %s %v", method, path, response.StatusCode, data, err)
+		}
+		if status < 300 && response.Header.Get("Cache-Control") != "no-store" {
+			t.Fatal("private request response was cacheable")
+		}
+		return data
+	}
+	department := "d" + strings.Repeat("e", 24)
+	created := request(http.MethodPost, "/api/factory/departments", `{"id":"`+department+`","owner":"1","name":"Native requests","description":"Private request grouping"}`, 201)
+	if !strings.Contains(string(created), `"owner":"9007199254740993"`) || !strings.Contains(string(request(http.MethodGet, "/api/factory/departments", "", 200)), department) {
+		t.Fatal("request HTTP did not bind department ownership", string(created))
+	}
+	privateIntent := "d" + strings.Repeat("a", 24)
+	privateRevision := "d" + strings.Repeat("b", 24)
+	input := `{"id":"` + privateRevision + `","intent":"` + privateIntent + `","owner":"1","repository":"0","department":"` + department + `","created_unix":1,"objective":"Private native direction","state":"draft","max_issues":10,"planning_calls":8,"ideas":[{"id":"dcccccccccccccccccccccccc","description":"Keep private request history","consequence":"Owner can revise direction","decision":"pending","assumption":true,"material":true}]}`
+	var recorded factory.IntentRevision
+	if err := json.Unmarshal(request(http.MethodPost, "/api/factory/intents", input, 201), &recorded); err != nil || recorded.Owner != int64(nativeActor) || recorded.CreatedUnix <= 1 {
+		t.Fatal("request HTTP body selected ownership/time", recorded, err)
+	}
+	request(http.MethodPost, "/api/factory/intents", input, 201)
+	requestPath := "/api/factory/intents/" + privateIntent
+	request(http.MethodGet, requestPath, "", 200)
+	request(http.MethodGet, requestPath+"/review", "", 200)
+	if body := request(http.MethodGet, "/api/factory/intents?department="+department+"&owner=1", "", 200); !strings.Contains(string(body), privateIntent) || strings.Contains(string(body), intentID) {
+		t.Fatal("request catalogue ignored its bound owner", string(body))
+	}
+	updated := recorded
+	updated.ID, updated.Predecessor, updated.Objective = "d"+strings.Repeat("f", 24), recorded.ID, "Revised private native direction"
+	updated.Owner, updated.CreatedUnix = 1, 1
+	updateBody, _ := json.Marshal(updated)
+	request(http.MethodPost, "/api/factory/intents", string(updateBody), 201)
+	staleRevision := updated
+	staleRevision.ID = "d" + strings.Repeat("1", 24)
+	staleBody, _ := json.Marshal(staleRevision)
+	request(http.MethodPost, "/api/factory/intents", string(staleBody), 412)
+	request(http.MethodPost, "/api/factory/intents", input+` {}`, 400)
+	var history struct {
+		Revisions []factory.IntentRevision `json:"revisions"`
+	}
+	if err := json.Unmarshal(request(http.MethodGet, requestPath+"/history", "", 200), &history); err != nil || len(history.Revisions) != 2 {
+		t.Fatal("HTTP replay/stale write forked revision history", len(history.Revisions), err)
+	}
+	var overview factoryservice.RequestOverview
+	if err := json.Unmarshal(request(http.MethodGet, requestPath+"/overview", "", 200), &overview); err != nil || overview.Revision != updated.ID || overview.Setup.State != factoryservice.RequestSetupUnassigned {
+		t.Fatal("unassigned HTTP request required native Project setup", overview, err)
+	}
+	// Advance beyond the history page's maximum without changing the immutable
+	// saved revision. A pending save must be recoverable without replaying a stale
+	// predecessor or walking an unbounded history chain.
+	historical := updated
+	for index := int64(0); index < 54; index++ {
+		predecessor := historical.ID
+		suffix := strconv.FormatInt(4096+index, 16)
+		historical.ID = "d" + strings.Repeat("0", 24-len(suffix)) + suffix
+		historical.Predecessor = predecessor
+		historical.Owner = int64(nativeActor)
+		historical.Objective = "Later private native direction " + suffix
+		historical.CreatedUnix = int64(2000 + index)
+		if err := st.SaveIntentRevision(ctx, historical); err != nil {
+			t.Fatal(err)
+		}
+	}
+	var page struct {
+		Revisions []factory.IntentRevision `json:"revisions"`
+	}
+	if err := json.Unmarshal(request(http.MethodGet, requestPath+"/history?limit=50", "", 200), &page); err != nil || len(page.Revisions) != 50 {
+		t.Fatal("bounded history did not retain its page limit", len(page.Revisions), err)
+	}
+	for _, row := range page.Revisions {
+		if row.ID == recorded.ID {
+			t.Fatal("fixture did not put the original save beyond bounded history")
+		}
+	}
+	snapshot := func() string {
+		var value string
+		if err := inspection.QueryRowContext(ctx, `SELECT jsonb_build_object('head',
+   (SELECT revision FROM factory_intent_heads WHERE id=$1), 'revisions',
+   (SELECT jsonb_agg(to_jsonb(r) ORDER BY r.id) FROM factory_intent_revisions r WHERE r.intent=$1))::text`, privateIntent).Scan(&value); err != nil {
+			t.Fatal(err)
+		}
+		return value
+	}
+	savedState := snapshot()
+	receiptPath := requestPath + "/revisions/" + recorded.ID
+	var exact factory.IntentRevision
+	if err := json.Unmarshal(request(http.MethodGet, receiptPath, "", 200), &exact); err != nil {
+		t.Fatal(err)
+	}
+	expected, _ := json.Marshal(recorded)
+	actual, _ := json.Marshal(exact)
+	if string(expected) != string(actual) {
+		t.Fatal("saved revision lookup returned another input or attribution", string(actual))
+	}
+	// Owner and intent are current serving bindings, never query/body selectors.
+	request(http.MethodGet, receiptPath+"?owner=1", "", 400)
+	request(http.MethodGet, receiptPath+"?", "", 400)
+	request(http.MethodGet, requestPath+"/revisions/not-a-revision", "", 404)
+	request(http.MethodGet, "/api/factory/intents/not-an-intent/revisions/"+recorded.ID, "", 404)
+	request(http.MethodGet, requestPath+"/revisions/d999999999999999999999999", "", 404)
+	request(http.MethodGet, "/api/factory/intents/"+intentID+"/revisions/"+recorded.ID, "", 404)
+	request(http.MethodGet, requestPath+"/revisions/"+draftID, "", 404)
+	request(http.MethodPost, receiptPath, "{}", 405)
+	checks.Store(0)
+	revokeAt.Store(2)
+	if denied := request(http.MethodGet, receiptPath, "", 401); strings.Contains(string(denied), recorded.Objective) {
+		t.Fatal("revoked account disclosed an immutable receipt")
+	}
+	revokeAt.Store(0)
+	if snapshot() != savedState {
+		t.Fatal("saved revision reads changed the head or immutable records")
+	}
+	// Exercise the actual Fountain private proxy and its native product route,
+	// rather than substituting a route-predicate assertion for the wire path.
+	nativeMux := http.NewServeMux()
+	product.registerExtensionProductRoutes(nativeMux)
+	socket := "@soda-saved-revision-" + strconv.Itoa(os.Getpid())
+	listener, err := net.Listen("unix", socket)
+	if err != nil {
+		t.Fatal(err)
+	}
+	native := httptest.NewUnstartedServer(nativeMux)
+	native.Listener.Close()
+	native.Listener = listener
+	native.Start()
+	t.Cleanup(native.Close)
+	proxy, closeProxy := Extension(socket)
+	t.Cleanup(closeProxy)
+	authority, err := json.Marshal(extensions.Authority{
+		ExtensionID: "soda", InstanceID: "q05-test", SessionGeneration: "generation-1",
+		Contribution: extensions.Contribution{ID: "spaces", Kind: "page", Scope: "global", Action: "get"},
+		Actor:        extensions.Actor{ID: "1", Username: "alice"},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	proxyPath := "/factory/intents/" + intentID + "/revisions/" + draftID
+	for _, probe := range []struct {
+		method, path string
+		status       int
+	}{
+		{http.MethodGet, proxyPath, 200}, {http.MethodPost, proxyPath, 404},
+		{http.MethodGet, proxyPath + "?owner=1", 404}, {http.MethodGet, proxyPath + "/extra", 404},
+		{http.MethodGet, "/factory/intents/" + intentID + "/revisions/bad", 404},
+	} {
+		r := httptest.NewRequest(probe.method, probe.path, nil)
+		r.Header.Set(extensions.ContextHeader, string(authority))
+		r.Header.Set(extensions.AdmissionHeader, "test-admission")
+		r.Header.Set(extensions.SessionGenerationHeader, "generation-1")
+		w := httptest.NewRecorder()
+		proxy.ServeHTTP(w, r)
+		if w.Code != probe.status {
+			t.Fatalf("saved revision proxy %s %s: %d %s", probe.method, probe.path, w.Code, w.Body.String())
+		}
+		if probe.status == 200 && (w.Body.String() != string(originalReceipt) || w.Header().Get("Cache-Control") != "no-store") {
+			t.Fatal("Fountain proxy changed or cached the saved revision receipt", w.Body.String())
+		}
+	}
+	native.Close()
+	checks.Store(0)
+	revokeAt.Store(2)
+	if denied := request(http.MethodGet, requestPath, "", 401); strings.Contains(string(denied), recorded.Objective) {
+		t.Fatal("revoked admission disclosed private request", string(denied))
+	}
+	revokeAt.Store(0)
+	server.Close()
+	shared.Actor = 1
+	server = httptest.NewServer(shared.Handler())
+	t.Cleanup(server.Close)
+	request(http.MethodGet, requestPath, "", 404)
+	request(http.MethodGet, requestPath+"/history", "", 404)
+	request(http.MethodGet, requestPath+"/review", "", 404)
+	request(http.MethodGet, receiptPath, "", 404)
+	server.Close()
+	if err := st.Close(); err != nil {
+		t.Fatal(err)
+	}
+	st, err = store.Open(dsn)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = st.Close() })
+	shared.Actor, shared.Service.Store = nativeActor, st
+	server = httptest.NewServer(shared.Handler())
+	t.Cleanup(server.Close)
+	var retained factory.IntentRevision
+	if err := json.Unmarshal(request(http.MethodGet, requestPath, "", 200), &retained); err != nil || retained.ID != historical.ID || retained.Owner != int64(nativeActor) || retained.CreatedUnix <= 1 {
+		t.Fatal("fresh request HTTP handler lost canonical revision", retained, err)
+	}
+	if err := json.Unmarshal(request(http.MethodGet, receiptPath, "", 200), &exact); err != nil {
+		t.Fatal(err)
+	}
+	actual, _ = json.Marshal(exact)
+	if string(expected) != string(actual) || snapshot() != savedState {
+		t.Fatal("reopened store/HTTP lost the exact historical save or changed current writing")
+	}
+	if after := workSnapshot(); after != beforeWork || chooser.calls != calls {
+		t.Fatal("request transport drove planning/execution/model work", after, beforeWork, chooser.calls)
+	}
 }
 
 // TestIntentReviewCrossIntentRevisionDenied proves a stored review never
@@ -371,7 +653,7 @@ func TestIntentReviewCrossIntentRevisionDenied(t *testing.T) {
 		if code != http.StatusCreated {
 			t.Fatalf("explore status=%d body=%s", code, body)
 		}
-		var responded exploreResponse
+		var responded factoryservice.ExplorationResult
 		if err := json.Unmarshal(body, &responded); err != nil {
 			t.Fatal(err)
 		}
@@ -391,7 +673,7 @@ func TestIntentReviewCrossIntentRevisionDenied(t *testing.T) {
 // denied, and reads consume no judgments, move no heads and replay no
 // generation or effects.
 func TestSavedReviewJoinExploreSaveRead(t *testing.T) {
-	product, s, call, errorCode := q05Mux(t, "")
+	product, s, dsn, call, errorCode := q05MuxFull(t, "")
 	ctx := context.Background()
 	const draftID = "d717171717171717171717171"
 	const intentID = "d727272727272727272727272"
@@ -400,6 +682,11 @@ func TestSavedReviewJoinExploreSaveRead(t *testing.T) {
 		`{"id":"d747474747474747474747474","description":"Keep history visible","consequence":"Past requests stay listed","decision":"pending","source":"autonomous","provenance":"autonomous"}]}`
 	if code, body := call(http.MethodPost, "/api/factory/intents", draft); code != http.StatusCreated {
 		t.Fatalf("draft save status=%d body=%s", code, body)
+	}
+
+	receiptPath := "/api/factory/intents/" + intentID + "/revisions/" + draftID + "/exploration"
+	if status, raw := call(http.MethodGet, receiptPath, ""); status != 200 || strings.TrimSpace(string(raw)) != `{"intent":"`+intentID+`","basis_revision":"`+draftID+`","state":"none"}` {
+		t.Fatalf("unrecorded exploration: %d %s", status, raw)
 	}
 	chooser := &exploreFixtureChooser{}
 	product.IntentExploreChooser = chooser
@@ -487,6 +774,179 @@ func TestSavedReviewJoinExploreSaveRead(t *testing.T) {
 	if _, err := s.IntentGeneration(ctx, head.ID); !errors.Is(err, store.ErrNotFound) {
 		t.Fatalf("read replayed generation: %v", err)
 	}
+	t.Run("original_input_receipt_after_head_changes", func(t *testing.T) {
+		terminal := after
+		terminal.ID, terminal.Predecessor, terminal.State = "d989898989898989898989898", after.ID, "declined"
+		if err := s.SaveIntentRevision(ctx, terminal); err != nil {
+			t.Fatal(err)
+		}
+		if status, data := call(http.MethodGet, "/api/factory/intents/"+intentID+"/revisions/"+terminal.ID+"/exploration", ""); status != 404 {
+			t.Fatalf("nondraft input receipt: %d %s", status, data)
+		}
+		page, err := s.IntentHistory(ctx, intentID, 1, 1)
+		if err != nil || len(page) != 1 || page[0].ID != terminal.ID {
+			t.Fatal("one-row history fixture", page, err)
+		}
+
+		receipt := func(call func(string, string, string) (int, []byte), path string) []byte {
+			t.Helper()
+			status, raw := call(http.MethodGet, path, "")
+			if status != 200 {
+				t.Fatalf("exploration receipt %d %s", status, raw)
+			}
+			return raw
+		}
+		raw := receipt(call, receiptPath)
+		var recorded factoryservice.ExplorationReceipt
+		if err := json.Unmarshal(raw, &recorded); err != nil {
+			t.Fatal(err)
+		}
+		if recorded.Intent != intentID || recorded.BasisRevision != draftID || recorded.State != "recorded" || recorded.Result == nil || recorded.Result.ID != head.ID || recorded.Result.Predecessor != draftID || recorded.Result.State != "draft" {
+			t.Fatalf("wrong original transition: %+v", recorded)
+		}
+		if recorded.Result.Exploration.Recommendation == nil || len(recorded.Result.Exploration.Settled) != 1 || recorded.Result.Exploration.Settled[0] != "d747474747474747474747474" {
+			t.Fatal("receipt lost saved advice/verdicts")
+		}
+		originalAdvice, _ := json.Marshal(factoryservice.Exploration{Content: review.Content, Challenges: review.Challenges, Settled: review.Settled, Recommendation: review.Recommendation, Consistency: review.Consistency})
+		receiptAdvice, _ := json.Marshal(recorded.Result.Exploration)
+		if string(originalAdvice) != string(receiptAdvice) {
+			t.Fatal("historical receipt changed recorded presentation")
+		}
+		// An ordinary successor without a review is not an exploration receipt.
+		absent := receipt(call, "/api/factory/intents/"+intentID+"/revisions/"+head.ID+"/exploration")
+		var missing factoryservice.ExplorationReceipt
+		if json.Unmarshal(absent, &missing) != nil || missing.State != "none" || missing.Result != nil {
+			t.Fatalf("ordinary save confirmed exploration: %s", absent)
+		}
+		// A result remains private independently of the current head and history.
+		if status, data := other(http.MethodGet, receiptPath, ""); status != 404 || strings.Contains(string(data), head.ID) {
+			t.Fatalf("foreign receipt: %d %s", status, data)
+		}
+		nativeMux := http.NewServeMux()
+		product.registerExtensionProductRoutes(nativeMux)
+		socket := "@soda-exploration-receipt-" + strconv.Itoa(os.Getpid())
+		listener, err := net.Listen("unix", socket)
+		if err != nil {
+			t.Fatal(err)
+		}
+		native := httptest.NewUnstartedServer(nativeMux)
+		native.Listener.Close()
+		native.Listener = listener
+		native.Start()
+		defer native.Close()
+		proxy, closeProxy := Extension(socket)
+		defer closeProxy()
+		authority, err := json.Marshal(extensions.Authority{ExtensionID: "soda", InstanceID: "q05-test", SessionGeneration: "generation-1", Contribution: extensions.Contribution{ID: "spaces", Kind: "page", Scope: "global", Action: "get"}, Actor: extensions.Actor{ID: "1", Username: "alice"}})
+		if err != nil {
+			t.Fatal(err)
+		}
+		proxyPath := strings.TrimPrefix(receiptPath, "/api")
+		for _, probe := range []struct {
+			method, path string
+			status       int
+		}{
+			{http.MethodGet, proxyPath, 200}, {http.MethodPost, proxyPath, 404}, {http.MethodGet, proxyPath + "?", 404}, {http.MethodGet, proxyPath + "?owner=1", 404}, {http.MethodGet, proxyPath + "/extra", 404}, {http.MethodGet, "/factory/intents/" + intentID + "/revisions/bad/exploration", 404},
+		} {
+			r := httptest.NewRequest(probe.method, probe.path, nil)
+			r.Header.Set(extensions.ContextHeader, string(authority))
+			r.Header.Set(extensions.AdmissionHeader, "test-admission")
+			r.Header.Set(extensions.SessionGenerationHeader, "generation-1")
+			w := httptest.NewRecorder()
+			proxy.ServeHTTP(w, r)
+			if w.Code != probe.status {
+				t.Fatalf("private exploration proxy %s: %d %s", probe.path, w.Code, w.Body.String())
+			}
+			if probe.status == 200 && (w.Body.String() != string(raw) || w.Header().Get("Cache-Control") != "no-store") {
+				t.Fatal("proxy changed/cached receipt")
+			}
+		}
+		native.Close()
+		if err := s.Close(); err != nil {
+			t.Fatal(err)
+		}
+		reopened, err := store.Open(dsn)
+		if err != nil {
+			t.Fatal(err)
+		}
+		defer reopened.Close()
+		inspect, err := sql.Open("pgx", dsn)
+		if err != nil {
+			t.Fatal(err)
+		}
+		defer inspect.Close()
+		snapshot := func() string {
+			t.Helper()
+			var digest string
+			err := inspect.QueryRowContext(ctx, `SELECT md5(jsonb_build_array(
+        (SELECT jsonb_agg(to_jsonb(h) ORDER BY id) FROM factory_intent_heads h),
+        (SELECT jsonb_agg(to_jsonb(r) ORDER BY id) FROM factory_intent_revisions r),
+        (SELECT jsonb_agg(to_jsonb(v) ORDER BY result_revision) FROM factory_intent_reviews v),
+        (SELECT jsonb_agg(to_jsonb(a) ORDER BY id) FROM factory_assignments a),
+        (SELECT jsonb_agg(to_jsonb(r) ORDER BY id) FROM factory_runs r),
+        (SELECT jsonb_agg(to_jsonb(u) ORDER BY run) FROM factory_usage u),
+        (SELECT jsonb_agg(to_jsonb(j) ORDER BY snapshot) FROM factory_priority_judgments j),
+        (SELECT jsonb_agg(to_jsonb(c) ORDER BY id) FROM factory_commands c))::text)`).Scan(&digest)
+			if err != nil {
+				t.Fatal(err)
+			}
+			return digest
+		}
+		before := snapshot()
+		checks, revokeAt := 0, 0
+		transport := factoryhttpapi.Requests{Service: factoryservice.Requests{Store: reopened}, Actor: 1, Host: product.FountainIdentities.HostID(), Current: func(w http.ResponseWriter, r *http.Request) bool {
+			checks++
+			if r.Header.Get("Authorization") != "Bearer declared-exploration-reader" || (revokeAt > 0 && checks == revokeAt) {
+				http.Error(w, "declared account withdrawn", 401)
+				return false
+			}
+			return true
+		}}
+		server := httptest.NewServer(transport.Handler())
+		defer func() { server.Close() }()
+		read := func(method, path string, status int) []byte {
+			t.Helper()
+			r, err := http.NewRequestWithContext(ctx, method, server.URL+path, nil)
+			if err != nil {
+				t.Fatal(err)
+			}
+			r.Header.Set("Authorization", "Bearer declared-exploration-reader")
+			response, err := server.Client().Do(r)
+			if err != nil {
+				t.Fatal(err)
+			}
+			defer response.Body.Close()
+			data, err := io.ReadAll(response.Body)
+			if err != nil || response.StatusCode != status {
+				t.Fatalf("receipt HTTP %s: %d %s %v", path, response.StatusCode, data, err)
+			}
+			if status == 200 && response.Header.Get("Cache-Control") != "no-store" {
+				t.Fatal("cached receipt")
+			}
+			return data
+		}
+		if data := read(http.MethodGet, receiptPath, 200); string(data) != string(raw) {
+			t.Fatal("reopen/recomposition changed original result")
+		}
+		for _, query := range []string{"?", "?revision=" + nextID, "?owner=1"} {
+			read(http.MethodGet, receiptPath+query, 400)
+		}
+		read(http.MethodPost, receiptPath, 405)
+		read(http.MethodGet, "/api/factory/intents/"+intentID+"/revisions/d999999999999999999999999/exploration", 404)
+		read(http.MethodGet, "/api/factory/intents/d999999999999999999999999/revisions/"+draftID+"/exploration", 404)
+		checks, revokeAt = 0, 2
+		if data := read(http.MethodGet, receiptPath, 401); strings.Contains(string(data), head.ID) {
+			t.Fatal("retired read disclosed historical result")
+		}
+		revokeAt = 0
+		server.Close()
+		transport.Actor = 9007199254740993
+		server = httptest.NewServer(transport.Handler())
+		read(http.MethodGet, receiptPath, 404)
+		if snapshot() != before || chooser.calls != calls {
+			t.Fatal("receipt reads moved state, consumed credit or consulted")
+		}
+	})
+
 }
 
 // TestSavedReviewJoinCaptureRound records one live Explore→save→read round as
@@ -648,11 +1108,13 @@ func TestCommentProductAcceptedOwnerReadKeepsAction(t *testing.T) {
 	owner := downgradableActorCall(t, product, "2", "bob", permission)
 	collaborator := downgradableActorCall(t, product, "3", "carol", permission)
 	idea := factory.ProductIdea{ID: "d585858585858585858585858", Description: "Track requests", Consequence: "Requests persist", Decision: "accept", Source: "requested", Provenance: "human", Actor: 2}
-	accepted := factory.IntentRevision{ID: "d595959595959595959595959", Intent: "d505050505050505050505050", Owner: 2, Repository: 7,
+	accepted := factory.IntentRevision{
+		ID: "d595959595959595959595959", Intent: "d505050505050505050505050", Owner: 2, Repository: 7,
 		Objective: "Employees request equipment and Operations records delivery", State: "accepted", MaxIssues: 10, PlanningCalls: 8, CreatedUnix: 1729000000,
 		Ideas:             []factory.ProductIdea{idea},
 		EffectiveOutcomes: []string{idea.ID},
-		Tasks:             []factory.IntentTask{{Key: "d515151515151515151515151", Objective: "Deliver equipment workflow", Outcomes: []string{"Recorded request history"}, IdeaIDs: []string{idea.ID}}}}
+		Tasks:             []factory.IntentTask{{Key: "d515151515151515151515151", Objective: "Deliver equipment workflow", Outcomes: []string{"Recorded request history"}, IdeaIDs: []string{idea.ID}}},
+	}
 	if err := db.SaveIntentRevision(ctx, accepted); err != nil {
 		t.Fatal(err)
 	}
@@ -660,7 +1122,7 @@ func TestCommentProductAcceptedOwnerReadKeepsAction(t *testing.T) {
 	if err != nil || len(posts) != 1 {
 		t.Fatalf("accepted source posts=%d err=%v", len(posts), err)
 	}
-	code, body := owner(http.MethodPost, "/api/factory/feed/posts", `{"repository":7,"body":"New requests above EUR 1000 also need Finance approval. Existing requests keep their route.","parent_id":"`+posts[0].ID+`","idempotency_key":"owner-read-change"}`)
+	code, body := owner(http.MethodPost, "/api/factory/feed/posts", `{"repository":"7","body":"New requests above EUR 1000 also need Finance approval. Existing requests keep their route.","parent_id":"`+posts[0].ID+`","idempotency_key":"owner-read-change"}`)
 	if code != http.StatusOK {
 		t.Fatalf("comment save=%d %s", code, body)
 	}
@@ -681,7 +1143,7 @@ func TestCommentProductAcceptedOwnerReadKeepsAction(t *testing.T) {
 	}
 	drafter := &fakePostDrafter{draft: validTestDraft(saved.SourcePost)}
 	creator := &fakePostCreator{next: 100, issues: map[string]int64{}}
-	response, err := drivePostIntake(ctx, db, &PostCollaborators{Drafter: drafter, Creator: creator}, saved.SourcePost)
+	response, err := factoryservice.DrivePostIntake(ctx, db, &factoryservice.PostCollaborators{Drafter: drafter, Creator: creator}, saved.SourcePost)
 	if err != nil || response.Issue != 0 || drafter.calls != 0 || creator.creates != 0 {
 		t.Fatalf("product proposal created detached work: response=%+v drafts=%d creates=%d err=%v", response, drafter.calls, creator.creates, err)
 	}
@@ -690,7 +1152,7 @@ func TestCommentProductAcceptedOwnerReadKeepsAction(t *testing.T) {
 		t.Helper()
 		var response struct {
 			Change store.PostProductChange `json:"product_change"`
-			Issue  int64                      `json:"issue"`
+			Issue  int64                   `json:"issue"`
 		}
 		if code != http.StatusOK || json.Unmarshal(body, &response) != nil || response.Change.Intent != accepted.Intent || response.Change.AcceptedRevision != accepted.ID {
 			t.Fatalf("change projection=%d %s", code, body)
@@ -741,5 +1203,8 @@ func TestCommentProductAcceptedOwnerReadKeepsAction(t *testing.T) {
 	}
 	if code, body := collaborator(http.MethodGet, "/api/factory/intents/"+accepted.Intent, ""); code != http.StatusNotFound || errorCode(body) != "not_found" {
 		t.Fatalf("collaborator private read=%d %s", code, body)
+	}
+	if code, body := collaborator(http.MethodGet, "/api/factory/intents/"+accepted.Intent+"/history", ""); code != http.StatusNotFound || errorCode(body) != "not_found" {
+		t.Fatalf("collaborator private history=%d %s", code, body)
 	}
 }

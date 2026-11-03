@@ -3,7 +3,7 @@ package host
 import (
 	"context"
 	"errors"
-	"github.com/levitateos/sodaos/internal/application"
+	"github.com/levitateos/factory/pkg/application"
 	"net/url"
 	"strings"
 )

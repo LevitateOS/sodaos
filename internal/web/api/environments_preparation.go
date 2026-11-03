@@ -6,10 +6,10 @@ import (
 	"net/http"
 	"sort"
 
+	"github.com/levitateos/factory/pkg/factory/execution"
+	"github.com/levitateos/factory/pkg/project"
+	"github.com/levitateos/factory/pkg/store"
 	"github.com/levitateos/sodaos/internal/web/auth"
-
-	"github.com/levitateos/sodaos/internal/project"
-	"github.com/levitateos/sodaos/internal/store"
 )
 
 // preparationItemView reports one durable preparation without its setup and
@@ -41,7 +41,7 @@ type environmentPreparationView struct {
 	DecisionPreview     preparationDecisionPreview `json:"decision_preview"`
 }
 
-func preparationItemDTO(p project.StoredPreparation) preparationItemView {
+func preparationItemDTO(p execution.PreparationRecord) preparationItemView {
 	return preparationItemView{
 		ID: p.Preparation.ID, Role: p.Preparation.Role,
 		Phase: p.State.Phase, Ready: p.State.Ready, Stopped: p.State.Stopped,
@@ -213,7 +213,7 @@ type spacePreparationView struct {
 	Roles []spacePreparationRole `json:"roles"`
 }
 
-func summarizeSpacePreparation(records []project.StoredPreparation, hold bool) *spacePreparationView {
+func summarizeSpacePreparation(records []execution.PreparationRecord, hold bool) *spacePreparationView {
 	view := &spacePreparationView{Hold: hold, Roles: []spacePreparationRole{}}
 	byRole := map[string]*spacePreparationRole{}
 	for _, record := range records {

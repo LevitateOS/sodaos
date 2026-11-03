@@ -12,7 +12,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/levitateos/sodaos/internal/identity"
+	"github.com/levitateos/factory/pkg/identity"
 )
 
 type Client struct{ HTTP *http.Client }

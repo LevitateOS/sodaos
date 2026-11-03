@@ -6,8 +6,8 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/levitateos/sodaos/internal/identity"
-	"github.com/levitateos/sodaos/internal/store"
+	"github.com/levitateos/factory/pkg/identity"
+	"github.com/levitateos/factory/pkg/store"
 	"github.com/levitateos/sodaos/internal/web/auth"
 )
 

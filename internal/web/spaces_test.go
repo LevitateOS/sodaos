@@ -15,9 +15,9 @@ import (
 
 	extensions "forgejo.org/extension-sdk"
 	"github.com/coder/websocket"
+	"github.com/levitateos/factory/pkg/project"
+	"github.com/levitateos/factory/pkg/store"
 	"github.com/levitateos/sodaos/internal/host"
-	"github.com/levitateos/sodaos/internal/project"
-	"github.com/levitateos/sodaos/internal/store"
 	"github.com/levitateos/sodaos/internal/web/api"
 )
 
@@ -25,6 +25,13 @@ func spacesFixture(t *testing.T, member bool) (*Server, *atomic.Int32, *atomic.I
 	t.Helper()
 	callbackCalls, nativeCalls := new(atomic.Int32), new(atomic.Int32)
 	s := apiTestServer(t)
+	// This baseline deliberately uses equal native/canonical repository IDs.
+	// Mapped-provider journeys below exercise distinct scoped identities.
+	for native := int64(1); native <= 7; native++ {
+		if _, err := s.API.FountainIdentities.LocalRepository(t.Context(), native); err != nil {
+			t.Fatal(err)
+		}
+	}
 	s.Config.OperatorID = 999
 	helper := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		nativeCalls.Add(1)

@@ -1,152 +1,110 @@
 package api
 
 import (
+	"context"
 	"errors"
 	"net/http"
 	"strconv"
 
-	"github.com/levitateos/sodaos/internal/factory"
-	"github.com/levitateos/sodaos/internal/factory/control"
-	"github.com/levitateos/sodaos/internal/project"
-	"github.com/levitateos/sodaos/internal/store"
+	"github.com/levitateos/factory/pkg/collaboration"
+	"github.com/levitateos/factory/pkg/factory"
+	"github.com/levitateos/factory/pkg/factory/control"
+	factoryservice "github.com/levitateos/factory/pkg/factory/service"
+	"github.com/levitateos/factory/pkg/project"
+	"github.com/levitateos/factory/pkg/store"
 	"github.com/levitateos/sodaos/internal/web/auth"
 )
 
-type factoryQueueView struct {
-	Queued int `json:"queued"`
-	Active int `json:"active"`
-}
-
-type factoryStatusView struct {
-	NativeBindings      []factory.ActorBindingRef    `json:"native_bindings"`
-	Policy              *factory.RepositoryPolicy    `json:"policy"`
-	OperatorGrant       *factory.OperatorGrant       `json:"operator_grant"`
-	Appliance           *factory.Capacity            `json:"capacity"`
-	Sponsorships        []factory.Sponsorship        `json:"sponsorships"`
-	EnvironmentGrant    *project.EnvironmentGrant    `json:"environment_grant"`
-	Preparation         *factoryPreparationView      `json:"preparation"`
-	Queue               factoryQueueView             `json:"queue"`
-	Effective           factory.EffectiveAuthority   `json:"effective"`
-	DispatchObservation *control.DispatchObservation `json:"dispatch_observation,omitempty"`
-	Repository          string                       `json:"repository"`
-}
-
-type factoryPreparationView struct {
-	Project      string `json:"project"`
-	Requirements string `json:"requirements,omitempty"`
-	Approval     string `json:"approval,omitempty"`
-	Ready        bool   `json:"ready"`
-}
-
-func (s *API) apiFactoryStatus(w http.ResponseWriter, r *http.Request, v store.Session) {
-	repository, ok := s.factoryRepository(w, r, v)
-	if !ok {
-		return
+func (s *API) repositoryStatus(r *http.Request, v store.Session, admitted collaboration.ActorID) factoryservice.RepositoryStatus {
+	current := func(ctx context.Context, actor collaboration.ActorID) error {
+		if actor != admitted || !s.extensionSessionCurrent(ctx, r, v) {
+			return auth.ErrNativeSessionChanged
+		}
+		return nil
 	}
-	if r.URL.RawQuery != "" || r.URL.ForceQuery {
-		auth.JSONError(w, 400, "invalid_request", "No query parameters are accepted.")
-		return
+	status := factoryservice.RepositoryStatus{Store: s.Store, Visibility: s.workJourneys(r, v, admitted).Visibility,
+		Bindings: func(ctx context.Context, actor collaboration.ActorID, repository collaboration.RepositoryID) ([]factory.ActorBindingRef, error) {
+			if err := current(ctx, actor); err != nil {
+				return nil, err
+			}
+			native, err := s.FountainIdentities.NativeRepository(ctx, repository)
+			if err != nil {
+				return nil, err
+			}
+			refs := []factory.ActorBindingRef{}
+			if s.Config == nil {
+				return nil, factoryservice.ErrRepositoryStatusBindings
+			}
+			for _, binding := range s.Config.FactoryNativeBindings {
+				if strconv.FormatInt(binding.RepositoryID, 10) != native {
+					continue
+				}
+				local, err := s.FountainIdentities.LocalActor(ctx, strconv.FormatInt(binding.ActorID, 10))
+				if err != nil {
+					return nil, err
+				}
+				refs = append(refs, factory.ActorBindingRef{TokenID: binding.TokenID, ActorID: int64(local), Kind: binding.Kind})
+			}
+			return refs, nil
+		},
+		Preparation: func(ctx context.Context, actor collaboration.ActorID, repository collaboration.RepositoryID) (*factoryservice.RepositoryPreparation, error) {
+			if err := current(ctx, actor); err != nil {
+				return nil, err
+			}
+			return s.factoryPreparation(ctx, int64(repository))
+		},
 	}
-	ctx := r.Context()
-	view := factoryStatusView{Repository: strconv.FormatInt(repository, 10), Sponsorships: []factory.Sponsorship{}, NativeBindings: []factory.ActorBindingRef{}}
-	for _, binding := range s.Config.FactoryNativeBindings {
-		if binding.RepositoryID == repository {
-			view.NativeBindings = append(view.NativeBindings, factory.ActorBindingRef{TokenID: binding.TokenID, ActorID: binding.ActorID, Kind: binding.Kind})
+	if s.Coordinator != nil {
+		status.Authority = func(ctx context.Context, actor collaboration.ActorID, repository collaboration.RepositoryID) (factory.EffectiveAuthority, error) {
+			if err := current(ctx, actor); err != nil {
+				return factory.EffectiveAuthority{}, err
+			}
+			return s.Coordinator.EffectiveAuthority(ctx, int64(repository))
+		}
+		status.Diagnostic = func(ctx context.Context, actor collaboration.ActorID, repository collaboration.RepositoryID) (*control.DispatchObservation, error) {
+			if err := current(ctx, actor); err != nil {
+				return nil, err
+			}
+			request := r.WithContext(ctx)
+			access, err := s.factoryVisibleRepository(request, v, int64(repository))
+			if err != nil {
+				return nil, err
+			}
+			admin := access.repository.Permissions != nil && access.repository.Permissions.Admin
+			if !admin {
+				admin, err = s.environmentAdministrator(request, access)
+			}
+			if err != nil || !admin {
+				return nil, err
+			}
+			return s.Coordinator.LatestDispatchObservation(int64(repository)), nil
 		}
 	}
-	if policy, err := s.Store.RepositoryPolicy(ctx, repository); err == nil {
-		view.Policy = &policy
-	} else if !errors.Is(err, store.ErrNotFound) {
-		auth.JSONError(w, 503, "store_unavailable", "Could not read factory policy.")
-		return
-	}
-	if grant, err := s.Store.OperatorGrant(ctx, repository); err == nil {
-		view.OperatorGrant = &grant
-	} else if !errors.Is(err, store.ErrNotFound) {
-		auth.JSONError(w, 503, "store_unavailable", "Could not read operator grant.")
-		return
-	}
-	if capacity, err := s.Store.Capacity(ctx); err == nil {
-		view.Appliance = &capacity
-	} else if !errors.Is(err, store.ErrNotFound) {
-		auth.JSONError(w, 503, "store_unavailable", "Could not read appliance capacity.")
-		return
-	}
-	sponsorships, err := s.Store.Sponsorships(ctx, repository)
-	if err != nil {
-		auth.JSONError(w, 503, "store_unavailable", "Could not read sponsorships.")
-		return
-	}
-	for _, sp := range sponsorships {
-		view.Sponsorships = append(view.Sponsorships, sponsorshipView(sp, sp.GrantedBy == v.User.ID))
-	}
-	if grant, err := s.Store.EnvironmentGrant(ctx, repository); err == nil {
-		view.EnvironmentGrant = &grant
-	} else if !errors.Is(err, store.ErrNotFound) {
-		auth.JSONError(w, 503, "store_unavailable", "Could not read environment grant.")
-		return
-	}
-	if preparation, ok := s.factoryPreparationStatus(w, r, repository); !ok {
-		return
-	} else {
-		view.Preparation = preparation
-	}
-	effective, err := s.Coordinator.EffectiveAuthority(ctx, repository)
-	if err != nil {
-		auth.JSONError(w, 503, "store_unavailable", "Could not evaluate factory authority.")
-		return
-	}
-	view.Effective = effective
-	controls, err := s.Store.IssueControls(ctx, repository, store.MaxIssueControls)
-	if err != nil {
-		auth.JSONError(w, 503, "store_unavailable", "Could not read factory queue.")
-		return
-	}
-	for _, recorded := range controls {
-		if recorded.Readiness == factory.ReadinessQueued {
-			view.Queue.Queued++
-		}
-	}
-	// The transient diagnostic names accepted issue controls. Keep it on the
-	// current native owner/admin read boundary, never visibility alone.
-	if access, err := s.visibleRepository(r, v, repository); err == nil {
-		admin := access.repository.Permissions != nil && access.repository.Permissions.Admin
-		if !admin {
-			admin, _ = s.environmentAdministrator(r, access)
-		}
-		if admin {
-			view.DispatchObservation = s.Coordinator.LatestDispatchObservation(repository)
-		}
-	}
-	auth.JSONResponse(w, 200, view)
+	return status
 }
 
-func (s *API) factoryPreparationStatus(w http.ResponseWriter, r *http.Request, repository int64) (*factoryPreparationView, bool) {
-	p, err := s.Store.ProjectByRepository(r.Context(), repository)
+func (s *API) factoryPreparation(ctx context.Context, repository int64) (*factoryservice.RepositoryPreparation, error) {
+	p, err := s.Store.NativeProjectForCollaborationRepository(ctx, collaboration.RepositoryID(repository))
 	if err != nil {
 		if errors.Is(err, store.ErrNotFound) {
-			return nil, true
+			return nil, nil
 		}
-		auth.JSONError(w, 503, "store_unavailable", "Could not read project preparation.")
-		return nil, false
+		return nil, err
 	}
-	view := &factoryPreparationView{Project: p.ID}
-	if head, err := s.Store.RequirementHead(r.Context(), p.ID); err == nil {
+	view := &factoryservice.RepositoryPreparation{Project: p.ID}
+	if head, err := s.Store.RequirementHead(ctx, p.ID); err == nil {
 		view.Requirements = head
 	} else if !errors.Is(err, store.ErrNotFound) {
-		auth.JSONError(w, 503, "store_unavailable", "Could not read preparation acceptance.")
-		return nil, false
+		return nil, err
 	}
-	if head, err := s.Store.ApprovalHead(r.Context(), p.ID); err == nil {
+	if head, err := s.Store.ApprovalHead(ctx, p.ID); err == nil {
 		view.Approval = head
 	} else if !errors.Is(err, store.ErrNotFound) {
-		auth.JSONError(w, 503, "store_unavailable", "Could not read preparation approval.")
-		return nil, false
+		return nil, err
 	}
-	records, err := s.Store.ProjectPreparations(r.Context(), p.ID)
+	records, err := s.Store.ProjectPreparations(ctx, p.ID)
 	if err != nil {
-		auth.JSONError(w, 503, "store_unavailable", "Could not read preparations.")
-		return nil, false
+		return nil, err
 	}
 	ready := map[string]bool{}
 	for _, record := range records {
@@ -155,5 +113,5 @@ func (s *API) factoryPreparationStatus(w http.ResponseWriter, r *http.Request, r
 		}
 	}
 	view.Ready = ready[project.RoleCoder] && ready[project.RoleReviewer]
-	return view, true
+	return view, nil
 }

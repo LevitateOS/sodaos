@@ -1,21 +1,24 @@
 package api
 
 import (
-	"bytes"
 	"context"
-	"encoding/json"
+
 	"errors"
 	"net/http"
+	"strconv"
 	"strings"
 	"time"
 
 	extensions "forgejo.org/extension-sdk"
 	"github.com/coder/websocket"
-	"github.com/levitateos/sodaos/internal/factory"
+	"github.com/levitateos/factory/pkg/collaboration"
+	"github.com/levitateos/factory/pkg/factory"
+	factoryhttpapi "github.com/levitateos/factory/pkg/factory/httpapi"
+	factoryservice "github.com/levitateos/factory/pkg/factory/service"
+	"github.com/levitateos/factory/pkg/project"
+	"github.com/levitateos/factory/pkg/store"
 	"github.com/levitateos/sodaos/internal/host"
-	"github.com/levitateos/sodaos/internal/project"
-	"github.com/levitateos/sodaos/internal/store"
-	"github.com/levitateos/sodaos/internal/strictjson"
+
 	"github.com/levitateos/sodaos/internal/web/auth"
 )
 
@@ -46,6 +49,7 @@ type factoryViewerIdentity struct {
 	project   store.Project
 	runID     string
 	actorID   int64
+	output    *factoryservice.OutputAttachment
 }
 
 func (s *API) factoryViewerAccount(w http.ResponseWriter, r *http.Request) (factoryViewerIdentity, bool) {
@@ -88,7 +92,59 @@ func (s *API) factoryViewerAccount(w http.ResponseWriter, r *http.Request) (fact
 		auth.JSONError(w, 403, "repository_write_required", "Current repository write permission is required.")
 		return factoryViewerIdentity{}, false
 	}
+	if s.FountainIdentities == nil {
+		auth.JSONError(w, 503, "identity_unavailable", "Factory output identity is unavailable.")
+		return factoryViewerIdentity{}, false
+	}
+	actor, err := s.FountainIdentities.LocalActor(r.Context(), authority.Actor.ID)
+	if err != nil {
+		auth.JSONError(w, 503, "identity_unavailable", "Factory output identity is unavailable.")
+		return factoryViewerIdentity{}, false
+	}
+	identity.output, err = s.factoryOutputReader(r, identity, actor).Open(r.Context(), actor, runID)
+	if err != nil {
+		switch {
+		case errors.Is(err, factoryservice.ErrRunOutputAccess):
+			auth.JSONError(w, 403, "repository_write_required", "Current repository write permission is required.")
+		case errors.Is(err, factoryservice.ErrRunOutputChanged):
+			auth.JSONError(w, 409, "view_conflict", "Run output scope changed; refresh the inventory.")
+		default:
+			auth.JSONError(w, 503, "output_unavailable", "Factory output admission is unavailable.")
+		}
+		return factoryViewerIdentity{}, false
+	}
 	return identity, true
+}
+
+func (s *API) factoryOutputReader(r *http.Request, identity factoryViewerIdentity, admitted collaboration.ActorID) factoryservice.RunOutput {
+	return factoryservice.RunOutput{Store: s.Store,
+		Scope: func(ctx context.Context, actor collaboration.ActorID, run factory.Run) (collaboration.RepositoryID, error) {
+			if actor != admitted || run.ID != identity.runID || run.ProjectID != identity.project.ID {
+				return 0, factoryservice.ErrRunOutputChanged
+			}
+			ref, err := s.Store.CollaborationRepositoryForNativeProject(ctx, run.ProjectID)
+			return ref.ID, err
+		},
+		Access: func(ctx context.Context, actor collaboration.ActorID, repository collaboration.RepositoryID, run factory.Run) error {
+			if actor != admitted || !s.factoryViewerCurrent(ctx, r, identity) {
+				return factoryservice.ErrRunOutputAccess
+			}
+			return nil
+		},
+		Source: func(ctx context.Context, actor collaboration.ActorID, run factory.Run, cursor int64, limit int) (project.FactoryOutputState, error) {
+			if s.Host == nil {
+				return project.FactoryOutputState{}, factoryservice.ErrRunOutputUnavailable
+			}
+			out, err := s.Host.FactoryOutput(ctx, project.FactoryOutput{Project: run.ProjectID, ID: run.ID, Offset: cursor, Limit: limit})
+			if errors.Is(err, host.ErrRunNotFound) {
+				return project.FactoryOutputState{}, factoryservice.ErrRunOutputMissing
+			}
+			if errors.Is(err, host.ErrRunStale) {
+				return project.FactoryOutputState{}, factoryservice.ErrRunOutputChanged
+			}
+			return out, err
+		},
+	}
 }
 
 // factoryViewerCurrent revalidates the attachment: the same live native
@@ -112,84 +168,9 @@ func (s *API) factoryViewerCurrent(ctx context.Context, r *http.Request, identit
 	return s.extensionTerminalRepository(check, extensionTerminalIdentity{authority: current, project: p})
 }
 
-// factoryOutputHandshake opens one read-only attachment. The cursor resumes
-// a detached view; reattachment only reads, never launches or resumes an
-// agent.
-type factoryOutputHandshake struct {
-	RunID             string `json:"run_id"`
-	RepositoryID      string `json:"repository_id"`
-	SessionGeneration string `json:"session_generation"`
-	Cursor            int64  `json:"cursor"`
-}
-
-func readFactoryOutputHandshake(ctx context.Context, conn *websocket.Conn) (factoryOutputHandshake, error) {
-	var in factoryOutputHandshake
-	first, done := context.WithTimeout(ctx, 5*time.Second)
-	defer done()
-	kind, body, err := conn.Read(first)
-	if err != nil {
-		return in, err
-	}
-	if kind != websocket.MessageText || len(body) > 4096 || strictjson.Decode(bytes.NewReader(body), &in) != nil {
-		return in, errors.New("invalid handshake")
-	}
-	return in, nil
-}
-
-func validFactoryOutputHandshake(in factoryOutputHandshake, identity factoryViewerIdentity) bool {
-	id, valid := auth.PositiveID(in.RepositoryID)
-	return in.RunID == identity.runID && valid && id == identity.project.RepositoryID &&
-		in.SessionGeneration == identity.authority.SessionGeneration &&
-		in.Cursor >= 0 && in.Cursor <= project.MaxFactoryOutputOffset
-}
-
-// Factory output frames use fixed key sets, like the terminal transport:
-// status carries run/process identity, output carries base64 bytes with
-// server-chosen cursors, closed ends the attachment with a reason.
-type factoryStatusFrame struct {
-	Type       string `json:"type"`
-	RunID      string `json:"run_id"`
-	Phase      string `json:"phase"`
-	Container  string `json:"container"`
-	Unit       string `json:"unit"`
-	Invocation string `json:"invocation"`
-	Reason     string `json:"reason"`
-	Live       bool   `json:"live"`
-	Terminal   bool   `json:"terminal"`
-	ExitCode   *int   `json:"exit_code"`
-}
-
-type factoryOutputFrame struct {
-	Type      string `json:"type"`
-	Data      string `json:"data"`
-	Cursor    int64  `json:"cursor"`
-	Next      int64  `json:"next"`
-	Gap       bool   `json:"gap"`
-	Truncated bool   `json:"truncated"`
-}
-
-type factoryClosedFrame struct {
-	Type   string `json:"type"`
-	Reason string `json:"reason"`
-}
-
-func factoryOutputStatus(runID string, out project.FactoryOutputState) factoryStatusFrame {
-	return factoryStatusFrame{
-		Type: "status", RunID: runID, Phase: out.Phase, Container: out.Container,
-		Unit: out.Unit, Invocation: out.Invocation, Reason: out.Reason,
-		Live: out.Live, Terminal: out.Terminal, ExitCode: out.ExitCode,
-	}
-}
-
-func writeFactoryFrame(ctx context.Context, conn *websocket.Conn, frame any) error {
-	body, _ := json.Marshal(frame)
-	write, done := context.WithTimeout(ctx, 5*time.Second)
-	defer done()
-	return conn.Write(write, websocket.MessageText, body)
-}
-
-func refuseFactoryOutput(conn *websocket.Conn) {
-	_ = conn.Close(websocket.StatusPolicyViolation, "factory view unavailable or native authorization failed; use the exact run or reload this page")
+func validNativeOutputHandshake(in factoryhttpapi.OutputHandshake, identity factoryViewerIdentity) bool {
+	return in.RepositoryID == strconv.FormatInt(identity.project.RepositoryID, 10) &&
+		in.SessionGeneration == identity.authority.SessionGeneration
 }
 
 func (s *API) factoryOutputStream(w http.ResponseWriter, r *http.Request) {
@@ -222,128 +203,9 @@ func (s *API) factoryOutputAttach(w http.ResponseWriter, r *http.Request, identi
 		return
 	}
 	defer conn.CloseNow()
-	conn.SetReadLimit(32768)
-	closePeer := context.AfterFunc(ctx, func() { conn.CloseNow() })
-	defer closePeer()
-	in, err := readFactoryOutputHandshake(ctx, conn)
-	if err != nil || !validFactoryOutputHandshake(in, identity) {
-		refuseFactoryOutput(conn)
-		return
+	transport := factoryhttpapi.Output{Attachment: identity.output,
+		Handshake: func(in factoryhttpapi.OutputHandshake) bool { return validNativeOutputHandshake(in, identity) },
+		Current:   func(ctx context.Context) bool { return s.factoryViewerCurrent(ctx, r, identity) },
 	}
-	if !s.factoryViewerCurrent(ctx, r, identity) {
-		refuseFactoryOutput(conn)
-		return
-	}
-	go factoryRejectViewerInput(ctx, cancel, conn)
-	s.pumpFactoryOutput(ctx, conn, r, identity, in.Cursor)
-}
-
-// factoryRejectViewerInput ends a read-only attachment the moment the viewer
-// sends anything past the handshake: input, resize, signals and End frames
-// cannot reach the factory process.
-func factoryRejectViewerInput(ctx context.Context, cancel context.CancelFunc, conn *websocket.Conn) {
-	defer cancel()
-	if _, _, err := conn.Read(ctx); err == nil {
-		_ = conn.Close(websocket.StatusPolicyViolation, "read-only factory stream; input, resize and End are rejected")
-	}
-}
-
-func (s *API) pumpFactoryOutput(ctx context.Context, conn *websocket.Conn, r *http.Request, identity factoryViewerIdentity, cursor int64) {
-	poll := time.NewTicker(500 * time.Millisecond)
-	defer poll.Stop()
-	heart := time.NewTicker(15 * time.Second)
-	defer heart.Stop()
-	var last factoryStatusFrame
-	sent := false
-	failures := 0
-	for {
-		select {
-		case <-ctx.Done():
-			return
-		case <-heart.C:
-			if !s.factoryOutputHeartbeat(ctx, conn, r, identity) {
-				return
-			}
-		case <-poll.C:
-			next, done, ok := s.pumpFactorySlice(ctx, conn, identity, cursor, &last, &sent)
-			cursor = next
-			if done {
-				return
-			}
-			if !ok {
-				failures++
-				if failures > 10 {
-					_ = writeFactoryFrame(ctx, conn, factoryClosedFrame{Type: "closed", Reason: "output_unavailable"})
-					return
-				}
-				continue
-			}
-			failures = 0
-		}
-	}
-}
-
-func (s *API) pumpFactorySlice(ctx context.Context, conn *websocket.Conn, identity factoryViewerIdentity, cursor int64, last *factoryStatusFrame, sent *bool) (int64, bool, bool) {
-	out, err := s.Host.FactoryOutput(ctx, project.FactoryOutput{Project: identity.project.ID, ID: identity.runID, Offset: cursor, Limit: project.MaxFactoryOutputRead})
-	if err != nil {
-		return cursor, s.closeFactorySlice(ctx, conn, err), false
-	}
-	status := factoryOutputStatus(identity.runID, out)
-	if !*sent || !sameFactoryStatus(status, *last) {
-		if writeFactoryFrame(ctx, conn, status) != nil {
-			return cursor, true, false
-		}
-		*last, *sent = status, true
-	}
-	if out.Data != "" || out.Gap || out.Truncated {
-		frame := factoryOutputFrame{Type: "output", Data: out.Data, Cursor: out.Offset, Next: out.Next, Gap: out.Gap, Truncated: out.Truncated}
-		if writeFactoryFrame(ctx, conn, frame) != nil {
-			return cursor, true, false
-		}
-	}
-	if out.Terminal && out.Next >= out.Total {
-		_ = writeFactoryFrame(ctx, conn, factoryClosedFrame{Type: "closed", Reason: "eof"})
-		return out.Next, true, true
-	}
-	return out.Next, false, true
-}
-
-// sameFactoryStatus compares two status frames by value, including the
-// optional exit code.
-func sameFactoryStatus(a, b factoryStatusFrame) bool {
-	if a.ExitCode == nil || b.ExitCode == nil {
-		return a.ExitCode == b.ExitCode && statusWithoutExit(a) == statusWithoutExit(b)
-	}
-	return *a.ExitCode == *b.ExitCode && statusWithoutExit(a) == statusWithoutExit(b)
-}
-
-func statusWithoutExit(s factoryStatusFrame) factoryStatusFrame {
-	s.ExitCode = nil
-	return s
-}
-
-// closeFactorySlice ends the attachment for a host read failure. Unknown
-// runs and changed incarnations close with their reason; anything else is
-// a transient miss the pump retries within its failure budget.
-func (s *API) closeFactorySlice(ctx context.Context, conn *websocket.Conn, err error) bool {
-	switch {
-	case errors.Is(err, host.ErrRunNotFound):
-		_ = writeFactoryFrame(ctx, conn, factoryClosedFrame{Type: "closed", Reason: "run_unknown"})
-		return true
-	case errors.Is(err, host.ErrRunStale):
-		_ = writeFactoryFrame(ctx, conn, factoryClosedFrame{Type: "closed", Reason: "incarnation_changed"})
-		return true
-	default:
-		return false
-	}
-}
-
-func (s *API) factoryOutputHeartbeat(ctx context.Context, conn *websocket.Conn, r *http.Request, identity factoryViewerIdentity) bool {
-	check, done := context.WithTimeout(ctx, 5*time.Second)
-	defer done()
-	if !s.factoryViewerCurrent(check, r, identity) {
-		_ = writeFactoryFrame(ctx, conn, factoryClosedFrame{Type: "closed", Reason: "authority_lost"})
-		return false
-	}
-	return conn.Ping(check) == nil
+	transport.Serve(ctx, conn)
 }

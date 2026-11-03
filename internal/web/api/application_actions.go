@@ -5,8 +5,8 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/levitateos/sodaos/internal/application"
-	"github.com/levitateos/sodaos/internal/store"
+	"github.com/levitateos/factory/pkg/application"
+	"github.com/levitateos/factory/pkg/store"
 	"github.com/levitateos/sodaos/internal/web/auth"
 )
 

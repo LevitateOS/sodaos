@@ -9,8 +9,9 @@ import (
 
 	extensions "forgejo.org/extension-sdk"
 
+	"github.com/levitateos/factory/pkg/collaboration"
+	"github.com/levitateos/factory/pkg/factory"
 	"github.com/levitateos/sodaos/internal/config"
-	"github.com/levitateos/sodaos/internal/factory"
 	forgejopublish "github.com/levitateos/sodaos/internal/forgejo/publish"
 )
 
@@ -19,18 +20,23 @@ import (
 // and its agents. Soda verifies exact head/base/review/check evidence
 // before submitting; native protection still authorizes the effect.
 type Merger struct {
+	Identities *FountainIdentities
 	background *ServiceBackground
 	rest       *Client
 	tokenFile  string
 }
 
-func NewMerger(background *ServiceBackground, rest *Client, tokenFile string) *Merger {
-	return &Merger{background: background, rest: rest, tokenFile: tokenFile}
+func NewMerger(background *ServiceBackground, rest *Client, tokenFile string, identities *FountainIdentities) *Merger {
+	return &Merger{background: background, rest: rest, tokenFile: tokenFile, Identities: identities}
 }
 
 func (m *Merger) checkActor(ctx context.Context, actor int64) error {
-	if m.background == nil || m.rest == nil || m.tokenFile == "" {
+	if m == nil || m.background == nil || m.rest == nil || m.tokenFile == "" || m.Identities == nil {
 		return &factory.PublicationWait{Reason: "operations_unavailable"}
+	}
+	native, err := m.Identities.NativeActor(ctx, collaboration.ActorID(actor))
+	if err != nil {
+		return err
 	}
 	token, err := config.Secret(m.tokenFile)
 	if err != nil {
@@ -40,7 +46,7 @@ func (m *Merger) checkActor(ctx context.Context, actor int64) error {
 	if err != nil {
 		return &factory.PublicationWait{Reason: "credential_invalid"}
 	}
-	if user.ID != actor {
+	if strconv.FormatInt(user.ID, 10) != native {
 		return &factory.PublicationWait{Reason: "authority_lost"}
 	}
 	return nil
@@ -58,12 +64,16 @@ func (m *Merger) ObserveMerge(ctx context.Context, w factory.MergeWork) (factory
 	if err := w.ValidateTarget(); err != nil {
 		return empty, &factory.PublicationRefusal{Reason: "invalid_work"}
 	}
+	native, err := m.nativeWork(ctx, w)
+	if err != nil {
+		return empty, err
+	}
 	if err := m.checkActor(ctx, w.ActorID); err != nil {
 		return empty, err
 	}
-	reader := &BackgroundSnapshotReader{Client: m.background, ActorID: strconv.FormatInt(w.ActorID, 10)}
+	reader := &BackgroundSnapshotReader{Client: m.background, ActorID: strconv.FormatInt(native.ActorID, 10)}
 	credential := extensions.CredentialFile(m.tokenFile)
-	repo, number := strconv.FormatInt(w.Repository, 10), strconv.FormatInt(w.PRNumber, 10)
+	repo, number := strconv.FormatInt(native.Repository, 10), strconv.FormatInt(w.PRNumber, 10)
 	issue, err := BracketedRead(ctx, reader, credential, SnapshotRequest{RepositoryID: repo, IssueIndex: number, Families: []SnapshotFamily{FamilyIssue}})
 	if err != nil {
 		return empty, mergeReadError(err)
@@ -75,7 +85,11 @@ func (m *Merger) ObserveMerge(ctx context.Context, w factory.MergeWork) (factory
 	if snapshot.Revision != issue.Revision {
 		return empty, &factory.PublicationWait{Reason: "revision_moved"}
 	}
-	return matchMergeTarget(w, issue, snapshot)
+	observed, err := matchMergeTarget(native, issue, snapshot)
+	if err == nil {
+		observed.PRAuthorID, observed.ReviewerID = w.PRAuthorID, w.ReviewerID
+	}
+	return observed, err
 }
 
 func mergeReadError(err error) error {
@@ -107,7 +121,14 @@ func mergeIntent(w factory.MergeWork) (extensions.OperationIntent, error) {
 // reconciled by that operation identity; no ordinary merge POST or
 // guessed record is used.
 func (m *Merger) SubmitMerge(ctx context.Context, w factory.MergeWork) (factory.OperationOutcome, error) {
-	intent, err := mergeIntent(w)
+	if err := w.Validate(); err != nil {
+		return factory.OperationOutcome{}, &factory.PublicationRefusal{Reason: "invalid_work"}
+	}
+	native, err := m.nativeWork(ctx, w)
+	if err != nil {
+		return factory.OperationOutcome{}, err
+	}
+	intent, err := mergeIntent(native)
 	if err != nil {
 		return factory.OperationOutcome{}, err
 	}
@@ -126,6 +147,9 @@ func (m *Merger) SubmitMerge(ctx context.Context, w factory.MergeWork) (factory.
 		return factory.OperationOutcome{}, mergeCallError(err)
 	}
 	outcome, err := mergeOperationOutcome(w.OperationID, record)
+	if err == nil {
+		outcome, err = m.Identities.LocalOperationOutcome(ctx, outcome)
+	}
 	if err == nil && (outcome.ActorID != w.ActorID || outcome.RepositoryID != w.Repository) {
 		err = errors.New("merge operation differs from its recorded scope")
 	}
@@ -136,7 +160,7 @@ func (m *Merger) SubmitMerge(ctx context.Context, w factory.MergeWork) (factory.
 // is withdrawn. Absence does not prove an earlier submission cannot
 // still arrive.
 func (m *Merger) LookupOp(ctx context.Context, id string) (factory.OperationOutcome, error) {
-	if m.background == nil {
+	if m == nil || m.background == nil || m.Identities == nil {
 		return factory.OperationOutcome{}, &factory.PublicationWait{Reason: "operations_unavailable"}
 	}
 	lookup, err := m.background.GetOperation(ctx, id)
@@ -149,14 +173,14 @@ func (m *Merger) LookupOp(ctx context.Context, id string) (factory.OperationOutc
 	if lookup.Record == nil {
 		return factory.OperationOutcome{}, errors.New("merge lookup lacks its native record")
 	}
-	return mergeOperationOutcome(id, *lookup.Record)
+	return m.localOutcome(ctx, id, *lookup.Record)
 }
 
 // CancelOp records cancellation under owning-installation admission. A
 // committed merge remains historical evidence; cancellation cannot
 // erase it.
 func (m *Merger) CancelOp(ctx context.Context, id string) (factory.OperationOutcome, error) {
-	if m.background == nil {
+	if m == nil || m.background == nil || m.Identities == nil {
 		return factory.OperationOutcome{}, &factory.PublicationWait{Reason: "operations_unavailable"}
 	}
 	record, err := m.background.CancelOperation(ctx, id)
@@ -167,7 +191,7 @@ func (m *Merger) CancelOp(ctx context.Context, id string) (factory.OperationOutc
 		}
 		return factory.OperationOutcome{}, mergeCallError(err)
 	}
-	return mergeOperationOutcome(id, record)
+	return m.localOutcome(ctx, id, record)
 }
 
 func mergeCallError(err error) error {
@@ -233,4 +257,37 @@ func mergeOperationOutcome(id string, record extensions.OperationRecord) (factor
 	}
 	o.Receipt = append([]byte(nil), record.Receipt...)
 	return o, nil
+}
+
+func (m *Merger) nativeWork(ctx context.Context, w factory.MergeWork) (factory.MergeWork, error) {
+	if m == nil || m.Identities == nil {
+		return factory.MergeWork{}, &factory.PublicationWait{Reason: "operations_unavailable"}
+	}
+	repository, err := m.Identities.NativeRepository(ctx, collaboration.RepositoryID(w.Repository))
+	if err != nil {
+		return factory.MergeWork{}, err
+	}
+	w.Repository, err = originalCreationID(repository)
+	if err != nil {
+		return factory.MergeWork{}, err
+	}
+	for _, actor := range []*int64{&w.ActorID, &w.PRAuthorID, &w.ReviewerID} {
+		native, err := m.Identities.NativeActor(ctx, collaboration.ActorID(*actor))
+		if err != nil {
+			return factory.MergeWork{}, err
+		}
+		*actor, err = originalCreationID(native)
+		if err != nil {
+			return factory.MergeWork{}, err
+		}
+	}
+	return w, nil
+}
+
+func (m *Merger) localOutcome(ctx context.Context, id string, record extensions.OperationRecord) (factory.OperationOutcome, error) {
+	o, err := mergeOperationOutcome(id, record)
+	if err != nil {
+		return factory.OperationOutcome{}, err
+	}
+	return m.Identities.LocalOperationOutcome(ctx, o)
 }

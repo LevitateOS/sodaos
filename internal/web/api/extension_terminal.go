@@ -9,8 +9,9 @@ import (
 	"strings"
 	"time"
 
+	factoryhttpapi "github.com/levitateos/factory/pkg/factory/httpapi"
+	"github.com/levitateos/factory/pkg/store"
 	"github.com/levitateos/sodaos/internal/host"
-	"github.com/levitateos/sodaos/internal/store"
 	"github.com/levitateos/sodaos/internal/web/auth"
 )
 
@@ -36,7 +37,32 @@ func (s *API) ExtensionHandler() http.Handler {
 			return
 		}
 		if !privateTerminalStreamRoute(r) && !privateFactoryOutputRoute(r) {
-			r.Body = http.MaxBytesReader(w, r.Body, auth.APIBodyLimit)
+			limit := int64(auth.APIBodyLimit)
+			if factoryhttpapi.IsHumanCommentSubmission(r) {
+				limit = factoryhttpapi.HumanCommentRequestLimit
+			}
+			if factoryhttpapi.IsHumanEditSubmission(r) {
+				limit = factoryhttpapi.HumanEditRequestLimit
+			}
+			if factoryhttpapi.IsHumanInlineSubmission(r) {
+				limit = factoryhttpapi.HumanInlineRequestLimit
+			}
+			if factoryhttpapi.IsHumanReviewSubmission(r) {
+				limit = factoryhttpapi.HumanReviewRequestLimit
+			}
+			if factoryhttpapi.IsHumanMergeSubmission(r) {
+				limit = factoryhttpapi.HumanMergeRequestLimit
+			}
+			if factoryhttpapi.IsHumanLockSubmission(r) {
+				limit = factoryhttpapi.HumanLockRequestLimit
+			}
+			if factoryhttpapi.IsHumanPullCreateSubmission(r) {
+				limit = factoryhttpapi.HumanPullCreateRequestLimit
+			}
+			if factoryhttpapi.IsHumanIssueCreateSubmission(r) {
+				limit = factoryhttpapi.HumanIssueCreateRequestLimit
+			}
+			r.Body = http.MaxBytesReader(w, r.Body, limit)
 		}
 		mux.ServeHTTP(w, r)
 	})

@@ -5,7 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 
-	"github.com/levitateos/sodaos/internal/application"
+	"github.com/levitateos/factory/pkg/application"
 )
 
 type applicationResponse struct{ application.Observation }

@@ -10,7 +10,7 @@ import (
 	"testing"
 
 	extensions "forgejo.org/extension-sdk"
-	"github.com/levitateos/sodaos/internal/store"
+	"github.com/levitateos/factory/pkg/store"
 )
 
 func TestEnvironmentAuthorityUsesCurrentNativeIdentity(t *testing.T) {

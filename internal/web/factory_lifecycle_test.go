@@ -3,26 +3,41 @@ package web
 import (
 	"bytes"
 	"context"
+	"database/sql"
 	"encoding/json"
 	"errors"
 	"io"
+	"net"
 	"net/http"
 	"net/http/httptest"
+	"os"
+	"path/filepath"
 	"strconv"
 	"strings"
 	"sync/atomic"
 	"testing"
 	"time"
 
+	"github.com/levitateos/factory/pkg/factory/execution"
+
 	extensions "forgejo.org/extension-sdk"
-	"github.com/levitateos/sodaos/internal/factory"
-	"github.com/levitateos/sodaos/internal/project"
-	"github.com/levitateos/sodaos/internal/store"
+	"github.com/levitateos/factory/pkg/collaboration"
+	"github.com/levitateos/factory/pkg/factory"
+	"github.com/levitateos/factory/pkg/project"
+	"github.com/levitateos/factory/pkg/store"
+	"github.com/levitateos/sodaos/internal/config"
 )
 
 func lifecycleWebFixture(t *testing.T) *Server {
 	t.Helper()
 	s := apiTestServer(t)
+	// Baseline lifecycle journeys retain equal native/canonical repository
+	// keys; canonical_execution_actor exercises distinct scoped identities.
+	for native := int64(1); native <= 8; native++ {
+		if _, err := s.API.FountainIdentities.LocalRepository(t.Context(), native); err != nil {
+			t.Fatal(err)
+		}
+	}
 	if err := s.Store.CreateProject(t.Context(), store.Project{ID: webTerminalProject, Name: "factory", RepositoryID: 7, OwnerID: 1, Repository: "alice/factory"}); err != nil {
 		t.Fatal(err)
 	}
@@ -104,7 +119,7 @@ func lifecycleWebPreparations(t *testing.T, s *Server) {
 	t.Helper()
 	ctx := context.Background()
 	for i, role := range []string{project.RoleCoder, project.RoleReviewer} {
-		stored, _, err := s.Store.AdmitPreparation(ctx, project.StoredPreparation{Preparation: project.Preparation{
+		stored, _, err := s.Store.AdmitPreparation(ctx, execution.PreparationRecord{Preparation: project.Preparation{
 			ID: "f0123456789abcdef0123456" + string(rune('0'+i)), Project: webTerminalProject, Role: role,
 			Requirements: project.RequirementAcceptance{ID: "d0123456789abcdef01234567", Revision: 1, Approver: 1, SourceCommit: strings.Repeat("a", 40), Digest: strings.Repeat("b", 64)},
 			Approval:     project.AdminApproval{ID: "d123456789abcdef012345678", Revision: 1, Approver: 1, EffectsDigest: strings.Repeat("b", 64)},
@@ -113,7 +128,11 @@ func lifecycleWebPreparations(t *testing.T, s *Server) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		stored.State.Ready = true
+		stored.State = execution.PreparationState{
+			ID: stored.Preparation.ID, Project: stored.Preparation.Project, Role: role,
+			Phase: project.PrepareReady, Ready: true, Container: strings.Repeat("c", 64),
+			SourceCommit: stored.Preparation.SourceCommit, SetupDigest: stored.Preparation.SetupDigest,
+		}
 		if err = s.Store.ObservePreparation(ctx, stored); err != nil {
 			t.Fatal(err)
 		}
@@ -128,6 +147,7 @@ func lifecycleAction(t *testing.T, s *Server, method, path, body, login string) 
 }
 
 func TestFactoryPauseAndResumeJourney(t *testing.T) {
+	t.Run("canonical_execution_actor", checkMappedApplianceLaunch)
 	s := lifecycleWebFixture(t)
 	lifecycleWebGrants(t, s, 8, false)
 	w := lifecycleAction(t, s, "POST", "/api/repositories/8/factory/actions", `{"action":"pause"}`, "alice")
@@ -184,6 +204,197 @@ func TestFactoryPauseAndResumeJourney(t *testing.T) {
 	again := lifecycleAction(t, s, "POST", "/api/repositories/8/factory/actions", `{"action":"resume"}`, "alice")
 	if again.Code != 200 {
 		t.Fatal(again.Code, again.Body.String())
+	}
+}
+
+// Real PostgreSQL owns the adopted namespace; an actual private Unix HTTP peer
+// captures the production host wire. The peer supplies declared run metadata,
+// not provider execution or credential acquisition.
+func checkMappedApplianceLaunch(t *testing.T) {
+	ctx := t.Context()
+	admin, ok := store.TestFixtureDSN()
+	if !ok {
+		t.Skip("SODA_PG_* fixture unavailable")
+	}
+	db, dsn, cleanup, err := store.OpenEphemeral(ctx, admin)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(cleanup)
+	raw, err := sql.Open("pgx", dsn)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = raw.Close() })
+	directory, err := os.MkdirTemp("", "appliance-actor-")
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = os.RemoveAll(directory) })
+	socket := filepath.Join(directory, "host.sock")
+	listener, err := net.Listen("unix", socket)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = listener.Close() })
+	if err := os.Chmod(socket, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	s, err := NewFactory(config.Config{ForgejoURL: "https://forgejo.example.test", HostSocket: socket}, db)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := raw.ExecContext(ctx, `SELECT setval(pg_get_serial_sequence('collaboration_actors','id'),9007199254740991,true)`); err != nil {
+		t.Fatal(err)
+	}
+	foreignHost := collaboration.Host{ID: collaboration.HostID(collaboration.NewID()), Provider: collaboration.GitHub, APIBase: "https://api.github-fixture.test"}
+	if _, err := db.PutCollaborationHost(ctx, foreignHost); err != nil {
+		t.Fatal(err)
+	}
+	foreign, err := db.ObserveCollaborationActor(ctx, foreignHost.ID, "7", "same-name")
+	if err != nil {
+		t.Fatal(err)
+	}
+	actor, err := s.API.FountainIdentities.LocalActor(ctx, "7")
+	if err != nil || actor <= 9007199254740991 || actor == foreign.ID {
+		t.Fatal("fixture conflated canonical/native execution actors", actor, foreign, err)
+	}
+	if err := db.UpsertUser(ctx, store.User{ID: 7, Login: "same-name", Name: "same-name"}); err != nil {
+		t.Fatal(err)
+	}
+	if err := db.CreateProject(ctx, store.Project{ID: webTerminalProject, Name: "Factory", RepositoryID: 7, OwnerID: 7, Repository: "same-name/factory"}); err != nil {
+		t.Fatal(err)
+	}
+	prompt := []byte("captured appliance actor fixture")
+	request := execution.LaunchRequest{
+		Kind: collaboration.Appliance,
+		Input: project.FactoryLaunch{
+			Run: project.FactoryRun{
+				ID: factory.NewID(), Project: webTerminalProject, Role: project.RoleCoder,
+				Preparation: "f" + strings.Repeat("a", 24), Harness: project.FactoryHarnessMuse,
+				HarnessVers: "fixture-1", Model: "fixture-model", Assignment: project.FactoryPromptDigest(prompt),
+				SourceCommit: strings.Repeat("b", 40), Connection: "fixture-connection", Actor: int64(actor),
+				Deadline: time.Now().Add(time.Minute), ExecutionPhase: project.ExecutionInvestigate,
+			},
+			Prompt: prompt, HarnessSHA256: strings.Repeat("c", 64),
+		},
+		Appliance: &execution.ApplianceLaunch{
+			Profile: project.Profile{ID: project.RockyHeadless, Distribution: "rocky", Version: "10.2", Interface: "headless", Architecture: "amd64", Image: "sha256:" + strings.Repeat("d", 64), Revision: strings.Repeat("e", 40)},
+			Tool:    execution.ApplianceTool{Harness: project.FactoryHarnessMuse, Version: "fixture-1", SHA256: strings.Repeat("c", 64), Image: "sha256:" + strings.Repeat("d", 64)},
+		},
+	}
+	request.Input.MCP = &project.FactoryMCPBinding{Capability: request.Input.Run.ID, Secret: strings.Repeat("f", 64)}
+	if err := request.Validate(); err != nil {
+		t.Fatal("invalid captured fixture", err)
+	}
+	captured, err := json.Marshal(request)
+	if err != nil {
+		t.Fatal(err)
+	}
+	expected := request.Input
+	expected.Run.Actor = 7
+	expectedWire, err := json.Marshal(expected)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var calls, mode atomic.Int64
+	peer := &http.Server{Handler: http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		calls.Add(1)
+		w.Header().Set("Content-Type", "application/json")
+		if r.URL.Path == "/factory-launch" {
+			var launch project.FactoryLaunch
+			decoder := json.NewDecoder(r.Body)
+			decoder.DisallowUnknownFields()
+			if err := decoder.Decode(&launch); err != nil {
+				t.Error("invalid host wire", err)
+				w.WriteHeader(400)
+				return
+			}
+			wire, err := json.Marshal(launch)
+			if err != nil || !bytes.Equal(wire, expectedWire) {
+				t.Error("host wire differed beyond canonical-to-native actor translation", err)
+				w.WriteHeader(400)
+				return
+			}
+		} else if r.URL.Path == "/factory-inspect" || r.URL.Path == "/factory-stop" {
+			var address project.FactoryInspect
+			if err := json.NewDecoder(r.Body).Decode(&address); err != nil || address.ID != request.Input.Run.ID || address.Project != webTerminalProject {
+				t.Error("composition changed the native run address", err)
+				w.WriteHeader(400)
+				return
+			}
+		} else {
+			t.Error("unexpected host path", r.URL.Path)
+			w.WriteHeader(404)
+			return
+		}
+		if mode.Load() == 2 {
+			w.WriteHeader(503)
+			return
+		}
+		state := project.FactoryState{ID: request.Input.Run.ID, Project: webTerminalProject, Role: project.RoleCoder, Phase: project.FactoryRunning, Live: true, Container: strings.Repeat("d", 64), Unit: "fixture-launch.service", Invocation: strings.Repeat("a", 32), Generation: 3, UID: 1001, GID: 1002}
+		if mode.Load() == 1 {
+			state.Role = project.RoleReviewer
+		}
+		if r.URL.Path == "/factory-stop" {
+			state.Phase, state.Live, state.Retirement = "stopped", false, "confirmed"
+		}
+		_ = json.NewEncoder(w).Encode(state)
+	})}
+	done := make(chan error, 1)
+	go func() { done <- peer.Serve(listener) }()
+	t.Cleanup(func() {
+		_ = peer.Close()
+		if err := <-done; !errors.Is(err, http.ErrServerClosed) {
+			t.Error("private host shutdown", err)
+		}
+	})
+	observed, err := s.Coordinator.Host.LaunchRun(ctx, request)
+	if err != nil || !request.MatchesObservation(observed) || !observed.Live || calls.Load() != 1 {
+		t.Fatalf("mapped appliance launch failed: %+v %v calls=%d", observed, err, calls.Load())
+	}
+	for _, wrong := range []int64{7, int64(foreign.ID), int64(actor) + 99, 0} {
+		invalid := request
+		invalid.Input.Run.Actor = wrong
+		if _, err := s.Coordinator.Host.LaunchRun(ctx, invalid); err == nil || calls.Load() != 1 {
+			t.Fatal("unmapped/foreign/invalid actor reached native credentials", wrong, err, calls.Load())
+		}
+	}
+	cancelled, cancel := context.WithCancel(ctx)
+	cancel()
+	if _, err := s.Coordinator.Host.LaunchRun(cancelled, request); !errors.Is(err, context.Canceled) || calls.Load() != 1 {
+		t.Fatal("cancelled launch reached native credentials", err, calls.Load())
+	}
+	for _, refusal := range []int64{1, 2} {
+		mode.Store(refusal)
+		if _, err := s.Coordinator.Host.LaunchRun(ctx, request); err == nil {
+			t.Fatal("conflicting/unavailable host response became a successful launch", refusal)
+		}
+	}
+	mode.Store(0)
+	if _, err := s.Coordinator.Host.InspectRun(ctx, request.Address()); err != nil {
+		t.Fatal("native inspection delegation failed", err)
+	}
+	if stopped, err := s.Coordinator.Host.RetireRun(ctx, request.Address()); err != nil || stopped.Live || stopped.Retirement != execution.Retired {
+		t.Fatal("native retirement delegation failed", stopped, err)
+	}
+	after, err := json.Marshal(request)
+	if err != nil || !bytes.Equal(after, captured) {
+		t.Fatal("native adapter rewrote the captured canonical launch", err)
+	}
+	var count, lastID int64
+	if err := raw.QueryRowContext(ctx, `SELECT count(*) FROM collaboration_actors`).Scan(&count); err != nil {
+		t.Fatal(err)
+	}
+	if err := raw.QueryRowContext(ctx, `SELECT last_value FROM collaboration_actors_id_seq`).Scan(&lastID); err != nil {
+		t.Fatal(err)
+	}
+	if count != 2 || lastID != int64(actor) {
+		t.Fatal("runtime translation allocated identity aliases", count, lastID)
+	}
+	nativeProject, err := db.Project(ctx, webTerminalProject)
+	if err != nil || nativeProject.OwnerID != 7 || nativeProject.RepositoryID != 7 {
+		t.Fatal("runtime translation rewrote native Project ownership", nativeProject, err)
 	}
 }
 

@@ -10,8 +10,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/levitateos/sodaos/internal/project"
-	"github.com/levitateos/sodaos/internal/store"
+	"github.com/levitateos/factory/pkg/project"
+	"github.com/levitateos/factory/pkg/store"
 )
 
 // seedUnreadyProject retains one reservation the way an interrupted Create

@@ -4,7 +4,7 @@ import (
 	"context"
 	"errors"
 
-	"github.com/levitateos/sodaos/internal/project"
+	"github.com/levitateos/factory/pkg/project"
 )
 
 func lifecycleActionConfirmed(action string, out project.LifecycleState) bool {

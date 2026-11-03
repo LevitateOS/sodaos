@@ -11,10 +11,12 @@ import (
 
 	extensions "forgejo.org/extension-sdk"
 
-	"github.com/levitateos/sodaos/internal/factory"
-	"github.com/levitateos/sodaos/internal/factory/control"
+	"github.com/levitateos/factory/pkg/collaboration"
+	"github.com/levitateos/factory/pkg/factory"
+	"github.com/levitateos/factory/pkg/factory/control"
+	"github.com/levitateos/factory/pkg/store"
 	"github.com/levitateos/sodaos/internal/forgejo"
-	"github.com/levitateos/sodaos/internal/store"
+	"github.com/levitateos/sodaos/internal/forgejo/observation"
 )
 
 // scriptedBudgetReader serves a deterministic synthetic issue set
@@ -23,9 +25,12 @@ import (
 // tip for the production serving capture. It proves budgeted
 // multi-pass resumption, not native/provider/semantic capture.
 type scriptedBudgetReader struct {
-	total int
-	calls int
-	tip   string
+	total                 int
+	calls                 int
+	tip                   string
+	nativeRepository      string
+	enumerationRepository string
+	bodyIdentity          string
 }
 
 func (r *scriptedBudgetReader) ReadNativeRevision(context.Context) (extensions.NativeRevisionObservation, error) {
@@ -35,6 +40,9 @@ func (r *scriptedBudgetReader) ReadNativeRevision(context.Context) (extensions.N
 
 func (r *scriptedBudgetReader) ReadSnapshot(_ context.Context, _ extensions.CredentialFile, req forgejo.SnapshotRequest) (forgejo.NativeSnapshot, error) {
 	r.calls++
+	if r.nativeRepository != "" && req.RepositoryID != r.nativeRepository {
+		return forgejo.NativeSnapshot{}, errors.New("canonical repository reached the native completion reader")
+	}
 	if len(req.Families) == 1 && req.Families[0] == forgejo.FamilyRefs {
 		refs := []forgejo.RefEvidence{}
 		for _, want := range req.Refs {
@@ -71,12 +79,39 @@ func (r *scriptedBudgetReader) ReadSnapshot(_ context.Context, _ extensions.Cred
 		if !page.Complete {
 			page.NextCursor = strconv.Itoa(end)
 		}
-		return forgejo.NativeSnapshot{Revision: 41, RepositoryID: req.RepositoryID, RepositoryIssues: page}, nil
+		repository := req.RepositoryID
+		if r.enumerationRepository != "" {
+			repository = r.enumerationRepository
+		}
+		return forgejo.NativeSnapshot{Revision: 41, RepositoryID: repository, RepositoryIssues: page}, nil
 	}
 	snapshot := completionBody(req.IssueIndex, "title "+req.IssueIndex, "body "+req.IssueIndex)
 	snapshot.Revision = 41
 	snapshot.RepositoryID = req.RepositoryID
+	if r.bodyIdentity != "" {
+		snapshot.Issue.ID, snapshot.Dependencies.IssueID = r.bodyIdentity, r.bodyIdentity
+	}
 	return snapshot, nil
+}
+
+// The unchanged budget/refusal journeys explicitly declare a fresh equal-ID
+// Fountain fixture. The mapped 130-issue journey below uses different keys.
+func completionFixtureIdentities(t *testing.T, db *store.Store) *forgejo.FountainIdentities {
+	t.Helper()
+	host, err := db.BindConfiguredFountainLedger(t.Context(), "https://completion-fixture.test")
+	if err != nil {
+		t.Fatal(err)
+	}
+	identities, err := forgejo.NewFountainIdentities(t.Context(), db, host.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for native := int64(1); native <= 9; native++ {
+		if local, err := identities.LocalRepository(t.Context(), native); err != nil || int64(local) != native {
+			t.Fatal("completion fixture namespace was not declared before use", local, err)
+		}
+	}
+	return identities
 }
 
 // A stable inventory larger than one pass worth of native calls
@@ -98,6 +133,26 @@ func TestCompletionDriveServingCallsAndResume(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer cleanup()
+	host, err := db.BindConfiguredFountainLedger(ctx, "https://completion-fixture.test")
+	if err != nil {
+		t.Fatal(err)
+	}
+	foreign := collaboration.Host{ID: collaboration.HostID(collaboration.NewID()), Provider: collaboration.GitHub, APIBase: "https://api.github-fixture.test"}
+	if _, err := db.PutCollaborationHost(ctx, foreign); err != nil {
+		t.Fatal(err)
+	}
+	foreignRepository, err := db.ObserveCollaborationRepository(ctx, foreign.ID, "7", "same/repository")
+	if err != nil {
+		t.Fatal(err)
+	}
+	identities, err := forgejo.NewFountainIdentities(ctx, db, host.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	localRepository, err := identities.LocalRepository(ctx, 7)
+	if err != nil || localRepository == 7 || localRepository == foreignRepository.ID {
+		t.Fatal("completion fixture did not separate repository scopes", localRepository, err)
+	}
 	raw, err := sql.Open("pgx", dsn)
 	if err != nil {
 		t.Fatal(err)
@@ -106,12 +161,12 @@ func TestCompletionDriveServingCallsAndResume(t *testing.T) {
 	event := factory.CompletionEvent{
 		ID: factory.NewID(), PublicationID: factory.NewID(),
 		MergedCommit: strings.Repeat("c", 40), ClosingOccurrence: "budget-resume-130",
-		AcceptanceID: "d" + strings.Repeat("a", 24), Repository: 7, Issue: 3, Generation: 1,
+		AcceptanceID: "d" + strings.Repeat("a", 24), Repository: int64(localRepository), Issue: 3, Generation: 1,
 	}
 	rec := store.ReassessmentRecord{
 		Cycle: factory.ReassessmentCycle{
 			EventID: event.ID, CycleID: factory.NewID(),
-			State: factory.ReassessmentCollecting, Repository: 7, Generation: 1,
+			State: factory.ReassessmentCollecting, Repository: int64(localRepository), Generation: 1,
 		},
 		Completion: event, Issue: 3,
 	}
@@ -120,16 +175,43 @@ func TestCompletionDriveServingCallsAndResume(t *testing.T) {
 	}
 	eventRaw, _ := json.Marshal(event)
 	recordRaw, _ := json.Marshal(rec)
-	if _, err = raw.Exec(`INSERT INTO factory_completions(repository,generation,event,publication,occurrence,data) VALUES(7,1,$1,$2,$3,$4)`,
-		event.ID, event.PublicationID, event.ClosingOccurrence, string(eventRaw)); err != nil {
+	if _, err = raw.Exec(`INSERT INTO factory_completions(repository,generation,event,publication,occurrence,data) VALUES($1,1,$2,$3,$4,$5)`,
+		int64(localRepository), event.ID, event.PublicationID, event.ClosingOccurrence, string(eventRaw)); err != nil {
 		t.Fatal(err)
 	}
-	if _, err = raw.Exec(`INSERT INTO factory_reassessments(cycle,repository,generation,event,state,data) VALUES($1,7,1,$2,'collecting',$3)`,
-		rec.Cycle.CycleID, event.ID, string(recordRaw)); err != nil {
+	if _, err = raw.Exec(`INSERT INTO factory_reassessments(cycle,repository,generation,event,state,data) VALUES($1,$2,1,$3,'collecting',$4)`,
+		rec.Cycle.CycleID, int64(localRepository), event.ID, string(recordRaw)); err != nil {
 		t.Fatal(err)
 	}
-	reader := &scriptedBudgetReader{total: 130, tip: strings.Repeat("c", 40)}
-	source := &CompletionSnapshotSource{Reader: reader, Store: newFakeCompletionSourceStoreNATIVE96(completionTestLocal())}
+	reader := &scriptedBudgetReader{total: 130, tip: strings.Repeat("c", 40), nativeRepository: "7"}
+	localStore := newFakeCompletionSourceStoreNATIVE96(completionTestLocalForRepo(t, int64(localRepository)))
+	source := &observation.CompletionSnapshotSource{Reader: reader, Store: localStore, Identities: identities}
+	for _, wrong := range []int64{int64(foreignRepository.ID), 7} {
+		if _, err := source.EnumerateIssues(ctx, wrong, ""); err == nil || reader.calls != 0 {
+			t.Fatal("foreign/unmapped completion scope reached native enumeration", wrong, err)
+		}
+		if _, err := source.CaptureLocal(ctx, wrong); err == nil || reader.calls != 0 || localStore.contextCalls != 0 {
+			t.Fatal("foreign/unmapped completion scope reached capture", wrong, err)
+		}
+	}
+	source.Identities = nil
+	if _, err := source.EnumerateIssues(ctx, int64(localRepository), ""); err == nil || reader.calls != 0 {
+		t.Fatal("unbound completion source performed native reads", err)
+	}
+	if _, err := source.CaptureLocal(ctx, int64(localRepository)); err == nil || reader.calls != 0 || localStore.contextCalls != 0 {
+		t.Fatal("unbound completion source captured local authority", err)
+	}
+	source.Identities = identities
+	reader.enumerationRepository = "8"
+	if _, err := source.EnumerateIssues(ctx, int64(localRepository), ""); err == nil || err.Error() != control.HoldInventoryPage {
+		t.Fatal("wrong native repository page was accepted", err)
+	}
+	reader.enumerationRepository = ""
+	reader.bodyIdentity = "900"
+	if _, err := source.EnumerateIssues(ctx, int64(localRepository), ""); err == nil || err.Error() != control.HoldInventoryPage {
+		t.Fatal("body did not match its enumerated native issue", err)
+	}
+	reader.bodyIdentity = ""
 	coord := &control.Coordinator{Store: db}
 	prior := 0
 	for pass := 0; pass < 10; pass++ {
@@ -149,6 +231,9 @@ func TestCompletionDriveServingCallsAndResume(t *testing.T) {
 		if len(report.Sealed) > 0 {
 			if len(stored.Evidence) != 130 || stored.EvidenceIssues != 130 {
 				t.Fatalf("sealed incomplete set: bodies %d count %d", len(stored.Evidence), stored.EvidenceIssues)
+			}
+			if stored.Cycle.Repository != int64(localRepository) || stored.Local.Material == nil || stored.Local.Material.Repository != int64(localRepository) {
+				t.Fatal("sealed completion material acquired native repository scope")
 			}
 			for i, v := range stored.Evidence {
 				if v.Index != int64(i+1) || v.Title != "title "+strconv.Itoa(i+1) || v.Body != "body "+strconv.Itoa(i+1) {
@@ -225,6 +310,7 @@ func TestCompletionDriveContinueReleaseResumesAcrossPasses(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer cleanup()
+	identities := completionFixtureIdentities(t, db)
 	raw, err := sql.Open("pgx", dsn)
 	if err != nil {
 		t.Fatal(err)
@@ -256,7 +342,7 @@ func TestCompletionDriveContinueReleaseResumesAcrossPasses(t *testing.T) {
 		t.Fatal(err)
 	}
 	reader := &scriptedBudgetReader{total: 130, tip: strings.Repeat("c", 40)}
-	source := &CompletionSnapshotSource{Reader: reader, Store: newFakeCompletionSourceStoreNATIVE96(completionTestLocal())}
+	source := &observation.CompletionSnapshotSource{Reader: reader, Store: newFakeCompletionSourceStoreNATIVE96(completionTestLocal()), Identities: identities}
 	chooser := &continueReleaseChooser{}
 	coord := &control.Coordinator{Store: db, Planning: &control.PlanningJudgments{Chooser: chooser}}
 	deps := control.CompletionDriveDeps{Enumerator: source, CaptureLocal: source.CaptureLocal}
@@ -427,6 +513,7 @@ func TestCompletionDriveRefusesStaleContinueRelease(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer cleanup()
+	identities := completionFixtureIdentities(t, db)
 	raw, err := sql.Open("pgx", dsn)
 	if err != nil {
 		t.Fatal(err)
@@ -439,7 +526,7 @@ func TestCompletionDriveRefusesStaleContinueRelease(t *testing.T) {
 	scenario := func(repository int64, occurrence string, mutate func(fake *completionReaderFake, current *factory.CompletionLocal), wantReason string) {
 		t.Helper()
 		fake := completionTwoPageFake()
-		source := NewCompletionSnapshotSource(nil)
+		source := observation.NewCompletionSnapshotSource(nil, identities)
 		source.Reader = fake
 		current := completionTestLocalForRepo(t, repository)
 		deps := control.CompletionDriveDeps{
@@ -554,6 +641,7 @@ func TestCompletionDriveCompletes48AcrossTwoPasses(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer cleanup()
+	identities := completionFixtureIdentities(t, db)
 	raw, err := sql.Open("pgx", dsn)
 	if err != nil {
 		t.Fatal(err)
@@ -561,7 +649,7 @@ func TestCompletionDriveCompletes48AcrossTwoPasses(t *testing.T) {
 	defer raw.Close()
 	cycleID := seedStaleRefusalCycle(t, raw, 7, "budget-48")
 	reader := &scriptedBudgetReader{total: 48, tip: strings.Repeat("c", 40)}
-	source := &CompletionSnapshotSource{Reader: reader, Store: newFakeCompletionSourceStoreNATIVE96(completionTestLocal())}
+	source := &observation.CompletionSnapshotSource{Reader: reader, Store: newFakeCompletionSourceStoreNATIVE96(completionTestLocal()), Identities: identities}
 	chooser := &continue48Chooser{}
 	coord := &control.Coordinator{Store: db, Planning: &control.PlanningJudgments{Chooser: chooser}}
 	deps := control.CompletionDriveDeps{Enumerator: source, CaptureLocal: source.CaptureLocal}
@@ -659,6 +747,7 @@ func TestCompletionDriveDefersOnTipChangeDuringCapturePair(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer cleanup()
+	identities := completionFixtureIdentities(t, db)
 	raw, err := sql.Open("pgx", dsn)
 	if err != nil {
 		t.Fatal(err)
@@ -673,7 +762,7 @@ func TestCompletionDriveDefersOnTipChangeDuringCapturePair(t *testing.T) {
 		}
 		return tipA
 	}
-	source := NewCompletionSnapshotSource(nil)
+	source := observation.NewCompletionSnapshotSource(nil, identities)
 	source.Reader = fake
 	source.Store = newFakeCompletionSourceStoreNATIVE96(completionTestLocalForRepo(t, 7))
 	coord := &control.Coordinator{Store: db}

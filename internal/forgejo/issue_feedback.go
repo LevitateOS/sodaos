@@ -6,6 +6,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/levitateos/factory/pkg/collaboration"
 	"github.com/levitateos/sodaos/internal/config"
 )
 
@@ -13,10 +14,15 @@ import (
 // checks the human's current issue-write authority. A source marker lets a lost
 // response reconcile to the existing native comment without rewriting the issue.
 func (w *IssueGraphWriter) DeliverIssueFeedback(ctx context.Context, repository, issue, actor int64, marker, body string) error {
-	if repository <= 0 || issue <= 0 || marker == "" || strings.TrimSpace(body) == "" {
+	if w == nil || repository <= 0 || issue <= 0 || marker == "" || strings.TrimSpace(body) == "" {
 		return ErrInvalidResponse
 	}
-	if err := w.checkActor(ctx, actor); err != nil {
+	nativeRepository, err := w.Identities.NativeRepository(ctx, collaboration.RepositoryID(repository))
+	if err != nil {
+		return err
+	}
+	nativeActor, err := w.checkActor(ctx, actor)
+	if err != nil {
 		return err
 	}
 	token, err := config.Secret(w.tokenFile)
@@ -24,10 +30,10 @@ func (w *IssueGraphWriter) DeliverIssueFeedback(ctx context.Context, repository,
 		return ErrUnavailable
 	}
 	var repo Repository
-	if err = w.rest.request(ctx, "GET", "/repositories/"+strconv.FormatInt(repository, 10), token, nil, &repo); err != nil {
+	if err = w.rest.request(ctx, "GET", "/repositories/"+nativeRepository, token, nil, &repo); err != nil {
 		return err
 	}
-	if repo.ID != repository || repo.Owner.Login == "" || repo.Name == "" {
+	if strconv.FormatInt(repo.ID, 10) != nativeRepository || repo.Owner.Login == "" || repo.Name == "" {
 		return ErrInvalidResponse
 	}
 	path := "/repos/" + url.PathEscape(repo.Owner.Login) + "/" + url.PathEscape(repo.Name) + "/issues/" + strconv.FormatInt(issue, 10) + "/comments"
@@ -42,7 +48,7 @@ func (w *IssueGraphWriter) DeliverIssueFeedback(ctx context.Context, repository,
 			return err
 		}
 		for _, c := range comments {
-			if c.ID > 0 && c.User.ID == actor && strings.HasPrefix(c.Body, marker+"\n") {
+			if c.ID > 0 && c.User.ID == nativeActor && strings.HasPrefix(c.Body, marker+"\n") {
 				return nil
 			}
 		}
@@ -54,7 +60,7 @@ func (w *IssueGraphWriter) DeliverIssueFeedback(ctx context.Context, repository,
 	if err = w.rest.request(ctx, "POST", path, token, map[string]string{"body": marker + "\n" + body}, &saved); err != nil {
 		return err
 	}
-	if saved.ID <= 0 || saved.User.ID != actor || !strings.HasPrefix(saved.Body, marker+"\n") {
+	if saved.ID <= 0 || saved.User.ID != nativeActor || !strings.HasPrefix(saved.Body, marker+"\n") {
 		return ErrInvalidResponse
 	}
 	return nil

@@ -3,7 +3,7 @@ package host
 import (
 	"context"
 	"errors"
-	"github.com/levitateos/sodaos/internal/application"
+	"github.com/levitateos/factory/pkg/application"
 )
 
 func (c *Client) ApplicationSnapshots(ctx context.Context, request application.SnapshotRequest) (application.SnapshotInventory, error) {

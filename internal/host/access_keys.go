@@ -6,7 +6,7 @@ import (
 	"regexp"
 	"strings"
 
-	"github.com/levitateos/sodaos/internal/project"
+	"github.com/levitateos/factory/pkg/project"
 	"golang.org/x/crypto/ssh"
 )
 

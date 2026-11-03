@@ -14,7 +14,7 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/levitateos/sodaos/internal/factory"
+	"github.com/levitateos/factory/pkg/factory"
 )
 
 // SodaPath is the fixed browser namespace on the configured Forgejo origin.
@@ -32,6 +32,9 @@ type FactoryNativeBinding struct {
 }
 
 type Config struct {
+	// FactoryControlSocket connects Forge's Project lifecycle to Factory.
+	// The Fountain extension connects separately to Factory's browser API.
+	FactoryControlSocket         string                 `json:"factory_control_socket,omitempty"`
 	FactoryNativeBindings        []FactoryNativeBinding `json:"factory_native_bindings,omitempty"`
 	ForgejoResolveCredentialFile string                 `json:"forgejo_resolve_credential_file"`
 	ForgejoGraphCredentialFile   string                 `json:"forgejo_graph_credential_file"`
@@ -108,9 +111,6 @@ func decodeConfig(path string) (Config, error) {
 }
 
 func validateListen(c *Config) error {
-	if c.Listen == "" {
-		c.Listen = "127.0.0.1:8080"
-	}
 	listenHost, _, err := net.SplitHostPort(c.Listen)
 	if err != nil || !net.ParseIP(listenHost).IsLoopback() {
 		return errors.New("listen must be a loopback IP:port behind the private HTTPS proxy")
@@ -146,6 +146,9 @@ func validateGraphConfig(c Config) error {
 }
 
 func validateCredentialFiles(c Config) error {
+	if c.FactoryControlSocket != "" && !filepath.IsAbs(c.FactoryControlSocket) {
+		return errors.New("factory_control_socket must be an absolute path")
+	}
 	if c.TypeSafeAPIKeyFile != "" && !filepath.IsAbs(c.TypeSafeAPIKeyFile) {
 		return errors.New("typesafe_api_key_file must be absolute")
 	}
@@ -248,9 +251,22 @@ func validateConfigPaths(c Config) error {
 const DefaultTypeSafeKeyFile = "/etc/soda/factory/typesafe.key"
 
 func Load(path string) (Config, error) {
+	return load(path, "127.0.0.1:8080")
+}
+
+// LoadFactory uses Factory's own listener default while retaining the shared
+// integration schema and validation rules.
+func LoadFactory(path string) (Config, error) {
+	return load(path, "127.0.0.1:8081")
+}
+
+func load(path, defaultListen string) (Config, error) {
 	c, err := decodeConfig(path)
 	if err != nil {
 		return c, err
+	}
+	if c.Listen == "" {
+		c.Listen = defaultListen
 	}
 	if err = validateListen(&c); err != nil {
 		return c, err

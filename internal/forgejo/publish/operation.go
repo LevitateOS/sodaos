@@ -9,7 +9,7 @@ import (
 
 	extensions "forgejo.org/extension-sdk"
 
-	"github.com/levitateos/sodaos/internal/factory"
+	"github.com/levitateos/factory/pkg/factory"
 )
 
 // StatusError reports a bounded native dispatch status with its bounded

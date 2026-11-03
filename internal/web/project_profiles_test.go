@@ -11,7 +11,7 @@ import (
 	"testing"
 
 	extensions "forgejo.org/extension-sdk"
-	"github.com/levitateos/sodaos/internal/project"
+	"github.com/levitateos/factory/pkg/project"
 )
 
 func testCreationProfile() project.Profile {

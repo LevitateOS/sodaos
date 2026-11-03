@@ -4,9 +4,8 @@ import (
 	"errors"
 	"net/http"
 
+	"github.com/levitateos/factory/pkg/store"
 	"github.com/levitateos/sodaos/internal/web/auth"
-
-	"github.com/levitateos/sodaos/internal/store"
 )
 
 // An operator is a configured stable ID, never a Forgejo site-admin flag. Recheck

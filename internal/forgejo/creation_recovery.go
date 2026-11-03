@@ -3,22 +3,58 @@ package forgejo
 import (
 	"context"
 	"errors"
+	"strconv"
 
 	extensions "forgejo.org/extension-sdk"
+	"github.com/levitateos/factory/pkg/collaboration"
+	"github.com/levitateos/factory/pkg/factory"
 )
 
-// ReadCreations resolves the enrolled native actor and shares its existing
-// restricted PAT/background admission with ordinary readiness observations.
-func (o *ServiceObserver) ReadCreations(ctx context.Context, repository, after string, limit int) (extensions.CreationRecoveryPage, error) {
+// ReadCreations resolves a canonical repository on the adopted host, reads as
+// the enrolled native service actor, and maps original creators back to Factory
+// actors. Native issue IDs, recovery positions and coverage facts stay intact.
+func (o *ServiceObserver) ReadCreations(ctx context.Context, repository, after int64, limit int) (factory.CreationRecoveryBatch, error) {
+	if o == nil || o.Identities == nil || repository <= 0 || after < 0 || limit < 1 || limit > extensions.CreationRecoveryPageLimit {
+		return factory.CreationRecoveryBatch{}, ErrInvalidResponse
+	}
+	native, err := o.Identities.NativeRepository(ctx, collaboration.RepositoryID(repository))
+	if err != nil {
+		return factory.CreationRecoveryBatch{}, err
+	}
+	nativeRepository, err := originalCreationID(native)
+	if err != nil {
+		return factory.CreationRecoveryBatch{}, err
+	}
 	actor, err := o.ensureActor(ctx)
 	if err != nil {
-		return extensions.CreationRecoveryPage{}, err
+		return factory.CreationRecoveryBatch{}, err
 	}
 	client, err := o.ensureClient(ctx)
 	if err != nil {
-		return extensions.CreationRecoveryPage{}, err
+		return factory.CreationRecoveryBatch{}, err
 	}
-	return client.ReadCreations(ctx, o.Credential(), extensions.CreationRecoveryRequest{RepositoryID: repository, ActorID: actor, AfterID: after, Limit: limit})
+	afterID := ""
+	if after > 0 {
+		afterID = strconv.FormatInt(after, 10)
+	}
+	page, err := client.ReadCreations(ctx, o.Credential(), extensions.CreationRecoveryRequest{RepositoryID: native, ActorID: actor, AfterID: afterID, Limit: limit})
+	if err != nil {
+		return factory.CreationRecoveryBatch{}, err
+	}
+	batch, err := creationRecoveryBatch(page, nativeRepository, after, limit)
+	if err != nil {
+		return factory.CreationRecoveryBatch{}, err
+	}
+	batch.Repository = repository
+	for i := range batch.Events {
+		localActor, err := o.Identities.LocalActor(ctx, strconv.FormatInt(batch.Events[i].Creator, 10))
+		if err != nil {
+			return factory.CreationRecoveryBatch{}, err
+		}
+		batch.Events[i].Repository = repository
+		batch.Events[i].Creator = int64(localActor)
+	}
+	return batch, nil
 }
 
 // ReadCreations reads retained native creation provenance using the same

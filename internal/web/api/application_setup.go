@@ -5,8 +5,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/levitateos/sodaos/internal/application"
-	"github.com/levitateos/sodaos/internal/store"
+	"github.com/levitateos/factory/pkg/application"
+	"github.com/levitateos/factory/pkg/store"
 	"github.com/levitateos/sodaos/internal/web/auth"
 )
 
@@ -85,6 +85,7 @@ func (s *API) apiApplicationSetups(w http.ResponseWriter, r *http.Request, v sto
 	}
 	auth.JSONResponse(w, 201, record)
 }
+
 func (s *API) apiApplicationSetupAction(w http.ResponseWriter, r *http.Request, v store.Session) {
 	w.Header().Set("Cache-Control", "no-store")
 	if !applicationNoQuery(w, r) || !s.authorizeOperator(w, r, v) {

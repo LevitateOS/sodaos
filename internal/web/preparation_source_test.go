@@ -11,9 +11,11 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/levitateos/factory/pkg/factory/execution"
+
 	extensions "forgejo.org/extension-sdk"
-	"github.com/levitateos/sodaos/internal/project"
-	"github.com/levitateos/sodaos/internal/store"
+	"github.com/levitateos/factory/pkg/project"
+	"github.com/levitateos/factory/pkg/store"
 	"github.com/stretchr/testify/require"
 )
 
@@ -24,7 +26,7 @@ type preparationSourceTest struct {
 	writable       bool
 	admin          bool
 	prepared       []string
-	state          map[string]project.PrepareState
+	state          map[string]execution.PreparationState
 	loseReply      bool
 	sourceRequests []extensions.CallbackRequest
 	writerResults  map[string]bool
@@ -37,7 +39,7 @@ func newPreparationSourceTest(t *testing.T) *preparationSourceTest {
 	require.NoError(t, s.Store.Join(t.Context(), preparationProject, 1, "alice"))
 	require.NoError(t, s.Store.Join(t.Context(), preparationProject, 2, "bob"))
 	f := &preparationSourceTest{
-		server: s, commit: strings.Repeat("a", 40), writable: true, admin: true, state: map[string]project.PrepareState{}, writerResults: map[string]bool{},
+		server: s, commit: strings.Repeat("a", 40), writable: true, admin: true, state: map[string]execution.PreparationState{}, writerResults: map[string]bool{},
 		files: map[string][]byte{
 			"setup.sh":  []byte("#!/bin/sh\nexit 0\n"),
 			"check.sh":  []byte("#!/bin/sh\ngit rev-parse --is-inside-work-tree\n"),
@@ -64,7 +66,7 @@ func newPreparationSourceTest(t *testing.T) *preparationSourceTest {
 			var in project.Prepare
 			require.NoError(t, json.NewDecoder(r.Body).Decode(&in))
 			f.prepared = append(f.prepared, in.Preparation.ID)
-			state := project.PrepareState{
+			state := execution.PreparationState{
 				ID: in.Preparation.ID, Project: in.Preparation.Project, Role: in.Preparation.Role, Phase: project.PrepareRunning,
 				Container: strings.Repeat("b", 64), SourceCommit: in.Preparation.SourceCommit, SetupDigest: in.Preparation.SetupDigest,
 			}

@@ -5,12 +5,10 @@ import (
 	"errors"
 	"net/http"
 
+	"github.com/levitateos/factory/pkg/factory"
+	"github.com/levitateos/factory/pkg/project"
+	"github.com/levitateos/factory/pkg/store"
 	"github.com/levitateos/sodaos/internal/web/auth"
-
-	"github.com/levitateos/sodaos/internal/factory"
-	"github.com/levitateos/sodaos/internal/factory/control"
-	"github.com/levitateos/sodaos/internal/project"
-	"github.com/levitateos/sodaos/internal/store"
 )
 
 func (s *API) loadLifecycleEnvironment(w http.ResponseWriter, r *http.Request) (store.Project, bool) {
@@ -177,15 +175,15 @@ type lifecycleStopView struct {
 // The admitted sequence runs detached from the request so response
 // cancellation cannot strand it between factory and host effects.
 func (s *API) apiLifecycleStop(w http.ResponseWriter, r *http.Request, v store.Session, p store.Project) {
-	if s.Coordinator == nil {
-		auth.JSONError(w, 500, "coordinator_unavailable", "Factory coordination is unavailable.")
+	if s.FactoryProjects == nil {
+		s.apiLifecycleWithoutFactory(w, r, p, "stop")
 		return
 	}
 	opCtx, cancel := operationContext(r.Context(), stopOperationTimeout)
 	defer cancel()
-	withdrawal, outcomes, err := s.Coordinator.StopProject(opCtx, factoryPrincipal(v), p.ID)
+	withdrawal, outcomes, err := s.FactoryProjects.StopProject(opCtx, factoryPrincipal(v), p.ID)
 	if err != nil {
-		if errors.Is(err, control.ErrNotFound) {
+		if errors.Is(err, factory.ErrNotFound) {
 			auth.JSONError(w, 404, "not_found", "Environment not found.")
 		} else {
 			auth.JSONError(w, 503, "store_unavailable", "Could not withdraw factory dispatch.")
@@ -235,8 +233,8 @@ type lifecycleStartView struct {
 // releasing it stays an explicit hold control. Starting a retained
 // reservation finishes an interrupted creation from the same evidence.
 func (s *API) apiLifecycleStart(w http.ResponseWriter, r *http.Request, v store.Session, p store.Project) {
-	if s.Coordinator == nil {
-		auth.JSONError(w, 500, "coordinator_unavailable", "Factory coordination is unavailable.")
+	if s.FactoryProjects == nil {
+		s.apiLifecycleWithoutFactory(w, r, p, "start")
 		return
 	}
 	opCtx, cancel := operationContext(r.Context(), startOperationTimeout)
@@ -257,20 +255,55 @@ func (s *API) apiLifecycleStart(w http.ResponseWriter, r *http.Request, v store.
 			return
 		}
 	}
-	verification, err := s.Coordinator.VerifyProjectStart(opCtx, p.ID)
+	verification, err := s.FactoryProjects.VerifyProjectStart(opCtx, p.ID)
 	if err != nil {
-		if errors.Is(err, control.ErrNotFound) {
+		if errors.Is(err, factory.ErrNotFound) {
 			auth.JSONError(w, 404, "not_found", "Environment not found.")
 		} else {
 			auth.JSONError(w, 503, "store_unavailable", "Project started but revival could not be verified; refresh and reconcile.")
 		}
 		return
 	}
-	dispatchOpen, err := s.Coordinator.ClearProjectStopAfterStart(opCtx, p.ID, verification)
+	dispatchOpen, err := s.FactoryProjects.ClearProjectStopAfterStart(opCtx, p.ID, verification)
 	if err != nil {
 		auth.JSONError(w, 503, "dispatch_state_unconfirmed", "Project started, but dispatch state could not be confirmed; inspect before relying on dispatch.")
 		return
 	}
 	verification.DispatchOpen = dispatchOpen
 	auth.JSONResponse(w, 200, lifecycleStartView{LifecycleState: result, Verification: verification})
+}
+
+// Plain Project lifecycle remains usable in a Forge installation that has never
+// enabled Factory. Recorded Factory policy or work requires its coordination;
+// disabling an integration must never bypass retained execution authority.
+func (s *API) apiLifecycleWithoutFactory(w http.ResponseWriter, r *http.Request, p store.Project, action string) {
+	ctx, cancel := operationContext(r.Context(), stopOperationTimeout)
+	defer cancel()
+	runs, err := s.Store.ProjectFactoryRuns(ctx, p.ID, 1)
+	if err != nil {
+		auth.JSONError(w, 503, "store_unavailable", "Could not inspect Factory work.")
+		return
+	}
+	_, policyErr := s.Store.RepositoryPolicy(ctx, p.RepositoryID)
+	preparations, preparationErr := s.Store.ProjectPreparations(ctx, p.ID)
+	if preparationErr != nil || policyErr != nil && !errors.Is(policyErr, store.ErrNotFound) {
+		auth.JSONError(w, 503, "store_unavailable", "Could not inspect Factory preparation or policy.")
+		return
+	}
+	if len(runs) != 0 || len(preparations) != 0 || policyErr == nil {
+		auth.JSONError(w, 503, "factory_required", "This Project has Factory state; connect Factory before changing its lifecycle.")
+		return
+	}
+	result, err := s.Host.Lifecycle(ctx, project.Lifecycle{Project: p.ID, Action: action})
+	if err != nil {
+		auth.JSONError(w, 502, "native_outcome_unconfirmed", "Native state was not confirmed. Inspect before repeating the operation.")
+		return
+	}
+	if action == "start" && !p.Ready {
+		if _, finished := s.reconcileProvisioning(ctx, p, result.Environment); !finished {
+			auth.JSONError(w, 503, "result_not_saved", "Project started, but its retained reservation could not be completed.")
+			return
+		}
+	}
+	auth.JSONResponse(w, 200, result)
 }

@@ -4,10 +4,10 @@ import (
 	"errors"
 	"net/http"
 
+	factoryhttpapi "github.com/levitateos/factory/pkg/factory/httpapi"
+	"github.com/levitateos/factory/pkg/project"
+	"github.com/levitateos/factory/pkg/store"
 	"github.com/levitateos/sodaos/internal/web/auth"
-
-	"github.com/levitateos/sodaos/internal/project"
-	"github.com/levitateos/sodaos/internal/store"
 )
 
 type preparationAcceptanceRequest struct {
@@ -49,7 +49,7 @@ func (s *API) apiPreparationAcceptances(w http.ResponseWriter, r *http.Request, 
 	}
 	receipt, err := s.Coordinator.AdmitRequirement(r.Context(), decision)
 	if err != nil {
-		factoryCommandError(w, err)
+		factoryhttpapi.CommandError(w, err)
 		return
 	}
 	auth.JSONResponse(w, 201, receipt)
@@ -210,7 +210,7 @@ func (s *API) apiPreparationActionApprove(w http.ResponseWriter, r *http.Request
 	}
 	receipt, err := s.Coordinator.AdmitApproval(r.Context(), decision)
 	if err != nil {
-		factoryCommandError(w, err)
+		factoryhttpapi.CommandError(w, err)
 		return
 	}
 	auth.JSONResponse(w, 201, receipt)

@@ -11,8 +11,9 @@ import (
 
 	extensions "forgejo.org/extension-sdk"
 
+	"github.com/levitateos/factory/pkg/collaboration"
+	"github.com/levitateos/factory/pkg/factory"
 	"github.com/levitateos/sodaos/internal/config"
-	"github.com/levitateos/sodaos/internal/factory"
 	forgejopublish "github.com/levitateos/sodaos/internal/forgejo/publish"
 )
 
@@ -20,18 +21,23 @@ import (
 // the summary body plus the recorded inline finding comments. Its distinct
 // actor secret stays outside the Project and its agents.
 type Reviewer struct {
+	Identities *FountainIdentities
 	background *ServiceBackground
 	rest       *Client
 	tokenFile  string
 }
 
-func NewReviewer(background *ServiceBackground, rest *Client, tokenFile string) *Reviewer {
-	return &Reviewer{background: background, rest: rest, tokenFile: tokenFile}
+func NewReviewer(background *ServiceBackground, rest *Client, tokenFile string, identities *FountainIdentities) *Reviewer {
+	return &Reviewer{background: background, rest: rest, tokenFile: tokenFile, Identities: identities}
 }
 
 func (r *Reviewer) checkActor(ctx context.Context, actor int64) error {
-	if r.background == nil || r.rest == nil || r.tokenFile == "" {
+	if r == nil || r.background == nil || r.rest == nil || r.tokenFile == "" || r.Identities == nil {
 		return &factory.PublicationWait{Reason: "operations_unavailable"}
+	}
+	native, err := r.Identities.NativeActor(ctx, collaboration.ActorID(actor))
+	if err != nil {
+		return err
 	}
 	token, err := config.Secret(r.tokenFile)
 	if err != nil {
@@ -41,7 +47,7 @@ func (r *Reviewer) checkActor(ctx context.Context, actor int64) error {
 	if err != nil {
 		return &factory.PublicationWait{Reason: "credential_invalid"}
 	}
-	if user.ID != actor {
+	if strconv.FormatInt(user.ID, 10) != native {
 		return &factory.PublicationWait{Reason: "authority_lost"}
 	}
 	return nil
@@ -55,12 +61,16 @@ func (r *Reviewer) ObserveReview(ctx context.Context, w factory.ReviewWork) (fac
 	if err := w.ValidateTarget(); err != nil {
 		return empty, &factory.PublicationRefusal{Reason: "invalid_work"}
 	}
+	native, err := r.nativeWork(ctx, w)
+	if err != nil {
+		return empty, err
+	}
 	if err := r.checkActor(ctx, w.ActorID); err != nil {
 		return empty, err
 	}
-	reader := &BackgroundSnapshotReader{Client: r.background, ActorID: strconv.FormatInt(w.ActorID, 10)}
+	reader := &BackgroundSnapshotReader{Client: r.background, ActorID: strconv.FormatInt(native.ActorID, 10)}
 	credential := extensions.CredentialFile(r.tokenFile)
-	repo, number := strconv.FormatInt(w.Repository, 10), strconv.FormatInt(w.PRNumber, 10)
+	repo, number := strconv.FormatInt(native.Repository, 10), strconv.FormatInt(w.PRNumber, 10)
 	issue, err := BracketedRead(ctx, reader, credential, SnapshotRequest{RepositoryID: repo, IssueIndex: number, Families: []SnapshotFamily{FamilyIssue}})
 	if err != nil {
 		return empty, reviewReadError(err)
@@ -72,7 +82,7 @@ func (r *Reviewer) ObserveReview(ctx context.Context, w factory.ReviewWork) (fac
 	if snapshot.Revision != issue.Revision {
 		return empty, &factory.PublicationWait{Reason: "revision_moved"}
 	}
-	if err = matchReviewTarget(w, issue, snapshot); err != nil {
+	if err = matchReviewTarget(native, issue, snapshot); err != nil {
 		return empty, err
 	}
 	return factory.ReviewObservation{NativeRev: snapshot.Revision, ObservedUnix: time.Now().Unix(), PRID: w.PRID, PRNumber: w.PRNumber, IssueID: w.IssueID, PRAuthorID: w.PRAuthorID, HeadRef: w.HeadRef, BaseRef: w.BaseRef, HeadOID: w.HeadOID, BaseOID: w.BaseOID}, nil
@@ -167,7 +177,14 @@ func reviewIntent(w factory.ReviewWork) (extensions.OperationIntent, error) {
 // SubmitReview sends the already persisted intent. A failed response is reconciled
 // by that operation identity; no ordinary review POST or guessed record is used.
 func (r *Reviewer) SubmitReview(ctx context.Context, w factory.ReviewWork) (factory.OperationOutcome, error) {
-	intent, err := reviewIntent(w)
+	if err := w.Validate(); err != nil {
+		return factory.OperationOutcome{}, &factory.PublicationRefusal{Reason: "invalid_work"}
+	}
+	native, err := r.nativeWork(ctx, w)
+	if err != nil {
+		return factory.OperationOutcome{}, err
+	}
+	intent, err := reviewIntent(native)
 	if err != nil {
 		return factory.OperationOutcome{}, err
 	}
@@ -186,6 +203,9 @@ func (r *Reviewer) SubmitReview(ctx context.Context, w factory.ReviewWork) (fact
 		return factory.OperationOutcome{}, reviewCallError(err)
 	}
 	outcome, err := reviewOperationOutcome(w.OperationID, record)
+	if err == nil {
+		outcome, err = r.Identities.LocalOperationOutcome(ctx, outcome)
+	}
 	if err == nil && (outcome.ActorID != w.ActorID || outcome.RepositoryID != w.Repository) {
 		err = errors.New("review operation differs from its recorded scope")
 	}
@@ -195,7 +215,7 @@ func (r *Reviewer) SubmitReview(ctx context.Context, w factory.ReviewWork) (fact
 // LookupOp uses installation admission even after the reviewer credential is
 // withdrawn. Absence does not prove an earlier submission cannot still arrive.
 func (r *Reviewer) LookupOp(ctx context.Context, id string) (factory.OperationOutcome, error) {
-	if r.background == nil {
+	if r == nil || r.background == nil || r.Identities == nil {
 		return factory.OperationOutcome{}, &factory.PublicationWait{Reason: "operations_unavailable"}
 	}
 	lookup, err := r.background.GetOperation(ctx, id)
@@ -208,13 +228,13 @@ func (r *Reviewer) LookupOp(ctx context.Context, id string) (factory.OperationOu
 	if lookup.Record == nil {
 		return factory.OperationOutcome{}, errors.New("review lookup lacks its native record")
 	}
-	return reviewOperationOutcome(id, *lookup.Record)
+	return r.localOutcome(ctx, id, *lookup.Record)
 }
 
 // CancelOp records cancellation under owning-installation admission. A committed
 // review remains historical evidence; cancellation cannot erase it.
 func (r *Reviewer) CancelOp(ctx context.Context, id string) (factory.OperationOutcome, error) {
-	if r.background == nil {
+	if r == nil || r.background == nil || r.Identities == nil {
 		return factory.OperationOutcome{}, &factory.PublicationWait{Reason: "operations_unavailable"}
 	}
 	record, err := r.background.CancelOperation(ctx, id)
@@ -225,7 +245,7 @@ func (r *Reviewer) CancelOp(ctx context.Context, id string) (factory.OperationOu
 		}
 		return factory.OperationOutcome{}, reviewCallError(err)
 	}
-	return reviewOperationOutcome(id, record)
+	return r.localOutcome(ctx, id, record)
 }
 
 func reviewCallError(err error) error {
@@ -370,16 +390,22 @@ func mapReceiptComments(receipt extensions.ReviewSubmitReceipt, w factory.Review
 	return mappings, nil
 }
 
-func (r *Reviewer) AdoptReview(w factory.ReviewWork, o factory.OperationOutcome) (factory.ReviewOutcome, error) {
+func (r *Reviewer) AdoptReview(ctx context.Context, w factory.ReviewWork, o factory.OperationOutcome) (factory.ReviewOutcome, error) {
 	var empty factory.ReviewOutcome
 	if err := checkReviewEnvelope(w, o); err != nil {
+		return empty, err
+	}
+	native, err := r.nativeWork(ctx, w)
+	if err != nil {
 		return empty, err
 	}
 	receipt, err := decodeReviewReceipt(o)
 	if err != nil {
 		return empty, err
 	}
-	if err := checkReceiptIdentity(receipt, w, o); err != nil {
+	nativeOutcome := o
+	nativeOutcome.ActorID, nativeOutcome.RepositoryID = native.ActorID, native.Repository
+	if err := checkReceiptIdentity(receipt, native, nativeOutcome); err != nil {
 		return empty, err
 	}
 	mappings, err := mapReceiptComments(receipt, w)
@@ -387,4 +413,49 @@ func (r *Reviewer) AdoptReview(w factory.ReviewWork, o factory.OperationOutcome)
 		return empty, err
 	}
 	return factory.ReviewOutcome{Operation: o, Comments: mappings, ReviewID: receipt.ReviewID, CommentID: receipt.CommentID, ReviewerID: w.ActorID, PRID: w.PRID, PRNumber: w.PRNumber, IssueID: w.IssueID, HeadOID: w.HeadOID, BaseOID: w.BaseOID, CommitID: w.HeadOID, Event: w.Event, MergeBaseOID: receipt.MergeBaseOID}, nil
+}
+
+func (r *Reviewer) nativeScope(ctx context.Context, repository, actor int64) (int64, int64, error) {
+	if r == nil || r.Identities == nil {
+		return 0, 0, &factory.PublicationWait{Reason: "operations_unavailable"}
+	}
+	repo, err := r.Identities.NativeRepository(ctx, collaboration.RepositoryID(repository))
+	if err != nil {
+		return 0, 0, err
+	}
+	owner, err := r.Identities.NativeActor(ctx, collaboration.ActorID(actor))
+	if err != nil {
+		return 0, 0, err
+	}
+	nativeRepository, err := originalCreationID(repo)
+	if err != nil {
+		return 0, 0, err
+	}
+	nativeActor, err := originalCreationID(owner)
+	return nativeRepository, nativeActor, err
+}
+
+func (r *Reviewer) nativeWork(ctx context.Context, w factory.ReviewWork) (factory.ReviewWork, error) {
+	repository, actor, err := r.nativeScope(ctx, w.Repository, w.ActorID)
+	if err != nil {
+		return factory.ReviewWork{}, err
+	}
+	author, err := r.Identities.NativeActor(ctx, collaboration.ActorID(w.PRAuthorID))
+	if err != nil {
+		return factory.ReviewWork{}, err
+	}
+	w.PRAuthorID, err = originalCreationID(author)
+	if err != nil {
+		return factory.ReviewWork{}, err
+	}
+	w.Repository, w.ActorID = repository, actor
+	return w, nil
+}
+
+func (r *Reviewer) localOutcome(ctx context.Context, id string, record extensions.OperationRecord) (factory.OperationOutcome, error) {
+	o, err := reviewOperationOutcome(id, record)
+	if err != nil {
+		return factory.OperationOutcome{}, err
+	}
+	return r.Identities.LocalOperationOutcome(ctx, o)
 }

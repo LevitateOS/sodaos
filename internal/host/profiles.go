@@ -5,7 +5,7 @@ import (
 	"errors"
 	"runtime"
 
-	"github.com/levitateos/sodaos/internal/project"
+	"github.com/levitateos/factory/pkg/project"
 )
 
 // ResolveProfile inspects only the configured installed image. It never pulls,

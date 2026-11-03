@@ -14,9 +14,11 @@ import (
 	"time"
 	"unicode/utf8"
 
+	"github.com/levitateos/factory/pkg/factory/execution"
+
 	extensions "forgejo.org/extension-sdk"
-	"github.com/levitateos/sodaos/internal/project"
-	"github.com/levitateos/sodaos/internal/store"
+	"github.com/levitateos/factory/pkg/project"
+	"github.com/levitateos/factory/pkg/store"
 	"github.com/levitateos/sodaos/internal/web/auth"
 )
 
@@ -272,7 +274,7 @@ func (s *API) startPreparationItems(ctx context.Context, w http.ResponseWriter, 
 			Requirements: requirement.Ref(requirementDepth), Approval: approval.Ref(approvalDepth),
 			SourceCommit: requirement.SourceCommit, SetupDigest: requirement.SetupDigest, Tools: draft.tools,
 		}, Setup: draft.setup}
-		observed, err := s.Coordinator.StartPreparation(ctx, prep, authorize)
+		observed, err := s.Coordinator.StartPreparation(ctx, execution.StandingPreparationRequest{Input: prep}, authorize)
 		if err != nil {
 			auth.JSONError(w, 409, "preparation_unconfirmed", "Preparation was not confirmed. Refresh its retained state and retry these same identities; failed or interrupted identities need a new preparation.")
 			return

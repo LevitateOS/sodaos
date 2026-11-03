@@ -5,13 +5,14 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"maps"
 	"sort"
 	"time"
 
-	"github.com/levitateos/sodaos/internal/host"
-	"github.com/levitateos/sodaos/internal/project"
-	"github.com/levitateos/sodaos/internal/store"
+	"github.com/levitateos/factory/pkg/factory/execution"
+	"github.com/levitateos/factory/pkg/project"
+	"github.com/levitateos/factory/pkg/store"
 )
 
 type preparationInputView struct {
@@ -59,33 +60,33 @@ type preparationDecisionPreview struct {
 	Reason       string                         `json:"reason,omitempty"`
 }
 
-func matchPreparationRecord(record project.StoredPreparation, role string, d project.RequirementDecision) bool {
+func matchPreparationRecord(record execution.PreparationRecord, role string, d project.RequirementDecision) bool {
 	prep := record.Preparation
 	return prep.Role == role && record.State.Ready && !record.State.Stopped && prep.SourceCommit == d.SourceCommit &&
 		prep.SetupDigest == d.SetupDigest && prep.Requirements.SourceCommit == d.SourceCommit &&
 		prep.Requirements.Digest == d.InputsDigest && maps.Equal(prep.Requirements.SourceInputs, d.SourceInputs)
 }
 
-func matchPreparationState(state project.PrepareState, role string, prep project.Preparation) bool {
+func matchPreparationState(state execution.PreparationState, role string, prep project.Preparation) bool {
 	return state.Role == role && state.SourceCommit == prep.SourceCommit && state.SetupDigest == prep.SetupDigest &&
 		state.Ready && !state.Stopped && state.Phase == project.PrepareReady && state.Missing == "" &&
 		state.SetupExit != nil && *state.SetupExit == 0 && state.CheckExit != nil && *state.CheckExit == 0
 }
 
-func (s *API) observePreparationRole(ctx context.Context, p store.Project, d project.RequirementDecision, inputs []preparationInputView, records []project.StoredPreparation, role string) *preparationItemView {
+func (s *API) observePreparationRole(ctx context.Context, p store.Project, d project.RequirementDecision, inputs []preparationInputView, records []execution.PreparationRecord, role string) *preparationItemView {
 	for _, record := range records {
 		if !matchPreparationRecord(record, role, d) {
 			continue
 		}
 		prep := record.Preparation
-		state, readErr := s.Host.InspectPreparation(ctx, project.PrepareInspect{Project: p.ID, ID: prep.ID})
-		if readErr != nil || !matchPreparationState(state, role, prep) {
+		state, readErr := s.Host.InspectWorkspacePreparation(ctx, record.Address())
+		if readErr != nil || state.ValidateFor(record.Address()) != nil || !matchPreparationState(state, role, prep) {
 			continue
 		}
-		if !s.confirmPreparationInputs(ctx, prep, inputs) {
+		if !s.confirmPreparationInputs(ctx, record, inputs) {
 			continue
 		}
-		item := preparationItemDTO(project.StoredPreparation{Preparation: prep, State: state})
+		item := preparationItemDTO(execution.PreparationRecord{Preparation: prep, State: state, Native: record.Native})
 		item.Tools = append([]project.ResolvedTool(nil), state.Tools...)
 		sort.Slice(item.Tools, func(i, j int) bool { return item.Tools[i].Name < item.Tools[j].Name })
 		return &item
@@ -141,7 +142,7 @@ func (s *API) preparationDecisionPreview(ctx context.Context, p store.Project, r
 	}
 }
 
-func (s *API) confirmPreparationInputs(ctx context.Context, prep project.Preparation, inputs []preparationInputView) bool {
+func (s *API) confirmPreparationInputs(ctx context.Context, record execution.PreparationRecord, inputs []preparationInputView) bool {
 	// Batch selected paths up to the native per-request count bound so each
 	// role confirms in as few host calls as fit. A bounds-refused batch
 	// (the typed HTTP 413 signal only) halves down to single-path reads,
@@ -156,15 +157,15 @@ func (s *API) confirmPreparationInputs(ctx context.Context, prep project.Prepara
 	const maxBatch = project.MaxFactoryContextPaths
 	for start := 0; start < len(inputs); start += maxBatch {
 		end := min(start+maxBatch, len(inputs))
-		if !s.confirmPreparationInputBatch(ctx, prep, inputs[start:end]) {
+		if !s.confirmPreparationInputBatch(ctx, record, inputs[start:end]) {
 			return false
 		}
 	}
 	return true
 }
 
-func (s *API) confirmPreparationInputBatch(ctx context.Context, prep project.Preparation, inputs []preparationInputView) bool {
-	ok, sizeRefused := s.readPreparationInputBatch(ctx, prep, inputs)
+func (s *API) confirmPreparationInputBatch(ctx context.Context, record execution.PreparationRecord, inputs []preparationInputView) bool {
+	ok, sizeRefused := s.readPreparationInputBatch(ctx, record, inputs)
 	if ok {
 		return true
 	}
@@ -178,10 +179,10 @@ func (s *API) confirmPreparationInputBatch(ctx context.Context, prep project.Pre
 		return false
 	}
 	mid := len(inputs) / 2
-	return s.confirmPreparationInputBatch(ctx, prep, inputs[:mid]) && s.confirmPreparationInputBatch(ctx, prep, inputs[mid:])
+	return s.confirmPreparationInputBatch(ctx, record, inputs[:mid]) && s.confirmPreparationInputBatch(ctx, record, inputs[mid:])
 }
 
-func (s *API) readPreparationInputBatch(ctx context.Context, prep project.Preparation, inputs []preparationInputView) (bool, bool) {
+func (s *API) readPreparationInputBatch(ctx context.Context, record execution.PreparationRecord, inputs []preparationInputView) (bool, bool) {
 	// Budget-aware stop: once the preview budget (or a shorter parent
 	// deadline) is gone, refuse without issuing calls that are already
 	// doomed. The caller surfaces the fixed role reason.
@@ -192,11 +193,17 @@ func (s *API) readPreparationInputBatch(ctx context.Context, prep project.Prepar
 	for _, input := range inputs {
 		paths = append(paths, input.Path)
 	}
+	prep := record.Preparation
 	deadline, _ := ctx.Deadline()
 	request := project.FactoryPreparationContextRequest{Project: prep.Project, ID: prep.ID, SourceCommit: prep.SourceCommit, ApprovedBase: prep.SourceCommit, DiffBase: prep.SourceCommit, Candidate: prep.SourceCommit, Paths: paths, NotAfter: deadline}
-	material, err := s.Host.ReadPreparationContext(ctx, request, prep.Role)
+	scoped := execution.PreparationContextRequest{Input: request, Role: prep.Role, Native: record.Native}
+	observed, err := s.Host.ReadWorkspaceContext(ctx, scoped)
+	material := observed.Material
 	if err != nil {
 		return false, ctx.Err() == nil && isNativeSizeRefusal(err)
+	}
+	if observed.ValidateFor(scoped) != nil {
+		return false, false
 	}
 	files := make(map[string][]byte, len(material.Files))
 	for _, file := range material.Files {
@@ -222,7 +229,7 @@ func (s *API) readPreparationInputBatch(ctx context.Context, prep project.Prepar
 // bounds refusal, the only failure that may retry by halving. The real
 // native route refuses an oversized selection with HTTP 413 before
 // sending bytes, surfaced through the host client as
-// host.IsPreparationContextBoundsExceeded; no error text is matched.
+// execution.ErrPreparationContextBounds; no error text is matched.
 // Every other error fails closed with no subset retry: the generic 500
 // for identity/ancestry/exec failures, malformed or over-wire 200s
 // ("invalid native response"), client-observed bound overruns
@@ -231,7 +238,7 @@ func (s *API) readPreparationInputBatch(ctx context.Context, prep project.Prepar
 // transport, digest, duplicate and missing bytes. Halving cannot repair
 // those, and retrying them would burn budget or mask a failed batch.
 func isNativeSizeRefusal(err error) bool {
-	return host.IsPreparationContextBoundsExceeded(err)
+	return errors.Is(err, execution.ErrPreparationContextBounds)
 }
 
 func preparationPreviewDigest(value any) string {

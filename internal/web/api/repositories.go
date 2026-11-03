@@ -11,10 +11,9 @@ import (
 	"unicode/utf8"
 
 	extensions "forgejo.org/extension-sdk"
-	"github.com/levitateos/sodaos/internal/web/auth"
-
+	"github.com/levitateos/factory/pkg/store"
 	"github.com/levitateos/sodaos/internal/forgejo"
-	"github.com/levitateos/sodaos/internal/store"
+	"github.com/levitateos/sodaos/internal/web/auth"
 )
 
 type repositoryChoice struct {

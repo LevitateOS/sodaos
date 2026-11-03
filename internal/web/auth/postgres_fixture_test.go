@@ -4,7 +4,7 @@ import (
 	"context"
 	"testing"
 
-	"github.com/levitateos/sodaos/internal/store"
+	"github.com/levitateos/factory/pkg/store"
 )
 
 // postgresFixture opens an isolated ephemeral PostgreSQL database for one

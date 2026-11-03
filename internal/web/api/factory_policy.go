@@ -1,152 +1,33 @@
 package api
 
 import (
+	"context"
+	"errors"
 	"net/http"
 
-	"github.com/levitateos/sodaos/internal/factory"
-	"github.com/levitateos/sodaos/internal/store"
+	"github.com/levitateos/factory/pkg/collaboration"
+	"github.com/levitateos/factory/pkg/factory"
+
+	factoryservice "github.com/levitateos/factory/pkg/factory/service"
+	"github.com/levitateos/factory/pkg/store"
 	"github.com/levitateos/sodaos/internal/web/auth"
 )
 
-type factoryPolicyRequest struct {
-	AttemptLimits       *factory.AttemptLimits           `json:"attempt_limits"`
-	Roles               map[string]factory.RoleSelection `json:"roles"`
-	PublishActor        actorRefRequest                  `json:"publish_actor"`
-	CreateActor         actorRefRequest                  `json:"create_actor"`
-	ReviewActor         actorRefRequest                  `json:"review_actor"`
-	ResolveActor        *actorRefRequest                 `json:"resolve_actor,omitempty"`
-	MergeActor          actorRefRequest                  `json:"merge_actor"`
-	TargetBranch        string                           `json:"target_branch"`
-	MergeMethod         string                           `json:"merge_method"`
-	RequiredChecks      []string                         `json:"required_checks"`
-	ExpectedRevision    int64                            `json:"expected_revision"`
-	ReassessmentMinutes int                              `json:"reassessment_minutes"`
-	IntentMinutes       int                              `json:"intent_minutes"`
-	Enabled             bool                             `json:"enabled"`
-	Paused              bool                             `json:"paused"`
-}
-
-func (s *API) apiFactoryPolicy(w http.ResponseWriter, r *http.Request, v store.Session) {
-	repository, ok := s.factoryRepository(w, r, v)
-	if !ok || !s.factoryOwner(w, r, v, repository) || !s.checkLifecycleSession(w, r, v) {
-		return
-	}
-	var in factoryPolicyRequest
-	if !auth.DecodeAPIObject(w, r, &in) {
-		return
-	}
-	publish, ok := in.PublishActor.resolve(factory.OpRefPublish)
-	if !ok {
-		auth.JSONError(w, 400, "invalid_actor_binding", "Publisher must reference an enrolled native publication binding.")
-		return
-	}
-	create, ok := in.CreateActor.resolve(factory.OpPRCreate)
-	if !ok {
-		auth.JSONError(w, 400, "invalid_actor_binding", "Creator must reference an enrolled native PR creation binding.")
-		return
-	}
-	review, ok := in.ReviewActor.resolve(factory.OpReviewSubmit)
-	if !ok {
-		auth.JSONError(w, 400, "invalid_actor_binding", "Reviewer must reference an enrolled native review binding.")
-		return
-	}
-	merge, ok := in.MergeActor.resolve(factory.OpMerge)
-	if !ok {
-		auth.JSONError(w, 400, "invalid_actor_binding", "Merger must reference an enrolled native merge binding.")
-		return
-	}
-	var resolve factory.ActorBindingRef
-	if in.ResolveActor != nil {
-		resolve, ok = in.ResolveActor.resolve(factory.OpThreadResolve)
-		if !ok || resolve.ActorID != review.ActorID {
-			auth.JSONError(w, 400, "invalid_actor_binding", "Resolver must reference its separately enrolled binding on the independent reviewer account.")
-			return
+func (s *API) repositoryPolicies(r *http.Request, v store.Session, admitted collaboration.ActorID) factoryservice.Policies {
+	policies := factoryservice.Policies{WriteAccess: s.requestWriteAccess(r, v, admitted), BindingAccess: func(ctx context.Context, actor collaboration.ActorID, repository collaboration.RepositoryID, ref factory.ActorBindingRef) error {
+		if actor != admitted || !s.extensionSessionCurrent(ctx, r, v) {
+			return auth.ErrNativeSessionChanged
 		}
+		if _, err := s.FountainIdentities.NativeActor(ctx, collaboration.ActorID(ref.ActorID)); err != nil {
+			if errors.Is(err, store.ErrNotFound) {
+				return factoryservice.ErrPolicyBindingInvalid
+			}
+			return errors.Join(factoryservice.ErrPolicyBindingUnavailable, err)
+		}
+		return nil
+	}}
+	if s.Coordinator != nil {
+		policies.Writer = s.Coordinator
 	}
-	policy := factory.RepositoryPolicy{
-		Repository: repository, Revision: in.ExpectedRevision, GrantedBy: v.User.ID,
-		Enabled: in.Enabled, Paused: in.Paused, TargetBranch: in.TargetBranch, Roles: in.Roles,
-		Checks: in.RequiredChecks, MergeMethod: in.MergeMethod,
-		Publish: publish, Create: create, Review: review, Resolve: resolve, Merge: merge,
-		AttemptLimits: factory.EffectiveAttemptLimits(in.AttemptLimits),
-		// Omission resolves to the D13 default so the stored record always
-		// carries its admitted reassessment allowance explicitly.
-		ReassessmentMinutes: factory.EffectiveReassessmentMinutes(in.ReassessmentMinutes),
-		// Intent minutes map through unchanged: zero is the valid
-		// unfunded posture, so no omission fill may invent funding here.
-		IntentMinutes: in.IntentMinutes,
-	}
-	if policy.Revision < 0 || policy.Validate() != nil {
-		auth.JSONError(w, 400, "invalid_policy", "Repository policy is incomplete or invalid.")
-		return
-	}
-	result, err := s.Coordinator.ApplyPolicy(r.Context(), factoryPrincipal(v), policy)
-	if err != nil {
-		factoryCommandError(w, err)
-		return
-	}
-	auth.JSONResponse(w, 200, result)
-}
-
-type factoryCapacityRequest struct {
-	ExpectedRevision  int64 `json:"expected_revision"`
-	MaxConcurrentRuns int   `json:"max_concurrent_runs"`
-}
-
-func (s *API) apiFactoryCapacity(w http.ResponseWriter, r *http.Request, v store.Session) {
-	if r.URL.RawQuery != "" || r.URL.ForceQuery {
-		auth.JSONError(w, 400, "invalid_request", "No query parameters are accepted.")
-		return
-	}
-	if !s.factoryOperator(w, v) || !s.checkLifecycleSession(w, r, v) {
-		return
-	}
-	var in factoryCapacityRequest
-	if !auth.DecodeAPIObject(w, r, &in) {
-		return
-	}
-	capacity := factory.Capacity{
-		Revision: in.ExpectedRevision, UpdatedBy: v.User.ID,
-		MaxConcurrentRuns: in.MaxConcurrentRuns,
-	}
-	if capacity.Revision < 0 || capacity.Validate() != nil {
-		auth.JSONError(w, 400, "invalid_capacity", "Appliance capacity is incomplete or invalid.")
-		return
-	}
-	result, err := s.Coordinator.ApplyCapacity(r.Context(), factoryPrincipal(v), capacity)
-	if err != nil {
-		factoryCommandError(w, err)
-		return
-	}
-	auth.JSONResponse(w, 200, result)
-}
-
-type factoryOperatorGrantRequest struct {
-	ExpectedRevision int64 `json:"expected_revision"`
-	Active           bool  `json:"active"`
-}
-
-func (s *API) apiFactoryOperatorGrant(w http.ResponseWriter, r *http.Request, v store.Session) {
-	repository, ok := s.factoryRepository(w, r, v)
-	if !ok || !s.factoryOperator(w, v) || !s.checkLifecycleSession(w, r, v) {
-		return
-	}
-	var in factoryOperatorGrantRequest
-	if !auth.DecodeAPIObject(w, r, &in) {
-		return
-	}
-	grant := factory.OperatorGrant{
-		Repository: repository, Revision: in.ExpectedRevision,
-		GrantedBy: v.User.ID, Active: in.Active,
-	}
-	if grant.Revision < 0 || grant.Validate() != nil {
-		auth.JSONError(w, 400, "invalid_operator_grant", "Operator grant is incomplete or invalid.")
-		return
-	}
-	result, err := s.Coordinator.ApplyOperatorGrant(r.Context(), factoryPrincipal(v), grant)
-	if err != nil {
-		factoryCommandError(w, err)
-		return
-	}
-	auth.JSONResponse(w, 200, result)
+	return policies
 }

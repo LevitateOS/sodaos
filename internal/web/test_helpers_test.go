@@ -13,9 +13,9 @@ import (
 	"testing"
 
 	extensions "forgejo.org/extension-sdk"
+	"github.com/levitateos/factory/pkg/store"
 	"github.com/levitateos/sodaos/internal/config"
 	"github.com/levitateos/sodaos/internal/host"
-	"github.com/levitateos/sodaos/internal/store"
 )
 
 type roundTrip func(*http.Request) (*http.Response, error)
@@ -31,7 +31,10 @@ func apiTestServer(t *testing.T) *Server {
 			t.Fatal(err)
 		}
 	}
-	s := New(config.Config{ForgejoURL: "https://forgejo.example.test", OperatorID: 1}, db)
+	s, err := NewFactory(config.Config{ForgejoURL: "https://forgejo.example.test", OperatorID: 1}, db)
+	if err != nil {
+		t.Fatal(err)
+	}
 	// These fixtures stub native execution; the real directory gate has its
 	// own cross-process tests and cannot be silently created by HTTP tests.
 	s.API.ProjectCreationAdmission = func() (func(), error) { return func() {}, nil }
@@ -140,12 +143,12 @@ func nativeProductProxyForActorWithCallbacks(t *testing.T, s *Server, contributi
 	if err != nil {
 		t.Fatal(err)
 	}
-	service := httptest.NewUnstartedServer(s.ExtensionHandler())
+	service := httptest.NewUnstartedServer(s.API.ExtensionHandler())
 	service.Listener.Close()
 	service.Listener = serviceListener
 	service.Start()
 	t.Cleanup(service.Close)
-	application, closeTransport := Extension(servicePath)
+	application, closeTransport := Extension(servicePath, servicePath)
 	t.Cleanup(closeTransport)
 	proxy := httptest.NewTLSServer(application.HTTP)
 	t.Cleanup(proxy.Close)
@@ -222,7 +225,7 @@ func nativeAPIServeWithOptions(t *testing.T, s *Server, w http.ResponseWriter, r
 		headers(r.Header)
 	}
 	r.URL.Path = path
-	s.ExtensionHandler().ServeHTTP(w, r)
+	s.API.ExtensionHandler().ServeHTTP(w, r)
 }
 
 func nativeProductRequest(t *testing.T, proxy *httptest.Server, origin, method, path string, body []byte) *http.Response {

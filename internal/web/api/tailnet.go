@@ -4,10 +4,9 @@ import (
 	"errors"
 	"net/http"
 
-	"github.com/levitateos/sodaos/internal/web/auth"
-
-	"github.com/levitateos/sodaos/internal/store"
+	"github.com/levitateos/factory/pkg/store"
 	"github.com/levitateos/sodaos/internal/tailnet"
+	"github.com/levitateos/sodaos/internal/web/auth"
 )
 
 // errTailnetAdminRequired denies host-level Tailnet controls to verified

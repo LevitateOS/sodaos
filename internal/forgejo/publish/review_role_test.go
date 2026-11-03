@@ -4,7 +4,7 @@ import (
 	"context"
 	"testing"
 
-	"github.com/levitateos/sodaos/internal/project"
+	"github.com/levitateos/factory/pkg/project"
 )
 
 func TestST10PublisherRejectsReviewerBundle(t *testing.T) {

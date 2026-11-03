@@ -3,7 +3,7 @@ package host
 import (
 	"context"
 
-	"github.com/levitateos/sodaos/internal/application"
+	"github.com/levitateos/factory/pkg/application"
 )
 
 // FactoryApplicationBuild packages an already verified bundle through the

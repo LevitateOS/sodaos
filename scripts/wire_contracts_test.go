@@ -18,7 +18,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/levitateos/sodaos/internal/strictjson"
+	"github.com/levitateos/factory/pkg/strictjson"
 )
 
 func portContractFixture(t *testing.T, name string, out any) {

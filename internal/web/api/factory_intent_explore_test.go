@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"sort"
@@ -12,128 +13,125 @@ import (
 	"testing"
 
 	extensions "forgejo.org/extension-sdk"
-	"github.com/levitateos/sodaos/internal/factory"
+	"github.com/levitateos/factory/pkg/collaboration"
+	"github.com/levitateos/factory/pkg/factory"
+	factoryhttpapi "github.com/levitateos/factory/pkg/factory/httpapi"
+	factoryservice "github.com/levitateos/factory/pkg/factory/service"
+	"github.com/levitateos/factory/pkg/store"
 )
 
+// Exercise the extracted service against real PostgreSQL. Product design,
+// carried clarification and answered human choices cross the durable revision
+// and review boundary, without a native API/session or execution provider.
 func TestIntentDesignRespectsExplicitApproachAndChangesGraph(t *testing.T) {
-	r := factory.IntentRevision{Objective: "Build accessible request entry", Ideas: []factory.ProductIdea{{ID: "d111111111111111111111111", Description: "Accessible request entry", Decision: "accept"}}}
-	ids := make([]string, 104)
-	for i := range ids {
-		ids[i] = fmt.Sprintf("d%024x", 1000+i)
+	st, ctx := driveTestStore(t)
+	requests := factoryservice.Requests{Store: st}
+	chooser := &exploreFixtureChooser{design: "complete_first"}
+	exploration := factoryservice.RequestExploration{Requests: requests, Chooser: chooser}
+	idea := factory.ProductIdea{ID: "d" + strings.Repeat("1", 24), Description: "Accessible request entry", Consequence: "Requests can be recorded", Decision: "accept", Source: "requested", Provenance: "human", Actor: 7}
+	create := func(digit, approach, objective string, ideas []factory.ProductIdea) factory.IntentRevision {
+		t.Helper()
+		input := factory.IntentRevision{ID: "d" + strings.Repeat(digit, 24), Intent: "d" + strings.Repeat(digit, 23) + "e", Objective: objective, Approach: approach, State: "draft", MaxIssues: 10, PlanningCalls: 8, Ideas: ideas}
+		saved, err := requests.SaveRevision(ctx, 7, input)
+		if err != nil {
+			t.Fatal(err)
+		}
+		return saved
 	}
-	proposal := factory.ProposeIntent(r, ids)
-	complete := applyIntentDesign(r, ids, proposal, factory.PriorityAnswer{Selected: "complete_first", Confidence: 1})
-	if complete.Approach != "complete_first" || len(complete.Tasks) != 1 {
-		t.Fatal("design advice did not produce real combined work")
+	first := create("2", "", "Build accessible request entry", []factory.ProductIdea{idea})
+	combined, err := exploration.Explore(ctx, 7, first.Intent, first.ID)
+	if err != nil || combined.Approach != "complete_first" || len(combined.Tasks) != 1 {
+		t.Fatal("shared design did not produce combined work", combined.Approach, len(combined.Tasks), err)
 	}
-	r.Approach = "incremental"
-	candidates := intentDesignCandidates(r)
-	if len(candidates) != 2 || candidates[0].ID != "incremental" || candidates[1].ID != "clarify" {
-		t.Fatal("explicit human choice was overridden or scope review removed")
+	explicit := create("3", "incremental", "Build accessible request entry", []factory.ProductIdea{idea})
+	incremental, err := exploration.Explore(ctx, 7, explicit.Intent, explicit.ID)
+	if err != nil || incremental.Approach != "incremental" || len(incremental.Tasks) != 2 {
+		t.Fatal("shared design overrode an explicit human approach", incremental.Approach, len(incremental.Tasks), err)
 	}
-	explicit := applyIntentDesign(r, ids, proposal, factory.PriorityAnswer{Selected: "complete_first", Confidence: 1})
-	if explicit.Approach != "incremental" || len(explicit.Tasks) != 2 {
-		t.Fatal("human choice lost")
-	}
-}
-
-func TestClarifyIdeaCarriesAssumptionBasis(t *testing.T) {
-	idea := clarifyIdea("d111111111111111111111111")
-	if !idea.Assumption || idea.Decision != "pending" || idea.Source != "assumption" || idea.Provenance != "autonomous" || !idea.Material || idea.Actor != 0 {
-		t.Fatalf("clarify basis=%+v", idea)
-	}
-	r := factory.IntentRevision{ID: "d222222222222222222222222", Intent: "d333333333333333333333333", Owner: 7, Objective: "Build a tracker", State: "draft", MaxIssues: 10, PlanningCalls: 3, CreatedUnix: 1, Ideas: []factory.ProductIdea{idea}}
-	if err := r.Validate(); err != nil {
+	raw, _ := json.Marshal(combined)
+	var flat map[string]any
+	if err := json.Unmarshal(raw, &flat); err != nil {
 		t.Fatal(err)
 	}
-}
-
-func TestAppendClarifyOnceReusesStableIdentity(t *testing.T) {
-	base := factory.IntentRevision{Ideas: []factory.ProductIdea{{ID: "d111111111111111111111111", Description: "Track leave requests", Decision: "accept"}}}
-	first := appendClarifyOnce(base, "d222222222222222222222222")
-	clarified := 0
-	for _, idea := range first.Ideas {
-		if idea.Description == "Describe the first user action and the result that should count as success" {
-			clarified++
-		}
+	advice, ok := flat["exploration"].(map[string]any)
+	if flat["id"] != combined.ID || flat["state"] != "draft" || !ok || advice["content"] == nil || advice["challenges"] == nil || advice["settled"] == nil {
+		t.Fatal("shared response lost flat revision or exploration fields", flat)
 	}
-	if clarified != 1 {
-		t.Fatalf("round one clarifications=%d", clarified)
-	}
-	second := appendClarifyOnce(first, "d333333333333333333333333")
-	clarified = 0
-	for _, idea := range second.Ideas {
-		if idea.Description == "Describe the first user action and the result that should count as success" {
-			clarified++
-			if idea.ID != "d222222222222222222222222" || idea.Decision != "pending" {
-				t.Fatalf("stable clarification lost=%+v", idea)
-			}
-		}
-	}
-	if clarified != 1 {
-		t.Fatalf("round two clarifications=%d, want exactly one stable idea", clarified)
-	}
-}
-
-func TestAppendClarifyOncePreservesAnsweredClarification(t *testing.T) {
-	answered := clarifyIdea("d222222222222222222222222")
-	answered.Decision = "edit"
-	answered.Correction = "The first action is submitting the request form"
-	answered.Provenance = "human"
-	answered.Actor = 7
-	r := factory.IntentRevision{Ideas: []factory.ProductIdea{
-		{ID: "d111111111111111111111111", Description: "Track leave requests", Decision: "accept"},
-		answered,
-	}}
-	next := appendClarifyOnce(r, "d333333333333333333333333")
-	if len(next.Ideas) != 2 {
-		t.Fatalf("answered clarification duplicated: %+v", next.Ideas)
-	}
-	if next.Ideas[1].Correction != "The first action is submitting the request form" || next.Ideas[1].Provenance != "human" {
-		t.Fatalf("answer not preserved=%+v", next.Ideas[1])
-	}
-}
-
-func TestAppendClarifyOnceIgnoresOrdinaryIdeas(t *testing.T) {
-	r := factory.IntentRevision{Ideas: []factory.ProductIdea{
-		{ID: "d111111111111111111111111", Description: "Track leave requests", Consequence: "Managers review requests", Decision: "accept", Source: "requested", Provenance: "human", Actor: 7},
-	}}
-	next := appendClarifyOnce(r, "d222222222222222222222222")
-	if len(next.Ideas) != 2 || next.Ideas[0].ID != "d111111111111111111111111" {
-		t.Fatalf("ordinary idea touched=%+v", next.Ideas)
-	}
-	if next.Ideas[1].ID != "d222222222222222222222222" || next.Ideas[1].Decision != "pending" {
-		t.Fatalf("clarification missing=%+v", next.Ideas)
-	}
-}
-
-func TestExploreResponseKeepsRevisionFlatWithExploration(t *testing.T) {
-	proposal := factory.IntentRevision{ID: "d111111111111111111111111", Intent: "d222222222222222222222222", State: "draft"}
-	content := factory.DescribeAlternatives("Time-off requests my manager can approve")
-	challenges := []factory.AssumptionChallenge{{Idea: "d333333333333333333333333", Assumption: "Everyone can see each request", Consequence: "Dates are exposed", Recommendation: "Confirm it"}}
-	raw, err := json.Marshal(attachExploration(proposal, factory.ProposalContent{Producer: content.Producer, Supported: content.Supported, Unknowns: content.Unknowns}, challenges, []string{"d333333333333333333333333"}, nil, nil))
+	// An ordinary requested human idea that uses the same prose is not the
+	// producer's material assumption and must not suppress its clarification.
+	chooser.design = "clarify"
+	ordinary := idea
+	ordinary.Description = "Describe the first user action and the result that should count as success"
+	ordinary.Consequence = "Implementation waits until this material product question is resolved."
+	source := create("4", "", "Clarify the intended product behavior", []factory.ProductIdea{ordinary})
+	round, err := exploration.Explore(ctx, 7, source.Intent, source.ID)
 	if err != nil {
 		t.Fatal(err)
 	}
-	var merged map[string]any
-	if err := json.Unmarshal(raw, &merged); err != nil {
+	clarification := func(r factory.IntentRevision, expected string, answered bool) string {
+		t.Helper()
+		found, id, human := 0, "", false
+		for _, current := range r.Ideas {
+			if current.ID == ordinary.ID {
+				human = current.Provenance == "human" && current.Source == "requested"
+			}
+			if current.Description != ordinary.Description || !current.Assumption || current.Source != "assumption" {
+				continue
+			}
+			found++
+			id = current.ID
+			if !current.Material || (expected != "" && id != expected) {
+				t.Fatal("clarification identity/basis changed", current)
+			}
+			if answered {
+				if current.Decision != "edit" || current.Provenance != "human" || current.Actor != 7 || current.Correction != "The first action is submitting the request form" {
+					t.Fatal("answered clarification was overwritten", current)
+				}
+			} else if current.Decision != "pending" || current.Provenance != "autonomous" || current.Actor != 0 {
+				t.Fatal("clarification fabricated human approval", current)
+			}
+		}
+		if found != 1 || !human {
+			t.Fatal("clarification was duplicated or coalesced with human writing", found, human)
+		}
+		return id
+	}
+	stable := clarification(round.IntentRevision, "", false)
+	second, err := exploration.Explore(ctx, 7, source.Intent, round.ID)
+	if err != nil {
 		t.Fatal(err)
 	}
-	if merged["id"] != proposal.ID || merged["state"] != "draft" {
-		t.Fatalf("revision fields not flat: %v", merged)
+	clarification(second.IntentRevision, stable, false)
+	answered := second.IntentRevision
+	answered.ID, answered.Predecessor = "d"+strings.Repeat("5", 24), second.ID
+	for i := range answered.Ideas {
+		if answered.Ideas[i].ID == stable {
+			answered.Ideas[i].Decision, answered.Ideas[i].Correction = "edit", "The first action is submitting the request form"
+			answered.Ideas[i].Provenance, answered.Ideas[i].Actor = "human", 7
+		}
 	}
-	exploration, ok := merged["exploration"].(map[string]any)
-	if !ok || exploration["recommendation"] != nil {
-		t.Fatalf("exploration missing: %v", merged)
+	answered, err = requests.SaveRevision(ctx, 7, answered)
+	if err != nil {
+		t.Fatal(err)
 	}
-	if _, ok := exploration["content"].(map[string]any); !ok {
-		t.Fatal("content missing from exploration")
+	resumed, err := exploration.Explore(ctx, 7, source.Intent, answered.ID)
+	if err != nil {
+		t.Fatal(err)
 	}
-	if list, ok := exploration["challenges"].([]any); !ok || len(list) != 1 {
-		t.Fatalf("challenges=%v", exploration["challenges"])
+	clarification(resumed.IntentRevision, stable, true)
+	review, err := requests.Review(ctx, 7, source.Intent, resumed.ID)
+	if err != nil || review.Review == nil || review.Review.BasisRevision != answered.ID || review.Review.ResultRevision != resumed.ID {
+		t.Fatal("shared exploration did not atomically save its actual review", err)
 	}
-	if list, ok := exploration["settled"].([]any); !ok || len(list) != 1 || list[0] != "d333333333333333333333333" {
-		t.Fatalf("settled=%v", exploration["settled"])
+	before := chooser.calls
+	if _, err := exploration.Explore(ctx, 7, source.Intent, answered.ID); !errors.Is(err, store.ErrStaleRevision) || chooser.calls != before {
+		t.Fatal("stale exploration consulted again", err)
+	}
+	if _, err := exploration.Explore(ctx, 8, source.Intent, resumed.ID); !errors.Is(err, factoryservice.ErrRequestNotFound) || chooser.calls != before {
+		t.Fatal("another owner reached exploration", err)
+	}
+	if runs, err := st.FactoryRuns(ctx, 10); err != nil || len(runs) != 0 {
+		t.Fatal("private exploration launched execution", runs, err)
 	}
 }
 
@@ -141,8 +139,9 @@ func TestExploreResponseKeepsRevisionFlatWithExploration(t *testing.T) {
 // boundary tests: deterministic valid answers without a provider. When fail
 // is set every consultation fails like a provider outage.
 type exploreFixtureChooser struct {
-	fail  bool
-	calls int
+	design string
+	fail   bool
+	calls  int
 }
 
 func (f *exploreFixtureChooser) Select(_ context.Context, _ any, _ string, choices map[string]any) (factory.PriorityAnswer, error) {
@@ -159,8 +158,12 @@ func (f *exploreFixtureChooser) Select(_ context.Context, _ any, _ string, choic
 	for _, id := range ids {
 		probs[id] = 0
 	}
-	probs[ids[0]] = 1
-	return factory.PriorityAnswer{Selected: ids[0], Model: "fixture", Confidence: 0.9, Probabilities: probs}, nil
+	selected := ids[0]
+	if f.design != "" && choices["complete_first"] != nil && choices[f.design] != nil {
+		selected = f.design
+	}
+	probs[selected] = 1
+	return factory.PriorityAnswer{Selected: selected, Model: "fixture", Confidence: 0.9, Probabilities: probs}, nil
 }
 
 // TestExplorePersistsAgreedReview proves the producer and its persisted
@@ -173,12 +176,44 @@ func TestExplorePersistsAgreedReview(t *testing.T) {
 	if code, body := call(http.MethodPost, "/api/factory/intents", draftBody); code != http.StatusCreated {
 		t.Fatalf("draft save status=%d body=%s", code, body)
 	}
-	product.IntentExploreChooser = &exploreFixtureChooser{}
-	code, body := call(http.MethodPost, "/api/factory/intents/d232323232323232323232323/explore", `{"revision":"d121212121212121212121212"}`)
+	chooser := &exploreFixtureChooser{}
+	product.IntentExploreChooser = chooser
+	requests := factoryservice.Requests{Store: s}
+	transport := factoryhttpapi.Requests{Service: requests, Host: product.FountainIdentities.HostID(), Actor: collaboration.ActorID(1),
+		Exploration: factoryservice.RequestExploration{Requests: requests, Chooser: chooser},
+		Planning:    factoryservice.RequestPlanning{Requests: requests},
+		Current: func(w http.ResponseWriter, r *http.Request) bool {
+			if r.Header.Get("Authorization") != "Bearer declared-exploration-client" {
+				http.Error(w, "declared account admission unavailable", 401)
+				return false
+			}
+			return true
+		}}
+	server := httptest.NewServer(transport.Handler())
+	defer server.Close()
+	direct := func(method, path, body string) (int, []byte) {
+		t.Helper()
+		r, err := http.NewRequestWithContext(t.Context(), method, server.URL+path, strings.NewReader(body))
+		if err != nil {
+			t.Fatal(err)
+		}
+		r.Header.Set("Authorization", "Bearer declared-exploration-client")
+		response, err := server.Client().Do(r)
+		if err != nil {
+			t.Fatal(err)
+		}
+		defer response.Body.Close()
+		data, err := io.ReadAll(response.Body)
+		if err != nil {
+			t.Fatal(err)
+		}
+		return response.StatusCode, data
+	}
+	code, body := direct(http.MethodPost, "/api/factory/intents/d232323232323232323232323/explore", `{"revision":"d121212121212121212121212"}`)
 	if code != http.StatusCreated {
 		t.Fatalf("explore status=%d body=%s", code, body)
 	}
-	var responded exploreResponse
+	var responded factoryservice.ExplorationResult
 	if err := json.Unmarshal(body, &responded); err != nil {
 		t.Fatal(err)
 	}
@@ -205,6 +240,24 @@ func TestExplorePersistsAgreedReview(t *testing.T) {
 	if stored.Recommendation == nil || stored.Consistency == nil {
 		t.Fatal("supported round lost its recommendation or consistency")
 	}
+	// Reads on a command-capable host cannot consult its configured chooser.
+	beforeCalls := chooser.calls
+	chooser.fail = true
+	base := "/api/factory/intents/" + stored.Intent
+	for _, path := range []string{base + "/plan", base + "/review", base + "/generation"} {
+		if code, body := direct(http.MethodGet, path, ""); code != 200 || chooser.calls != beforeCalls {
+			t.Fatal("shared HTTP read consulted or lost recorded state", path, code, string(body), chooser.calls)
+		}
+	}
+	if code, _ := direct(http.MethodGet, base+"/plan?revision=unaccepted", ""); code != 400 || chooser.calls != beforeCalls {
+		t.Fatal("status query broadened admission", code, chooser.calls)
+	}
+	if code, _ := direct(http.MethodPost, base+"/plan/review", `{"revision":"`+responded.ID+`"}`); code != 503 || chooser.calls != beforeCalls {
+		t.Fatal("unassigned walkthrough review bypassed missing write authority", code, chooser.calls)
+	}
+	if code, _ := direct(http.MethodPost, base+"/generate", `{"revision":"`+responded.ID+`"}`); code != 409 || chooser.calls != beforeCalls {
+		t.Fatal("draft direction generated work", code, chooser.calls)
+	}
 }
 
 // TestExploreVerdictsTargetGeneratedResultIdeas proves verdict provenance:
@@ -224,7 +277,7 @@ func TestExploreVerdictsTargetGeneratedResultIdeas(t *testing.T) {
 	if code != http.StatusCreated {
 		t.Fatalf("explore status=%d body=%s", code, body)
 	}
-	var responded exploreResponse
+	var responded factoryservice.ExplorationResult
 	if err := json.Unmarshal(body, &responded); err != nil {
 		t.Fatal(err)
 	}
@@ -354,7 +407,7 @@ func TestExploreDerivedProposalBoundsRefuseBeforeFurtherJudgments(t *testing.T) 
 	if chooser.calls != 4 || !chooser.sawConsistency {
 		t.Fatalf("fitting round calls=%d consistency=%v", chooser.calls, chooser.sawConsistency)
 	}
-	var responded exploreResponse
+	var responded factoryservice.ExplorationResult
 	if err := json.Unmarshal(body, &responded); err != nil {
 		t.Fatal(err)
 	}

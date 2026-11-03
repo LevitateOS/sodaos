@@ -11,8 +11,9 @@ import (
 	"sync/atomic"
 	"testing"
 
-	"github.com/levitateos/sodaos/internal/project"
-	"github.com/levitateos/sodaos/internal/store"
+	"github.com/levitateos/factory/pkg/factory/execution"
+	"github.com/levitateos/factory/pkg/project"
+	"github.com/levitateos/factory/pkg/store"
 	"github.com/levitateos/sodaos/internal/web/api"
 )
 
@@ -46,14 +47,14 @@ func seedPreparationRecord(t *testing.T, s *Server, id, role, phase string, read
 	t.Helper()
 	digest := strings.Repeat("d", 64)
 	commit := strings.Repeat("c", 40)
-	record := project.StoredPreparation{
+	record := execution.PreparationRecord{
 		Preparation: project.Preparation{
 			ID: id, Project: preparationProject, Role: role,
 			Requirements: project.RequirementAcceptance{ID: "d0123456789abcdef01234567", Revision: 1, Approver: 1, SourceCommit: commit, Digest: digest},
 			Approval:     project.AdminApproval{ID: "d123456789abcdef012345678", Revision: 1, Approver: 1, EffectsDigest: digest},
 			SourceCommit: commit, SetupDigest: digest, Tools: []string{"python3"},
 		},
-		State: project.PrepareState{ID: id, Project: preparationProject, Role: role, Phase: phase, Ready: ready, Output: output},
+		State: execution.PreparationState{ID: id, Project: preparationProject, Role: role, Phase: phase, Ready: ready, Output: output, Container: strings.Repeat("c", 64), SourceCommit: commit, SetupDigest: digest},
 	}
 	if _, _, err := s.Store.AdmitPreparation(t.Context(), record); err != nil {
 		t.Fatal(err)

@@ -5,10 +5,9 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/levitateos/factory/pkg/project"
+	"github.com/levitateos/factory/pkg/store"
 	"github.com/levitateos/sodaos/internal/web/auth"
-
-	"github.com/levitateos/sodaos/internal/project"
-	"github.com/levitateos/sodaos/internal/store"
 )
 
 func (s *API) apiProjectProfiles(w http.ResponseWriter, r *http.Request, v store.Session) {

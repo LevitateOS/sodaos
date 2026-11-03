@@ -9,8 +9,9 @@ import (
 
 	extensions "forgejo.org/extension-sdk"
 
+	"github.com/levitateos/factory/pkg/collaboration"
+	"github.com/levitateos/factory/pkg/factory"
 	"github.com/levitateos/sodaos/internal/config"
-	"github.com/levitateos/sodaos/internal/factory"
 	forgejopublish "github.com/levitateos/sodaos/internal/forgejo/publish"
 )
 
@@ -23,6 +24,7 @@ import (
 // runners, or touches workflow definitions: it reads observed native
 // state only. Its actor secret stays outside the Project and its agents.
 type CheckAssessor struct {
+	Identities *FountainIdentities
 	background *ServiceBackground
 	rest       *Client
 	tokenFile  string
@@ -31,13 +33,17 @@ type CheckAssessor struct {
 // NewCheckAssessor builds the check observation client over the shared
 // service background, the internal REST client and the assessor's
 // restricted token file.
-func NewCheckAssessor(background *ServiceBackground, rest *Client, tokenFile string) *CheckAssessor {
-	return &CheckAssessor{background: background, rest: rest, tokenFile: tokenFile}
+func NewCheckAssessor(background *ServiceBackground, rest *Client, tokenFile string, identities *FountainIdentities) *CheckAssessor {
+	return &CheckAssessor{background: background, rest: rest, tokenFile: tokenFile, Identities: identities}
 }
 
 func (a *CheckAssessor) checkActor(ctx context.Context, actor int64) error {
-	if a.background == nil || a.rest == nil || a.tokenFile == "" {
+	if a == nil || a.background == nil || a.rest == nil || a.tokenFile == "" || a.Identities == nil {
 		return &factory.PublicationWait{Reason: "operations_unavailable"}
+	}
+	native, err := a.Identities.NativeActor(ctx, collaboration.ActorID(actor))
+	if err != nil {
+		return err
 	}
 	token, err := config.Secret(a.tokenFile)
 	if err != nil {
@@ -47,7 +53,7 @@ func (a *CheckAssessor) checkActor(ctx context.Context, actor int64) error {
 	if err != nil {
 		return &factory.PublicationWait{Reason: "credential_invalid"}
 	}
-	if user.ID != actor {
+	if strconv.FormatInt(user.ID, 10) != native {
 		return &factory.PublicationWait{Reason: "authority_lost"}
 	}
 	return nil
@@ -65,12 +71,23 @@ func (a *CheckAssessor) ObserveChecks(ctx context.Context, target factory.CheckT
 	if actorID <= 0 {
 		return empty, &factory.PublicationRefusal{Reason: "invalid_work"}
 	}
+	if a == nil || a.Identities == nil {
+		return empty, &factory.PublicationWait{Reason: "operations_unavailable"}
+	}
+	repository, err := a.Identities.NativeRepository(ctx, collaboration.RepositoryID(target.Repository))
+	if err != nil {
+		return empty, err
+	}
+	actor, err := a.Identities.NativeActor(ctx, collaboration.ActorID(actorID))
+	if err != nil {
+		return empty, err
+	}
 	if err := a.checkActor(ctx, actorID); err != nil {
 		return empty, err
 	}
-	reader := &BackgroundSnapshotReader{Client: a.background, ActorID: strconv.FormatInt(actorID, 10)}
+	reader := &BackgroundSnapshotReader{Client: a.background, ActorID: actor}
 	snapshot, err := BracketedRead(ctx, reader, extensions.CredentialFile(a.tokenFile), SnapshotRequest{
-		RepositoryID: strconv.FormatInt(target.Repository, 10),
+		RepositoryID: repository,
 		PullNumber:   strconv.FormatInt(target.PRNumber, 10),
 		SHA:          target.HeadOID,
 		Refs:         []string{target.HeadRef, target.BaseRef},
@@ -78,6 +95,10 @@ func (a *CheckAssessor) ObserveChecks(ctx context.Context, target factory.CheckT
 	})
 	if err != nil {
 		return empty, checkReadError(err)
+	}
+	target.Repository, err = originalCreationID(repository)
+	if err != nil {
+		return empty, err
 	}
 	return matchCheckTarget(target, snapshot)
 }

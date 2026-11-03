@@ -10,7 +10,7 @@ import (
 	"testing"
 
 	extensions "forgejo.org/extension-sdk"
-	"github.com/levitateos/sodaos/internal/project"
+	"github.com/levitateos/factory/pkg/project"
 	"github.com/levitateos/sodaos/internal/web/api"
 	"github.com/stretchr/testify/require"
 )

@@ -4,7 +4,7 @@ import (
 	"context"
 	"errors"
 
-	"github.com/levitateos/sodaos/internal/identity"
+	"github.com/levitateos/factory/pkg/identity"
 )
 
 // errStubIdentity injects a generic broker call failure.

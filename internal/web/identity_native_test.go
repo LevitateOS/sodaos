@@ -8,22 +8,28 @@ import (
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
+	"sync/atomic"
 	"testing"
 
 	extensions "forgejo.org/extension-sdk"
-	"github.com/levitateos/sodaos/internal/factory"
-	"github.com/levitateos/sodaos/internal/identity"
-	"github.com/levitateos/sodaos/internal/store"
+	"github.com/levitateos/factory/pkg/factory"
+	"github.com/levitateos/factory/pkg/identity"
+	"github.com/levitateos/factory/pkg/store"
 	"github.com/levitateos/sodaos/internal/web/api"
 )
 
 func TestNativeCommentIntakeUsesHumanIssueAccessWithoutFactorySetup(t *testing.T) {
 	s := apiTestServer(t)
 	reads := 0
+	var catalogueOutage atomic.Bool
 	proxy := nativeProductProxyForActorWithCallback(t, s, extensions.Contribution{}, "alice", func(in extensions.CallbackRequest) extensions.CallbackResponse {
 		switch in.Operation {
 		case extensions.OperationRepository:
+			if catalogueOutage.Load() {
+				return extensions.CallbackResponse{ErrorCode: "declared-fixture-outage"}
+			}
 			return extensions.CallbackResponse{Repository: &extensions.Repository{ID: "7", Owner: "alice", Name: "private-app", Permission: "read"}}
 		case extensions.OperationRepositoryIssues:
 			reads++
@@ -46,15 +52,86 @@ func TestNativeCommentIntakeUsesHumanIssueAccessWithoutFactorySetup(t *testing.T
 		}
 		return extensions.CallbackResponse{}
 	})
-	response := nativeProductRequest(t, proxy, s.Config.ForgejoURL, "POST", "/factory/feed/posts",
-		[]byte(`{"repository":7,"issue":9,"body":"Please discuss the login flow.","idempotency_key":"human-context-intake"}`))
+	response := nativeProductRequest(t, proxy, s.Config.ForgejoURL, "POST", "/factory/native-repositories/resolve", []byte(`{"repository":"7"}`))
+	var scope struct{ Repository, Actor string }
+	if response.StatusCode != http.StatusOK {
+		t.Fatalf("native repository discovery status=%d", response.StatusCode)
+	}
+	if err := json.NewDecoder(response.Body).Decode(&scope); err != nil {
+		t.Fatal(err)
+	}
+	_ = response.Body.Close()
+	for _, path := range []string{"/factory/identity", "/factory/repositories/" + scope.Repository + "/identity"} {
+		identityResponse := nativeProductRequest(t, proxy, s.Config.ForgejoURL, "GET", path, nil)
+		var identity struct {
+			Actor            string `json:"actor"`
+			Repository       string `json:"repository"`
+			NativeActor      string `json:"native_actor"`
+			NativeRepository string `json:"native_repository"`
+		}
+		if identityResponse.StatusCode != http.StatusOK {
+			t.Fatalf("identity proxy status=%d", identityResponse.StatusCode)
+		}
+		if err := json.NewDecoder(identityResponse.Body).Decode(&identity); err != nil {
+			t.Fatal(err)
+		}
+		_ = identityResponse.Body.Close()
+		if identity.Actor != scope.Actor || path == "/factory/identity" && identity.NativeActor != "1" || path != "/factory/identity" && (identity.NativeRepository != "7" || identity.Repository != scope.Repository) {
+			t.Fatalf("identity proxy lost canonical/native scope: %+v", identity)
+		}
+	}
+	catalogueResponse := nativeProductRequest(t, proxy, s.Config.ForgejoURL, "GET", "/factory/repositories?limit=1", nil)
+	if catalogueResponse.StatusCode != http.StatusOK {
+		_ = catalogueResponse.Body.Close()
+		t.Fatalf("registered catalogue proxy status=%d", catalogueResponse.StatusCode)
+	}
+	var catalogue struct {
+		Actor    string                              `json:"actor"`
+		Items    []struct{ Repository, Name string } `json:"items"`
+		Complete bool                                `json:"complete"`
+	}
+	if err := json.NewDecoder(catalogueResponse.Body).Decode(&catalogue); err != nil {
+		t.Fatal(err)
+	}
+	_ = catalogueResponse.Body.Close()
+	if catalogue.Actor != scope.Actor || len(catalogue.Items) != 1 || catalogue.Items[0].Repository != scope.Repository || catalogue.Items[0].Name != "alice/private-app" || !catalogue.Complete {
+		t.Fatalf("registered catalogue proxy lost current canonical scope: %+v", catalogue)
+	}
+	catalogueOutage.Store(true)
+	unavailable := nativeProductRequest(t, proxy, s.Config.ForgejoURL, "GET", "/factory/repositories?limit=1", nil)
+	unavailableBody, err := io.ReadAll(unavailable.Body)
+	_ = unavailable.Body.Close()
+	if err != nil || unavailable.StatusCode != http.StatusServiceUnavailable || strings.Contains(string(unavailableBody), `"items"`) || strings.Contains(string(unavailableBody), "alice/private-app") {
+		t.Fatalf("provider outage returned catalogue facts: %d %s %v", unavailable.StatusCode, unavailableBody, err)
+	}
+	catalogueOutage.Store(false)
+	for _, request := range []struct{ method, path string }{
+		{"POST", "/factory/repositories"},
+		{"DELETE", "/factory/repositories"},
+		{"POST", "/factory/identity"},
+		{"GET", "/factory/identity?native=1"},
+		{"GET", "/factory/native-repositories/resolve"},
+		{"POST", "/factory/native-repositories/resolve?native=7"},
+		{"GET", "/factory/repositories/0/identity"},
+		{"GET", "/factory/repositories/9223372036854775808/identity"},
+		{"GET", "/factory/repositories/" + scope.Repository + "/identity?native=7"},
+		{"POST", "/factory/repositories/" + scope.Repository + "/identity"},
+	} {
+		refused := nativeProductRequest(t, proxy, s.Config.ForgejoURL, request.method, request.path, nil)
+		_ = refused.Body.Close()
+		if refused.StatusCode != http.StatusNotFound {
+			t.Fatalf("identity proxy admitted %s %s: %d", request.method, request.path, refused.StatusCode)
+		}
+	}
+	response = nativeProductRequest(t, proxy, s.Config.ForgejoURL, "POST", "/factory/feed/posts",
+		[]byte(`{"repository":"`+scope.Repository+`","issue":9,"body":"Please discuss the login flow.","idempotency_key":"human-context-intake"}`))
 	if response.StatusCode != 200 {
 		body, _ := io.ReadAll(response.Body)
 		t.Fatalf("intake status=%d body=%s", response.StatusCode, body)
 	}
 	var saved struct {
-		SourcePost  string `json:"post_id"`
-		Revision int64  `json:"revision"`
+		SourcePost string `json:"post_id"`
+		Revision   int64  `json:"revision"`
 	}
 	if err := json.NewDecoder(response.Body).Decode(&saved); err != nil {
 		t.Fatal(err)
@@ -76,7 +153,11 @@ func TestNativeCommentIntakeUsesHumanIssueAccessWithoutFactorySetup(t *testing.T
 
 	// A post blocked by the old service-account path can be refreshed by its
 	// author without creating a duplicate or configuring Factory.
-	id, revision, err := s.Store.SaveFeedPost(t.Context(), factory.PostRequest{Repository: 7, Body: "A request from before the fix", IdempotencyKey: "old-context-intake"}, "1", "alice", 1)
+	repository, err := strconv.ParseInt(scope.Repository, 10, 64)
+	if err != nil {
+		t.Fatal(err)
+	}
+	id, revision, err := s.Store.SaveFeedPost(t.Context(), factory.PostRequest{Repository: repository, Body: "A request from before the fix", IdempotencyKey: "old-context-intake"}, scope.Actor, "alice", 1)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -86,7 +167,8 @@ func TestNativeCommentIntakeUsesHumanIssueAccessWithoutFactorySetup(t *testing.T
 	if err := s.Store.NotePostStall(t.Context(), id, "factory"); err != nil {
 		t.Fatal(err)
 	}
-	response = nativeProductRequest(t, proxy, s.Config.ForgejoURL, "POST", "/factory/feed/posts/"+id+"/retry", []byte(`{"expected_revision":0}`))
+	retryBody, _ := json.Marshal(factory.FeedPostRetryRequest{CommandID: factory.NewID(), Repository: repository, ExpectedRevision: 0})
+	response = nativeProductRequest(t, proxy, s.Config.ForgejoURL, "POST", "/factory/feed/posts/"+id+"/retry", retryBody)
 	if response.StatusCode != 200 {
 		body, _ := io.ReadAll(response.Body)
 		t.Fatalf("refresh status=%d body=%s", response.StatusCode, body)
@@ -100,6 +182,17 @@ func TestNativeCommentIntakeUsesHumanIssueAccessWithoutFactorySetup(t *testing.T
 	}
 	if _, err := s.Store.PostIssueContext(t.Context(), id, revision); err == nil {
 		t.Fatal("old revision retained current issue authority")
+	}
+	var retryReceipt factory.FeedPostRetryReceipt
+	if err := json.NewDecoder(response.Body).Decode(&retryReceipt); err != nil || retryReceipt.Revision != refreshed.Record.Revision || retryReceipt.Post != id || retryReceipt.Author != scope.Actor || retryReceipt.Repository != scope.Repository {
+		t.Fatal("native retry lost canonical receipt scope", retryReceipt, err)
+	}
+	response.Body.Close()
+	response = nativeProductRequest(t, proxy, s.Config.ForgejoURL, "GET", "/factory/feed/posts/"+id+"/retry/"+retryReceipt.CommandID+"?repository="+scope.Repository, nil)
+	defer response.Body.Close()
+	var recovered factory.FeedPostRetryReceipt
+	if response.StatusCode != 200 || json.NewDecoder(response.Body).Decode(&recovered) != nil || recovered != retryReceipt {
+		t.Fatal("native private proxy did not recover the same retry receipt", response.StatusCode, recovered)
 	}
 }
 

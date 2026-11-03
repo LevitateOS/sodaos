@@ -2,11 +2,12 @@ package api
 
 import (
 	"errors"
-	"github.com/levitateos/sodaos/internal/project"
-	"github.com/levitateos/sodaos/internal/store"
-	"github.com/levitateos/sodaos/internal/web/auth"
 	"net/http"
 	"strconv"
+
+	"github.com/levitateos/factory/pkg/project"
+	"github.com/levitateos/factory/pkg/store"
+	"github.com/levitateos/sodaos/internal/web/auth"
 )
 
 func (s *API) memberAccessAuthority(w http.ResponseWriter, r *http.Request, v store.Session, p store.Project) bool {

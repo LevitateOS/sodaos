@@ -6,7 +6,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/levitateos/sodaos/internal/store"
+	"github.com/levitateos/factory/pkg/store"
 )
 
 func (s *Service) preferences(w http.ResponseWriter, r *http.Request, user store.User, beforeWrite func() bool) {

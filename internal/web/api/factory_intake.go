@@ -14,10 +14,11 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/levitateos/sodaos/internal/factory"
-	"github.com/levitateos/sodaos/internal/factory/control"
+	"github.com/levitateos/factory/pkg/factory"
+	"github.com/levitateos/factory/pkg/factory/control"
+	"github.com/levitateos/factory/pkg/store"
+	"github.com/levitateos/sodaos/internal/forgejo"
 	forgejopublish "github.com/levitateos/sodaos/internal/forgejo/publish"
-	"github.com/levitateos/sodaos/internal/store"
 	"github.com/levitateos/sodaos/internal/web/auth"
 )
 
@@ -38,6 +39,7 @@ type IntakeHandler struct {
 	Coordinator IntakeCoordinator
 	Store       *store.Store
 	Secret      []byte
+	Identities  *forgejo.FountainIdentities
 }
 
 func intakeHeader(r *http.Request, forgejo, gitea string) string {
@@ -61,7 +63,7 @@ func (h IntakeHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		auth.JSONError(w, http.StatusMethodNotAllowed, "invalid_method", "Factory intake accepts POST deliveries.")
 		return
 	}
-	if len(h.Secret) == 0 || h.Coordinator == nil && h.Store == nil {
+	if len(h.Secret) == 0 || h.Identities == nil || h.Coordinator == nil && h.Store == nil {
 		auth.JSONError(w, http.StatusServiceUnavailable, "intake_unavailable", "Factory intake is not configured.")
 		return
 	}
@@ -96,6 +98,20 @@ func (h IntakeHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	if err := hint.Validate(); err != nil {
 		auth.JSONError(w, http.StatusBadRequest, "invalid_hint", "Native delivery does not name a factory issue.")
 		return
+	}
+	repository, err := h.Identities.LocalRepository(r.Context(), hint.Repository)
+	if err != nil {
+		auth.JSONError(w, http.StatusServiceUnavailable, "intake_unavailable", "Factory repository identity is unavailable.")
+		return
+	}
+	hint.Repository = int64(repository)
+	if hint.Creator > 0 {
+		actor, err := h.Identities.LocalActor(r.Context(), strconv.FormatInt(hint.Creator, 10))
+		if err != nil {
+			auth.JSONError(w, http.StatusServiceUnavailable, "intake_unavailable", "Factory creator identity is unavailable.")
+			return
+		}
+		hint.Creator = int64(actor)
 	}
 	if h.Coordinator == nil {
 		auth.JSONError(w, http.StatusServiceUnavailable, "intake_unavailable", "Factory intake is not configured.")
@@ -143,11 +159,12 @@ func (h IntakeHandler) repositoryEvent(w http.ResponseWriter, r *http.Request, b
 		auth.JSONError(w, http.StatusBadRequest, "invalid_delivery", "Native repository identity is required.")
 		return
 	}
-	if h.Store == nil || h.Store.RecordRepositoryOpening(r.Context(), payload.Repository.ID, payload.Repository.CreatedAt.Unix()) != nil {
+	repository, err := h.Identities.LocalRepository(r.Context(), payload.Repository.ID)
+	if err != nil || h.Store == nil || h.Store.RecordRepositoryOpening(r.Context(), int64(repository), payload.Repository.CreatedAt.Unix()) != nil {
 		auth.JSONError(w, http.StatusServiceUnavailable, "intake_unavailable", "Repository opening post could not be saved.")
 		return
 	}
-	auth.JSONResponse(w, http.StatusOK, intakeOutcome{Repository: strconv.FormatInt(payload.Repository.ID, 10)})
+	auth.JSONResponse(w, http.StatusOK, intakeOutcome{Repository: strconv.FormatInt(int64(repository), 10)})
 }
 
 // verifyIntakeSignature compares the hex HMAC-SHA256 of the raw delivery

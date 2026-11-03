@@ -7,25 +7,29 @@ import (
 	"net/http"
 	"sync"
 
+	"github.com/levitateos/factory/pkg/factory"
+	"github.com/levitateos/factory/pkg/factory/control"
+	factoryservice "github.com/levitateos/factory/pkg/factory/service"
+	"github.com/levitateos/factory/pkg/store"
 	"github.com/levitateos/sodaos/internal/config"
-	"github.com/levitateos/sodaos/internal/factory/control"
 	"github.com/levitateos/sodaos/internal/forgejo"
 	"github.com/levitateos/sodaos/internal/host"
-	"github.com/levitateos/sodaos/internal/store"
 	"github.com/levitateos/sodaos/internal/web/auth"
 )
 
 // API owns native-extension product handlers and its terminal peer registry.
 type API struct {
-	IssueMakerNative IssueMakerNative
-	Config           *config.Config
-	Store            *store.Store
-	Forgejo          *forgejo.Client
-	Host             *host.Client
-	Auth             *auth.Service
-	Identity         IdentityClient
-	Coordinator      *control.Coordinator
-	ExtensionManager *forgejo.ServiceBackground
+	FactoryProjects    FactoryProjects
+	IssueMakerNative   factoryservice.IssueIntakeWriter
+	Config             *config.Config
+	Store              *store.Store
+	Forgejo            *forgejo.Client
+	FountainIdentities *forgejo.FountainIdentities
+	Host               *host.Client
+	Auth               *auth.Service
+	Identity           IdentityClient
+	Coordinator        *control.Coordinator
+	ExtensionManager   *forgejo.ServiceBackground
 	// IntentExploreChooser overrides the TypeSafe judgment service for
 	// intent exploration when set. Production leaves it nil.
 	IntentExploreChooser control.ProductJudgment
@@ -46,6 +50,15 @@ type API struct {
 	TerminalStopping   map[string]bool
 	terminalClosed     bool
 	terminalWG         sync.WaitGroup
+}
+
+// FactoryProjects is the Project lifecycle integration with Factory. Forge
+// consumes a private service client; Factory supplies its coordinator directly.
+type FactoryProjects interface {
+	StopProject(context.Context, string, string) (factory.Withdrawal, []factory.RunStopOutcome, error)
+	VerifyProjectStart(context.Context, string) (factory.StartVerification, error)
+	ClearProjectStopAfterStart(context.Context, string, factory.StartVerification) (bool, error)
+	EffectiveAuthority(context.Context, int64) (factory.EffectiveAuthority, error)
 }
 
 // TerminalPeer is a native extension operation or stream tracked for lifecycle cancellation.

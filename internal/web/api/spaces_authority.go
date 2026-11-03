@@ -5,8 +5,8 @@ import (
 	"errors"
 	"net/http"
 
-	"github.com/levitateos/sodaos/internal/factory"
-	"github.com/levitateos/sodaos/internal/store"
+	"github.com/levitateos/factory/pkg/factory"
+	"github.com/levitateos/factory/pkg/store"
 )
 
 // spaceAuthorityView exposes the effective factory verdict for the row's
@@ -28,10 +28,10 @@ func (s *API) resolveSpaceAuthority(request *http.Request, v store.Session, p st
 }
 
 func (s *API) inspectSpaceAuthority(ctx context.Context, repository int64) *spaceAuthorityView {
-	if s.Coordinator == nil {
+	if s.FactoryProjects == nil {
 		return nil
 	}
-	effective, err := s.Coordinator.EffectiveAuthority(ctx, repository)
+	effective, err := s.FactoryProjects.EffectiveAuthority(ctx, repository)
 	if err != nil {
 		return nil
 	}

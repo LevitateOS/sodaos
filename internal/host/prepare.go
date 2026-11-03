@@ -5,7 +5,7 @@ import (
 	"errors"
 	"net/http"
 
-	"github.com/levitateos/sodaos/internal/project"
+	"github.com/levitateos/factory/pkg/project"
 )
 
 // prepareResponseLimit bounds preparation observations, which carry bounded

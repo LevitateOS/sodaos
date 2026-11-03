@@ -5,7 +5,7 @@ import (
 	"errors"
 	"net/http"
 
-	"github.com/levitateos/sodaos/internal/project"
+	"github.com/levitateos/factory/pkg/project"
 )
 
 func (c *Client) PrepareCandidate(ctx context.Context, in project.FactoryCandidate) (project.PrepareState, error) {

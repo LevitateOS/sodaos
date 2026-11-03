@@ -8,7 +8,7 @@ import (
 	"time"
 
 	"github.com/coder/websocket"
-	"github.com/levitateos/sodaos/internal/strictjson"
+	"github.com/levitateos/factory/pkg/strictjson"
 )
 
 // Terminal is a private helper stream. Only an authorized attachment sends

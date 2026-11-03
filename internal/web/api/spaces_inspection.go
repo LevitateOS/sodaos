@@ -7,9 +7,9 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/levitateos/sodaos/internal/factory"
+	"github.com/levitateos/factory/pkg/factory"
+	"github.com/levitateos/factory/pkg/store"
 	"github.com/levitateos/sodaos/internal/host"
-	"github.com/levitateos/sodaos/internal/store"
 )
 
 // SpaceFactoryRun maps one recorded run to its display row: identity,
@@ -93,14 +93,14 @@ func (s *API) inspectSpaceRow(
 	runsKnown bool,
 	terminalCount *int,
 	usage *spacesRunUsage,
-) (SpaceView, bool, bool) {
+) (SpaceView, bool, bool, bool) {
 	check, cancel := context.WithTimeout(ctx, 2*time.Second)
 	defer cancel()
 	request := r.WithContext(check)
 
 	reader, allowed, complete := s.resolveSpaceAuthority(request, v, p)
 	if !allowed {
-		return SpaceView{}, false, complete
+		return SpaceView{}, false, complete, true
 	}
 
 	row := SpaceView{
@@ -122,10 +122,20 @@ func (s *API) inspectSpaceRow(
 	s.inspectSpaceTailnet(check, p, reader, &row)
 	// Preparation readiness is a durable store read, never a native call.
 	row.Preparation = s.inspectSpacePreparation(check, p.ID)
-	row.FactoryAuthority = s.inspectSpaceAuthority(check, p.RepositoryID)
-	row.FactoryControl = s.inspectSpaceControl(check, runs, runsKnown, p.ID, p.RepositoryID)
-	row.FactoryRuns, complete = inspectSpaceFactoryRuns(row.FactoryRuns, runs, views, p.ID, usage, complete)
-	return row, true, complete
+	// Resolve only after native visibility admission. Factory scopes belong to
+	// the adopted provider namespace, never to the Project's native number.
+	repository, err := s.Store.CollaborationRepositoryForNativeProject(check, p.ID)
+	factoryComplete := err == nil || errors.Is(err, store.ErrNotFound)
+	var canonicalRepository int64
+	if err == nil {
+		canonicalRepository = int64(repository.ID)
+		row.FactoryAuthority = s.inspectSpaceAuthority(check, canonicalRepository)
+		row.FactoryControl = s.inspectSpaceControl(check, runs, runsKnown, p.ID, canonicalRepository)
+	}
+	var runsComplete bool
+	row.FactoryRuns, runsComplete = inspectSpaceFactoryRuns(row.FactoryRuns, runs, views, p.ID, canonicalRepository, usage)
+	factoryComplete = factoryComplete && runsComplete
+	return row, true, complete && factoryComplete, factoryComplete
 }
 
 // inspectSpaceFactoryRuns maps the row's recorded runs to display rows.
@@ -138,9 +148,10 @@ func inspectSpaceFactoryRuns(
 	runs []factory.Run,
 	views map[string]factory.RunView,
 	projectID string,
+	repository int64,
 	usage *spacesRunUsage,
-	complete bool,
 ) ([]SpaceFactoryRun, bool) {
+	complete := true
 	for _, run := range runs {
 		if run.ProjectID != projectID {
 			continue
@@ -160,10 +171,15 @@ func inspectSpaceFactoryRuns(
 		}
 		row := SpaceFactoryRun{ID: run.ID, Role: run.Role, Outcome: run.Outcome, Reconciled: run.Reconciled}
 		if view, ok := views[run.ID]; ok {
-			if view.Issue > 0 {
-				row.Issue = strconv.FormatInt(view.Issue, 10)
+			if repository < 1 || view.Repository != repository {
+				// Keep the recorded run, but never attach another scope's work.
+				complete = false
+			} else {
+				if view.Issue > 0 {
+					row.Issue = strconv.FormatInt(view.Issue, 10)
+				}
+				row.Attempt = view.Attempt
 			}
-			row.Attempt = view.Attempt
 		}
 		out = append(out, row)
 	}

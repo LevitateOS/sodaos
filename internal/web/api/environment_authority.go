@@ -7,10 +7,9 @@ import (
 	"strings"
 
 	extensions "forgejo.org/extension-sdk"
-	"github.com/levitateos/sodaos/internal/web/auth"
-
+	"github.com/levitateos/factory/pkg/store"
 	"github.com/levitateos/sodaos/internal/forgejo"
-	"github.com/levitateos/sodaos/internal/store"
+	"github.com/levitateos/sodaos/internal/web/auth"
 )
 
 var (
@@ -50,7 +49,7 @@ func (s *API) nativeVisibleRepository(r *http.Request, v store.Session, id int64
 	permissions.Push = repository.Permission == "write" || repository.Permission == "admin"
 	permissions.Admin = repository.Permission == "admin" || owner.ID == actor.ID
 	return repositoryAccess{actor: actor, repository: forgejo.Repository{
-		ID: id, Name: repository.Name, FullName: repository.Owner + "/" + repository.Name,
+		ID: id, Name: repository.Name, FullName: repository.Owner + "/" + repository.Name, DefaultBranch: repository.DefaultBranch,
 		Owner: owner, Permissions: permissions,
 	}, native: true}, nil
 }

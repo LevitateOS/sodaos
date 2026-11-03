@@ -5,8 +5,8 @@ package auth
 import (
 	"strings"
 
+	"github.com/levitateos/factory/pkg/store"
 	"github.com/levitateos/sodaos/internal/config"
-	"github.com/levitateos/sodaos/internal/store"
 )
 
 // Service holds native extension profile state.

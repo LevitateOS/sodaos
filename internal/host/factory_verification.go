@@ -3,7 +3,7 @@ package host
 import (
 	"context"
 
-	"github.com/levitateos/sodaos/internal/project"
+	"github.com/levitateos/factory/pkg/project"
 )
 
 // FactoryVerificationChecks drives or observes only the already admitted

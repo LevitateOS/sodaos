@@ -10,9 +10,9 @@ import (
 	"testing"
 
 	extensions "forgejo.org/extension-sdk"
+	"github.com/levitateos/factory/pkg/project"
+	"github.com/levitateos/factory/pkg/store"
 	"github.com/levitateos/sodaos/internal/config"
-	"github.com/levitateos/sodaos/internal/project"
-	"github.com/levitateos/sodaos/internal/store"
 	"github.com/levitateos/sodaos/internal/tailnet"
 )
 
@@ -50,7 +50,7 @@ func nativeTailnetAdminServe(t *testing.T, s *Server, w http.ResponseWriter, r *
 		headers(r.Header)
 	}
 	r.URL.Path = path
-	s.ExtensionHandler().ServeHTTP(w, r)
+	s.API.ExtensionHandler().ServeHTTP(w, r)
 }
 
 func TestManagedCreateReviewsPolicyWithoutChangingLegacyDefaults(t *testing.T) {

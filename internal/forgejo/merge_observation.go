@@ -4,7 +4,7 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/levitateos/sodaos/internal/factory"
+	"github.com/levitateos/factory/pkg/factory"
 )
 
 func checkMergeIdentity(w factory.MergeWork, i *IssueEvidence, p *PullEvidence) error {

@@ -14,10 +14,10 @@ import (
 
 	extensions "forgejo.org/extension-sdk"
 	"github.com/coder/websocket"
+	"github.com/levitateos/factory/pkg/factory"
+	"github.com/levitateos/factory/pkg/project"
+	"github.com/levitateos/factory/pkg/store"
 	"github.com/levitateos/sodaos/internal/config"
-	"github.com/levitateos/sodaos/internal/factory"
-	"github.com/levitateos/sodaos/internal/project"
-	"github.com/levitateos/sodaos/internal/store"
 	"github.com/levitateos/sodaos/internal/web/api"
 )
 
@@ -41,7 +41,10 @@ func inventoryFixture(t *testing.T) (*Server, string) {
 			t.Fatal(err)
 		}
 	}
-	s := New(config.Config{ForgejoURL: "https://forgejo.example.test", OperatorID: 999}, db)
+	s, err := NewFactory(config.Config{ForgejoURL: "https://forgejo.example.test", OperatorID: 999}, db)
+	if err != nil {
+		t.Fatal(err)
+	}
 	helper := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path == "/terminal" {
 			c, err := websocket.Accept(w, r, nil)
@@ -98,6 +101,9 @@ func recordInventoryRun(t *testing.T, s *Server, r factory.Run, settled bool) {
 
 func inventoryProject(t *testing.T, s *Server, id string, repository int64) {
 	t.Helper()
+	if _, err := s.API.FountainIdentities.LocalRepository(t.Context(), repository); err != nil {
+		t.Fatal(err)
+	}
 	if err := s.Store.CreateProject(context.Background(), store.Project{
 		ID: id, Name: "inventory", RepositoryID: repository, OwnerID: 1, Repository: "alice/inventory",
 	}); err != nil {

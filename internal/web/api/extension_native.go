@@ -8,7 +8,8 @@ import (
 	"strings"
 
 	extensions "forgejo.org/extension-sdk"
-	"github.com/levitateos/sodaos/internal/store"
+	factoryhttpapi "github.com/levitateos/factory/pkg/factory/httpapi"
+	"github.com/levitateos/factory/pkg/store"
 	"github.com/levitateos/sodaos/internal/web/auth"
 )
 
@@ -114,7 +115,32 @@ func (s *API) extensionProductMutation(w http.ResponseWriter, r *http.Request) b
 			auth.JSONError(w, http.StatusForbidden, "invalid_origin", "Same-origin Soda mutation required.")
 			return false
 		}
-		r.Body = http.MaxBytesReader(w, r.Body, auth.APIBodyLimit)
+		limit := int64(auth.APIBodyLimit)
+		if factoryhttpapi.IsHumanCommentSubmission(r) {
+			limit = factoryhttpapi.HumanCommentRequestLimit
+		}
+		if factoryhttpapi.IsHumanEditSubmission(r) {
+			limit = factoryhttpapi.HumanEditRequestLimit
+		}
+		if factoryhttpapi.IsHumanInlineSubmission(r) {
+			limit = factoryhttpapi.HumanInlineRequestLimit
+		}
+		if factoryhttpapi.IsHumanReviewSubmission(r) {
+			limit = factoryhttpapi.HumanReviewRequestLimit
+		}
+		if factoryhttpapi.IsHumanMergeSubmission(r) {
+			limit = factoryhttpapi.HumanMergeRequestLimit
+		}
+		if factoryhttpapi.IsHumanLockSubmission(r) {
+			limit = factoryhttpapi.HumanLockRequestLimit
+		}
+		if factoryhttpapi.IsHumanPullCreateSubmission(r) {
+			limit = factoryhttpapi.HumanPullCreateRequestLimit
+		}
+		if factoryhttpapi.IsHumanIssueCreateSubmission(r) {
+			limit = factoryhttpapi.HumanIssueCreateRequestLimit
+		}
+		r.Body = http.MaxBytesReader(w, r.Body, limit)
 	}
 	return true
 }
@@ -203,57 +229,133 @@ func (s *API) registerExtensionProductRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("GET /api/repositories/{repositoryID}/application-builds", protect(s.apiApplicationBuilds, http.MethodGet))
 	mux.HandleFunc("POST /api/repositories/{repositoryID}/application-builds", protect(s.apiApplicationBuilds, http.MethodPost))
 	mux.HandleFunc("POST /api/repositories/{repositoryID}/application-builds/{build}/setup", protect(s.apiApplicationBuildSetup, http.MethodPost))
-	mux.HandleFunc("GET /api/factory/departments", protect(s.apiDepartments, http.MethodGet))
-	mux.HandleFunc("POST /api/factory/departments", protect(s.apiDepartments, http.MethodPost))
-	mux.HandleFunc("POST /api/factory/intents", protect(s.apiIntentRevision, http.MethodPost))
-	mux.HandleFunc("GET /api/factory/intents", protect(s.apiIntents, http.MethodGet))
-	mux.HandleFunc("GET /api/factory/intents/{intentID}", protect(s.apiIntent, http.MethodGet))
-	mux.HandleFunc("GET /api/factory/intents/{intentID}/generation", protect(s.apiIntentGeneration, http.MethodGet))
-	mux.HandleFunc("GET /api/factory/intents/{intentID}/history", protect(s.apiIntentHistory, http.MethodGet))
-	mux.HandleFunc("GET /api/factory/intents/{intentID}/verification-allowance", protect(s.apiIntentVerificationAllowance, http.MethodGet))
-	mux.HandleFunc("POST /api/factory/intents/{intentID}/verification-allowance", protect(s.apiIntentVerificationAllowance, http.MethodPost))
-	mux.HandleFunc("GET /api/factory/intents/{intentID}/review", protect(s.apiIntentReview, http.MethodGet))
-	mux.HandleFunc("GET /api/factory/intents/{intentID}/overview", protect(s.apiFactoryRequestOverview, http.MethodGet))
-	mux.HandleFunc("GET /api/factory/intents/{intentID}/revisions", protect(s.apiFactoryRevisionHistory, http.MethodGet))
-	mux.HandleFunc("POST /api/factory/intents/{intentID}/generate", protect(s.apiIntentGenerate, http.MethodPost))
-	mux.HandleFunc("POST /api/factory/intents/{intentID}/plan", protect(s.apiIntentPlan, http.MethodPost))
-	mux.HandleFunc("GET /api/factory/intents/{intentID}/plan", protect(s.apiIntentPlanStatus, http.MethodGet))
-	mux.HandleFunc("POST /api/factory/intents/{intentID}/plan/review", protect(s.apiIntentPlanReview, http.MethodPost))
-	mux.HandleFunc("POST /api/factory/intents/{intentID}/explore", protect(s.apiIntentExplore, http.MethodPost))
+	mux.HandleFunc("GET /api/factory/departments", protect(s.apiFactoryRequestsHTTP, http.MethodGet))
+	mux.HandleFunc("POST /api/factory/native-repositories/resolve", protect(s.apiFactoryResolveNativeRepository, http.MethodPost))
+	mux.HandleFunc("GET /api/factory/identity", protect(s.apiFactoryIdentity, http.MethodGet))
+	mux.HandleFunc("GET /api/factory/collaboration/repositories/{repository}/issues", protect(s.apiFactoryCollaborationIssues, http.MethodGet))
+	mergeBase := "/api/factory/collaboration/repositories/{repository}/pulls/{number}/merges"
+	mux.HandleFunc("POST "+mergeBase, protect(s.apiFactoryHumanMerges, http.MethodPost))
+	mux.HandleFunc("GET "+mergeBase+"/commands/{command}", protect(s.apiFactoryHumanMerges, http.MethodGet))
+	mux.HandleFunc("POST "+mergeBase+"/commands/{command}/cancel", protect(s.apiFactoryHumanMerges, http.MethodPost))
+	reviewerBase := "/api/factory/collaboration/repositories/{repository}/pulls/{number}/review-requests"
+	mux.HandleFunc("POST "+reviewerBase, protect(s.apiFactoryHumanReviewRequests, http.MethodPost))
+	mux.HandleFunc("GET "+reviewerBase+"/commands/{command}", protect(s.apiFactoryHumanReviewRequests, http.MethodGet))
+	mux.HandleFunc("POST "+reviewerBase+"/commands/{command}/cancel", protect(s.apiFactoryHumanReviewRequests, http.MethodPost))
+	threadBase := "/api/factory/collaboration/repositories/{repository}/pulls/{number}/thread-resolutions"
+	mux.HandleFunc("POST "+threadBase, protect(s.apiFactoryHumanThreads, http.MethodPost))
+	mux.HandleFunc("GET "+threadBase+"/commands/{command}", protect(s.apiFactoryHumanThreads, http.MethodGet))
+	mux.HandleFunc("POST "+threadBase+"/commands/{command}/cancel", protect(s.apiFactoryHumanThreads, http.MethodPost))
+	inlineBase := "/api/factory/collaboration/repositories/{repository}/pulls/{number}/inline-comments"
+	mux.HandleFunc("POST "+inlineBase, protect(s.apiFactoryHumanInlines, http.MethodPost))
+	mux.HandleFunc("GET "+inlineBase+"/commands/{command}", protect(s.apiFactoryHumanInlines, http.MethodGet))
+	mux.HandleFunc("POST "+inlineBase+"/commands/{command}/cancel", protect(s.apiFactoryHumanInlines, http.MethodPost))
+	reviewBase := "/api/factory/collaboration/repositories/{repository}/pulls/{number}/reviews"
+	mux.HandleFunc("POST "+reviewBase, protect(s.apiFactoryHumanReviews, http.MethodPost))
+	mux.HandleFunc("GET "+reviewBase+"/commands/{command}", protect(s.apiFactoryHumanReviews, http.MethodGet))
+	mux.HandleFunc("POST "+reviewBase+"/commands/{command}/cancel", protect(s.apiFactoryHumanReviews, http.MethodPost))
+	pullCreateBase := "/api/factory/collaboration/repositories/{repository}/pulls"
+	pullCreateCommand := "/api/factory/collaboration/repositories/{repository}/pull-creation/commands/{command}"
+	mux.HandleFunc("POST "+pullCreateBase, protect(s.apiFactoryHumanPullCreates, http.MethodPost))
+	mux.HandleFunc("GET "+pullCreateCommand, protect(s.apiFactoryHumanPullCreates, http.MethodGet))
+	mux.HandleFunc("POST "+pullCreateCommand+"/cancel", protect(s.apiFactoryHumanPullCreates, http.MethodPost))
+	createBase := "/api/factory/collaboration/repositories/{repository}/issues"
+	createCommand := "/api/factory/collaboration/repositories/{repository}/issue-creation/commands/{command}"
+	mux.HandleFunc("POST "+createBase, protect(s.apiFactoryHumanIssueCreates, http.MethodPost))
+	mux.HandleFunc("GET "+createCommand, protect(s.apiFactoryHumanIssueCreates, http.MethodGet))
+	mux.HandleFunc("POST "+createCommand+"/cancel", protect(s.apiFactoryHumanIssueCreates, http.MethodPost))
+	mux.HandleFunc("GET /api/factory/collaboration/repositories/{repository}/issues/{number}", protect(s.apiFactoryCollaborationIssues, http.MethodGet))
+	mux.HandleFunc("GET /api/factory/collaboration/repositories/{repository}/issues/{number}/comments", protect(s.apiFactoryCollaborationDiscussions, http.MethodGet))
+	for _, kind := range []string{"issues", "pulls"} {
+		base := "/api/factory/collaboration/repositories/{repository}/" + kind + "/{number}/comments"
+		mux.HandleFunc("POST "+base, protect(s.apiFactoryHumanComments, http.MethodPost))
+		mux.HandleFunc("GET "+base+"/commands/{command}", protect(s.apiFactoryHumanComments, http.MethodGet))
+		mux.HandleFunc("POST "+base+"/commands/{command}/cancel", protect(s.apiFactoryHumanComments, http.MethodPost))
+		editBase := "/api/factory/collaboration/repositories/{repository}/" + kind + "/{number}/edits"
+		mux.HandleFunc("POST "+editBase, protect(s.apiFactoryHumanEdits, http.MethodPost))
+		mux.HandleFunc("GET "+editBase+"/commands/{command}", protect(s.apiFactoryHumanEdits, http.MethodGet))
+		mux.HandleFunc("POST "+editBase+"/commands/{command}/cancel", protect(s.apiFactoryHumanEdits, http.MethodPost))
+		lockBase := "/api/factory/collaboration/repositories/{repository}/" + kind + "/{number}/locks"
+		mux.HandleFunc("POST "+lockBase, protect(s.apiFactoryHumanLocks, http.MethodPost))
+		mux.HandleFunc("GET "+lockBase+"/commands/{command}", protect(s.apiFactoryHumanLocks, http.MethodGet))
+		mux.HandleFunc("POST "+lockBase+"/commands/{command}/cancel", protect(s.apiFactoryHumanLocks, http.MethodPost))
+		stateBase := "/api/factory/collaboration/repositories/{repository}/" + kind + "/{number}/state"
+		mux.HandleFunc("POST "+stateBase, protect(s.apiFactoryHumanStates, http.MethodPost))
+		mux.HandleFunc("GET "+stateBase+"/commands/{command}", protect(s.apiFactoryHumanStates, http.MethodGet))
+		mux.HandleFunc("POST "+stateBase+"/commands/{command}/cancel", protect(s.apiFactoryHumanStates, http.MethodPost))
+	}
+	mux.HandleFunc("GET /api/factory/collaboration/repositories/{repository}/pulls/{number}/threads", protect(s.apiFactoryCollaborationThreads, http.MethodGet))
+	mux.HandleFunc("GET /api/factory/collaboration/repositories/{repository}/pulls/{number}/threads/{thread}", protect(s.apiFactoryCollaborationThreads, http.MethodGet))
+	mux.HandleFunc("GET /api/factory/collaboration/repositories/{repository}/pulls/{number}/threads/{thread}/selection", protect(s.apiFactoryHumanThreads, http.MethodGet))
+	mux.HandleFunc("GET /api/factory/collaboration/repositories/{repository}/pulls/{number}/threads/{thread}/comments", protect(s.apiFactoryCollaborationThreads, http.MethodGet))
+	mux.HandleFunc("GET /api/factory/collaboration/repositories/{repository}/pulls/{number}/reviews", protect(s.apiFactoryCollaborationReviews, http.MethodGet))
+	mux.HandleFunc("GET /api/factory/collaboration/repositories/{repository}/pulls/{number}/reviews/{review}", protect(s.apiFactoryCollaborationReviews, http.MethodGet))
+	mux.HandleFunc("GET /api/factory/collaboration/repositories", protect(s.apiFactoryCollaborationRepositoryCatalog, http.MethodGet))
+	mux.HandleFunc("GET /api/factory/collaboration/repositories/{repository}/capabilities", protect(s.apiFactoryCollaborationCapabilities, http.MethodGet))
+	mux.HandleFunc("GET /api/factory/collaboration/repositories/{repository}/issues/{number}/capabilities", protect(s.apiFactoryCollaborationCapabilities, http.MethodGet))
+	mux.HandleFunc("GET /api/factory/collaboration/repositories/{repository}/pulls/{number}/capabilities", protect(s.apiFactoryCollaborationCapabilities, http.MethodGet))
+	mux.HandleFunc("GET /api/factory/collaboration/repositories/{repository}/pulls/{number}/checks", protect(s.apiFactoryCollaborationChecks, http.MethodGet))
+	mux.HandleFunc("GET /api/factory/collaboration/repositories/{repository}/pulls/{number}/checks/jobs", protect(s.apiFactoryCollaborationChecks, http.MethodGet))
+	mux.HandleFunc("GET /api/factory/collaboration/repositories/{repository}/pulls/{number}/files", protect(s.apiFactoryCollaborationPullFiles, http.MethodGet))
+	mux.HandleFunc("GET /api/factory/collaboration/repositories/{repository}/pulls", protect(s.apiFactoryCollaborationPulls, http.MethodGet))
+	mux.HandleFunc("GET /api/factory/collaboration/repositories/{repository}/pulls/{number}", protect(s.apiFactoryCollaborationPulls, http.MethodGet))
+	mux.HandleFunc("GET /api/factory/collaboration/repositories/{repository}/pulls/{number}/comments", protect(s.apiFactoryCollaborationDiscussions, http.MethodGet))
+	mux.HandleFunc("GET /api/factory/repositories", protect(s.apiFactoryFeedHTTP, http.MethodGet))
+	mux.HandleFunc("GET /api/factory/repositories/{repositoryID}/identity", protect(s.apiFactoryRepositoryIdentity, http.MethodGet))
+	mux.HandleFunc("POST /api/factory/departments", protect(s.apiFactoryRequestsHTTP, http.MethodPost))
+	mux.HandleFunc("POST /api/factory/intents", protect(s.apiFactoryRequestsHTTP, http.MethodPost))
+	mux.HandleFunc("GET /api/factory/intents", protect(s.apiFactoryRequestsHTTP, http.MethodGet))
+	mux.HandleFunc("GET /api/factory/intents/{intentID}", protect(s.apiFactoryRequestsHTTP, http.MethodGet))
+	mux.HandleFunc("GET /api/factory/intents/{intentID}/revisions/{revisionID}", protect(s.apiFactoryRequestsHTTP, http.MethodGet))
+	mux.HandleFunc("GET /api/factory/intents/{intentID}/revisions/{revisionID}/generation", protect(s.apiFactoryRequestsHTTP, http.MethodGet))
+	mux.HandleFunc("GET /api/factory/intents/{intentID}/revisions/{revisionID}/plan", protect(s.apiFactoryRequestsHTTP, http.MethodGet))
+	mux.HandleFunc("GET /api/factory/intents/{intentID}/revisions/{revisionID}/exploration", protect(s.apiFactoryRequestsHTTP, http.MethodGet))
+	mux.HandleFunc("GET /api/factory/intents/{intentID}/generation", protect(s.apiFactoryRequestsHTTP, http.MethodGet))
+	mux.HandleFunc("GET /api/factory/intents/{intentID}/history", protect(s.apiFactoryRequestsHTTP, http.MethodGet))
+	mux.HandleFunc("GET /api/factory/intents/{intentID}/verification-allowance", protect(s.apiFactoryRequestsHTTP, http.MethodGet))
+	mux.HandleFunc("POST /api/factory/intents/{intentID}/verification-allowance", protect(s.apiFactoryRequestsHTTP, http.MethodPost))
+	mux.HandleFunc("GET /api/factory/intents/{intentID}/review", protect(s.apiFactoryRequestsHTTP, http.MethodGet))
+	mux.HandleFunc("GET /api/factory/intents/{intentID}/overview", protect(s.apiFactoryRequestsHTTP, http.MethodGet))
+	mux.HandleFunc("GET /api/factory/intents/{intentID}/revisions", protect(s.apiFactoryRequestsHTTP, http.MethodGet))
+	mux.HandleFunc("POST /api/factory/intents/{intentID}/generate", protect(s.apiFactoryRequestsHTTP, http.MethodPost))
+	mux.HandleFunc("POST /api/factory/intents/{intentID}/plan", protect(s.apiFactoryRequestsHTTP, http.MethodPost))
+	mux.HandleFunc("GET /api/factory/intents/{intentID}/plan", protect(s.apiFactoryRequestsHTTP, http.MethodGet))
+	mux.HandleFunc("POST /api/factory/intents/{intentID}/plan/review", protect(s.apiFactoryRequestsHTTP, http.MethodPost))
+	mux.HandleFunc("POST /api/factory/intents/{intentID}/explore", protect(s.apiFactoryRequestsHTTP, http.MethodPost))
 	mux.HandleFunc("GET /api/repositories", protect(s.apiRepositories, http.MethodGet))
 	mux.HandleFunc("GET /api/repositories/{repositoryID}/profiles", protect(s.apiProjectProfiles, http.MethodGet))
 	mux.HandleFunc("GET /api/repositories/{repositoryID}/tailnet-options", protect(s.apiTailnetOptions, http.MethodGet))
-	mux.HandleFunc("GET /api/repositories/{repositoryID}/factory", protect(s.apiFactoryStatus, http.MethodGet))
-	mux.HandleFunc("GET /api/repositories/{repositoryID}/factory/activity", protect(s.apiFactoryActivity, http.MethodGet))
-	mux.HandleFunc("PUT /api/repositories/{repositoryID}/factory/activity", protect(s.apiFactoryActivity, http.MethodPut))
-	mux.HandleFunc("PUT /api/repositories/{repositoryID}/factory/policy", protect(s.apiFactoryPolicy, http.MethodPut))
-	mux.HandleFunc("PUT /api/repositories/{repositoryID}/factory/operator-grant", protect(s.apiFactoryOperatorGrant, http.MethodPut))
-	mux.HandleFunc("GET /api/repositories/{repositoryID}/factory/repair", protect(s.apiFactoryRepair, http.MethodGet))
-	mux.HandleFunc("PUT /api/repositories/{repositoryID}/factory/repair", protect(s.apiFactoryRepair, http.MethodPut))
-	mux.HandleFunc("PUT /api/repositories/{repositoryID}/factory/environment-grant", protect(s.apiFactoryEnvironmentGrant, http.MethodPut))
-	mux.HandleFunc("GET /api/repositories/{repositoryID}/factory/access", protect(s.apiFactoryAccess, http.MethodGet))
-	mux.HandleFunc("GET /api/repositories/{repositoryID}/factory/issues/{issueID}/plan", protect(s.apiFactoryIssuePlan, http.MethodGet))
-	mux.HandleFunc("PUT /api/repositories/{repositoryID}/factory/sponsorships/{connection}", protect(s.apiFactorySponsorship, http.MethodPut))
-	mux.HandleFunc("PUT /api/factory/capacity", protect(s.apiFactoryCapacity, http.MethodPut))
-	mux.HandleFunc("POST /api/repositories/{repositoryID}/factory/actions", protect(s.apiFactoryActions, http.MethodPost))
-	mux.HandleFunc("POST /api/factory/runs/{runID}/actions", protect(s.apiFactoryRunActions, http.MethodPost))
-	mux.HandleFunc("GET /api/factory/runs/{runID}", protect(s.apiFactoryRun, http.MethodGet))
-	mux.HandleFunc("GET /api/repositories/{repositoryID}/factory/issues/{issueID}", protect(s.apiFactoryIssue, http.MethodGet))
-	mux.HandleFunc("GET /api/repositories/{repositoryID}/factory/issues/{issueID}/acceptance-preview", protect(s.apiIssueAcceptancePreview, http.MethodGet))
-	mux.HandleFunc("POST /api/repositories/{repositoryID}/factory/issues/{issueID}/acceptances", protect(s.apiIssueAcceptances, http.MethodPost))
-	mux.HandleFunc("POST /api/repositories/{repositoryID}/factory/issues/{issueID}/withdrawal", protect(s.apiIssueWithdrawal, http.MethodPost))
-	mux.HandleFunc("GET /api/repositories/{repositoryID}/factory/issues/{issueID}/assignment", protect(s.apiFactoryAssignment, http.MethodGet))
-	mux.HandleFunc("GET /api/factory/artifacts/{id}", protect(s.apiFactoryArtifact, http.MethodGet))
-	mux.HandleFunc("GET /api/factory/library", protect(s.apiFactoryLibrary, http.MethodGet))
-	mux.HandleFunc("GET /api/factory/library/item", protect(s.apiFactoryLibraryItem, http.MethodGet))
-	mux.HandleFunc("GET /api/factory/feed", protect(s.apiFactoryFeed, http.MethodGet))
-	mux.HandleFunc("GET /api/factory/feed/subscription", protect(s.apiFactoryFeedSubscription, http.MethodGet))
-	mux.HandleFunc("PUT /api/factory/feed/subscription", protect(s.apiFactoryFeedSubscription, http.MethodPut))
-	mux.HandleFunc("POST /api/factory/feed/posts", protect(s.apiFactoryFeedPost, http.MethodPost))
-	mux.HandleFunc("GET /api/factory/feed/posts/{id}/replies", protect(s.apiFactoryFeedReplies, http.MethodGet))
-	mux.HandleFunc("GET /api/factory/feed/posts/{id}", protect(s.apiFactoryFeedPostOne, http.MethodGet))
-	mux.HandleFunc("POST /api/factory/feed/posts/{id}/retry", protect(s.apiFactoryFeedPostRetry, http.MethodPost))
-	mux.HandleFunc("POST /api/factory/feed/posts/{id}/review", protect(s.apiFactoryFeedProductReview, http.MethodPost))
+	mux.HandleFunc("GET /api/repositories/{repositoryID}/factory", protect(s.apiFactoryRepositoryHTTP, http.MethodGet))
+	mux.HandleFunc("GET /api/repositories/{repositoryID}/factory/activity", protect(s.apiFactoryRepositoryHTTP, http.MethodGet))
+	mux.HandleFunc("PUT /api/repositories/{repositoryID}/factory/activity", protect(s.apiFactoryRepositoryHTTP, http.MethodPut))
+	mux.HandleFunc("PUT /api/repositories/{repositoryID}/factory/policy", protect(s.apiFactoryRepositoryHTTP, http.MethodPut))
+	mux.HandleFunc("PUT /api/repositories/{repositoryID}/factory/operator-grant", protect(s.apiFactoryRepositoryHTTP, http.MethodPut))
+	mux.HandleFunc("GET /api/repositories/{repositoryID}/factory/repair", protect(s.apiFactoryRepositoryHTTP, http.MethodGet))
+	mux.HandleFunc("PUT /api/repositories/{repositoryID}/factory/repair", protect(s.apiFactoryRepositoryHTTP, http.MethodPut))
+	mux.HandleFunc("PUT /api/repositories/{repositoryID}/factory/environment-grant", protect(s.apiFactoryRepositoryHTTP, http.MethodPut))
+	mux.HandleFunc("GET /api/repositories/{repositoryID}/factory/access", protect(s.apiFactoryRepositoryHTTP, http.MethodGet))
+	mux.HandleFunc("GET /api/repositories/{repositoryID}/factory/issues/{issueID}/plan", protect(s.apiFactoryWorkHTTP, http.MethodGet))
+	mux.HandleFunc("PUT /api/repositories/{repositoryID}/factory/sponsorships/{connection}", protect(s.apiFactoryRepositoryHTTP, http.MethodPut))
+	mux.HandleFunc("PUT /api/factory/capacity", protect(s.apiFactoryRepositoryHTTP, http.MethodPut))
+	mux.HandleFunc("POST /api/repositories/{repositoryID}/factory/actions", protect(s.apiFactoryRunHTTP, http.MethodPost))
+	mux.HandleFunc("POST /api/factory/runs/{runID}/actions", protect(s.apiFactoryRunHTTP, http.MethodPost))
+	mux.HandleFunc("GET /api/factory/runs/{runID}", protect(s.apiFactoryRunHTTP, http.MethodGet))
+	mux.HandleFunc("GET /api/repositories/{repositoryID}/factory/issues/{issueID}", protect(s.apiFactoryWorkHTTP, http.MethodGet))
+	mux.HandleFunc("GET /api/repositories/{repositoryID}/factory/issues/{issueID}/acceptance-preview", protect(s.apiFactoryAcceptanceHTTP, http.MethodGet))
+	mux.HandleFunc("POST /api/repositories/{repositoryID}/factory/issues/{issueID}/acceptances", protect(s.apiFactoryAcceptanceHTTP, http.MethodPost))
+	mux.HandleFunc("POST /api/repositories/{repositoryID}/factory/issues/{issueID}/withdrawal", protect(s.apiFactoryAcceptanceHTTP, http.MethodPost))
+	mux.HandleFunc("GET /api/repositories/{repositoryID}/factory/issues/{issueID}/assignment", protect(s.apiFactoryWorkHTTP, http.MethodGet))
+	mux.HandleFunc("GET /api/factory/artifacts/{id}", protect(s.apiFactoryRecordsHTTP, http.MethodGet))
+	mux.HandleFunc("GET /api/factory/library", protect(s.apiFactoryRecordsHTTP, http.MethodGet))
+	mux.HandleFunc("GET /api/factory/library/item", protect(s.apiFactoryRecordsHTTP, http.MethodGet))
+	mux.HandleFunc("GET /api/factory/feed", protect(s.apiFactoryFeedHTTP, http.MethodGet))
+	mux.HandleFunc("GET /api/factory/feed/subscription", protect(s.apiFactoryFeedHTTP, http.MethodGet))
+	mux.HandleFunc("PUT /api/factory/feed/subscription", protect(s.apiFactoryFeedHTTP, http.MethodPut))
+	mux.HandleFunc("POST /api/factory/feed/posts", protect(s.apiFactoryFeedHTTP, http.MethodPost))
+	mux.HandleFunc("GET /api/factory/feed/posts/{id}/replies", protect(s.apiFactoryFeedHTTP, http.MethodGet))
+	mux.HandleFunc("GET /api/factory/feed/posts/{id}", protect(s.apiFactoryFeedHTTP, http.MethodGet))
+	mux.HandleFunc("POST /api/factory/feed/posts/{id}/retry", protect(s.apiFactoryFeedHTTP, http.MethodPost))
+	mux.HandleFunc("GET /api/factory/feed/posts/{id}/retry/{command}", protect(s.apiFactoryFeedHTTP, http.MethodGet))
+	mux.HandleFunc("POST /api/factory/feed/posts/{id}/review", protect(s.apiFactoryRequestsHTTP, http.MethodPost))
 	mux.HandleFunc("GET /api/spaces", protect(s.apiSpaces, http.MethodGet))
 	mux.HandleFunc("GET /api/environments", protect(s.apiEnvironments, http.MethodGet))
 	mux.HandleFunc("POST /api/environments", protect(s.apiEnvironments, http.MethodPost))

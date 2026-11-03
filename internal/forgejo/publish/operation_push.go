@@ -6,7 +6,7 @@ import (
 
 	extensions "forgejo.org/extension-sdk"
 
-	"github.com/levitateos/sodaos/internal/factory"
+	"github.com/levitateos/factory/pkg/factory"
 )
 
 // runWithEnv runs one Git command with additional environment entries,

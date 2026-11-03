@@ -14,17 +14,18 @@ import (
 	"testing"
 	"time"
 
+	"github.com/levitateos/factory/pkg/factory/execution"
+
 	extensions "forgejo.org/extension-sdk"
-	"github.com/levitateos/sodaos/internal/factory"
-	"github.com/levitateos/sodaos/internal/project"
-	"github.com/levitateos/sodaos/internal/store"
+	"github.com/levitateos/factory/pkg/project"
+	"github.com/levitateos/factory/pkg/store"
 	"github.com/stretchr/testify/require"
 )
 
 type preparationPreviewFixture struct {
 	server        *Server
 	requirement   project.RequirementDecision
-	states        map[string]project.PrepareState
+	states        map[string]execution.PreparationState
 	files         map[string][]byte
 	contexts      []project.FactoryPreparationContextRequest
 	administrator bool
@@ -65,7 +66,7 @@ func newPreparationPreviewFixtureFilesSelected(t *testing.T, files map[string][]
 		require.NoError(t, s.Store.Join(t.Context(), preparationProject, int64(i+1), login))
 	}
 	f := &preparationPreviewFixture{
-		server: s, states: map[string]project.PrepareState{},
+		server: s, states: map[string]execution.PreparationState{},
 		files: files,
 	}
 	f.requirement = project.RequirementDecision{
@@ -88,7 +89,7 @@ func newPreparationPreviewFixtureFilesSelected(t *testing.T, files map[string][]
 	for i, role := range []string{project.RoleCoder, project.RoleReviewer} {
 		id := "f" + strings.Repeat(string(rune('1'+i)), 24)
 		zero := 0
-		state := project.PrepareState{
+		state := execution.PreparationState{
 			ID: id, Project: preparationProject, Role: role, Phase: project.PrepareReady,
 			Container: strings.Repeat("a", 64), SourceCommit: f.requirement.SourceCommit,
 			SetupDigest: f.requirement.SetupDigest, Ready: true, SetupExit: &zero, CheckExit: &zero,
@@ -96,7 +97,7 @@ func newPreparationPreviewFixtureFilesSelected(t *testing.T, files map[string][]
 			Output: "secret-native-setup-log",
 		}
 		f.states[id] = state
-		_, _, err := s.Store.AdmitPreparation(t.Context(), project.StoredPreparation{
+		_, _, err := s.Store.AdmitPreparation(t.Context(), execution.PreparationRecord{
 			Preparation: project.Preparation{
 				ID: id, Project: preparationProject, Role: role, SourceCommit: state.SourceCommit,
 				SetupDigest: state.SetupDigest, Requirements: f.requirement.Ref(1),
@@ -221,11 +222,11 @@ type preparationPreviewResponse struct {
 			} `json:"source_inputs"`
 		} `json:"requirements"`
 		Approval *struct {
-			Requirement     string                 `json:"requirement"`
-			Predecessor     string                 `json:"predecessor"`
-			EffectsDigest   string                 `json:"effects_digest"`
-			ReadinessDigest string                 `json:"readiness_digest"`
-			Roles           []project.PrepareState `json:"roles"`
+			Requirement     string                       `json:"requirement"`
+			Predecessor     string                       `json:"predecessor"`
+			EffectsDigest   string                       `json:"effects_digest"`
+			ReadinessDigest string                       `json:"readiness_digest"`
+			Roles           []execution.PreparationState `json:"roles"`
 		} `json:"approval"`
 		Reason string `json:"reason"`
 	} `json:"decision_preview"`
@@ -263,7 +264,7 @@ func preparationPreviewAction(t *testing.T, f *preparationPreviewFixture, endpoi
 
 func previewAcceptance(f *preparationPreviewFixture, predecessor string) map[string]any {
 	return map[string]any{
-		"command_id": factory.NewID(), "decision_id": "d333333333333333333333333", "predecessor": predecessor,
+		"decision_id": "d333333333333333333333333", "predecessor": predecessor,
 		"source_commit": f.requirement.SourceCommit, "setup_digest": f.requirement.SetupDigest,
 		"inputs_digest": f.requirement.InputsDigest, "source_inputs": maps.Clone(f.requirement.SourceInputs),
 	}
@@ -271,7 +272,7 @@ func previewAcceptance(f *preparationPreviewFixture, predecessor string) map[str
 
 func previewApproval(view preparationPreviewResponse, predecessor string) map[string]any {
 	return map[string]any{
-		"command_id": factory.NewID(), "decision_id": "d444444444444444444444444", "action": "approve",
+		"decision_id": "d444444444444444444444444", "action": "approve",
 		"predecessor": predecessor, "requirement": view.Preview.Approval.Requirement,
 		"effects_digest": view.Preview.Approval.EffectsDigest, "readiness_digest": view.Preview.Approval.ReadinessDigest, "verified": true,
 	}

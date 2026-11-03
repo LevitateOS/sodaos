@@ -11,7 +11,7 @@ import (
 
 	extensions "forgejo.org/extension-sdk"
 
-	"github.com/levitateos/sodaos/internal/factory"
+	"github.com/levitateos/factory/pkg/factory"
 )
 
 // mergeReceipt is the wire shape observed from the staged native FT14
@@ -60,16 +60,20 @@ func checkMergeReceiptIdentity(receipt mergeReceipt, w factory.MergeWork) error 
 	return nil
 }
 
-func (m *Merger) AdoptMerge(w factory.MergeWork, o factory.OperationOutcome) (factory.MergeOutcome, error) {
+func (m *Merger) AdoptMerge(ctx context.Context, w factory.MergeWork, o factory.OperationOutcome) (factory.MergeOutcome, error) {
 	var empty factory.MergeOutcome
 	if err := checkMergeEnvelope(w, o); err != nil {
+		return empty, err
+	}
+	native, err := m.nativeWork(ctx, w)
+	if err != nil {
 		return empty, err
 	}
 	receipt, err := decodeMergeReceipt(o)
 	if err != nil {
 		return empty, err
 	}
-	if err := checkMergeReceiptIdentity(receipt, w); err != nil {
+	if err := checkMergeReceiptIdentity(receipt, native); err != nil {
 		return empty, err
 	}
 	return factory.MergeOutcome{Operation: o, HeadRef: w.HeadRef, BaseRef: w.BaseRef, HeadOID: w.HeadOID, BaseOID: w.BaseOID, MergedCommit: w.HeadOID, PRNumber: w.PRNumber, PRID: w.PRID, IssueID: w.IssueID, ActorID: w.ActorID}, nil
@@ -84,12 +88,16 @@ func (m *Merger) ObserveCompletion(ctx context.Context, w factory.MergeWork) (fa
 	if err := w.ValidateTarget(); err != nil {
 		return empty, &factory.PublicationRefusal{Reason: "invalid_work"}
 	}
+	native, err := m.nativeWork(ctx, w)
+	if err != nil {
+		return empty, err
+	}
 	if err := m.checkActor(ctx, w.ActorID); err != nil {
 		return empty, err
 	}
-	reader := &BackgroundSnapshotReader{Client: m.background, ActorID: strconv.FormatInt(w.ActorID, 10)}
+	reader := &BackgroundSnapshotReader{Client: m.background, ActorID: strconv.FormatInt(native.ActorID, 10)}
 	credential := extensions.CredentialFile(m.tokenFile)
-	repo, number := strconv.FormatInt(w.Repository, 10), strconv.FormatInt(w.PRNumber, 10)
+	repo, number := strconv.FormatInt(native.Repository, 10), strconv.FormatInt(w.PRNumber, 10)
 	issue, err := BracketedRead(ctx, reader, credential, SnapshotRequest{RepositoryID: repo, IssueIndex: number, Families: []SnapshotFamily{FamilyIssue}})
 	if err != nil {
 		return empty, mergeReadError(err)
@@ -129,7 +137,11 @@ func (m *Merger) ObserveCompletion(ctx context.Context, w factory.MergeWork) (fa
 		}
 		snapshot.Ancestry = proof.Ancestry
 	}
-	return matchMergeConfirmation(w, issue, original, snapshot)
+	confirmed, err := matchMergeConfirmation(native, issue, original, snapshot)
+	if err == nil {
+		confirmed.MergerID = w.ActorID
+	}
+	return confirmed, err
 }
 
 func mergeCompletionBaseTip(w factory.MergeWork, snapshot NativeSnapshot) (string, error) {

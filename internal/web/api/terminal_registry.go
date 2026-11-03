@@ -15,9 +15,9 @@ import (
 	"time"
 
 	"github.com/coder/websocket"
+	"github.com/levitateos/factory/pkg/store"
+	"github.com/levitateos/factory/pkg/strictjson"
 	"github.com/levitateos/sodaos/internal/host"
-	"github.com/levitateos/sodaos/internal/store"
-	"github.com/levitateos/sodaos/internal/strictjson"
 	"github.com/levitateos/sodaos/internal/web/auth"
 )
 

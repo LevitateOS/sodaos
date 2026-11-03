@@ -3,8 +3,8 @@ package api
 import (
 	"context"
 
-	"github.com/levitateos/sodaos/internal/factory"
-	"github.com/levitateos/sodaos/internal/store"
+	"github.com/levitateos/factory/pkg/factory"
+	"github.com/levitateos/factory/pkg/store"
 )
 
 // This file owns the Spaces collection inventory: the bounded project

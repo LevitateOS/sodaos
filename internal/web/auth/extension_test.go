@@ -8,8 +8,8 @@ import (
 	"testing"
 
 	extensions "forgejo.org/extension-sdk"
+	"github.com/levitateos/factory/pkg/store"
 	"github.com/levitateos/sodaos/internal/config"
-	"github.com/levitateos/sodaos/internal/store"
 )
 
 func TestExtensionContribution(t *testing.T) {

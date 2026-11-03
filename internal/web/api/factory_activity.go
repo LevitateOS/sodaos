@@ -1,67 +1,45 @@
 package api
 
 import (
-	"errors"
+	"context"
+
 	"net/http"
 
-	"github.com/levitateos/sodaos/internal/factory"
-	"github.com/levitateos/sodaos/internal/store"
+	"github.com/levitateos/factory/pkg/collaboration"
+	"github.com/levitateos/factory/pkg/factory"
+	factoryservice "github.com/levitateos/factory/pkg/factory/service"
+	"github.com/levitateos/factory/pkg/store"
 	"github.com/levitateos/sodaos/internal/web/auth"
 )
 
-func (s *API) apiFactoryActivity(w http.ResponseWriter, r *http.Request, v store.Session) {
-	if r.URL.RawQuery != "" || r.URL.ForceQuery {
-		auth.JSONError(w, 400, "invalid_request", "No query parameters are accepted.")
-		return
-	}
-	repository, ok := s.factoryRepository(w, r, v)
-	if !ok {
-		return
-	}
-	access, err := s.visibleRepository(r, v, repository)
-	if err != nil {
-		auth.ProviderError(w, err)
-		return
-	}
-	owner, name := access.repository.Owner.Login, access.repository.Name
-	if !validNativeLinkPart(owner) || !validNativeLinkPart(name) {
-		auth.JSONError(w, 503, "invalid_native_metadata", "Repository metadata cannot produce a local link.")
-		return
-	}
-	if r.Method == http.MethodPut {
-		if !s.factoryOwner(w, r, v, repository) || !s.checkLifecycleSession(w, r, v) {
-			return
+func (s *API) repositoryActivity(r *http.Request, v store.Session, admitted collaboration.ActorID) factoryservice.Activity {
+	return factoryservice.Activity{Store: s.Store, WriteAccess: s.requestWriteAccess(r, v, admitted), Visibility: func(ctx context.Context, actor collaboration.ActorID, repository collaboration.RepositoryID) (factoryservice.ActivityNavigation, error) {
+		var empty factoryservice.ActivityNavigation
+		if actor != admitted || !s.extensionSessionCurrent(ctx, r, v) {
+			return empty, auth.ErrNativeSessionChanged
 		}
-		var in struct {
-			ExpectedRevision *int64 `json:"expected_revision"`
-			Settings         *struct {
-				IssueCreated  *bool `json:"issue_created"`
-				PRCreated     *bool `json:"pr_created"`
-				VerifiedMerge *bool `json:"verified_merge"`
-			} `json:"settings"`
-		}
-		if !auth.DecodeAPIObject(w, r, &in) {
-			return
-		}
-		if in.ExpectedRevision == nil || *in.ExpectedRevision < 0 || in.Settings == nil || in.Settings.IssueCreated == nil || in.Settings.PRCreated == nil || in.Settings.VerifiedMerge == nil {
-			auth.JSONError(w, 400, "invalid_activity_settings", "A current revision and all three activity settings are required.")
-			return
-		}
-		settings := factory.ActivitySettings{IssueCreated: *in.Settings.IssueCreated, PRCreated: *in.Settings.PRCreated, VerifiedMerge: *in.Settings.VerifiedMerge}
-		err = s.Store.SetActivitySettings(r.Context(), repository, v.User.ID, *in.ExpectedRevision, settings)
-		if errors.Is(err, store.ErrStaleRevision) {
-			auth.JSONError(w, 412, "stale_revision", "Activity settings changed; refresh and retry.")
-			return
-		}
+		access, err := s.factoryVisibleRepository(r.WithContext(ctx), v, int64(repository))
 		if err != nil {
-			auth.JSONError(w, 503, "store_unavailable", "Activity settings are unavailable.")
-			return
+			return empty, err
 		}
-	}
-	activity, err := s.Store.RepositoryActivity(r.Context(), repository, "/"+owner+"/"+name)
-	if err != nil {
-		auth.JSONError(w, 503, "store_unavailable", "Repository activity is unavailable.")
-		return
-	}
-	auth.JSONResponse(w, 200, activity)
+		owner, name := access.repository.Owner.Login, access.repository.Name
+		if !validNativeLinkPart(owner) || !validNativeLinkPart(name) {
+			return empty, factoryservice.ErrActivityNavigation
+		}
+		path := "/" + owner + "/" + name
+		return factoryservice.ActivityNavigation{RepositoryPath: path, ItemURL: func(item factory.ActivityItem) string {
+			if _, valid := auth.PositiveID(item.Issue); !valid {
+				return ""
+			}
+			switch item.Kind {
+			case "issue_created", "verified_merge":
+				return path + "/issues/" + item.Issue
+			case "pr_created":
+				if _, valid := auth.PositiveID(item.PR); valid {
+					return path + "/pulls/" + item.PR
+				}
+			}
+			return ""
+		}}, nil
+	}}
 }

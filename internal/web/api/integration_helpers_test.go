@@ -8,10 +8,17 @@ import (
 	"net/http"
 	"strconv"
 	"strings"
+	"sync"
+	"testing"
+	"time"
 
 	extensions "forgejo.org/extension-sdk"
+	"github.com/modelcontextprotocol/go-sdk/mcp"
 
-	"github.com/levitateos/sodaos/internal/factory"
+	"github.com/levitateos/factory/pkg/factory"
+	"github.com/levitateos/factory/pkg/factory/control"
+	"github.com/levitateos/factory/pkg/project"
+	"github.com/levitateos/factory/pkg/store"
 	"github.com/levitateos/sodaos/internal/forgejo"
 )
 
@@ -215,18 +222,24 @@ func newFakeCompletionSourceStoreNATIVE96(local factory.CompletionLocal) *fakeCo
 	return &fakeCompletionSourceStoreNATIVE96{local: local}
 }
 
-func (f *fakeCompletionSourceStoreNATIVE96) CompletionSourceContext(context.Context, int64) (factory.CompletionAuthority, error) {
+func (f *fakeCompletionSourceStoreNATIVE96) CompletionSourceContext(_ context.Context, repository int64) (factory.CompletionAuthority, error) {
 	f.contextCalls++
 	if f.local.Material == nil {
 		return factory.CompletionAuthority{}, errors.New("NATIVE96 fake store lacks its fixture local")
 	}
+	if f.local.Material.Repository != repository {
+		return factory.CompletionAuthority{}, errors.New("NATIVE96 fake store: wrong canonical repository")
+	}
 	return f.local.Material.Authority, nil
 }
 
-func (f *fakeCompletionSourceStoreNATIVE96) CaptureCompletionLocalAtSource(_ context.Context, _ int64, expected factory.CompletionAuthority, tip string) (factory.CompletionLocal, error) {
+func (f *fakeCompletionSourceStoreNATIVE96) CaptureCompletionLocalAtSource(_ context.Context, repository int64, expected factory.CompletionAuthority, tip string) (factory.CompletionLocal, error) {
 	f.atSourceCalls++
 	if f.rejectAtSource != nil {
 		return factory.CompletionLocal{}, f.rejectAtSource
+	}
+	if f.local.Material == nil || f.local.Material.Repository != repository {
+		return factory.CompletionLocal{}, errors.New("NATIVE96 fake store: wrong canonical capture repository")
 	}
 	if err := expected.Validate(); err != nil {
 		return factory.CompletionLocal{}, err
@@ -262,4 +275,202 @@ func (t workerMCPTransport) RoundTrip(r *http.Request) (*http.Response, error) {
 	r.Header.Set("X-Soda-Factory-Capability", t.id)
 	r.Header.Set("Authorization", "Bearer "+t.secret)
 	return http.DefaultTransport.RoundTrip(r)
+}
+
+// Declared MCP sources shared by the API integration journeys.
+// fakeCatalogCapability is the one admitted test capability.
+func fakeCatalogCapability() factory.MCPCapability {
+	digest := strings.Repeat("a", 64)
+	return factory.MCPCapability{
+		ID: strings.Repeat("a", 32), AssignmentID: strings.Repeat("b", 32),
+		RunID: "run-test", Generation: 1,
+		Profile: factory.MCPProfileBuilder, Subject: "implement:42", Repository: 7,
+		Project:           "p" + strings.Repeat("d", 24),
+		PreparationDigest: digest, SourceDigest: "abc", AcceptedRevision: "rev-1",
+		Authority: digest, DeadlineUnix: time.Now().Add(time.Hour).Unix(),
+		State: factory.MCPCapabilityActive,
+	}
+}
+
+type fakeCatalogRecord struct {
+	receipt  factory.MCPWorkStatus
+	terminal bool
+}
+
+// fakeCatalogSink mirrors store.RecordMCPSubmission semantics in
+// memory: a repeated post key returns its original work, and a terminal
+// result prevents new work posts.
+type fakeCatalogSink struct {
+	mu          sync.Mutex
+	capability  factory.MCPCapability
+	submissions map[string]fakeCatalogRecord
+	posts       map[string]factory.MCPSubmission
+	assignments map[string]factory.Assignment
+	receipts    map[string]factory.PriorityReceipt
+	runs        map[string]factory.Run
+}
+
+func newFakeCatalogSink() *fakeCatalogSink {
+	capability := fakeCatalogCapability()
+	sink := &fakeCatalogSink{
+		capability:  capability,
+		submissions: map[string]fakeCatalogRecord{},
+		posts:       map[string]factory.MCPSubmission{},
+		receipts:    map[string]factory.PriorityReceipt{},
+		runs:        map[string]factory.Run{},
+		assignments: map[string]factory.Assignment{
+			capability.AssignmentID: {
+				ID: capability.AssignmentID, Phase: string(factory.MCPPhaseOf(capability.Profile)),
+				Stage: factory.AssignmentAssigned, Role: project.RoleCoder, Run: strings.Repeat("a", 32),
+				SourceCommit: strings.Repeat("c", 40), Preparation: "prep-1",
+				PromptSHA: strings.Repeat("d", 64),
+			},
+		},
+	}
+	assignment := sink.assignments[capability.AssignmentID]
+	request, _ := control.ContextBundleRequest(capability, assignment, false, false)
+	sink.capability.ContextSelectionSnapshot = request.Snapshot
+	answer := factory.PriorityAnswer{Selected: factory.ContextBundleCurrent, Confidence: 1, Model: "qualified-http-fixture", Probabilities: map[string]float64{factory.ContextBundleCurrent: 1, factory.ContextBundleSnapshotHold: 0}}
+	sink.receipts[request.Snapshot] = factory.PriorityReceipt{Snapshot: request.Snapshot, Purpose: factory.JudgmentContextBundle, Outcome: "context-bundle", Selected: answer.Selected, Calls: []factory.PriorityCall{{Request: request, Answer: answer}}}
+	return sink
+}
+
+// HTTP catalog fixtures model an already-qualified upstream input owner.
+// Real source/grant/producer cases use *store.Store in the bound PG fixture.
+func (f *fakeCatalogSink) FactoryCurrentContext(_ context.Context, cap factory.MCPCapability, _ time.Time) (factory.CurrentContext, error) {
+	return factory.CurrentContext{Version: "context-current-v1", Evidence: factory.CurrentContextEvidence{RequiredStreams: []string{"required_current"}, Availability: "complete", MissingReasons: []string{}}, Role: factory.CurrentRoleContext{Kind: cap.Profile}}, nil
+}
+
+func (f *fakeCatalogSink) FactoryRun(_ context.Context, id string) (factory.Run, error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	run, ok := f.runs[id]
+	if !ok {
+		return factory.Run{}, store.ErrNotFound
+	}
+	return run, nil
+}
+
+func (f *fakeCatalogSink) PriorityJudgment(_ context.Context, snapshot string) (factory.PriorityReceipt, error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	receipt, ok := f.receipts[snapshot]
+	if !ok {
+		return factory.PriorityReceipt{}, store.ErrNotFound
+	}
+	return receipt, nil
+}
+
+func (f *fakeCatalogSink) Assignment(_ context.Context, id string) (factory.Assignment, error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	assignment, ok := f.assignments[id]
+	if !ok {
+		return factory.Assignment{}, store.ErrNotFound
+	}
+	return assignment, nil
+}
+
+func (f *fakeCatalogSink) GetMCPCapability(_ context.Context, id string) (factory.MCPCapability, error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	if id != f.capability.ID {
+		return factory.MCPCapability{}, store.ErrNotFound
+	}
+	return f.capability, nil
+}
+
+func (f *fakeCatalogSink) record(submission factory.MCPSubmission, receipt factory.MCPWorkStatus) (factory.MCPWorkStatus, error) {
+	key := submission.AssignmentID + "/" + submission.SubmissionID
+	if current, ok := f.submissions[key]; ok {
+		return current.receipt, nil
+	}
+	for _, current := range f.submissions {
+		if current.terminal {
+			return factory.MCPWorkStatus{}, store.ErrMCPSubmissionFrozen
+		}
+	}
+	f.submissions[key] = fakeCatalogRecord{
+		receipt:  receipt,
+		terminal: factory.MCPIsTerminal(submission.Tool),
+	}
+	return receipt, nil
+}
+
+func (f *fakeCatalogSink) RecordMCPSubmission(_ context.Context, submission factory.MCPSubmission) (factory.MCPWorkStatus, error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	return f.record(submission, factory.MCPWorkStatus{SubmissionID: submission.SubmissionID, Tool: submission.Tool, State: factory.MCPWorkRecorded})
+}
+
+func (f *fakeCatalogSink) RecordWorkerPost(_ context.Context, submission factory.MCPSubmission) (store.FeedPostDetail, error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	id := factory.MCPInputDigest([]byte(submission.AssignmentID + "\n" + submission.SubmissionID))[:32]
+	if _, exists := f.posts[id]; !exists {
+		f.posts[id] = submission
+	}
+	return store.FeedPostDetail{Record: factory.PostRecord{ID: id}, Assignment: submission.AssignmentID, Actor: string(f.capability.Profile)}, nil
+}
+
+func (f *fakeCatalogSink) TerminalMCPProposal(_ context.Context, assignmentID string) (factory.MCPWorkStatus, bool, error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	for key, current := range f.submissions {
+		if strings.HasPrefix(key, assignmentID+"/") && current.terminal {
+			return current.receipt, true, nil
+		}
+	}
+	return factory.MCPWorkStatus{}, false, nil
+}
+
+func (f *fakeCatalogSink) MCPSubmissionCount(_ context.Context, assignmentID string) (int, error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	count := 0
+	for key := range f.submissions {
+		if strings.HasPrefix(key, assignmentID+"/") {
+			count++
+		}
+	}
+	return count, nil
+}
+
+func catalogRefused(res *mcp.CallToolResult, err error) bool {
+	return err != nil || (res != nil && res.IsError)
+}
+
+func catalogText(t *testing.T, res *mcp.CallToolResult) string {
+	t.Helper()
+	if len(res.Content) != 1 {
+		t.Fatalf("expected one content frame, got %d", len(res.Content))
+	}
+	text, ok := res.Content[0].(*mcp.TextContent)
+	if !ok {
+		t.Fatalf("expected text content, got %T", res.Content[0])
+	}
+	return text.Text
+}
+
+func storeSelectionReceipt(t *testing.T, sink *fakeCatalogSink, assignment factory.Assignment, attemptEligible, lineageEligible bool, selected string) {
+	t.Helper()
+	request, err := control.ContextBundleRequest(sink.capability, assignment, attemptEligible, lineageEligible)
+	if err != nil {
+		t.Fatalf("selection fingerprint: %v", err)
+	}
+	fingerprint := request.Snapshot
+	sink.capability.ContextSelectionSnapshot = fingerprint
+	options := []string{factory.ContextBundleCurrent, factory.ContextBundleSnapshotHold}
+	if attemptEligible {
+		options = append(options, factory.ContextBundleAttempt)
+	}
+	if lineageEligible {
+		options = append(options, factory.ContextBundleLineage)
+	}
+	answer := factory.PriorityAnswer{Selected: selected, Model: "fixture", Confidence: 1, Probabilities: map[string]float64{}}
+	for _, option := range options {
+		answer.Probabilities[option] = 0
+	}
+	answer.Probabilities[selected] = 1
+	sink.receipts[fingerprint] = factory.PriorityReceipt{Snapshot: fingerprint, Purpose: factory.JudgmentContextBundle, Outcome: "context-bundle", Selected: selected, Calls: []factory.PriorityCall{{Request: request, Answer: answer}}}
 }

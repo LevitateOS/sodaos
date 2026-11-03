@@ -9,7 +9,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/levitateos/sodaos/internal/factory"
+	"github.com/levitateos/factory/pkg/factory"
 )
 
 func candidateFixture(t *testing.T, changed string) (Config, Request) {

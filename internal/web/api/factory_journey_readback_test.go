@@ -26,7 +26,9 @@ import (
 	"context"
 	"database/sql"
 	"encoding/json"
+	"errors"
 	"fmt"
+	"io"
 	"net"
 	"net/http"
 	"net/http/httptest"
@@ -38,12 +40,17 @@ import (
 	"time"
 
 	extensions "forgejo.org/extension-sdk"
+	"github.com/levitateos/factory/pkg/collaboration"
+	"github.com/levitateos/factory/pkg/factory"
+	"github.com/levitateos/factory/pkg/factory/control"
+	"github.com/levitateos/factory/pkg/factory/execution"
+	factoryhttpapi "github.com/levitateos/factory/pkg/factory/httpapi"
+	factoryservice "github.com/levitateos/factory/pkg/factory/service"
+	"github.com/levitateos/factory/pkg/project"
+	"github.com/levitateos/factory/pkg/store"
 	"github.com/levitateos/sodaos/internal/config"
-	"github.com/levitateos/sodaos/internal/factory"
-	"github.com/levitateos/sodaos/internal/factory/control"
+	"github.com/levitateos/sodaos/internal/forgejo"
 	"github.com/levitateos/sodaos/internal/host"
-	"github.com/levitateos/sodaos/internal/project"
-	"github.com/levitateos/sodaos/internal/store"
 )
 
 // TestQualificationJourneyLostHTTPResponse connects the maintained qualification
@@ -128,6 +135,7 @@ type journeyHTTPFixture struct {
 	raw        *sql.DB
 	mux        *http.ServeMux
 	permission *atomic.Value
+	dsn        string
 }
 
 // journeyMux builds the real registered product mux on an ephemeral PG
@@ -187,6 +195,26 @@ func journeyMux(t *testing.T, fake *journeyAcceptanceSource) (*journeyHTTPFixtur
 		Store:       s,
 		Coordinator: &control.Coordinator{Store: s, AcceptanceReads: fake},
 	}
+	// This native peer declares the equal-number Fountain fixture namespace.
+	// Adopt it before seeding records; production never infers this from IDs.
+	host, err := s.BindConfiguredFountainLedger(t.Context(), product.Config.ForgejoURL)
+	if err != nil {
+		t.Fatal(err)
+	}
+	product.FountainIdentities, err = forgejo.NewFountainIdentities(t.Context(), s, host.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for native := int64(1); native <= 8; native++ {
+		if _, err := product.FountainIdentities.LocalRepository(t.Context(), native); err != nil {
+			t.Fatal(err)
+		}
+	}
+	for native := int64(1); native <= 16; native++ {
+		if _, err := product.FountainIdentities.LocalActor(t.Context(), strconv.FormatInt(native, 10)); err != nil {
+			t.Fatal(err)
+		}
+	}
 	mux := http.NewServeMux()
 	product.registerExtensionProductRoutes(mux)
 
@@ -194,7 +222,7 @@ func journeyMux(t *testing.T, fake *journeyAcceptanceSource) (*journeyHTTPFixtur
 		t.Helper()
 		return journeyCall(t, mux, method, path, body, "generation-1", "generation-1", true)
 	}
-	return &journeyHTTPFixture{api: product, db: s, raw: raw, mux: mux, permission: permission}, call
+	return &journeyHTTPFixture{api: product, db: s, raw: raw, mux: mux, permission: permission, dsn: dsn}, call
 }
 
 func journeyCall(t *testing.T, mux http.Handler, method, path, body, authorityGen, sessionGen string, withAuthority bool) (int, []byte) {
@@ -234,9 +262,9 @@ func journeyErrorCode(t *testing.T, body []byte) string {
 	return decoded.Error.Code
 }
 
-func journeyIssueView(t *testing.T, body []byte) factoryIssueView {
+func journeyIssueView(t *testing.T, body []byte) factoryservice.IssueView {
 	t.Helper()
-	var view factoryIssueView
+	var view factoryservice.IssueView
 	if err := json.Unmarshal(body, &view); err != nil {
 		t.Fatalf("issue view: %s: %v", body, err)
 	}
@@ -497,7 +525,7 @@ func seedJourneyCycle(t *testing.T, fx *journeyHTTPFixture, acceptance, cycleID 
 	}
 }
 
-func journeyReasons(view factoryIssueView) map[string]bool {
+func journeyReasons(view factoryservice.IssueView) map[string]bool {
 	reasons := make(map[string]bool, len(view.Journey.Reasons))
 	for _, reason := range view.Journey.Reasons {
 		reasons[reason] = true
@@ -552,7 +580,7 @@ func TestFactoryIssueJourneyRefusals(t *testing.T) {
 		t.Fatal(err)
 	}
 	actionPath := "/api/factory/runs/" + run.ID + "/actions"
-	body, _ := json.Marshal(factoryRunActionsRequest{Action: factory.ActionContextCurrent, Context: &request})
+	body, _ := json.Marshal(factoryservice.RunCommand{Action: factory.ActionContextCurrent, Context: &request})
 	if code, _ := journeyCall(t, mux, http.MethodPost, actionPath, string(body), "", "", false); code != 403 {
 		t.Fatal("context owner action accepted missing native authority", code)
 	}
@@ -585,7 +613,7 @@ func TestFactoryIssueJourneyRefusals(t *testing.T) {
 	}
 	changed := request
 	changed.ScopeDigest = strings.Repeat("0", 64)
-	conflict, _ := json.Marshal(factoryRunActionsRequest{Action: factory.ActionContextCurrent, Context: &changed})
+	conflict, _ := json.Marshal(factoryservice.RunCommand{Action: factory.ActionContextCurrent, Context: &changed})
 	if code, reply := call(http.MethodPost, actionPath, string(conflict)); code != 409 || journeyErrorCode(t, reply) != "context_resolution_ineligible" {
 		t.Fatalf("context owner changed scope: %d %s", code, reply)
 	}
@@ -613,7 +641,7 @@ func TestFactoryIssueJourneyRefusals(t *testing.T) {
 		t.Fatal(err)
 	}
 	completionPath := "/api/repositories/7/factory/actions"
-	completionBody, _ := json.Marshal(factoryActionsRequest{CommandID: completionCommand.ID, Action: factory.ActionCompletionRetry, Completion: &completion})
+	completionBody, _ := json.Marshal(factoryservice.RepositoryCommand{CommandID: completionCommand.ID, Action: factory.ActionCompletionRetry, Completion: &completion})
 	if code, _ := journeyCall(t, mux, http.MethodPost, completionPath, string(completionBody), "", "", false); code != 403 {
 		t.Fatal("completion retry accepted missing native authority", code)
 	}
@@ -644,7 +672,7 @@ func TestFactoryIssueJourneyRefusals(t *testing.T) {
 	}
 	changedCompletion := completion
 	changedCompletion.EventID = factory.NewID()
-	changedBody, _ := json.Marshal(factoryActionsRequest{CommandID: completionCommand.ID, Action: factory.ActionCompletionRetry, Completion: &changedCompletion})
+	changedBody, _ := json.Marshal(factoryservice.RepositoryCommand{CommandID: completionCommand.ID, Action: factory.ActionCompletionRetry, Completion: &changedCompletion})
 	if code, reply := call(http.MethodPost, completionPath, string(changedBody)); code != 409 || journeyErrorCode(t, reply) != "command_conflict" {
 		t.Fatalf("completion retry changed scope did not conflict: %d %s", code, reply)
 	}
@@ -699,7 +727,7 @@ func TestFactoryIssueJourneyRefusals(t *testing.T) {
 	}
 	// Delivery repair requires actual failed-verification evidence. A command
 	// receipt cannot substitute for the unavailable native owner below.
-	repairBody, _ := json.Marshal(factoryRunActionsRequest{Action: factory.ActionDeliveryRepair})
+	repairBody, _ := json.Marshal(factoryservice.RunCommand{Action: factory.ActionDeliveryRepair})
 	if code, _ := journeyCall(t, mux, http.MethodPost, actionPath, string(repairBody), "", "", false); code != 403 {
 		t.Fatal("delivery repair accepted missing native authority", code)
 	}
@@ -714,7 +742,7 @@ func TestFactoryIssueJourneyRefusals(t *testing.T) {
 		t.Fatalf("delivery repair accepted read-only authority: %d %s", code, reply)
 	}
 	fx.permission.Store("admin")
-	repairWithContext, _ := json.Marshal(factoryRunActionsRequest{Action: factory.ActionDeliveryRepair, Context: &request})
+	repairWithContext, _ := json.Marshal(factoryservice.RunCommand{Action: factory.ActionDeliveryRepair, Context: &request})
 	if code, _ := call(http.MethodPost, actionPath, string(repairWithContext)); code != 400 {
 		t.Fatal("delivery repair accepted context override", code)
 	}
@@ -785,7 +813,7 @@ func TestFactoryIssueJourneyRefusals(t *testing.T) {
 			t.Fatal(err)
 		}
 		code, reply := call(http.MethodGet, readPath, "")
-		var observed factoryRunStatus
+		var observed factoryservice.RunStatusView
 		if code != 200 || json.Unmarshal(reply, &observed) != nil || observed.DeliveryRepair == nil || observed.DeliveryRepair.Available || observed.DeliveryRepair.Progress == nil {
 			t.Fatalf("owner repair progress %s: %d %s", state, code, reply)
 		}
@@ -854,12 +882,22 @@ func TestFactoryIssueJourneyNoAttempt(t *testing.T) {
 	if journey.Available || journey.Complete {
 		t.Fatalf("no-attempt flags: %+v", journey)
 	}
-	if len(journey.Reasons) != 1 || journey.Reasons[0] != journeyReasonNoAttempt {
+	if len(journey.Reasons) != 1 || journey.Reasons[0] != "no_attempt" {
 		t.Fatalf("no-attempt reasons: %+v", journey.Reasons)
 	}
 	if journey.Repository != "7" || journey.Issue != "3" || journey.ObservedUnix <= 0 {
 		t.Fatalf("no-attempt identity: %+v", journey)
 	}
+	fx.permission.Store("read")
+	code, body = call(http.MethodGet, "/api/repositories/7/factory/issues/3", "")
+	if code != http.StatusOK {
+		t.Fatalf("read-only work status=%d body=%s", code, body)
+	}
+	readOnly := journeyIssueView(t, body).Capabilities
+	if !readOnly.Watch.Available || readOnly.Stop.Available || readOnly.Retry.Available || readOnly.Takeover.Available || readOnly.Pause.Available || readOnly.Resume.Available {
+		t.Fatalf("read-only user cannot watch without gaining mutations: %+v", readOnly)
+	}
+	fx.permission.Store("admin")
 	for name, section := range map[string]int{
 		"phases": len(journey.Phases), "tasks": len(journey.Tasks), "commits": len(journey.Commits),
 		"findings": len(journey.Findings), "corrections": len(journey.Corrections),
@@ -876,7 +914,7 @@ func TestFactoryIssueJourneyNoAttempt(t *testing.T) {
 	// registered owner status GET, without collecting any run/provider body.
 	fx.api.Coordinator.Dispatch(context.Background())
 	statusCode, statusBody := call(http.MethodGet, "/api/repositories/7/factory", "")
-	var status factoryStatusView
+	var status factoryservice.RepositoryStatusView
 	if statusCode != http.StatusOK || json.Unmarshal(statusBody, &status) != nil || status.DispatchObservation == nil || len(status.DispatchObservation.Errors) != 1 || status.DispatchObservation.Errors[0].Reason != control.DispatchErrStore {
 		t.Fatalf("owner dispatch observation unavailable: %d %s", statusCode, statusBody)
 	}
@@ -906,6 +944,49 @@ func seedRichJourney(t *testing.T, fx *journeyHTTPFixture, fake *journeyAcceptan
 	return acceptance, root, child
 }
 
+func TestFactoryIssueChecksUseRecordedPullRequest(t *testing.T) {
+	ctx := t.Context()
+	fake := &journeyAcceptanceSource{}
+	fx, call := journeyMux(t, fake)
+	_, root, _ := seedRichJourney(t, fx, fake)
+	publication, err := fx.db.PublicationByAssignment(ctx, root.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if publication.PRNumber == journeyIssue {
+		t.Fatal("fixture needs distinct issue/PR numbers")
+	}
+	for _, pr := range []int64{journeyIssue, publication.PRNumber} {
+		assessment := factory.CheckAssessment{Repository: 7, PRNumber: pr, PRID: publication.PRID, HeadOID: publication.Candidate, BaseOID: publication.BaseSHA, Verdict: factory.CheckPass, Reason: factory.CheckReasonPass, Results: []factory.CheckResult{}}
+		raw, _ := json.Marshal(assessment)
+		if _, err := fx.raw.ExecContext(ctx, `INSERT INTO factory_check_assessments(repository,pr,revision,data) VALUES(7,$1,1,$2)`, pr, string(raw)); err != nil {
+			t.Fatal(err)
+		}
+	}
+	code, body := call(http.MethodGet, "/api/repositories/7/factory/issues/3", "")
+	if code != 200 {
+		t.Fatalf("issue checks read: %d %s", code, body)
+	}
+	view := journeyIssueView(t, body)
+	if view.Checks == nil || view.Checks.PRNumber != strconv.FormatInt(publication.PRNumber, 10) {
+		t.Fatalf("issue number selected unrelated PR checks: %+v", view.Checks)
+	}
+	if _, err := fx.raw.ExecContext(ctx, `UPDATE factory_check_assessments SET data=jsonb_set(data,'{head_oid}',to_jsonb($2::text)) WHERE repository=7 AND pr=$1`, publication.PRNumber, strings.Repeat("0", 40)); err != nil {
+		t.Fatal(err)
+	}
+	code, body = call(http.MethodGet, "/api/repositories/7/factory/issues/3", "")
+	if code != 200 || !journeyIssueView(t, body).Checks.Stale {
+		t.Fatal("check outside the candidate history was not stale", code, string(body))
+	}
+	if _, err := fx.raw.ExecContext(ctx, `DELETE FROM factory_check_assessments WHERE repository=7 AND pr=$1`, publication.PRNumber); err != nil {
+		t.Fatal(err)
+	}
+	code, body = call(http.MethodGet, "/api/repositories/7/factory/issues/3", "")
+	if code != 200 || journeyIssueView(t, body).Checks != nil {
+		t.Fatal("missing linked PR checks fell back to issue-number checks", code, string(body))
+	}
+}
+
 func TestFactoryIssueJourneyRecorded(t *testing.T) {
 	fake := &journeyAcceptanceSource{}
 	fx, call := journeyMux(t, fake)
@@ -924,7 +1005,7 @@ func TestFactoryIssueJourneyRecorded(t *testing.T) {
 		t.Fatalf("recorded flags: %+v", journey)
 	}
 	// Producer-absent sections keep the journey honestly incomplete.
-	if len(journey.Reasons) != 2 || journey.Reasons[0] != journeyReasonAdoptionsUnavailable || journey.Reasons[1] != journeyReasonDeliveryUnavailable {
+	if len(journey.Reasons) != 2 || journey.Reasons[0] != "adoptions_unavailable" || journey.Reasons[1] != "delivery_unavailable" {
 		t.Fatalf("recorded reasons: %+v", journey.Reasons)
 	}
 	lineage := journey.Lineage
@@ -949,8 +1030,8 @@ func TestFactoryIssueJourneyRecorded(t *testing.T) {
 	if len(lineage.RunHistory) != 1 || lineage.RunHistory[0] != root.Run {
 		t.Fatalf("recorded history: %+v", lineage)
 	}
-	if len(journey.Phases) != 2 || journey.Phases[0].Phase != project.ExecutionImplement || journey.Phases[0].State != journeyComplete ||
-		journey.Phases[1].Phase != project.ExecutionReview || journey.Phases[1].State != journeyAttention {
+	if len(journey.Phases) != 2 || journey.Phases[0].Phase != project.ExecutionImplement || journey.Phases[0].State != "complete" ||
+		journey.Phases[1].Phase != project.ExecutionReview || journey.Phases[1].State != "attention" {
 		t.Fatalf("recorded phases: %+v", journey.Phases)
 	}
 	// Each current phase names its exact contributing assignment, run
@@ -962,9 +1043,9 @@ func TestFactoryIssueJourneyRecorded(t *testing.T) {
 	if journey.Phases[1].Assignment != child.ID || journey.Phases[1].Run != child.Run || journey.Phases[1].AttemptRoot != root.ID {
 		t.Fatalf("review refs: %+v", journey.Phases[1])
 	}
-	if len(journey.Tasks) != 3 || journey.Tasks[0].Key != "design" || journey.Tasks[0].State != journeyComplete ||
-		journey.Tasks[1].Key != "build" || journey.Tasks[1].State != journeyActive ||
-		journey.Tasks[2].Key != "docs" || journey.Tasks[2].State != journeyPending {
+	if len(journey.Tasks) != 3 || journey.Tasks[0].Key != "design" || journey.Tasks[0].State != "complete" ||
+		journey.Tasks[1].Key != "build" || journey.Tasks[1].State != "active" ||
+		journey.Tasks[2].Key != "docs" || journey.Tasks[2].State != "pending" {
 		t.Fatalf("recorded tasks: %+v", journey.Tasks)
 	}
 	if len(journey.Commits) != 1 || journey.Commits[0].Commit != journeyCandidate || journey.Commits[0].Base != journeyBase ||
@@ -978,7 +1059,7 @@ func TestFactoryIssueJourneyRecorded(t *testing.T) {
 	if len(journey.Findings) != 1 || journey.Findings[0].Key != strings.Repeat("f", 32) {
 		t.Fatalf("recorded findings: %+v", journey.Findings)
 	}
-	if len(journey.Judgments) != 1 || journey.Judgments[0].Kind != journeyJudgmentReassessDecision ||
+	if len(journey.Judgments) != 1 || journey.Judgments[0].Kind != "reassessment-decision" ||
 		journey.Judgments[0].Selected != factory.ReassessmentOptionContinue || !journey.Judgments[0].Wait ||
 		journey.Judgments[0].WaitReason != "decision_not_actionable" || journey.Judgments[0].Confidence != 0.28 || journey.Judgments[0].Probability != 0.9 {
 		t.Fatalf("recorded judgments: %+v", journey.Judgments)
@@ -1165,9 +1246,9 @@ func TestFactoryIssueJourneyMalformedRows(t *testing.T) {
 	view := journeyIssueView(t, body)
 	reasons := journeyReasons(view)
 	for _, want := range []string{
-		journeyReasonCorrectionsInvalidRow, journeyReasonFindingsInvalidRow,
-		journeyReasonJudgmentsInvalidRow, journeyReasonGatesUnrenderable,
-		journeyReasonAdoptionsUnavailable, journeyReasonDeliveryUnavailable,
+		"corrections_invalid_row", "findings_invalid_row",
+		"judgments_invalid_row", "gates_unrenderable",
+		"adoptions_unavailable", "delivery_unavailable",
 	} {
 		if !reasons[want] {
 			t.Fatalf("missing reason %s: %+v", want, view.Journey.Reasons)
@@ -1271,9 +1352,9 @@ func seedJourneyChain(t *testing.T, fx *journeyHTTPFixture, acceptance string, n
 
 func journeyBulkExpect(at int) (string, string) {
 	phase := journeyBulkPhases[at%len(journeyBulkPhases)]
-	state := journeyComplete
+	state := "complete"
 	if at%7 == 6 {
-		state = journeyAttention
+		state = "attention"
 	}
 	return phase, state
 }
@@ -1297,7 +1378,7 @@ func journeyNewestChildPerPhase(n int) map[string]int {
 // phase in stable canonical order, each naming the exact newest
 // contributing child assignment, run and AttemptRoot. Children share
 // one run identity; the owner root carries its own.
-func journeyExpectCurrentPhases(t *testing.T, journey *factoryIssueJourneyView, root factory.Assignment, n int) {
+func journeyExpectCurrentPhases(t *testing.T, journey *factoryservice.IssueJourney, root factory.Assignment, n int) {
 	t.Helper()
 	childRun := strings.Repeat("e5", 16)
 	newest := journeyNewestChildPerPhase(n)
@@ -1337,7 +1418,7 @@ func TestFactoryIssueJourneyChainTail(t *testing.T) {
 		t.Fatalf("tail flags: %+v", journey)
 	}
 	reasons := journeyReasons(journeyIssueView(t, body))
-	if reasons[journeyReasonChainPageBound] {
+	if reasons["chain_page_bound"] {
 		t.Fatalf("tail hit the page bound early: %+v", journey.Reasons)
 	}
 	// 301 valid rows on one root: every canonical phase renders its
@@ -1345,7 +1426,7 @@ func TestFactoryIssueJourneyChainTail(t *testing.T) {
 	// for current, and no phase repeats or displaces another.
 	journeyExpectCurrentPhases(t, journey, root, n)
 	for _, unwanted := range []string{
-		journeyReasonPhasesInvalidRow, journeyReasonPhasesTruncated,
+		"phases_invalid_row", "phases_truncated",
 	} {
 		if reasons[unwanted] {
 			t.Fatalf("tail names %s without cause: %+v", unwanted, journey.Reasons)
@@ -1367,7 +1448,7 @@ func TestFactoryIssueJourneyChainPageBound(t *testing.T) {
 	fx, call := journeyMux(t, fake)
 	acceptance := admitJourneyAcceptance(t, fx.db, 1, "")
 	fake.decision = journeyAcceptanceFor(acceptance)
-	const n = 4*journeyChainPageLimit + 10
+	const n = 4*256 + 10
 	root := seedJourneyChain(t, fx, acceptance, n)
 
 	code, body := call(http.MethodGet, "/api/repositories/7/factory/issues/3", "")
@@ -1378,7 +1459,7 @@ func TestFactoryIssueJourneyChainPageBound(t *testing.T) {
 	if !journey.Available || journey.Complete {
 		t.Fatalf("bound flags: %+v", journey)
 	}
-	if reasons := journeyReasons(journeyIssueView(t, body)); !reasons[journeyReasonChainPageBound] {
+	if reasons := journeyReasons(journeyIssueView(t, body)); !reasons["chain_page_bound"] {
 		t.Fatalf("bound missing page reason: %+v", journey.Reasons)
 	}
 	// The page bound cuts only the retained cursor trail: the phase
@@ -1386,7 +1467,7 @@ func TestFactoryIssueJourneyChainPageBound(t *testing.T) {
 	// overflow past the 1024-row chain prefix cannot mask a newer
 	// failed or current state.
 	journeyExpectCurrentPhases(t, journey, root, n)
-	if journey.Lineage.NextCursor == "" || len(journey.Lineage.ChainCursors) != journeyChainMaxPages {
+	if journey.Lineage.NextCursor == "" || len(journey.Lineage.ChainCursors) != 4 {
 		t.Fatalf("bound resume refs: %+v", journey.Lineage)
 	}
 }
@@ -1406,6 +1487,1625 @@ func journeyStoreCounts(t *testing.T, raw *sql.DB) map[string]int64 {
 		counts[table] = count
 	}
 	return counts
+}
+
+func TestSharedRunStatusRead(t *testing.T) {
+	ctx := t.Context()
+	fx, _ := journeyMux(t, nil)
+	const actor collaboration.ActorID = 9007199254740993
+	const repository collaboration.RepositoryID = 9223372036854775807
+	const workspace = "p123456789012345678901234"
+	now := time.Now().UTC()
+	run := factory.Run{ID: strings.Repeat("a", 32), ProjectID: workspace, Role: "coder", Started: now, Deadline: now.Add(time.Hour),
+		InputSHA: strings.Repeat("a", 40), Image: "sha256:" + strings.Repeat("b", 64), Harness: "muse", Model: "declared-fixture"}
+	if err := fx.db.RecordFactoryRun(ctx, run); err != nil {
+		t.Fatal(err)
+	}
+	wanted := run.ID
+	checks, denyAt, inspections := 0, 0, 0
+	denied := errors.New("declared current run authority denied")
+	var scopeErr error
+	observationErr := execution.ErrRunNotObserved
+	var observation execution.RunObservation
+	var cancelDuringInspect context.CancelFunc
+	reader := factoryservice.RunStatus{Store: fx.db,
+		WriteAccess: func(ctx context.Context, admitted collaboration.ActorID, repo collaboration.RepositoryID) error {
+			if admitted != actor || repo != repository {
+				t.Fatal("run status changed canonical authority subject", admitted, repo)
+			}
+			checks++
+			if checks == denyAt {
+				return denied
+			}
+			return nil
+		},
+		RunRepository: func(ctx context.Context, admitted collaboration.ActorID, selected factory.Run) (collaboration.RepositoryID, error) {
+			if admitted != actor || selected.ID != wanted || selected.ProjectID != workspace {
+				t.Fatal("run status changed runtime scope", admitted, selected.ID)
+			}
+			return repository, scopeErr
+		},
+		Inspect: func(ctx context.Context, admitted collaboration.ActorID, selected factory.Run) (execution.RunObservation, error) {
+			if admitted != actor || selected.ID != wanted || selected.ProjectID != workspace {
+				t.Fatal("run status inspected another runtime", admitted, selected.ID)
+			}
+			inspections++
+			if cancelDuringInspect != nil {
+				cancelDuringInspect()
+			}
+			return observation, observationErr
+		},
+	}
+	read := func() *factoryservice.RunStatusView {
+		t.Helper()
+		checks = 0
+		view, err := reader.Read(ctx, actor, wanted)
+		if err != nil {
+			t.Fatal(err)
+		}
+		return view
+	}
+	if view := read(); view.State != nil || view.View != nil || view.Run.Reconciled {
+		t.Fatal("unobserved manual run became bound or retired", view)
+	}
+	if _, _, err := fx.db.RecordFactoryRunView(ctx, factory.RunView{RunID: run.ID, Repository: int64(repository), Issue: 3}); err != nil {
+		t.Fatal(err)
+	}
+	observation = execution.RunObservation{Run: run.ID, Workspace: workspace, Kind: collaboration.Appliance, Phase: project.FactoryRunning,
+		Retirement: execution.Running, Live: true, Appliance: &execution.ApplianceRunFacts{Invocation: execution.ApplianceInvocation{Project: workspace, Container: "declared-container", Unit: "declared-unit", Invocation: strings.Repeat("c", 32)}}}
+	observationErr = nil
+	view := read()
+	if view.State == nil || !view.State.Live || view.State.Terminal || view.State.Invocation != strings.Repeat("c", 32) || view.View.Repository != strconv.FormatInt(int64(repository), 10) {
+		t.Fatal("typed appliance observation lost exact binding", view)
+	}
+	observation.Phase, observation.Live, observation.Retirement, observation.Output = project.FactoryCompleted, false, execution.Retired, strings.Repeat("x", 20000)
+	view = read()
+	if !view.State.Terminal || view.State.Live || !view.State.OutputTruncated || len(view.State.Output) != 16*1024 || view.State.Retirement != "confirmed" {
+		t.Fatal("terminal excerpt or retirement projection", view.State)
+	}
+	// Native facts are declared runtime observations, not a launched process.
+	// The recorded tool/process/custody metadata must never become UI payload.
+	native := run
+	native.ID, native.Image, native.Harness = strings.Repeat("b", 32), "", "muse-1.0.0"
+	native.Native = &execution.NativeRecord{Tool: execution.NativeTool{Harness: "muse", Version: "1.0.0", SHA256: strings.Repeat("e", 64), Executable: "/home/vince/declared-tools/muse"},
+		Retirement: execution.Running, Provenance: execution.NativeProvenance{TrustMode: "same_user_trusted_host", Profile: collaboration.ProfileID(factory.NewID()),
+			InstanceID: factory.NewID(), WorktreeID: "declared-private-worktree", Custody: execution.NativeCustody{State: execution.NotAcquired},
+			Process: &execution.NativeProcess{InvocationID: strings.Repeat("d", 32), SystemInstance: "declared-boot", StartIdentity: "declared-start", PID: 123,
+				StartedAt: now, Executable: "/home/vince/declared-tools/muse", ExecutableSHA256: strings.Repeat("e", 64)}}}
+	if err := fx.db.RecordFactoryRun(ctx, native); err != nil {
+		t.Fatal("declared native run record", err)
+	}
+	wanted = native.ID
+	observation = execution.RunObservation{Run: native.ID, Workspace: workspace, Kind: collaboration.Native, Phase: project.FactoryRunning,
+		Retirement: execution.Running, Live: true, Native: &native.Native.Provenance}
+	view = read()
+	if view.State == nil || !view.State.Live || view.State.Invocation != strings.Repeat("d", 32) || view.State.Container != "" || view.State.Unit != "" {
+		t.Fatal("native observation acquired an appliance binding", view.State)
+	}
+	encoded, _ := json.Marshal(view)
+	for _, private := range []string{"declared-tools", "declared-private-worktree", "declared-start", "executable_sha256", "custody", "system_instance"} {
+		if strings.Contains(string(encoded), private) {
+			t.Fatal("private native evidence entered run status", private)
+		}
+	}
+	valid := observation
+	foreign := *observation.Native
+	process := *foreign.Process
+	process.StartIdentity = "another-start-for-reused-pid"
+	foreign.Process, observation.Native = &process, &foreign
+	if view, err := reader.Read(ctx, actor, wanted); view != nil || !errors.Is(err, execution.ErrRunChanged) {
+		t.Fatal("reused PID/start mismatch accepted", view, err)
+	}
+	observation = valid
+	observation.Run = run.ID
+	if view, err := reader.Read(ctx, actor, wanted); view != nil || !errors.Is(err, factoryservice.ErrRunStatusObservation) {
+		t.Fatal("foreign run observation accepted", view, err)
+	}
+	observation = valid
+	observation.Workspace = "another-workspace"
+	if view, err := reader.Read(ctx, actor, wanted); view != nil || !errors.Is(err, factoryservice.ErrRunStatusObservation) {
+		t.Fatal("foreign workspace observation accepted", view, err)
+	}
+	observation = valid
+	observationErr = errors.New("declared runtime observation is unknown")
+	if view, err := reader.Read(ctx, actor, wanted); view != nil || !errors.Is(err, observationErr) {
+		t.Fatal("partial observation returned on runtime error", view, err)
+	}
+	observationErr = nil
+	scopeErr = errors.New("declared runtime scope is unknown")
+	if view, err := reader.Read(ctx, actor, wanted); view != nil || !errors.Is(err, scopeErr) {
+		t.Fatal("unknown runtime scope returned status", view, err)
+	}
+	scopeErr = nil
+	checks, denyAt = 0, 2
+	if view, err := reader.Read(ctx, actor, wanted); view != nil || !errors.Is(err, denied) {
+		t.Fatal("late write revocation exposed status", view, err)
+	}
+	checks, denyAt = 0, 1
+	beforeInspect := inspections
+	if view, err := reader.Read(ctx, actor, wanted); view != nil || !errors.Is(err, denied) || inspections != beforeInspect {
+		t.Fatal("denied reader reached runtime", view, err)
+	}
+	denyAt = 0
+	cancelled, cancel := context.WithCancel(ctx)
+	cancelDuringInspect = cancel
+	if view, err := reader.Read(cancelled, actor, wanted); view != nil || !errors.Is(err, context.Canceled) {
+		t.Fatal("late observation cancellation returned status", view, err)
+	}
+	cancelDuringInspect = nil
+	missing := reader
+	missing.Inspect = nil
+	if view, err := missing.Read(ctx, actor, wanted); view != nil || !errors.Is(err, factoryservice.ErrRunStatusUnavailable) {
+		t.Fatal("missing runtime observation became absence", view, err)
+	}
+	// Record a conflicting display scope: no observation can repair or adopt it.
+	if _, _, err := fx.db.RecordFactoryRunView(ctx, factory.RunView{RunID: native.ID, Repository: int64(repository - 1)}); err != nil {
+		t.Fatal(err)
+	}
+	beforeInspect = inspections
+	if view, err := reader.Read(ctx, actor, wanted); view != nil || !errors.Is(err, factoryservice.ErrRunStatusScope) || inspections != beforeInspect {
+		t.Fatal("foreign display binding reached runtime", view, err)
+	}
+	wanted, observationErr = run.ID, execution.ErrRunNotObserved
+	for _, expected := range []factory.Run{run, native} {
+		stored, err := fx.db.FactoryRun(ctx, expected.ID)
+		beforeJSON, _ := json.Marshal(expected)
+		afterJSON, _ := json.Marshal(stored)
+		if err != nil || string(beforeJSON) != string(afterJSON) {
+			t.Fatal("status reads changed captured run/process/custody facts", expected.ID, err)
+		}
+	}
+	var commands, usage int
+	if err := fx.raw.QueryRowContext(ctx, `SELECT (SELECT count(*) FROM factory_commands),(SELECT count(*) FROM factory_usage)`).Scan(&commands, &usage); err != nil || commands != 0 || usage != 0 {
+		t.Fatal("status reads wrote commands or charged execution", commands, usage, err)
+	}
+	snapshot := func() string {
+		t.Helper()
+		var data string
+		if err := fx.raw.QueryRowContext(ctx, `SELECT jsonb_build_array(
+		 (SELECT jsonb_agg(to_jsonb(r) ORDER BY id) FROM factory_runs r),
+		 (SELECT jsonb_agg(to_jsonb(v) ORDER BY run) FROM factory_run_views v),
+		 (SELECT count(*) FROM factory_commands),(SELECT count(*) FROM projects),(SELECT count(*) FROM factory_usage))::text`).Scan(&data); err != nil {
+			t.Fatal(err)
+		}
+		return data
+	}
+	before := snapshot()
+	retained := read()
+	beforeJSON, _ := json.Marshal(retained)
+	if err := fx.db.Close(); err != nil {
+		t.Fatal(err)
+	}
+	reopened, err := store.Open(fx.dsn)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = reopened.Close() })
+	reader.Store = reopened
+	retained = read()
+	afterJSON, _ := json.Marshal(retained)
+	if string(beforeJSON) != string(afterJSON) || snapshot() != before {
+		t.Fatal("run read/reopen changed retained status or records")
+	}
+	// A declared host serves the reopened service over real HTTP. No native
+	// session, Project, process launch or replacement run journal is involved.
+	var admitted atomic.Bool
+	admitted.Store(true)
+	var currentCalls, loseAt atomic.Int64
+	transport := factoryhttpapi.Runs{Store: reopened, Status: reader,
+		Host: fx.api.FountainIdentities.HostID(), Actor: actor,
+		Current: func(w http.ResponseWriter, r *http.Request) bool {
+			call := currentCalls.Add(1)
+			if !admitted.Load() || call == loseAt.Load() || r.Header.Get("Authorization") != "Bearer declared-run-reader" {
+				w.WriteHeader(http.StatusUnauthorized)
+				return false
+			}
+			return true
+		},
+		AuthorityError: func(w http.ResponseWriter, err error) { w.WriteHeader(http.StatusForbidden) },
+	}
+	server := httptest.NewServer(transport.Handler())
+	t.Cleanup(server.Close)
+	call := func(target *httptest.Server, method, path string, expected int) []byte {
+		t.Helper()
+		currentCalls.Store(0)
+		req, err := http.NewRequestWithContext(ctx, method, target.URL+path, nil)
+		if err != nil {
+			t.Fatal(err)
+		}
+		req.Header.Set("Authorization", "Bearer declared-run-reader")
+		res, err := target.Client().Do(req)
+		if err != nil {
+			t.Fatal(err)
+		}
+		defer res.Body.Close()
+		body, err := io.ReadAll(res.Body)
+		if err != nil || res.StatusCode != expected || expected == 200 && res.Header.Get("Cache-Control") != "no-store" {
+			t.Fatal("shared run HTTP", method, path, res.StatusCode, string(body), err)
+		}
+		return body
+	}
+	path := "/api/factory/runs/" + run.ID
+	body := call(server, http.MethodGet, path, 200)
+	if strings.TrimSpace(string(body)) != string(beforeJSON) {
+		t.Fatal("HTTP changed retained run projection", string(body))
+	}
+	call(server, http.MethodGet, path+"?cursor=1", 400)
+	call(server, http.MethodGet, path+"?", 400)
+	call(server, http.MethodHead, path, 405)
+	call(server, http.MethodGet, "/api/factory/runs/short", 404)
+	call(server, http.MethodGet, "/api/factory/runs/"+factory.NewID(), 404)
+	wanted = native.ID
+	call(server, http.MethodGet, "/api/factory/runs/"+native.ID, 409)
+	wanted = run.ID
+	checks, denyAt = 0, 1
+	beforeInspect = inspections
+	call(server, http.MethodGet, path, 403)
+	if inspections != beforeInspect {
+		t.Fatal("denied HTTP reader reached runtime inspection")
+	}
+	denyAt = 0
+	observationErr = errors.New("private declared runtime outage")
+	if body := call(server, http.MethodGet, path, 503); strings.Contains(string(body), "private declared") {
+		t.Fatal("run transport exposed runtime failure detail", string(body))
+	}
+	observationErr = execution.ErrRunNotObserved
+	loseAt.Store(2) // The account changes after service read, before disclosure.
+	if body := call(server, http.MethodGet, path, 401); len(body) != 0 {
+		t.Fatal("late host withdrawal disclosed run status", string(body))
+	}
+	loseAt.Store(0)
+	admitted.Store(false)
+	beforeInspect = inspections
+	call(server, http.MethodGet, path, 401)
+	if inspections != beforeInspect {
+		t.Fatal("withdrawn host admission reached runtime")
+	}
+	admitted.Store(true)
+	missingAdmission := transport
+	missingAdmission.Current = nil
+	missingServer := httptest.NewServer(missingAdmission.Handler())
+	t.Cleanup(missingServer.Close)
+	call(missingServer, http.MethodGet, path, 503)
+	mixed := transport
+	mixed.Status.Store = fx.db // Closed original handle is not the selected store.
+	mixedServer := httptest.NewServer(mixed.Handler())
+	t.Cleanup(mixedServer.Close)
+	call(mixedServer, http.MethodGet, path, 503)
+	if snapshot() != before {
+		t.Fatal("shared run HTTP changed retained runs, bindings, commands or usage")
+	}
+	var projects int
+	if err := fx.raw.QueryRowContext(ctx, `SELECT count(*) FROM projects`).Scan(&projects); err != nil || projects != 0 {
+		t.Fatal("shared run status required a native Project", projects, err)
+	}
+}
+
+func TestSharedFactoryInterventions(t *testing.T) {
+	ctx := t.Context()
+	fx, _ := journeyMux(t, nil)
+	const actor collaboration.ActorID = 9007199254740993
+	const repository collaboration.RepositoryID = 9223372036854775807
+	const principal = "profile:maintainer"
+	const workspace = "p123456789012345678901234"
+	allowed, checks, denyAt, memberCalls := true, 0, 0, 0
+	denied := errors.New("declared current runtime write authority denied")
+	var scopeErr error
+	member := ""
+	var nativeTarget *execution.NativeCheckoutRef
+	var cancelInMembership context.CancelFunc
+	application := factoryservice.Interventions{Store: fx.db, Writer: &control.Coordinator{Store: fx.db},
+		WriteAccess: func(ctx context.Context, admitted collaboration.ActorID, repo collaboration.RepositoryID) error {
+			if admitted != actor || repo != repository {
+				t.Fatal("intervention authority changed canonical subject", admitted, repo)
+			}
+			checks++
+			if !allowed || checks == denyAt {
+				return denied
+			}
+			return nil
+		},
+		RunRepository: func(ctx context.Context, admitted collaboration.ActorID, run factory.Run) (collaboration.RepositoryID, error) {
+			if admitted != actor || run.ProjectID != workspace {
+				t.Fatal("run runtime scope changed", admitted, run.ProjectID)
+			}
+			return repository, scopeErr
+		},
+		RecoveryTarget: func(ctx context.Context, admitted collaboration.ActorID, repo collaboration.RepositoryID, run factory.Run) (execution.RecoveryTarget, error) {
+			if admitted != actor || repo != repository || run.ProjectID != workspace {
+				t.Fatal("takeover membership changed subject", admitted, repo, run.ProjectID)
+			}
+			memberCalls++
+			if cancelInMembership != nil {
+				cancelInMembership()
+			}
+			return execution.RecoveryTarget{Member: member, Native: nativeTarget}, nil
+		},
+	}
+	pause := factoryservice.RepositoryCommand{Action: factory.ActionPause}
+	result, err := application.Repository(ctx, actor, principal, repository, pause)
+	if err != nil {
+		t.Fatal(err)
+	}
+	receipt, ok := result.(factory.PauseResult)
+	if !ok || !receipt.Paused || receipt.Withdrawal.ClosedBy != principal || receipt.Withdrawal.Repository != int64(repository) {
+		t.Fatal("pause changed scope or principal", result)
+	}
+	if result, err := application.Repository(ctx, actor, principal, repository, factoryservice.RepositoryCommand{Action: factory.ActionResume}); !errors.Is(err, control.ErrIneffectiveAuthority) {
+		t.Fatal("resume invented effective authority", result, err)
+	}
+	now := time.Now().UTC()
+	for _, id := range []string{strings.Repeat("a", 32), strings.Repeat("b", 32)} {
+		run := factory.Run{ID: id, ProjectID: workspace, Role: "coder", InputSHA: strings.Repeat("a", 40), Started: now, Deadline: now.Add(time.Hour),
+			Image: "sha256:" + strings.Repeat("b", 64), Harness: "muse", Model: "declared-fixture"}
+		if err := fx.db.RecordFactoryRun(ctx, run); err != nil {
+			t.Fatal(err)
+		}
+		run.Reconciled, run.Outcome, run.Summary = true, factory.Cancelled, "stopped"
+		if err := fx.db.SaveFactoryRun(ctx, run); err != nil {
+			t.Fatal(err)
+		}
+	}
+	runID := strings.Repeat("a", 32)
+	stop := factoryservice.RunCommand{Action: factory.ActionStop}
+	result, err = application.Run(ctx, actor, principal, runID, stop)
+	stopped, ok := result.(control.StopResult)
+	if err != nil || !ok || !stopped.Confirmed || stopped.Uncertain || stopped.RunID != runID || stopped.Outcome != string(factory.Cancelled) || memberCalls != 0 {
+		t.Fatal("settled manual run stop changed its runtime or required membership", result, err)
+	}
+	if _, _, err := fx.db.RecordFactoryRunView(ctx, factory.RunView{RunID: strings.Repeat("b", 32), Repository: int64(repository - 1)}); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := application.Run(ctx, actor, principal, strings.Repeat("b", 32), stop); !errors.Is(err, factoryservice.ErrWorkJourneyScope) {
+		t.Fatal("run intervention accepted a conflicting display/runtime repository", err)
+	}
+	snapshot := func() string {
+		t.Helper()
+		var data string
+		if err := fx.raw.QueryRowContext(ctx, `SELECT jsonb_build_array(
+		 (SELECT jsonb_agg(to_jsonb(r) ORDER BY id) FROM factory_runs r),
+		 (SELECT jsonb_agg(to_jsonb(d) ORDER BY repository) FROM factory_dispatch d),
+		 (SELECT jsonb_agg(to_jsonb(c) ORDER BY id) FROM factory_commands c),
+		 (SELECT jsonb_agg(to_jsonb(v) ORDER BY run) FROM factory_run_views v),
+		 (SELECT count(*) FROM projects))::text`).Scan(&data); err != nil {
+			t.Fatal(err)
+		}
+		return data
+	}
+	before := snapshot()
+	allowed = false
+	if _, err := application.Repository(ctx, actor, principal, repository, pause); !errors.Is(err, denied) {
+		t.Fatal("saved pause bypassed current authority", err)
+	}
+	if _, err := application.Run(ctx, actor, principal, runID, stop); !errors.Is(err, denied) {
+		t.Fatal("settled run bypassed current authority", err)
+	}
+	allowed = true
+	scopeErr = errors.New("declared unknown runtime scope")
+	if _, err := application.Run(ctx, actor, principal, runID, stop); !errors.Is(err, scopeErr) {
+		t.Fatal("unknown runtime scope admitted intervention", err)
+	}
+	scopeErr = nil
+	takeover := factoryservice.RunCommand{Action: factory.ActionTakeover}
+	if _, err := application.Run(ctx, actor, principal, runID, takeover); !errors.Is(err, factoryservice.ErrInterventionRecoveryTarget) {
+		t.Fatal("takeover omitted current membership", err)
+	}
+	nativeTarget = &execution.NativeCheckoutRef{Profile: collaboration.ProfileID(factory.NewID()), CheckoutID: factory.NewID()}
+	if _, err := application.Run(ctx, actor, principal, runID, takeover); !errors.Is(err, execution.ErrRecovery) {
+		t.Fatal("native destination was lost or admitted for an appliance run", err)
+	}
+	nativeTarget = nil
+	member, checks, denyAt = "declared-member", 0, 2
+	if _, err := application.Run(ctx, actor, principal, runID, takeover); !errors.Is(err, denied) {
+		t.Fatal("late write revocation reached takeover", err)
+	}
+	denyAt = 0
+	cancelled, cancel := context.WithCancel(ctx)
+	cancelInMembership = cancel
+	if _, err := application.Run(cancelled, actor, principal, runID, takeover); !errors.Is(err, context.Canceled) {
+		t.Fatal("late membership cancellation reached takeover", err)
+	}
+	cancelInMembership = nil
+	cancelled, cancel = context.WithCancel(ctx)
+	cancel()
+	if _, err := application.Run(cancelled, actor, principal, runID, stop); !errors.Is(err, context.Canceled) {
+		t.Fatal("cancelled run intervention", err)
+	}
+	if _, err := application.Repository(cancelled, actor, principal, repository, pause); !errors.Is(err, context.Canceled) {
+		t.Fatal("cancelled repository intervention", err)
+	}
+	if _, err := application.Repository(ctx, actor, principal, repository, factoryservice.RepositoryCommand{Action: factory.ActionPause, CommandID: factory.NewID()}); !errors.Is(err, factoryservice.ErrInterventionPayload) {
+		t.Fatal("pause accepted an unrelated command identity", err)
+	}
+	if _, err := application.Repository(ctx, actor, principal, repository, factoryservice.RepositoryCommand{Action: "launch"}); !errors.Is(err, factoryservice.ErrInterventionAction) {
+		t.Fatal("unknown action admitted", err)
+	}
+	if _, err := application.Run(ctx, actor, principal, runID, factoryservice.RunCommand{Action: factory.ActionRetry}); !errors.Is(err, factoryservice.ErrInterventionCommand) {
+		t.Fatal("retry omitted durable command identity", err)
+	}
+	if _, err := application.Run(ctx, actor, principal, runID, factoryservice.RunCommand{Action: factory.ActionContextCurrent}); !errors.Is(err, factoryservice.ErrInterventionPayload) {
+		t.Fatal("context selection omitted exact scope", err)
+	}
+	if _, err := application.Run(ctx, actor, principal, factory.NewID(), stop); !errors.Is(err, factory.ErrNotFound) {
+		t.Fatal("missing run disclosed or guessed", err)
+	}
+	missing := application
+	missing.Writer = nil
+	if _, err := missing.Run(ctx, actor, principal, runID, stop); !errors.Is(err, factoryservice.ErrInterventionUnavailable) {
+		t.Fatal("missing coordinator admitted run action", err)
+	}
+	if _, err := missing.Repository(ctx, actor, principal, repository, pause); !errors.Is(err, factoryservice.ErrInterventionUnavailable) {
+		t.Fatal("missing coordinator admitted repository action", err)
+	}
+	missing = application
+	missing.WriteAccess = nil
+	if _, err := missing.Repository(ctx, actor, principal, repository, pause); !errors.Is(err, factoryservice.ErrInterventionUnavailable) {
+		t.Fatal("missing authority admitted pause", err)
+	}
+	if snapshot() != before {
+		t.Fatal("refused interventions changed runs, dispatch, bindings or command journals")
+	}
+	if err := fx.db.Close(); err != nil {
+		t.Fatal(err)
+	}
+	reopened, err := store.Open(fx.dsn)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = reopened.Close() })
+	application.Store, application.Writer = reopened, &control.Coordinator{Store: reopened}
+	result, err = application.Repository(ctx, actor, principal, repository, pause)
+	again, ok := result.(factory.PauseResult)
+	if err != nil || !ok || again.Withdrawal.Revision != receipt.Withdrawal.Revision || again.Withdrawal.ClosedBy != principal {
+		t.Fatal("store reopen lost recorded pause", result, err)
+	}
+	allowed = false
+	if _, err := application.Run(ctx, actor, principal, runID, stop); !errors.Is(err, denied) {
+		t.Fatal("reopen bypassed current runtime admission", err)
+	}
+	allowed = true
+	var admitted atomic.Bool
+	admitted.Store(true)
+	var currentCalls, loseAt atomic.Int64
+	transport := factoryhttpapi.Runs{Store: reopened, Commands: application,
+		Host: fx.api.FountainIdentities.HostID(), Actor: actor, Principal: principal,
+		Visibility: func(ctx context.Context, selected collaboration.ActorID, repo collaboration.RepositoryID) error {
+			if selected != actor || repo != repository {
+				t.Fatal("HTTP action changed bound scope", selected, repo)
+			}
+			if !allowed {
+				return denied
+			}
+			return ctx.Err()
+		},
+		Current: func(w http.ResponseWriter, r *http.Request) bool {
+			call := currentCalls.Add(1)
+			if !admitted.Load() || call == loseAt.Load() || r.Header.Get("Authorization") != "Bearer declared-intervention-client" {
+				w.WriteHeader(http.StatusUnauthorized)
+				return false
+			}
+			return true
+		},
+		AuthorityError:  func(w http.ResponseWriter, err error) { w.WriteHeader(http.StatusForbidden) },
+		VisibilityError: func(w http.ResponseWriter, err error) { w.WriteHeader(http.StatusForbidden) },
+	}
+	server := httptest.NewServer(transport.Handler())
+	t.Cleanup(server.Close)
+	call := func(target *httptest.Server, method, path, data string, expected int) []byte {
+		t.Helper()
+		currentCalls.Store(0)
+		req, err := http.NewRequestWithContext(ctx, method, target.URL+path, strings.NewReader(data))
+		if err != nil {
+			t.Fatal(err)
+		}
+		req.Header.Set("Authorization", "Bearer declared-intervention-client")
+		req.Header.Set("Content-Type", "application/json")
+		res, err := target.Client().Do(req)
+		if err != nil {
+			t.Fatal(err)
+		}
+		defer res.Body.Close()
+		body, err := io.ReadAll(res.Body)
+		if err != nil || res.StatusCode != expected || expected == 200 && res.Header.Get("Cache-Control") != "no-store" {
+			t.Fatal("shared intervention HTTP", method, path, res.StatusCode, string(body), err)
+		}
+		return body
+	}
+	repoPath := "/api/repositories/9223372036854775807/factory/actions"
+	runPath := "/api/factory/runs/" + runID + "/actions"
+	pauseJSON := `{"action":"pause"}`
+	expectedWithdrawal, _ := json.Marshal(again.Withdrawal)
+	for range 2 {
+		body := call(server, http.MethodPost, repoPath, pauseJSON, 200)
+		var saved factory.PauseResult
+		if err := json.Unmarshal(body, &saved); err != nil {
+			t.Fatal(err)
+		}
+		actualWithdrawal, _ := json.Marshal(saved.Withdrawal)
+		if string(actualWithdrawal) != string(expectedWithdrawal) || !saved.Paused {
+			t.Fatal("HTTP lost retained pause or bound principal", string(body))
+		}
+	}
+	var confirmed control.StopResult
+	body := call(server, http.MethodPost, runPath, `{"action":"stop"}`, 200)
+	if json.Unmarshal(body, &confirmed) != nil || confirmed != stopped {
+		t.Fatal("HTTP changed retained stop outcome", string(body))
+	}
+	call(server, http.MethodPost, repoPath, `{"action":"resume"}`, 409)
+	call(server, http.MethodPost, repoPath, `{"action":"launch"}`, 400)
+	call(server, http.MethodPost, repoPath, `{"action":"pause","principal":"other"}`, 400)
+	call(server, http.MethodPost, repoPath, pauseJSON+pauseJSON, 400)
+	call(server, http.MethodPost, repoPath, `{"action":"`+strings.Repeat("x", 65536)+`"}`, 413)
+	call(server, http.MethodPost, "/api/repositories/09223372036854775807/factory/actions", pauseJSON, 404)
+	call(server, http.MethodGet, repoPath, "", 405)
+	call(server, http.MethodPost, runPath, `{"action":"retry"}`, 400)
+	member = "" // The declared current peer withdraws the recovery destination.
+	call(server, http.MethodPost, runPath, `{"action":"takeover"}`, 403)
+	call(server, http.MethodPost, "/api/factory/runs/"+strings.Repeat("b", 32)+"/actions", `{"action":"stop"}`, 503)
+	call(server, http.MethodPost, "/api/factory/runs/"+factory.NewID()+"/actions", `{"action":"stop"}`, 404)
+	allowed = false
+	call(server, http.MethodPost, repoPath, pauseJSON, 403)
+	call(server, http.MethodPost, runPath, `{"action":"stop"}`, 403)
+	allowed = true
+	loseAt.Store(2) // Account withdrawal after decoding precedes any command.
+	call(server, http.MethodPost, repoPath, pauseJSON, 401)
+	call(server, http.MethodPost, runPath, `{"action":"stop"}`, 401)
+	loseAt.Store(0)
+	admitted.Store(false)
+	call(server, http.MethodPost, repoPath, pauseJSON, 401)
+	admitted.Store(true)
+	missingPrincipal := transport
+	missingPrincipal.Principal = ""
+	missingServer := httptest.NewServer(missingPrincipal.Handler())
+	t.Cleanup(missingServer.Close)
+	call(missingServer, http.MethodPost, repoPath, pauseJSON, 503)
+	if snapshot() != before {
+		t.Fatal("HTTP interventions changed retained runs/dispatch/commands or created a Project")
+	}
+	var projects int
+	if err := fx.raw.QueryRowContext(ctx, `SELECT count(*) FROM projects`).Scan(&projects); err != nil || projects != 0 {
+		t.Fatal("shared intervention required or provisioned native Project", projects, err)
+	}
+}
+
+func TestSharedRepositoryAccessRead(t *testing.T) {
+	ctx := t.Context()
+	fx, call := journeyMux(t, nil)
+	const actor collaboration.ActorID = 9007199254740993
+	const repository collaboration.RepositoryID = 7
+	for index, connection := range []string{"foreign", "owned", "unused"} {
+		sponsorship := factory.Sponsorship{Repository: int64(repository), Connection: connection, GrantedBy: int64(actor), ActorID: 3,
+			Generation: 1, GrantID: "declared-" + connection, ProjectID: "p" + strings.Repeat("7", 24),
+			Roles: []string{project.RoleCoder}, AllowanceMinutes: 60 + index, Active: true}
+		if err := fx.db.SaveSponsorship(ctx, sponsorship); err != nil {
+			t.Fatal(err)
+		}
+	}
+	started := time.Unix(1700000000, 0)
+	for index, scope := range []struct {
+		repository int64
+		connection string
+		minutes    int
+	}{
+		{7, "owned", 3}, {8, "owned", 9}, {7, "foreign", 4},
+	} {
+		usage := factory.Usage{RunID: strings.Repeat(strconv.Itoa(index+1), 32), Repository: scope.repository, Connection: scope.connection,
+			Minutes: scope.minutes, StartedAt: started, EndedAt: started.Add(time.Duration(scope.minutes) * time.Minute)}
+		if err := fx.db.RecordRunUsage(ctx, usage); err != nil {
+			t.Fatal(err)
+		}
+	}
+	snapshot := func() string {
+		t.Helper()
+		var data string
+		if err := fx.raw.QueryRowContext(ctx, `SELECT jsonb_build_array(
+		 (SELECT jsonb_agg(to_jsonb(s) ORDER BY repository,connection) FROM factory_sponsorships s),
+		 (SELECT jsonb_agg(to_jsonb(u) ORDER BY run) FROM factory_usage u),
+		 (SELECT count(*) FROM factory_runs),(SELECT count(*) FROM projects))::text`).Scan(&data); err != nil {
+			t.Fatal(err)
+		}
+		return data
+	}
+	before := snapshot()
+	viewer := factoryservice.RepositoryViewer{CodeWrite: true, OwnerOrAdmin: true, EnvironmentOwner: true, SessionCurrent: true}
+	owned := map[string]bool{"owned": true, "unused": true}
+	identityDown := errors.New("declared current ownership is unavailable")
+	var viewerErr, ownershipErr, preparationErr error
+	ownershipErr = identityDown
+	var preparation *factoryservice.RepositoryPreparation
+	checks, denyAt := 0, 0
+	denied := errors.New("declared repository access denied")
+	runtime := &control.Coordinator{Store: fx.db}
+	assertScope := func(admitted collaboration.ActorID, repo collaboration.RepositoryID) {
+		if admitted != actor || repo != repository {
+			t.Fatal("repository access changed canonical subject", admitted, repo)
+		}
+	}
+	reader := factoryservice.RepositoryAccess{Store: fx.db,
+		Visibility: func(ctx context.Context, admitted collaboration.ActorID, repo collaboration.RepositoryID) error {
+			assertScope(admitted, repo)
+			checks++
+			if checks == denyAt {
+				return denied
+			}
+			return nil
+		},
+		Viewer: func(ctx context.Context, admitted collaboration.ActorID, repo collaboration.RepositoryID) (factoryservice.RepositoryViewer, error) {
+			assertScope(admitted, repo)
+			return viewer, viewerErr
+		},
+		Connections: func(ctx context.Context, admitted collaboration.ActorID, repo collaboration.RepositoryID) (map[string]bool, error) {
+			assertScope(admitted, repo)
+			return owned, ownershipErr
+		},
+		Preparation: func(ctx context.Context, admitted collaboration.ActorID, repo collaboration.RepositoryID) (*factoryservice.RepositoryPreparation, error) {
+			assertScope(admitted, repo)
+			return preparation, preparationErr
+		},
+		Authority: func(ctx context.Context, admitted collaboration.ActorID, repo collaboration.RepositoryID) (factory.EffectiveAuthority, error) {
+			assertScope(admitted, repo)
+			return runtime.EffectiveAuthority(ctx, int64(repo))
+		},
+	}
+	read := func() *factoryservice.RepositoryAccessView {
+		t.Helper()
+		checks = 0
+		view, err := reader.Read(ctx, actor, repository)
+		if err != nil {
+			t.Fatal(err)
+		}
+		return view
+	}
+	view := read()
+	for _, usage := range view.Usage {
+		if usage.Status != "identity_unavailable" || usage.UsedMinutes != nil || usage.BudgetMinutes != 0 {
+			t.Fatal("partial ownership facts exposed private usage", usage)
+		}
+	}
+	code, body := call(http.MethodGet, "/api/repositories/7/factory/access", "")
+	if code != 200 {
+		t.Fatalf("native access: %d %s", code, body)
+	}
+	var native factoryservice.RepositoryAccessView
+	if err := json.Unmarshal(body, &native); err != nil {
+		t.Fatal(err)
+	}
+	view.ObservedUnix, native.ObservedUnix = 0, 0
+	serviceJSON, _ := json.Marshal(view)
+	nativeJSON, _ := json.Marshal(native)
+	if string(serviceJSON) != string(nativeJSON) {
+		t.Fatalf("native/shared access diverged: shared=%s native=%s", serviceJSON, nativeJSON)
+	}
+	if code, _ := call(http.MethodGet, "/api/repositories/7/factory/access?extra=1", ""); code != 400 {
+		t.Fatal("access query accepted", code)
+	}
+	if code, _ := call(http.MethodGet, "/api/repositories/8/factory/access", ""); code != 404 {
+		t.Fatal("foreign access scope accepted", code)
+	}
+	ownershipErr = nil
+	view = read()
+	if len(view.Usage) != 3 || len(view.Editable.Sponsorships) != 3 {
+		t.Fatal("missing sponsored connections", view)
+	}
+	for index, usage := range view.Usage {
+		if usage.Connection == "foreign" {
+			if usage.Status != "connection_owner_only" || usage.UsedMinutes != nil || usage.BudgetMinutes != 0 || view.Editable.Sponsorships[index].Editable {
+				t.Fatal("canonical sponsorship was mistaken for current connection ownership", usage)
+			}
+			continue
+		}
+		want := 3
+		if usage.Connection == "unused" {
+			want = 0
+		}
+		if usage.Status != "" || usage.UsedMinutes == nil || *usage.UsedMinutes != want || usage.BudgetMinutes < 60 || !view.Editable.Sponsorships[index].Editable {
+			t.Fatal("owned usage lost exact scope or confirmed zero", usage)
+		}
+	}
+	// Exercise actual SQL failure: missing usage data must not render as zero.
+	if _, err := fx.raw.ExecContext(ctx, `ALTER TABLE factory_usage RENAME TO repository_access_unavailable_usage`); err != nil {
+		t.Fatal(err)
+	}
+	view = read()
+	for _, usage := range view.Usage {
+		if usage.Connection != "foreign" && (usage.Status != "usage_unavailable" || usage.UsedMinutes != nil || usage.BudgetMinutes != 0) {
+			t.Fatal("unknown SQL usage rendered as a zero or budget", usage)
+		}
+	}
+	if _, err := fx.raw.ExecContext(ctx, `ALTER TABLE repository_access_unavailable_usage RENAME TO factory_usage`); err != nil {
+		t.Fatal(err)
+	}
+	viewer.OwnerOrAdmin, viewer.EnvironmentOwner, viewer.Operator = false, false, true
+	view = read()
+	if view.Editable.Policy.Editable || view.Editable.EnvironmentGrant.Editable || !view.Editable.Capacity.Editable || !view.Editable.OperatorGrant.Editable {
+		t.Fatal("runtime operation conferred repository ownership", view.Editable)
+	}
+	viewer.SessionCurrent = false
+	view = read()
+	if view.Editable.Capacity.Editable || view.Editable.Capacity.Reason != "session_changed" || view.Editable.Sponsorships[1].Editable || view.Editable.Sponsorships[1].Reason != "session_changed" {
+		t.Fatal("stale session retained editability", view.Editable)
+	}
+	viewer.SessionCurrent = true
+	preparation = &factoryservice.RepositoryPreparation{Project: "declared-runtime", Ready: false}
+	if view = read(); view.Preparation == nil || view.Preparation.Ready {
+		t.Fatal("known incomplete runtime preparation became ready", view.Preparation)
+	}
+	preparationErr = errors.New("declared preparation read failed")
+	if view, err := reader.Read(ctx, actor, repository); view != nil || !errors.Is(err, preparationErr) {
+		t.Fatal("unknown preparation returned partial access", view, err)
+	}
+	preparationErr, preparation = nil, nil
+	viewerErr = errors.New("declared current viewer facts failed")
+	if view, err := reader.Read(ctx, actor, repository); view != nil || !errors.Is(err, viewerErr) {
+		t.Fatal("unknown viewer facts returned access", view, err)
+	}
+	viewerErr = nil
+	checks, denyAt = 0, 2
+	if view, err := reader.Read(ctx, actor, repository); view != nil || !errors.Is(err, denied) {
+		t.Fatal("late visibility denial returned private access", view, err)
+	}
+	denyAt = 0
+	cancelled, cancel := context.WithCancel(ctx)
+	cancel()
+	if view, err := reader.Read(cancelled, actor, repository); view != nil || !errors.Is(err, context.Canceled) {
+		t.Fatal("cancelled access read", view, err)
+	}
+	missing := reader
+	missing.Authority = nil
+	if view, err := missing.Read(ctx, actor, repository); view != nil || !errors.Is(err, factoryservice.ErrRepositoryAccessUnavailable) {
+		t.Fatal("missing runtime authority supplied access", view, err)
+	}
+	if view, err := reader.Read(ctx, 0, repository); view != nil || !errors.Is(err, factoryservice.ErrRepositoryAccessInvalid) {
+		t.Fatal("invalid canonical viewer accepted", view, err)
+	}
+	if snapshot() != before {
+		t.Fatal("access reads changed recorded usage, sponsorships, runs or Projects")
+	}
+	retained := read()
+	retained.ObservedUnix = 0
+	beforeJSON, _ := json.Marshal(retained)
+	if err := fx.db.Close(); err != nil {
+		t.Fatal(err)
+	}
+	reopened, err := store.Open(fx.dsn)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = reopened.Close() })
+	reader.Store, runtime.Store = reopened, reopened
+	retained = read()
+	retained.ObservedUnix = 0
+	afterJSON, _ := json.Marshal(retained)
+	if string(beforeJSON) != string(afterJSON) || snapshot() != before {
+		t.Fatal("store reopen changed access or recorded facts")
+	}
+	// The standalone-facing read path consumes these exact reopened services.
+	status := factoryservice.RepositoryStatus{Store: reopened, Visibility: reader.Visibility, Preparation: reader.Preparation, Authority: reader.Authority,
+		Bindings: func(ctx context.Context, admitted collaboration.ActorID, repo collaboration.RepositoryID) ([]factory.ActorBindingRef, error) {
+			assertScope(admitted, repo)
+			// This declared adapter has no enrolled provider operation bindings.
+			return []factory.ActorBindingRef{}, ctx.Err()
+		}}
+	transport := factoryhttpapi.Repositories{Store: reopened, Status: status, Access: reader,
+		Host: fx.api.FountainIdentities.HostID(), Actor: actor, Visibility: reader.Visibility,
+		Current: func(w http.ResponseWriter, r *http.Request) bool {
+			if r.Header.Get("Authorization") != "Bearer declared-access-client" {
+				http.Error(w, "declared account admission unavailable", 401)
+				return false
+			}
+			return true
+		}}
+	server := httptest.NewServer(transport.Handler())
+	defer server.Close()
+	base := "/api/repositories/7/factory"
+	for _, path := range []string{base, base + "/access"} {
+		r, err := http.NewRequestWithContext(ctx, http.MethodGet, server.URL+path, nil)
+		if err != nil {
+			t.Fatal(err)
+		}
+		r.Header.Set("Authorization", "Bearer declared-access-client")
+		response, err := server.Client().Do(r)
+		if err != nil {
+			t.Fatal(err)
+		}
+		body, readErr := io.ReadAll(response.Body)
+		_ = response.Body.Close()
+		if readErr != nil || response.StatusCode != 200 || response.Header.Get("Cache-Control") != "no-store" {
+			t.Fatal("direct repository read failed", path, response.StatusCode, string(body), readErr)
+		}
+		if path == base+"/access" {
+			var served factoryservice.RepositoryAccessView
+			if err := json.Unmarshal(body, &served); err != nil {
+				t.Fatal(err)
+			}
+			served.ObservedUnix = 0
+			encoded, _ := json.Marshal(served)
+			if string(encoded) != string(beforeJSON) {
+				t.Fatal("direct HTTP changed canonical repository access", string(encoded), string(beforeJSON))
+			}
+		}
+	}
+	if snapshot() != before {
+		t.Fatal("direct repository HTTP read changed retained records")
+	}
+}
+
+func TestRepositoryAccessUsesEnvironmentOwner(t *testing.T) {
+	_, call := journeyMux(t, nil)
+	code, body := call(http.MethodGet, "/api/repositories/7/factory/access", "")
+	if code != 200 {
+		t.Fatalf("repository access: %d %s", code, body)
+	}
+	var wire struct {
+		Required []struct {
+			Code      string `json:"code"`
+			ResolveBy string `json:"resolve_by"`
+			Setting   string `json:"setting"`
+		} `json:"required_actions"`
+	}
+	if err := json.Unmarshal(body, &wire); err != nil {
+		t.Fatal(err)
+	}
+	for _, action := range wire.Required {
+		if action.Code == factory.MissingEnvironment {
+			if action.ResolveBy != "repository_owner" || action.Setting != "environment_grant" {
+				t.Fatalf("environment permission points at someone who cannot save it: %+v", action)
+			}
+			return
+		}
+	}
+	t.Fatal("missing environment permission was not reported", string(body))
+}
+
+func TestRepositoryStatusCountsRecordedDispatchWork(t *testing.T) {
+	ctx := t.Context()
+	fx, call := journeyMux(t, nil)
+	active := journeyOwner(t, strings.Repeat("3", 32), "declared-acceptance", project.ExecutionImplement, factory.AssignmentAssigned, "", "")
+	active.Issue = 4
+	insertJourneyRow(t, fx.raw, active, factory.AssignmentAssigned)
+	foreign := active
+	foreign.ID, foreign.AttemptRoot, foreign.PublicationAssignment, foreign.Repository = strings.Repeat("4", 32), strings.Repeat("4", 32), strings.Repeat("4", 32), 8
+	insertJourneyRow(t, fx.raw, foreign, factory.AssignmentAssigned)
+	if _, err := fx.raw.ExecContext(ctx, `INSERT INTO issue_controls(repository,issue,revision,data)
+ SELECT 7,n,1,jsonb_build_object('repository','7','issue',n::text,'readiness','queued') FROM generate_series(1000,3059) n`); err != nil {
+		t.Fatal(err)
+	}
+	code, body := call(http.MethodGet, "/api/repositories/7/factory", "")
+	if code != 200 {
+		t.Fatalf("repository status: %d %s", code, body)
+	}
+	var view factoryservice.RepositoryStatusView
+	if err := json.Unmarshal(body, &view); err != nil {
+		t.Fatal(err)
+	}
+	if view.Queue.Active != 1 || view.Queue.Queued != 2060 {
+		t.Fatalf("repository dispatch counts lost recorded work or included another scope: %+v", view.Queue)
+	}
+	const sponsor collaboration.ActorID = 9007199254740993
+	viewer, wanted := sponsor, collaboration.RepositoryID(7)
+	checks, denyAt := 0, 0
+	denied := errors.New("declared current repository status visibility denied")
+	var preparationErr, bindingErr, diagnosticErr error
+	var bindings []factory.ActorBindingRef
+	var preparation *factoryservice.RepositoryPreparation
+	admin := false
+	runtime := &control.Coordinator{Store: fx.db}
+	assertScope := func(actor collaboration.ActorID, repository collaboration.RepositoryID) {
+		if actor != viewer || repository != wanted {
+			t.Fatal("repository status authority subject changed", actor, repository)
+		}
+	}
+	reader := factoryservice.RepositoryStatus{Store: fx.db,
+		Visibility: func(ctx context.Context, actor collaboration.ActorID, repository collaboration.RepositoryID) error {
+			assertScope(actor, repository)
+			checks++
+			if checks == denyAt {
+				return denied
+			}
+			return nil
+		},
+		Bindings: func(ctx context.Context, actor collaboration.ActorID, repository collaboration.RepositoryID) ([]factory.ActorBindingRef, error) {
+			assertScope(actor, repository)
+			return bindings, bindingErr
+		},
+		Preparation: func(ctx context.Context, actor collaboration.ActorID, repository collaboration.RepositoryID) (*factoryservice.RepositoryPreparation, error) {
+			assertScope(actor, repository)
+			return preparation, preparationErr
+		},
+		Authority: func(ctx context.Context, actor collaboration.ActorID, repository collaboration.RepositoryID) (factory.EffectiveAuthority, error) {
+			assertScope(actor, repository)
+			return runtime.EffectiveAuthority(ctx, int64(repository))
+		},
+		Diagnostic: func(ctx context.Context, actor collaboration.ActorID, repository collaboration.RepositoryID) (*control.DispatchObservation, error) {
+			assertScope(actor, repository)
+			if !admin {
+				return nil, nil
+			}
+			return &control.DispatchObservation{Stage: "declared-owner-stage", Waits: []control.DispatchObservationReason{{Repository: int64(repository), Issue: 4, Reason: "declared-owner-wait"}}}, diagnosticErr
+		},
+	}
+	direct, err := reader.Read(ctx, viewer, 7)
+	if err != nil {
+		t.Fatal(err)
+	}
+	nativeJSON, _ := json.Marshal(view)
+	directJSON, _ := json.Marshal(direct)
+	if string(nativeJSON) != string(directJSON) {
+		t.Fatalf("direct/native status differs: %s\n%s", directJSON, nativeJSON)
+	}
+	sp := factory.Sponsorship{Repository: 7, Connection: "declared-sponsor", GrantedBy: int64(sponsor), ActorID: int64(sponsor + 2), Generation: 1, GrantID: "declared-grant", ProjectID: "p" + strings.Repeat("1", 24), Roles: []string{project.RoleCoder}, AllowanceMinutes: 78}
+	if err := fx.db.SaveSponsorship(ctx, sp); err != nil {
+		t.Fatal(err)
+	}
+	ownerView, err := reader.Read(ctx, viewer, 7)
+	if err != nil || len(ownerView.Sponsorships) != 1 || ownerView.Sponsorships[0].AllowanceMinutes != 78 {
+		t.Fatal("canonical sponsor lost its private allowance", ownerView, err)
+	}
+	viewer = sponsor + 1
+	otherView, err := reader.Read(ctx, viewer, 7)
+	if err != nil || len(otherView.Sponsorships) != 1 || otherView.Sponsorships[0].AllowanceMinutes != 0 || otherView.Sponsorships[0].Connection != sp.Connection {
+		t.Fatal("other viewer received sponsor allowance or lost its reference", otherView, err)
+	}
+	viewer = sponsor
+	bindings = []factory.ActorBindingRef{{TokenID: 31, ActorID: int64(sponsor + 2), Kind: factory.OpRefPublish}}
+	preparation = &factoryservice.RepositoryPreparation{Project: "declared-runtime-workspace", Ready: false}
+	admin = true
+	adminView, err := reader.Read(ctx, viewer, 7)
+	if err != nil || len(adminView.NativeBindings) != 1 || adminView.NativeBindings[0].ActorID != int64(sponsor+2) || adminView.Preparation.Project != preparation.Project || adminView.DispatchObservation == nil {
+		t.Fatal("runtime status ports lost their canonical facts", adminView, err)
+	}
+	diagnosticErr = errors.New("declared diagnostic authority unknown")
+	unknownDiagnostic, err := reader.Read(ctx, viewer, 7)
+	if err != nil || unknownDiagnostic.DispatchObservation != nil {
+		t.Fatal("unknown diagnostic authority exposed private observation", unknownDiagnostic, err)
+	}
+	diagnosticErr = nil
+	admin = false
+	nonAdmin, err := reader.Read(ctx, viewer, 7)
+	if err != nil || nonAdmin.DispatchObservation != nil {
+		t.Fatal("ordinary readable status exposed admin observation", nonAdmin, err)
+	}
+	preparationErr = errors.New("declared runtime preparation unavailable")
+	if got, err := reader.Read(ctx, viewer, 7); !errors.Is(err, preparationErr) || got != nil {
+		t.Fatal("unknown runtime became absent/ready", got, err)
+	}
+	preparationErr = nil
+	bindingErr = errors.New("declared binding identity unavailable")
+	if got, err := reader.Read(ctx, viewer, 7); !errors.Is(err, bindingErr) || got != nil {
+		t.Fatal("unknown bindings fabricated a status", got, err)
+	}
+	bindingErr = nil
+	denyAt = checks + 2
+	if got, err := reader.Read(ctx, viewer, 7); !errors.Is(err, denied) || got != nil {
+		t.Fatal("late visibility denial exposed status", got, err)
+	}
+	denyAt = 0
+	cancelled, cancel := context.WithCancel(ctx)
+	cancel()
+	if got, err := reader.Read(cancelled, viewer, 7); !errors.Is(err, context.Canceled) || got != nil {
+		t.Fatal("cancelled status exposed facts", got, err)
+	}
+	if _, err := (factoryservice.RepositoryStatus{Store: fx.db}).Read(ctx, viewer, 7); !errors.Is(err, factoryservice.ErrRepositoryStatusUnavailable) {
+		t.Fatal("unwired runtime status was inferred", err)
+	}
+	wanted = 9223372036854775807
+	preparation = nil
+	empty, err := reader.Read(ctx, viewer, wanted)
+	if err != nil || empty.Repository != "9223372036854775807" || empty.Queue.Active != 0 || empty.Queue.Queued != 0 {
+		t.Fatal("canonical empty repository status", empty, err)
+	}
+	wanted = 7
+	stable, err := reader.Read(ctx, viewer, 7)
+	if err != nil {
+		t.Fatal(err)
+	}
+	baseline, _ := json.Marshal(stable)
+	before := journeyStoreCounts(t, fx.raw)
+	if err := fx.db.Close(); err != nil {
+		t.Fatal(err)
+	}
+	reopened, err := store.Open(fx.dsn)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = reopened.Close() })
+	reader.Store, runtime.Store = reopened, reopened
+	stable, err = reader.Read(ctx, viewer, 7)
+	recovered, _ := json.Marshal(stable)
+	if err != nil || string(recovered) != string(baseline) {
+		t.Fatalf("reopened repository status changed: %s\n%s\n%v", baseline, recovered, err)
+	}
+	after := journeyStoreCounts(t, fx.raw)
+	for table, count := range before {
+		if after[table] != count {
+			t.Fatalf("status read changed %s: %d -> %d", table, count, after[table])
+		}
+	}
+	var projects, runs int
+	if err := fx.raw.QueryRowContext(ctx, `SELECT (SELECT count(*) FROM projects),(SELECT count(*) FROM factory_runs)`).Scan(&projects, &runs); err != nil || projects != 0 || runs != 0 {
+		t.Fatal("status required native Project or launched work", projects, runs, err)
+	}
+}
+
+func TestWorkReadPriorityMasksEverySelection(t *testing.T) {
+	ctx := t.Context()
+	fx, call := journeyMux(t, nil)
+	const hidden = "hidden-from-private-repository"
+	const visible = "visible-repository-candidate"
+	receipt := factory.PriorityReceipt{Snapshot: strings.Repeat("f", 64), CreatedUnix: 100, Outcome: "selected", Selected: hidden,
+		Candidates: []factory.PriorityCandidate{
+			{ID: visible, Control: factory.IssueControl{Repository: 7, Issue: 3}},
+			{ID: hidden, Control: factory.IssueControl{Repository: 8, Issue: 9}},
+		},
+		Calls: []factory.PriorityCall{{Answer: factory.PriorityAnswer{Selected: hidden, Model: "declared-fixture", Confidence: 0.8, Probabilities: map[string]float64{visible: 0.2, hidden: 0.8}}}},
+	}
+	raw, err := json.Marshal(receipt)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := fx.raw.ExecContext(ctx, `INSERT INTO factory_priority_judgments(snapshot,max_calls,data) VALUES($1,1,$2)`, receipt.Snapshot, string(raw)); err != nil {
+		t.Fatal(err)
+	}
+	code, body := call(http.MethodGet, "/api/repositories/7/factory/issues/3/plan", "")
+	if code != 200 {
+		t.Fatalf("priority comparison read: %d %s", code, body)
+	}
+	if strings.Contains(string(body), hidden) {
+		t.Fatalf("hidden candidate escaped the comparison through a call selection: %s", body)
+	}
+	older := receipt
+	older.Snapshot, older.CreatedUnix, older.Selected = strings.Repeat("e", 64), 90, visible
+	older.Calls = []factory.PriorityCall{{Answer: factory.PriorityAnswer{Selected: visible, Model: "declared-fixture", Confidence: 0.8, Probabilities: map[string]float64{visible: 0.8, hidden: 0.2}}}}
+	raw, _ = json.Marshal(older)
+	if _, err := fx.raw.ExecContext(ctx, `INSERT INTO factory_priority_judgments(snapshot,max_calls,data) VALUES($1,1,$2)`, older.Snapshot, string(raw)); err != nil {
+		t.Fatal(err)
+	}
+	const actor collaboration.ActorID = 9007199254740993
+	wanted := collaboration.RepositoryID(7)
+	checks, denyAt := 0, 0
+	allowed := true
+	denied := errors.New("declared recorded work visibility revoked")
+	reader := factoryservice.WorkReads{Store: fx.db, Visibility: func(ctx context.Context, owner collaboration.ActorID, repository collaboration.RepositoryID) error {
+		checks++
+		if owner != actor || repository != wanted {
+			t.Fatal("work read scope changed", owner, repository)
+		}
+		if !allowed || checks == denyAt {
+			return denied
+		}
+		return nil
+	}}
+	first, err := reader.Priority(ctx, actor, 7, 3, store.PriorityComparisonCursor{}, 1)
+	if err != nil || len(first.Comparisons) != 1 || first.NextBeforeUnix != 100 || first.NextBeforeSnapshot != receipt.Snapshot || first.Comparisons[0].Selected != "" || first.Comparisons[0].Calls[0].Selected != "" || first.Comparisons[0].OtherCount != 1 || first.Comparisons[0].CandidatesTotal != 2 || first.Comparisons[0].ProbabilityN != 2 || first.Comparisons[0].ProbabilitiesFull {
+		t.Fatal("private comparison/page metadata", first, err)
+	}
+	cursor := store.PriorityComparisonCursor{BeforeUnix: first.NextBeforeUnix, BeforeSnapshot: first.NextBeforeSnapshot}
+	next, err := reader.Priority(ctx, actor, 7, 3, cursor, 1)
+	if err != nil || len(next.Comparisons) != 1 || next.Comparisons[0].Snapshot != older.Snapshot || next.Comparisons[0].Selected != visible || next.Comparisons[0].Calls[0].Selected != visible || next.NextBeforeSnapshot != "" {
+		t.Fatal("journal continuation or visible choice changed", next, err)
+	}
+	for _, limit := range []int{0, store.MaxPriorityComparisons + 1} {
+		if _, err := reader.Priority(ctx, actor, 7, 3, cursor, limit); !errors.Is(err, factoryservice.ErrWorkReadQuery) {
+			t.Fatal("unbounded priority read", err)
+		}
+	}
+	if _, err := reader.Priority(ctx, actor, 7, 3, store.PriorityComparisonCursor{BeforeUnix: -1}, 1); !errors.Is(err, factoryservice.ErrWorkReadQuery) {
+		t.Fatal("invalid cursor became a fresh page", err)
+	}
+	wanted = 9223372036854775807
+	empty, err := reader.Priority(ctx, actor, wanted, 9223372036854775807, store.PriorityComparisonCursor{}, 1)
+	if err != nil || empty.Repository != "9223372036854775807" || empty.Issue != "9223372036854775807" || len(empty.Comparisons) != 0 {
+		t.Fatal("canonical empty comparison scope", empty, err)
+	}
+	wanted = 7
+	if _, err := reader.Assignment(ctx, actor, 7, 3); !errors.Is(err, store.ErrNotFound) {
+		t.Fatal("missing assignment was fabricated", err)
+	}
+	_, root, _ := seedRichJourney(t, fx, &journeyAcceptanceSource{})
+	root.Prompt, root.PromptSHA = []byte("Recorded accepted fixture context"), strings.Repeat("7", 64)
+	root.Result = &factory.AssignmentResult{AssignmentID: root.ID, RunID: root.Run, Status: "passed", Summary: "Recorded fixture outcome", Candidate: "refs/heads/fixture", Findings: []string{"Recorded finding"}, Reported: true, RecordedUnix: 123}
+	raw, _ = json.Marshal(root)
+	if _, err := fx.raw.ExecContext(ctx, `UPDATE factory_assignments SET data=$2 WHERE id=$1`, root.ID, string(raw)); err != nil {
+		t.Fatal(err)
+	}
+	held := factory.Reservation{AssignmentID: root.ID, Repository: 7, Connection: "declared-capacity", State: "held", PlannedMinutes: 3, Revision: 1}
+	raw, _ = json.Marshal(held)
+	if _, err := fx.raw.ExecContext(ctx, `INSERT INTO factory_reservations(assignment,repository,connection,state,data) VALUES($1,7,$2,'held',$3)`, root.ID, held.Connection, string(raw)); err != nil {
+		t.Fatal(err)
+	}
+	before := journeyStoreCounts(t, fx.raw)
+	assignment, err := reader.Assignment(ctx, actor, 7, 3)
+	if err != nil || assignment.ID != root.ID || assignment.Prompt != string(root.Prompt) || assignment.Result == nil || assignment.Result.Summary != root.Result.Summary || assignment.Reservation == nil || assignment.Reservation.PlannedMinutes != 3 || assignment.Publication == nil || assignment.Publication.PRNumber != "12" {
+		t.Fatal("exact recorded assignment view", assignment, err)
+	}
+	assignmentBaseline, _ := json.Marshal(assignment)
+	code, body = call(http.MethodGet, "/api/repositories/7/factory/issues/3/assignment", "")
+	if code != 200 {
+		t.Fatalf("assignment HTTP: %d %s", code, body)
+	}
+	var servedAssignment factoryservice.AssignmentView
+	if err := json.Unmarshal(body, &servedAssignment); err != nil {
+		t.Fatal(err)
+	}
+	servedBytes, _ := json.Marshal(servedAssignment)
+	if string(servedBytes) != string(assignmentBaseline) {
+		t.Fatalf("assignment direct/HTTP differs: %s\n%s", assignmentBaseline, servedBytes)
+	}
+	if _, err := fx.raw.ExecContext(ctx, `UPDATE factory_reservations SET data=jsonb_set(data,'{repository}','"8"') WHERE assignment=$1`, root.ID); err != nil {
+		t.Fatal(err)
+	}
+	if got, err := reader.Assignment(ctx, actor, 7, 3); !errors.Is(err, factoryservice.ErrWorkJourneyScope) || got != nil {
+		t.Fatal("foreign capacity joined by assignment alone", got, err)
+	}
+	raw, _ = json.Marshal(held)
+	if _, err := fx.raw.ExecContext(ctx, `UPDATE factory_reservations SET data=$2 WHERE assignment=$1`, root.ID, string(raw)); err != nil {
+		t.Fatal(err)
+	}
+	allowed = false
+	if got, err := reader.Assignment(ctx, actor, 7, 3); !errors.Is(err, denied) || got != nil {
+		t.Fatal("denied read exposed recorded prompt", got, err)
+	}
+	if got, err := reader.Priority(ctx, actor, 7, 3, cursor, 1); !errors.Is(err, denied) || got != nil {
+		t.Fatal("denied read exposed comparisons", got, err)
+	}
+	allowed, denyAt = true, checks+2
+	if got, err := reader.Assignment(ctx, actor, 7, 3); !errors.Is(err, denied) || got != nil {
+		t.Fatal("late denial exposed assignment", got, err)
+	}
+	denyAt = checks + 2
+	if got, err := reader.Priority(ctx, actor, 7, 3, cursor, 1); !errors.Is(err, denied) || got != nil {
+		t.Fatal("late denial exposed comparisons", got, err)
+	}
+	denyAt = 0
+	cancelled, cancel := context.WithCancel(ctx)
+	cancel()
+	if _, err := reader.Priority(cancelled, actor, 7, 3, cursor, 1); !errors.Is(err, context.Canceled) {
+		t.Fatal("cancelled priority read", err)
+	}
+	if _, err := (factoryservice.WorkReads{Store: fx.db}).Assignment(ctx, actor, 7, 3); !errors.Is(err, factoryservice.ErrWorkReadUnavailable) {
+		t.Fatal("unwired prompt visibility", err)
+	}
+	retainedPriority, err := reader.Priority(ctx, actor, 7, 3, cursor, 1)
+	if err != nil {
+		t.Fatal(err)
+	}
+	retainedPriority.ObservedUnix = 0
+	priorityBaseline, _ := json.Marshal(retainedPriority)
+	if err := fx.db.Close(); err != nil {
+		t.Fatal(err)
+	}
+	reopened, err := store.Open(fx.dsn)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = reopened.Close() })
+	reader.Store = reopened
+	assignment, err = reader.Assignment(ctx, actor, 7, 3)
+	recovered, _ := json.Marshal(assignment)
+	if err != nil || string(recovered) != string(assignmentBaseline) {
+		t.Fatal("reopened assignment changed", assignment, err)
+	}
+	retainedPriority, err = reader.Priority(ctx, actor, 7, 3, cursor, 1)
+	if err != nil {
+		t.Fatal(err)
+	}
+	retainedPriority.ObservedUnix = 0
+	recovered, _ = json.Marshal(retainedPriority)
+	if string(recovered) != string(priorityBaseline) {
+		t.Fatalf("reopened priority page changed: %s\n%s", priorityBaseline, recovered)
+	}
+	after := journeyStoreCounts(t, fx.raw)
+	for table, count := range before {
+		if after[table] != count {
+			t.Fatalf("recorded work reads changed %s: %d -> %d", table, count, after[table])
+		}
+	}
+}
+
+func TestSharedWorkControlCapabilities(t *testing.T) {
+	ctx := t.Context()
+	fake := &journeyAcceptanceSource{}
+	fx, _ := journeyMux(t, fake)
+	const actor collaboration.ActorID = 9007199254740993
+	wanted := collaboration.RepositoryID(7)
+	checks, denyAt := 0, 0
+	member := true
+	authority := factoryservice.WorkAuthority{SessionCurrent: true}
+	denied := errors.New("declared current work visibility denied")
+	reader := factoryservice.WorkControls{Store: fx.db,
+		Visibility: func(ctx context.Context, owner collaboration.ActorID, repository collaboration.RepositoryID) error {
+			checks++
+			if owner != actor || repository != wanted {
+				t.Fatal("control visibility subject changed", owner, repository)
+			}
+			if checks == denyAt {
+				return denied
+			}
+			return nil
+		},
+		Authority: func(ctx context.Context, owner collaboration.ActorID, repository collaboration.RepositoryID) (factoryservice.WorkAuthority, error) {
+			if owner != actor || repository != wanted {
+				t.Fatal("control authority subject changed", owner, repository)
+			}
+			return authority, nil
+		},
+		Membership: func(ctx context.Context, owner collaboration.ActorID, repository collaboration.RepositoryID, runtimeProject string) (bool, error) {
+			if owner != actor || repository != wanted || runtimeProject != "p"+strings.Repeat("1", 24) {
+				t.Fatal("runtime membership subject changed", owner, repository, runtimeProject)
+			}
+			return member, nil
+		},
+	}
+	if _, err := (factoryservice.WorkControls{Store: fx.db}).Read(ctx, actor, 7, 3); !errors.Is(err, factoryservice.ErrWorkControlUnavailable) {
+		t.Fatal("unwired runtime was treated as admitted", err)
+	}
+	view, err := reader.Read(ctx, actor, 7, 3)
+	if err != nil || !view.Capabilities.Watch.Available || view.Capabilities.Stop.Available || view.Capabilities.Retry.Reason != "no_run" {
+		t.Fatal("no-attempt control view", view, err)
+	}
+	wanted = 9223372036854775807
+	if _, err := reader.Read(ctx, actor, wanted, 9223372036854775807); err != nil {
+		t.Fatal("canonical maximum-int64 control scope", err)
+	}
+	wanted = 7
+	acceptance, root, _ := seedRichJourney(t, fx, fake)
+	run := factory.Run{ID: root.Run, ProjectID: root.ProjectID, Role: root.Role}
+	raw, _ := json.Marshal(run)
+	if _, err := fx.raw.ExecContext(ctx, `INSERT INTO factory_runs(id,active,settled,data) VALUES($1,true,false,$2)`, run.ID, string(raw)); err != nil {
+		t.Fatal(err)
+	}
+	view, err = reader.Read(ctx, actor, 7, 3)
+	if err != nil || !view.Capabilities.Stop.Available || view.Capabilities.Retry.Available || view.Capabilities.Takeover.Available || view.Capabilities.Retry.Reason != "run_unsettled" {
+		t.Fatal("live run control gates", view, err)
+	}
+	run.Reconciled, run.Outcome = true, factory.Failed
+	raw, _ = json.Marshal(run)
+	if _, err := fx.raw.ExecContext(ctx, `UPDATE factory_runs SET active=false,settled=true,data=$2 WHERE id=$1`, run.ID, string(raw)); err != nil {
+		t.Fatal(err)
+	}
+	view, err = reader.Read(ctx, actor, 7, 3)
+	if err != nil || view.Capabilities.Stop.Available || !view.Capabilities.Retry.Available || !view.Capabilities.Takeover.Available {
+		t.Fatal("settled member controls", view, err)
+	}
+	member = false
+	view, err = reader.Read(ctx, actor, 7, 3)
+	if err != nil || view.Capabilities.Takeover.Available || view.Capabilities.Takeover.Reason != "membership_required" {
+		t.Fatal("non-member takeover gate", view, err)
+	}
+	member = true
+	authority.Reason = factoryservice.WorkWriteRequired
+	view, err = reader.Read(ctx, actor, 7, 3)
+	if err != nil || !view.Capabilities.Watch.Available || view.Capabilities.Stop.Available || view.Capabilities.Retry.Available || view.Capabilities.Takeover.Available || view.Capabilities.Pause.Available || view.Capabilities.Resume.Available {
+		t.Fatal("read-only watching acquired writes or was denied", view, err)
+	}
+	authority.SessionCurrent = false
+	view, err = reader.Read(ctx, actor, 7, 3)
+	if err != nil || view.Capabilities.Watch.Available || view.Capabilities.Watch.Reason != "session_changed" {
+		t.Fatal("stale session could watch", view, err)
+	}
+	authority = factoryservice.WorkAuthority{SessionCurrent: true}
+	// Declared persisted retry facts exercise readback only. Actual retry
+	// command admission/dispatch remains with its existing lifecycle owner.
+	root.Outcome = factory.Failed
+	raw, _ = json.Marshal(root)
+	if _, err := fx.raw.ExecContext(ctx, `UPDATE factory_assignments SET data=$2 WHERE id=$1`, root.ID, string(raw)); err != nil {
+		t.Fatal(err)
+	}
+	controlRow := factory.IssueControl{Repository: 7, Issue: 3, Acceptance: acceptance}
+	raw, _ = json.Marshal(controlRow)
+	if _, err := fx.raw.ExecContext(ctx, `INSERT INTO issue_controls(repository,issue,revision,data) VALUES(7,3,1,$1) ON CONFLICT(repository,issue) DO UPDATE SET data=excluded.data`, string(raw)); err != nil {
+		t.Fatal(err)
+	}
+	if _, _, err := fx.db.RecordFactoryRunView(ctx, factory.RunView{RunID: run.ID, Repository: 7, Issue: 3, Attempt: root.ID}); err != nil {
+		t.Fatal(err)
+	}
+	retryID := factory.NewID()
+	payload, _ := json.Marshal(map[string]string{"prior_run": run.ID, "prior_outcome": string(factory.Failed)})
+	if _, err := fx.raw.ExecContext(ctx, `INSERT INTO factory_commands(id,type,target,principal,digest,payload,created,finished) VALUES($1,$2,$3,'profile:owner',$4,$5,'2026-11-01T00:00:00Z','2026-11-01T00:00:00Z')`, retryID, factory.CommandRetry, "run/"+run.ID, factory.SettingsDigest(factory.CommandRetry, "run/"+run.ID, string(payload)), string(payload)); err != nil {
+		t.Fatal(err)
+	}
+	before := journeyStoreCounts(t, fx.raw)
+	view, err = reader.Read(ctx, actor, 7, 3)
+	if err != nil || view.Requested == nil || view.Requested.Retry.CommandID != retryID || view.Requested.Retry.Prior != run.ID || !view.Requested.Retry.Queued || view.Capabilities.Retry.Available || view.Capabilities.Retry.Reason != "retry_queued" {
+		t.Fatal("queued retry was hidden or confirmed as execution", view, err)
+	}
+	if _, err := fx.db.WithdrawDispatch(ctx, 7, "declared pause", "profile:owner"); err != nil {
+		t.Fatal(err)
+	}
+	view, err = reader.Read(ctx, actor, 7, 3)
+	if err != nil || view.Capabilities.Pause.Available || !view.Capabilities.Resume.Available {
+		t.Fatal("closed dispatch controls", view, err)
+	}
+	denyAt = checks + 2
+	if view, err := reader.Read(ctx, actor, 7, 3); !errors.Is(err, denied) || view.Requested != nil || view.Capabilities.Watch.Available {
+		t.Fatal("late denial leaked controls", view, err)
+	}
+	denyAt = 0
+	cancelled, cancel := context.WithCancel(ctx)
+	cancel()
+	if _, err := reader.Read(cancelled, actor, 7, 3); !errors.Is(err, context.Canceled) {
+		t.Fatal("cancelled capability read", err)
+	}
+	for table, count := range before {
+		if after := journeyStoreCounts(t, fx.raw)[table]; after != count {
+			t.Fatalf("capability reads changed %s: %d -> %d", table, count, after)
+		}
+	}
+}
+
+func TestSharedWorkJourneyRead(t *testing.T) {
+	ctx := t.Context()
+	fake := &journeyAcceptanceSource{}
+	fx, call := journeyMux(t, fake)
+	_, root, _ := seedRichJourney(t, fx, fake)
+	const actor collaboration.ActorID = 9007199254740993
+	wanted := collaboration.RepositoryID(7)
+	checks, denyAt := 0, 0
+	allowed := true
+	denied := errors.New("declared current issue-work visibility withdrawn")
+	reader := factoryservice.WorkJourneys{Store: fx.db, Visibility: func(ctx context.Context, owner collaboration.ActorID, repository collaboration.RepositoryID) error {
+		checks++
+		if owner != actor || repository != wanted {
+			t.Fatal("journey authority subject changed", owner, repository)
+		}
+		if !allowed || checks == denyAt {
+			return denied
+		}
+		return nil
+	}}
+	statusReader := &control.Coordinator{Store: fx.db, AcceptanceReads: fake}
+	var statusErr error
+	foreignStatus := false
+	issueReader := factoryservice.Issues{Store: fx.db, Visibility: reader.Visibility,
+		Status: func(ctx context.Context, owner collaboration.ActorID, repository collaboration.RepositoryID, issue int64) (control.AcceptanceValidity, error) {
+			if owner != actor || repository != wanted {
+				t.Fatal("current status scope changed", owner, repository)
+			}
+			if statusErr != nil {
+				return control.AcceptanceValidity{}, statusErr
+			}
+			status, err := statusReader.AcceptanceStatus(ctx, int64(repository), strconv.FormatInt(issue, 10))
+			if foreignStatus && status.Acceptance != nil {
+				copied := *status.Acceptance
+				copied.Repository = 8
+				status.Acceptance = &copied
+			}
+			return status, err
+		},
+		Authority: func(ctx context.Context, owner collaboration.ActorID, repository collaboration.RepositoryID) (factoryservice.WorkAuthority, error) {
+			if owner != actor || repository != wanted {
+				t.Fatal("issue execution authority scope changed", owner, repository)
+			}
+			return factoryservice.WorkAuthority{SessionCurrent: true}, nil
+		},
+		Membership: func(ctx context.Context, owner collaboration.ActorID, repository collaboration.RepositoryID, runtimeProject string) (bool, error) {
+			if owner != actor || repository != wanted || runtimeProject != root.ProjectID {
+				t.Fatal("issue runtime scope changed", owner, repository, runtimeProject)
+			}
+			return false, nil
+		},
+		Navigation: func(ctx context.Context, owner collaboration.ActorID, repository collaboration.RepositoryID, issue, pr int64) (*factoryservice.IssueLinks, error) {
+			if owner != actor || repository != wanted || issue != 3 || pr != 12 {
+				t.Fatal("navigation lost recorded issue/PR scope", owner, repository, issue, pr)
+			}
+			return &factoryservice.IssueLinks{Issue: "/alice/Alpha/issues/3", Pull: "/alice/Alpha/pulls/12"}, nil
+		},
+	}
+	before := journeyStoreCounts(t, fx.raw)
+	view, err := reader.Read(ctx, actor, 7, 3)
+	if err != nil || view == nil || !view.Available || view.Lineage.AttemptRoot != root.AttemptRoot || checks != 2 {
+		t.Fatalf("shared recorded journey: %+v %v checks=%d", view, err, checks)
+	}
+	view.ObservedUnix = 0
+	baseline, err := json.Marshal(view)
+	if err != nil {
+		t.Fatal(err)
+	}
+	code, body := call(http.MethodGet, "/api/repositories/7/factory/issues/3", "")
+	if code != 200 {
+		t.Fatalf("shared HTTP journey: %d %s", code, body)
+	}
+	served := journeyIssueView(t, body).Journey
+	served.ObservedUnix = 0
+	encoded, err := json.Marshal(served)
+	if err != nil || string(encoded) != string(baseline) {
+		t.Fatalf("direct/HTTP journeys differ: %s\n%s\n%v", baseline, encoded, err)
+	}
+	whole, err := issueReader.Read(ctx, actor, 7, 3)
+	if err != nil {
+		t.Fatal("shared complete issue read", err)
+	}
+	whole.ObservedUnix, whole.Journey.ObservedUnix = 0, 0
+	fullBaseline, err := json.Marshal(whole)
+	if err != nil {
+		t.Fatal(err)
+	}
+	servedWhole := journeyIssueView(t, body)
+	servedWhole.ObservedUnix, servedWhole.Journey.ObservedUnix = 0, 0
+	fullHTTP, err := json.Marshal(servedWhole)
+	if err != nil || string(fullBaseline) != string(fullHTTP) {
+		t.Fatalf("complete direct/HTTP issue differs: %s\n%s\n%v", fullBaseline, fullHTTP, err)
+	}
+	statusErr = errors.New("declared current acceptance evidence unavailable")
+	if got, err := issueReader.Read(ctx, actor, 7, 3); !errors.Is(err, statusErr) || !errors.Is(err, factoryservice.ErrIssueStatus) || got != nil {
+		t.Fatal("unknown current evidence fabricated issue status", got, err)
+	}
+	statusErr = nil
+	foreignStatus = true
+	if got, err := issueReader.Read(ctx, actor, 7, 3); !errors.Is(err, factoryservice.ErrWorkJourneyScope) || got != nil {
+		t.Fatal("foreign acceptance escaped status port", got, err)
+	}
+	foreignStatus = false
+	allowed = false
+	if got, err := reader.Read(ctx, actor, 7, 3); !errors.Is(err, denied) || got != nil {
+		t.Fatal("denied journey leaked facts", got, err)
+	}
+	if got, err := issueReader.Read(ctx, actor, 7, 3); !errors.Is(err, denied) || got != nil {
+		t.Fatal("denied composite issue leaked facts", got, err)
+	}
+	allowed, denyAt = true, checks+2
+	if got, err := reader.Read(ctx, actor, 7, 3); !errors.Is(err, denied) || got != nil {
+		t.Fatal("late denial leaked assembled journey", got, err)
+	}
+	denyAt = checks + 2
+	if got, err := issueReader.Read(ctx, actor, 7, 3); !errors.Is(err, denied) || got != nil {
+		t.Fatal("late denial leaked composite issue", got, err)
+	}
+	denyAt = 0
+	var originalPublication []byte
+	if err := fx.raw.QueryRowContext(ctx, `SELECT data FROM factory_publications WHERE assignment=$1`, root.ID).Scan(&originalPublication); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := fx.raw.ExecContext(ctx, `UPDATE factory_publications SET data=jsonb_set(data,'{repository}','"8"') WHERE assignment=$1`, root.ID); err != nil {
+		t.Fatal(err)
+	}
+	if got, err := reader.Read(ctx, actor, 7, 3); !errors.Is(err, factoryservice.ErrWorkJourneyScope) || got != nil {
+		t.Fatal("foreign publication joined by assignment alone", got, err)
+	}
+	if got, err := issueReader.Read(ctx, actor, 7, 3); !errors.Is(err, factoryservice.ErrWorkJourneyScope) || got != nil {
+		t.Fatal("composite issue joined foreign publication", got, err)
+	}
+	if _, err := fx.raw.ExecContext(ctx, `UPDATE factory_publications SET data=$2 WHERE assignment=$1`, root.ID, string(originalPublication)); err != nil {
+		t.Fatal(err)
+	}
+	cancelled, cancel := context.WithCancel(ctx)
+	cancel()
+	if got, err := reader.Read(cancelled, actor, 7, 3); !errors.Is(err, context.Canceled) || got != nil {
+		t.Fatal("cancelled journey returned facts", got, err)
+	}
+	if _, err := (factoryservice.WorkJourneys{Store: fx.db}).Read(ctx, actor, 7, 3); !errors.Is(err, factoryservice.ErrWorkJourneyUnavailable) {
+		t.Fatal("unwired journey admission", err)
+	}
+	wanted = 9223372036854775807
+	noAttempt, err := reader.Read(ctx, actor, wanted, 9223372036854775807)
+	if err != nil || noAttempt.Repository != "9223372036854775807" || noAttempt.Issue != "9223372036854775807" || noAttempt.Available || noAttempt.Complete || len(noAttempt.Reasons) != 1 || noAttempt.Reasons[0] != "no_attempt" {
+		t.Fatalf("canonical empty journey: %+v %v", noAttempt, err)
+	}
+	wanted = 7
+	if err := fx.db.Close(); err != nil {
+		t.Fatal(err)
+	}
+	reopened, err := store.Open(fx.dsn)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = reopened.Close() })
+	reader.Store = reopened
+	issueReader.Store, statusReader.Store = reopened, reopened
+	view, err = reader.Read(ctx, actor, 7, 3)
+	if err != nil {
+		t.Fatal(err)
+	}
+	view.ObservedUnix = 0
+	encoded, err = json.Marshal(view)
+	if err != nil || string(encoded) != string(baseline) {
+		t.Fatalf("reopened journey changed: %s\n%s\n%v", baseline, encoded, err)
+	}
+	whole, err = issueReader.Read(ctx, actor, 7, 3)
+	if err != nil {
+		t.Fatal(err)
+	}
+	whole.ObservedUnix, whole.Journey.ObservedUnix = 0, 0
+	encoded, err = json.Marshal(whole)
+	if err != nil || string(encoded) != string(fullBaseline) {
+		t.Fatalf("reopened composite issue changed: %s\n%s\n%v", fullBaseline, encoded, err)
+	}
+	// Direct HTTP composition needs only canonical services and declared host
+	// admission, with no native session or API object in the transport.
+	var inventoryBefore int
+	if err := fx.raw.QueryRowContext(ctx, `SELECT count(*) FROM projects`).Scan(&inventoryBefore); err != nil {
+		t.Fatal(err)
+	}
+	var accountChecks, revokeAt atomic.Int32
+	work := factoryhttpapi.Work{Reads: factoryservice.WorkReads{Store: reopened, Visibility: reader.Visibility}, Issues: issueReader,
+		Host: fx.api.FountainIdentities.HostID(), Actor: actor,
+		Current: func(w http.ResponseWriter, r *http.Request) bool {
+			count := accountChecks.Add(1)
+			if r.Header.Get("Authorization") != "Bearer declared-work-client" || revokeAt.Load() > 0 && count >= revokeAt.Load() {
+				http.Error(w, "declared account admission unavailable", 401)
+				return false
+			}
+			return true
+		},
+		VisibilityError: func(w http.ResponseWriter, _ error) { http.Error(w, "declared repository visibility unavailable", 404) },
+	}
+	server := httptest.NewServer(work.Handler())
+	defer server.Close()
+	direct := func(path string, status int) []byte {
+		t.Helper()
+		r, err := http.NewRequestWithContext(ctx, http.MethodGet, server.URL+path, nil)
+		if err != nil {
+			t.Fatal(err)
+		}
+		r.Header.Set("Authorization", "Bearer declared-work-client")
+		response, err := server.Client().Do(r)
+		if err != nil {
+			t.Fatal(err)
+		}
+		defer response.Body.Close()
+		body, err := io.ReadAll(response.Body)
+		if err != nil || response.StatusCode != status {
+			t.Fatalf("direct work HTTP %s: %d %s %v", path, response.StatusCode, body, err)
+		}
+		if status == 200 && response.Header.Get("Cache-Control") != "no-store" {
+			t.Fatal("recorded work response was cacheable")
+		}
+		return body
+	}
+	base := "/api/repositories/7/factory/issues/3"
+	directIssue := journeyIssueView(t, direct(base, 200))
+	directIssue.ObservedUnix, directIssue.Journey.ObservedUnix = 0, 0
+	encoded, err = json.Marshal(directIssue)
+	if err != nil || string(encoded) != string(fullBaseline) {
+		t.Fatal("direct host changed canonical issue/journey projection", string(encoded), err)
+	}
+	assignment, err := work.Reads.Assignment(ctx, actor, 7, 3)
+	if err != nil {
+		t.Fatal(err)
+	}
+	assignmentBytes, _ := json.Marshal(assignment)
+	if served := direct(base+"/assignment", 200); strings.TrimSpace(string(served)) != string(assignmentBytes) {
+		t.Fatal("direct host changed recorded assignment projection", string(served))
+	}
+	priority, err := work.Reads.Priority(ctx, actor, 7, 3, store.PriorityComparisonCursor{}, 1)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var servedPriority factoryservice.IssuePriorityView
+	if err := json.Unmarshal(direct(base+"/plan?limit=1", 200), &servedPriority); err != nil {
+		t.Fatal(err)
+	}
+	priority.ObservedUnix, servedPriority.ObservedUnix = 0, 0
+	a, _ := json.Marshal(priority)
+	b, _ := json.Marshal(servedPriority)
+	if string(a) != string(b) {
+		t.Fatal("direct host changed priority projection", string(a), string(b))
+	}
+	direct(base+"?unexpected=1", 400)
+	direct(base+"/assignment?unexpected=1", 400)
+	direct(base+"/plan?limit=0", 400)
+	direct(base+"/plan?before_unix=1", 400)
+	direct("/api/repositories/07/factory/issues/3", 404)
+	allowed = false
+	if body := direct(base, 404); strings.Contains(string(body), root.ID) {
+		t.Fatal("withdrawn visibility disclosed issue work", string(body))
+	}
+	allowed = true
+	accountChecks.Store(0)
+	revokeAt.Store(2)
+	if body := direct(base+"/assignment", 401); strings.Contains(string(body), root.ID) || strings.Contains(string(body), "prompt") {
+		t.Fatal("revoked host admission disclosed recorded assignment", string(body))
+	}
+	revokeAt.Store(0)
+	var inventoryAfter int
+	if err := fx.raw.QueryRowContext(ctx, `SELECT count(*) FROM projects`).Scan(&inventoryAfter); err != nil || inventoryAfter != inventoryBefore {
+		t.Fatal("work HTTP created runtime inventory", inventoryBefore, inventoryAfter, err)
+	}
+	for table, count := range before {
+		if after := journeyStoreCounts(t, fx.raw)[table]; after != count {
+			t.Fatalf("journey read changed %s: %d -> %d", table, count, after)
+		}
+	}
 }
 
 func TestFactoryIssueJourneyReadsChangeNothing(t *testing.T) {
@@ -1473,13 +3173,13 @@ func TestFactoryIssueJourneyPhasesRetainNewestFailed(t *testing.T) {
 		t.Fatalf("newest-failed phases: %+v", journey.Phases)
 	}
 	got := journey.Phases[0]
-	if got.Phase != project.ExecutionImplement || got.State != journeyAttention {
+	if got.Phase != project.ExecutionImplement || got.State != "attention" {
 		t.Fatalf("newest-failed state: %+v", got)
 	}
 	if got.Assignment != newest.ID || got.Run != newest.Run || got.AttemptRoot != root.ID {
 		t.Fatalf("newest-failed refs: %+v want %s/%s/%s", got, newest.ID, newest.Run, root.ID)
 	}
-	if len(journey.Reasons) != 2 || journey.Reasons[0] != journeyReasonAdoptionsUnavailable || journey.Reasons[1] != journeyReasonDeliveryUnavailable {
+	if len(journey.Reasons) != 2 || journey.Reasons[0] != "adoptions_unavailable" || journey.Reasons[1] != "delivery_unavailable" {
 		t.Fatalf("newest-failed reasons: %+v", journey.Reasons)
 	}
 }
@@ -1509,7 +3209,7 @@ func TestFactoryIssueJourneyPhasesNeedsHumanAttention(t *testing.T) {
 		t.Fatalf("needs-human phases: %+v", journey.Phases)
 	}
 	got := journey.Phases[0]
-	if got.Phase != project.ExecutionImplement || got.State != journeyAttention {
+	if got.Phase != project.ExecutionImplement || got.State != "attention" {
 		t.Fatalf("needs-human state: %+v, want implement/attention", got)
 	}
 	if got.Assignment != needy.ID || got.Run != needy.Run || got.AttemptRoot != root.ID {
@@ -1544,7 +3244,7 @@ func TestFactoryIssueJourneyPhasesIsolateAttemptRoots(t *testing.T) {
 		t.Fatalf("isolated phases: %+v", journey.Phases)
 	}
 	got := journey.Phases[0]
-	if got.Phase != project.ExecutionCorrect || got.State != journeyComplete {
+	if got.Phase != project.ExecutionCorrect || got.State != "complete" {
 		t.Fatalf("isolated state: %+v", got)
 	}
 	if got.Assignment != rootB.ID || got.Run != rootB.Run || got.AttemptRoot != rootB.ID {
@@ -1577,7 +3277,7 @@ func TestFactoryIssueJourneyInvalidPhaseExplicit(t *testing.T) {
 	if view.Journey.Phases[0].Assignment != root.ID {
 		t.Fatalf("invalid-phase refs: %+v", view.Journey.Phases[0])
 	}
-	if reasons := journeyReasons(view); !reasons[journeyReasonPhasesInvalidRow] {
+	if reasons := journeyReasons(view); !reasons["phases_invalid_row"] {
 		t.Fatalf("invalid-phase not named: %+v", view.Journey.Reasons)
 	}
 	if view.Journey.Complete {
@@ -1611,7 +3311,7 @@ func TestFactoryIssueJourneyPhaselessRowInvalid(t *testing.T) {
 	if view.Journey.Phases[0].Assignment != root.ID {
 		t.Fatalf("phaseless refs: %+v", view.Journey.Phases[0])
 	}
-	if reasons := journeyReasons(view); !reasons[journeyReasonPhasesInvalidRow] {
+	if reasons := journeyReasons(view); !reasons["phases_invalid_row"] {
 		t.Fatalf("phaseless row not named invalid: %+v", view.Journey.Reasons)
 	}
 }
@@ -1872,13 +3572,13 @@ func TestFactoryIssueJourneyEvidenceJoinsComplete(t *testing.T) {
 		t.Fatalf("evidence flags: %+v", journey)
 	}
 	if len(journey.Adoptions) != 1 || journey.Adoptions[0].Intent != intent ||
-		journey.Adoptions[0].Revision != revision || journey.Adoptions[0].State != journeyAdoptionAdopted {
+		journey.Adoptions[0].Revision != revision || journey.Adoptions[0].State != "adopted" {
 		t.Fatalf("evidence adoptions: %+v", journey.Adoptions)
 	}
-	if len(journey.Judgments) != 2 || journey.Judgments[0].Kind != journeyJudgmentDelivery ||
-		journey.Judgments[0].Selected != journeyJudgmentDeliveryReady ||
+	if len(journey.Judgments) != 2 || journey.Judgments[0].Kind != "delivery" ||
+		journey.Judgments[0].Selected != "ready_to_merge" ||
 		journey.Judgments[0].Model != "test-delivery-model" || journey.Judgments[0].Probability != 0.9 ||
-		journey.Judgments[1].Kind != journeyJudgmentReassessDecision {
+		journey.Judgments[1].Kind != "reassessment-decision" {
 		t.Fatalf("evidence judgments: %+v", journey.Judgments)
 	}
 }
@@ -1898,10 +3598,10 @@ func TestFactoryIssueJourneyDeliveryMissingReceipt(t *testing.T) {
 	if len(journey.Adoptions) != 1 || journey.Complete {
 		t.Fatalf("missing-receipt adoption/flags: %+v", journey)
 	}
-	if len(journey.Reasons) != 1 || journey.Reasons[0] != journeyReasonDeliveryUnavailable {
+	if len(journey.Reasons) != 1 || journey.Reasons[0] != "delivery_unavailable" {
 		t.Fatalf("missing-receipt reasons: %+v", journey.Reasons)
 	}
-	if len(journey.Judgments) != 1 || journey.Judgments[0].Kind != journeyJudgmentReassessDecision {
+	if len(journey.Judgments) != 1 || journey.Judgments[0].Kind != "reassessment-decision" {
 		t.Fatalf("missing-receipt judgments: %+v", journey.Judgments)
 	}
 }
@@ -1921,7 +3621,7 @@ func TestFactoryIssueJourneyCleanDeliveryEvidence(t *testing.T) {
 	if !journey.Complete || len(journey.Reasons) != 0 {
 		t.Fatalf("clean-delivery flags: %+v", journey)
 	}
-	if len(journey.Judgments) != 1 || journey.Judgments[0].Kind != journeyJudgmentReassessDecision {
+	if len(journey.Judgments) != 1 || journey.Judgments[0].Kind != "reassessment-decision" {
 		t.Fatalf("clean-delivery judgments: %+v", journey.Judgments)
 	}
 }
@@ -1952,7 +3652,7 @@ func TestFactoryIssueJourneyDeliveredDedupOnUnchangedRebind(t *testing.T) {
 		t.Fatalf("delivered identity: %+v adoptions %+v %+v", delivered, first, second)
 	}
 	for _, reason := range journey.Reasons {
-		if reason == journeyReasonDeliveriesUnavailable || reason == journeyReasonDeliveriesInvalidRow {
+		if reason == "deliveries_unavailable" || reason == "deliveries_invalid_row" {
 			t.Fatalf("dedup falsely unavailable: %+v", journey)
 		}
 	}
@@ -1985,7 +3685,7 @@ func TestFactoryIssueJourneyVerifiedRefusesWrongAssignment(t *testing.T) {
 	if len(journey.Verifications) != 0 {
 		t.Fatalf("wrong-assignment verifications: %+v", journey.Verifications)
 	}
-	if !journeyReasons(view)[journeyReasonVerificationsUnavailable] {
+	if !journeyReasons(view)["verifications_unavailable"] {
 		t.Fatalf("wrong-assignment reasons: %+v", journey.Reasons)
 	}
 }
@@ -2031,7 +3731,7 @@ func TestFactoryIssueJourneyVerifiedRefusesWrongScope(t *testing.T) {
 	if len(journey.Verifications) != 0 {
 		t.Fatalf("wrong-scope verifications: %+v", journey.Verifications)
 	}
-	if !journeyReasons(view)[journeyReasonVerificationsUnavailable] {
+	if !journeyReasons(view)["verifications_unavailable"] {
 		t.Fatalf("wrong-scope reasons: %+v", journey.Reasons)
 	}
 }
@@ -2090,7 +3790,7 @@ func TestFactoryIssueJourneyVerifiedRefusesNonVerifiedResult(t *testing.T) {
 	if len(journey.Verifications) != 0 {
 		t.Fatalf("non-verified verifications: %+v", journey.Verifications)
 	}
-	if !journeyReasons(view)[journeyReasonVerificationsUnavailable] {
+	if !journeyReasons(view)["verifications_unavailable"] {
 		t.Fatalf("non-verified reasons: %+v", journey.Reasons)
 	}
 }
@@ -2112,7 +3812,7 @@ func TestFactoryIssueJourneyVerifiedRefusesMissingF10(t *testing.T) {
 	if len(journey.Verifications) != 0 {
 		t.Fatalf("missing-F10 verifications: %+v", journey.Verifications)
 	}
-	if !journeyReasons(view)[journeyReasonVerificationsUnavailable] {
+	if !journeyReasons(view)["verifications_unavailable"] {
 		t.Fatalf("missing-F10 reasons: %+v", journey.Reasons)
 	}
 }

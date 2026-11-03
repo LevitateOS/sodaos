@@ -7,8 +7,8 @@ import (
 	"strconv"
 
 	extensions "forgejo.org/extension-sdk"
+	"github.com/levitateos/factory/pkg/factory"
 	"github.com/levitateos/sodaos/internal/config"
-	"github.com/levitateos/sodaos/internal/factory"
 )
 
 // ReadDeliveryMaterial uses the existing merge actor and native snapshot
@@ -20,12 +20,16 @@ func (m *Merger) ReadDeliveryMaterial(ctx context.Context, w factory.MergeWork) 
 	if w.ValidateTarget() != nil {
 		return empty, &factory.PublicationRefusal{Reason: "invalid_work"}
 	}
+	native, err := m.nativeWork(ctx, w)
+	if err != nil {
+		return empty, err
+	}
 	if err := m.checkActor(ctx, w.ActorID); err != nil {
 		return empty, err
 	}
-	reader := &BackgroundSnapshotReader{Client: m.background, ActorID: strconv.FormatInt(w.ActorID, 10)}
+	reader := &BackgroundSnapshotReader{Client: m.background, ActorID: strconv.FormatInt(native.ActorID, 10)}
 	credential := extensions.CredentialFile(m.tokenFile)
-	repo, number := strconv.FormatInt(w.Repository, 10), strconv.FormatInt(w.PRNumber, 10)
+	repo, number := strconv.FormatInt(native.Repository, 10), strconv.FormatInt(w.PRNumber, 10)
 	issue, err := BracketedRead(ctx, reader, credential, SnapshotRequest{RepositoryID: repo, IssueIndex: number, Families: []SnapshotFamily{FamilyIssue, FamilyComments}, Limit: SnapshotPageLimit})
 	if err != nil {
 		return empty, mergeReadError(err)
@@ -34,11 +38,55 @@ func (m *Merger) ReadDeliveryMaterial(ctx context.Context, w factory.MergeWork) 
 	if err != nil {
 		return empty, mergeReadError(err)
 	}
-	bodies, err := m.readDeliveryBodies(ctx, reader, credential, w, &issue, pull)
+	bodies, err := m.readDeliveryBodies(ctx, reader, credential, native, &issue, pull)
 	if err != nil {
 		return empty, err
 	}
-	return deliveryMaterial(w, issue, pull, bodies)
+	material, err := deliveryMaterial(native, issue, pull, bodies)
+	if err != nil {
+		return empty, err
+	}
+	// Only complete, permission-checked native discussion can introduce observed
+	// participants. Repository/actor keys used to access it were lookup-only.
+	material.Repository = w.Repository
+	actors := make(map[string]string)
+	localActor := func(id string) (string, error) {
+		if id == "" {
+			return "", nil // Missing optional attribution stays unknown.
+		}
+		if local, ok := actors[id]; ok {
+			return local, nil
+		}
+		actor, err := m.Identities.LocalActor(ctx, id)
+		if err != nil {
+			return "", err
+		}
+		local := strconv.FormatInt(int64(actor), 10)
+		actors[id] = local
+		return local, nil
+	}
+	for i := range material.Comments {
+		material.Comments[i].PosterID, err = localActor(material.Comments[i].PosterID)
+		if err != nil {
+			return empty, err
+		}
+	}
+	for i := range material.Reviews {
+		material.Reviews[i].ActorID, err = localActor(material.Reviews[i].ActorID)
+		if err != nil {
+			return empty, err
+		}
+	}
+	for i := range material.Threads {
+		material.Threads[i].ResolverID, err = localActor(material.Threads[i].ResolverID)
+		if err != nil {
+			return empty, err
+		}
+	}
+	if raw, err := json.Marshal(material); err != nil || len(raw) > 128*1024 {
+		return empty, &factory.PublicationWait{Reason: "delivery_material_unavailable"}
+	}
+	return material, nil
 }
 
 // The native ordinary-comments list intentionally omits code/review rows.
@@ -159,13 +207,16 @@ func deliveryMaterial(w factory.MergeWork, issue, pull NativeSnapshot, reviewBod
 		if !thread.Visible || !thread.Complete || thread.IssueID != issue.Issue.ID || len(thread.Members) != thread.MemberTotal {
 			return empty, &factory.PublicationWait{Reason: "delivery_thread_metadata_unavailable"}
 		}
-		item := factory.DeliveryThread{RootID: thread.RootID, ReviewID: thread.ReviewID, Path: thread.Path, Side: thread.Side, Line: thread.Line, OriginalCommit: thread.OriginalCommit, HeadCommit: thread.HeadCommit, Digest: thread.Digest, Resolved: thread.Resolved, ResolverID: thread.ResolverID}
+		item := factory.DeliveryThread{RootID: thread.RootID, ReviewID: thread.ReviewID, Path: thread.Path, Side: thread.Side, Line: thread.Line, OriginalAnchor: deliveryThreadAnchor(thread.OriginalAnchor), OriginalCommit: thread.OriginalCommit, HeadCommit: thread.HeadCommit, Digest: thread.Digest, Resolved: thread.Resolved, ResolverID: thread.ResolverID}
 		for _, member := range thread.Members {
 			body, ok := comments[member.ID]
 			if !ok || !member.Visible || !member.Complete || body.ContentDigest != member.ContentDigest || body.ContentVersion != member.ContentVersion || member.IssueID != issue.Issue.ID {
 				return empty, &factory.PublicationWait{Reason: "delivery_thread_body_unavailable"}
 			}
-			item.Members = append(item.Members, member.ID)
+			item.Members = append(item.Members, factory.DeliveryThreadMember{ID: member.ID, OriginalAnchor: deliveryThreadAnchor(member.OriginalAnchor), Resolved: member.Resolved})
+		}
+		if digest, err := item.ConversationDigest(out.Comments, false); err != nil || digest != item.Digest {
+			return empty, &factory.PublicationWait{Reason: "delivery_thread_context_changed"}
 		}
 		out.Threads = append(out.Threads, item)
 	}
@@ -174,4 +225,11 @@ func deliveryMaterial(w factory.MergeWork, issue, pull NativeSnapshot, reviewBod
 		return empty, wait
 	}
 	return out, nil
+}
+
+func deliveryThreadAnchor(a *extensions.RepositoryInlineAnchor) *factory.ReviewThreadAnchor {
+	if a == nil {
+		return nil
+	}
+	return &factory.ReviewThreadAnchor{Base: a.Base, Head: a.Head, Path: a.Path, Side: a.Side, Scope: a.Scope, StartLine: a.StartLine, EndLine: a.EndLine}
 }

@@ -6,7 +6,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/levitateos/sodaos/internal/factory"
+	"github.com/levitateos/factory/pkg/factory"
 )
 
 // ObserveForPublish brackets one idle native revision and reads the exact

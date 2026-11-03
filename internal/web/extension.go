@@ -2,10 +2,9 @@ package web
 
 import (
 	"context"
-	"net/http"
 
 	extensions "forgejo.org/extension-sdk"
-	"github.com/levitateos/sodaos/internal/project"
+	"github.com/levitateos/factory/pkg/project"
 	"github.com/levitateos/sodaos/internal/web/api"
 	"github.com/levitateos/sodaos/internal/web/auth"
 )
@@ -14,8 +13,8 @@ import (
 // a dedicated private listener, not the dashboard's public browser listener.
 // The required soda package additionally owns the tailnet lifecycle
 // controller, wired here from the product API owner.
-func Extension(socket string) (extensions.Application, func()) {
-	handler, closeTransport := api.Extension(socket)
+func Extension(socket, factorySocket string) (extensions.Application, func()) {
+	handler, closeTransport := api.Frontend(socket, factorySocket)
 	return extensions.Application{HTTP: handler, Policies: map[string]extensions.PolicyHandler{
 		extensions.PolicyForgejoUsername: forgejoUsernamePolicy,
 	}, Lifecycle: api.LifecycleController(socket, api.SodaServicePeerUID)}, closeTransport
@@ -39,6 +38,3 @@ func forgejoUsernamePolicy(_ context.Context, request extensions.PolicyRequest) 
 	}
 	return extensions.PolicyDecision{Allowed: true}, nil
 }
-
-// ExtensionHandler is mounted only on the dedicated private service socket.
-func (s *Server) ExtensionHandler() http.Handler { return s.API.ExtensionHandler() }

@@ -11,8 +11,8 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/levitateos/sodaos/internal/factory"
-	"github.com/levitateos/sodaos/internal/project"
+	"github.com/levitateos/factory/pkg/factory"
+	"github.com/levitateos/factory/pkg/project"
 )
 
 type Config struct {

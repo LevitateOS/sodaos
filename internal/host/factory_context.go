@@ -5,7 +5,7 @@ import (
 	"errors"
 	"net/http"
 
-	"github.com/levitateos/sodaos/internal/project"
+	"github.com/levitateos/factory/pkg/project"
 )
 
 // The wire envelope stays bounded at 3x the aggregate raw bound: 128 KiB
@@ -14,7 +14,7 @@ import (
 // check and instructions.
 const factoryContextResponseLimit = 384 << 10
 
-// IsPreparationContextBoundsExceeded reports whether err is the genuine
+// preparationContextBoundsExceeded reports whether err is the genuine
 // typed explicit-bounds refusal for a /prepare-context read: the native
 // route answers HTTP 413 (preparation context exceeds bounds) when and
 // only when the selection cannot fit the file-count, per-file or
@@ -22,7 +22,7 @@ const factoryContextResponseLimit = 384 << 10
 // /prepare-context, so a 413 here is that route's typed signal — never a
 // sibling route's status, never an error-string guess. Every other error
 // (generic 500s, malformed 200s, validation failures) fails closed.
-func IsPreparationContextBoundsExceeded(err error) bool {
+func preparationContextBoundsExceeded(err error) bool {
 	var httpErr nativeHTTPError
 	return errors.As(err, &httpErr) && httpErr.status == http.StatusRequestEntityTooLarge
 }

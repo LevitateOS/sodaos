@@ -3,7 +3,7 @@ package host
 import (
 	"context"
 
-	"github.com/levitateos/sodaos/internal/project"
+	"github.com/levitateos/factory/pkg/project"
 )
 
 func (c *Client) FactoryTaskCheckpoint(ctx context.Context, in project.FactoryTaskCheckpoint) (project.FactoryTaskCheckpointState, error) {

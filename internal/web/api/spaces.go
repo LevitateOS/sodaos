@@ -7,11 +7,10 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/levitateos/sodaos/internal/web/auth"
-
+	"github.com/levitateos/factory/pkg/project"
+	"github.com/levitateos/factory/pkg/store"
 	"github.com/levitateos/sodaos/internal/host"
-	"github.com/levitateos/sodaos/internal/project"
-	"github.com/levitateos/sodaos/internal/store"
+	"github.com/levitateos/sodaos/internal/web/auth"
 )
 
 type SpaceView struct {
@@ -85,13 +84,16 @@ func (s *API) inspectSpaces(
 			break
 		}
 		scanned++
-		row, keep, complete := s.inspectSpaceRow(r, ctx, v, p, inv.runs, inv.views, inv.runsKnown(), &terminalCount, usage)
+		row, keep, complete, factoryComplete := s.inspectSpaceRow(r, ctx, v, p, inv.runs, inv.views, inv.runsKnown(), &terminalCount, usage)
 		if !complete {
 			response.Complete = false
 		}
 		if !keep {
 			progress = p.ID
 			continue
+		}
+		if !factoryComplete {
+			response.FactoryIncomplete = true
 		}
 		if !appendSpaceRow(&response, row) {
 			// The JSON cap dropped this row: resume before it so

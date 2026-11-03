@@ -12,11 +12,13 @@ import (
 	"os"
 	"strconv"
 	"strings"
+	"sync/atomic"
 	"testing"
 	"time"
 
 	extensions "forgejo.org/extension-sdk"
-	"github.com/levitateos/sodaos/internal/factory"
+	"github.com/levitateos/factory/pkg/factory"
+	factoryhttpapi "github.com/levitateos/factory/pkg/factory/httpapi"
 	"github.com/levitateos/sodaos/internal/web/auth"
 )
 
@@ -46,7 +48,12 @@ func TestExtensionProxyWaitsForAdmittedLifecycleResponse(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	var responseSize atomic.Int64
 	service := &http.Server{Handler: http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		if size := responseSize.Load(); size > 0 {
+			_, _ = io.WriteString(w, strings.Repeat("x", int(size)))
+			return
+		}
 		// The original 10-second proxy timeout returned 503 while a normal
 		// detached Project lifecycle operation was still running.
 		time.Sleep(10*time.Second + 100*time.Millisecond)
@@ -79,6 +86,27 @@ func TestExtensionProxyWaitsForAdmittedLifecycleResponse(t *testing.T) {
 	}
 	if extensionResponseHeaderTimeout <= stopOperationTimeout {
 		t.Fatalf("proxy response window %v does not cover admitted stop window %v", extensionResponseHeaderTimeout, stopOperationTimeout)
+	}
+	// Exercise actual Unix proxy delivery, including exact read-family bounds.
+	for _, sample := range []struct {
+		path         string
+		size, status int
+	}{
+		{"/factory/collaboration/repositories/7/issues/4", factoryhttpapi.CollaborationIssueResponseLimit, 200},
+		{"/factory/collaboration/repositories/7/issues", factoryhttpapi.CollaborationIssueResponseLimit, 200},
+		{"/factory/collaboration/repositories/7/issues/4", factoryhttpapi.CollaborationIssueResponseLimit + 1, 502},
+		{"/factory/collaboration/repositories/7/issues/4/capabilities", auth.APIBodyLimit + 1, 502},
+		{"/factory/collaboration/repositories/7/issue-creation/commands/0123456789abcdef0123456789abcdef", auth.APIBodyLimit + 1, 502},
+	} {
+		responseSize.Store(int64(sample.size))
+		r := httptest.NewRequest(http.MethodGet, sample.path, nil)
+		r.Header.Set(extensions.ContextHeader, string(authority))
+		r.Header.Set(extensions.AdmissionHeader, "test-admission")
+		w := httptest.NewRecorder()
+		handler.ServeHTTP(w, r)
+		if w.Code != sample.status || w.Code == 200 && w.Body.Len() != sample.size {
+			t.Fatalf("issue proxy %s size=%d: status=%d bytes=%d", sample.path, sample.size, w.Code, w.Body.Len())
+		}
 	}
 }
 
@@ -199,6 +227,9 @@ func TestExtensionProductRouteAllowlist(t *testing.T) {
 		{http.MethodGet, "/factory/feed/replies?repository=7&source_kind=post&source_id=comment-1", false},
 		{http.MethodPost, "/factory/feed/posts/comment-1/retry", true},
 		{http.MethodGet, "/factory/feed/posts/comment-1/retry", false},
+		{http.MethodGet, "/factory/feed/posts/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa/retry/bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb?repository=7", true},
+		{http.MethodPost, "/factory/feed/posts/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa/retry/bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb", false},
+		{http.MethodGet, "/factory/feed/posts/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa/retry/not-a-command", false},
 		{http.MethodGet, "/identity/enrollments", true},
 		{http.MethodDelete, "/identity/enrollments", false},
 		{http.MethodGet, "/spaces?after=p0123456789abcdef01234567", true},
