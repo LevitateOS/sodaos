@@ -27,7 +27,7 @@ clap = { version = "=4.6.7", default-features = false, features = ["std", "help"
 humantime = "=2.4.0"
 tempfile = "=3.27.0"
 serde = { version = "=1.0.229", features = ["derive"] }
-serde_json = { version = "=1.0.151", features = ["raw_value"] }
+serde_json = { version = "=1.0.154", features = ["raw_value"] }
 base64 = "=0.22.1"
 sha2 = "=0.10.9"
 soda-build-tools = { path = "../../lib/release-inputs" }
@@ -37,3 +37,5 @@ tar = "=0.4.46"
 url = "=2.5.8"
 percent-encoding = "=2.3.2"
 soda-wire-time = { path = "../../lib/wire-time" }
+soda-desktop-runtime = { workspace = true }
+tokio = { version = "=1.54.1", features = ["rt", "sync", "time"] }

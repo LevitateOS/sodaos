@@ -18,6 +18,12 @@ Fountain responsibilities.
 
 ## Runtime and builds
 
+Factory's production feed is shared under `frontend/factory/`; Fountain supplies
+its catalogue/navigation adapter from `frontend/spaces`. Storybook and the Linux
+Tauri component workbench render the same Lit source. See the
+[shared Factory UI guide](../../frontend/factory/README.md) for host contracts,
+styles, commands and the remaining standalone-runtime work.
+
 The root `package.json` declares Lit and the single `bun.lock` pins its resolved
 dependencies. Use the repository's Bun commands:
 
@@ -34,6 +40,17 @@ their module graphs, builds their CSS and packages the locked xterm assets and
 notices. Extension components load those package assets through the mount context's
 asset base. Add an extension module through its owning entry graph; do not stage a
 second copy of the extension payload outside the owning entry.
+
+In the Factory checkout, the standalone shared application builds with `bun run build:factory-ui`
+(`scripts/build-factory-ui.ts`), independently of Storybook and Forge entries.
+It emits the production module, canonical standalone CSS, embedded fonts, local
+role portraits and notices. Both product builders use
+`scripts/factory-browser-assets.ts` for common asset copying and native scheme
+correction; only the Forge extension removes duplicate document tokens. The
+[shared UI guide](https://github.com/LevitateOS/factory/blob/main/frontend/factory/README.md)
+defines the host port boundary. The desktop, native runtime and Tauri workbench
+also build in Factory; Forge consumes the shared Rust libraries as pinned Git
+dependencies and its UI through the declared Bun source link.
 
 Forgejo branding retains the shared `assets/branding/forgejo/lit.ts` runtime at
 `public/assets/soda/forgejo/lit.js` with its license. Forgejo templates do not load

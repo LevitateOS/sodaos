@@ -39,12 +39,16 @@ the shared UI is consumed through the standard `@factory/product` Bun source
 link. Factory owns components, Storybook, fonts and theme; Forge owns its host
 adapters, public URLs and native presentation mapping. Set up that dependency
 with `scripts/setup-factory-ui.sh`; do not recreate local `frontend/factory`,
-`frontend/storybook` or `frontend/desktop` copies. The remaining Rust consumer
-cutover is tracked separately in the canonical Factory queue.
+`frontend/storybook` or `frontend/desktop` copies. Factory also owns the desktop,
+native runtime, component workbench and shared Unix transport Rust sources.
+Retained Forge host, broker, operator, PostgreSQL and acceptance consumers use
+the pinned Factory Git crates through `workspace.dependencies`. Do not recreate
+those removed local Rust owners. Generated Tauri schema artifacts may remain;
+they do not define another application or workspace member.
 
 The Factory engine and store consume neutral domain/runtime ports. Provider SDKs,
 appliance adapters and private transport clients belong outside their production
-dependency closure. Forge's `internal/factory/client` is a separate IPC consumer;
+dependency closure. Forge's Factory `pkg/factory/client` dependency is a separate IPC consumer;
 the engine cannot import it. `scripts/check-factory-boundaries.sh` enforces this
 through the actual transitive Go dependency graph in local source checks and CI.
 

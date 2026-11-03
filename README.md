@@ -24,7 +24,7 @@ receive individual Linux accounts on the host.
 
 Soda integrates Forgejo's native frontend and authentication with **Spaces**,
 a protected Go environment/access API, native provisioning, Tailnet
-operator settings and stock branded Cockpit. The dashboard backend owns factory
+operator settings and stock branded Cockpit. The standalone Factory service owns factory
 coordination and its PostgreSQL ledger; `soda-factory` exposes private operator
 status, stop and reconciliation commands.
 
@@ -59,7 +59,8 @@ Fedora CoreOS host — operator administration only
 ├── soda-factory — client for the backend's private operator interface
 └── Podman
     ├── Fountain / Forgejo — native frontend, identity/Git and extension host
-    ├── Soda Go service — environment API and factory coordinator
+    ├── Soda Forge backend — environment API and human terminals
+    ├── Soda Factory service — coordinator, operator controls and worker MCP
     ├── PostgreSQL — separate Soda and Forgejo databases
     ├── Caddy — configured private HTTPS endpoints
     └── Persistent Project OS containers
@@ -131,7 +132,7 @@ toolchain selected by [rust-toolchain.toml](rust-toolchain.toml).
 | [Release delivery library](lib/soda-release-deliver/README.md) | Validate, sign and publish with protected release authority. |
 | [Release image library](lib/soda-release-image/README.md) | Assemble host content, candidates and installation media. |
 | [Release commands](lib/soda-release-tools/README.md) | Produce candidates and media and inspect artifacts. |
-| [Unix HTTP library](lib/unix-http/README.md) | Make bounded HTTP requests over Unix sockets. |
+| [Factory Unix HTTP library](https://github.com/LevitateOS/factory/blob/main/lib/unix-http/README.md) | Make bounded HTTP requests over Unix sockets. |
 | [Wire time library](lib/wire-time/README.md) | Parse and format shared protocol timestamps. |
 | [Acceptance support](tools/acceptance/README.md) | Run bounded native checks and collect evidence. |
 | [Candidate setup](tools/candidate-setup/README.md) | Prepare an isolated development builder. |
@@ -149,7 +150,8 @@ replacement, live in [go.mod](go.mod).
 
 | Package guide | Use |
 | --- | --- |
-| [Dashboard](cmd/soda-dashboard/README.md) | Operate the Soda backend and factory coordinator. |
+| [Forge backend](cmd/soda-dashboard/README.md) | Operate Project administration and the native extension bridge. |
+| [Factory service](cmd/soda-factory-server/README.md) | Run Factory independently of the Forge backend. |
 | [Forgejo extension](cmd/soda-extension/README.md) | Run the native Forgejo extension bridge. |
 | [Tailnet command](cmd/soda-tailnet/README.md) | Inspect Tailnet status and operator guidance. |
 | [Installed acceptance](internal/acceptance/README.md) | Invoke scoped native client probes. |
