@@ -1,22 +1,24 @@
 import type {WorkspaceView} from './sodaspaces-workspace-types.js';
 import {html} from 'lit';
 import type {TemplateResult} from 'lit';
-import {id, object} from './sodaspaces-api.js';
+import {check, id} from '@factory/product/frontend/factory/api/models.js';
+import {fountainRepository, fountainRepositoryIdentity} from './soda-factory-feed-host.js';
+import type {FountainAccountIdentity} from './soda-factory-feed-host.js';
 import {renderWorkspaceIntro} from './sodaspaces-workspace-view.js';
-import './sodaspaces-intent.js';
-import type {SodaIntent} from './sodaspaces-intent.js';
-import type {SavedRequest} from './sodaspaces-intent-response.js';
+import '@factory/product/frontend/factory/request/request.js';
+import type {SodaIntent} from '@factory/product/frontend/factory/request/request.js';
+import type {SavedRequest} from '@factory/product/frontend/factory/api/request-response.js';
 import './sodaspaces-factory-work.js';
-import type {WorkDetailContext, WorkOverviewContext, WorkPlanContext} from './sodaspaces-factory-work.js';
-import {
-  detailContextFromScope,
-  planContextFromScope,
-  revisionContextFromScope,
-} from './sodaspaces-factory-progress-view.js';
-import type {DetailScopeRuns, OverviewScope, OverviewScopeIssue} from './sodaspaces-factory-progress-view.js';
-import type {FactoryRun} from './sodaspaces-factory-response.js';
-import type {WorkCapabilities} from './sodaspaces-factory-work-response.js';
-import {nativePath} from './sodaspaces-factory-activity.js';
+import type {WorkDetailContext} from '@factory/product/frontend/factory/work/detail.js';
+import type {WorkPlanContext} from '@factory/product/frontend/factory/work/progress.js';
+import {fountainOverviewContext} from './soda-factory-work-scope.js';
+import type {FountainWorkOverviewContext} from './soda-factory-work-scope.js';
+import {detailContextFromScope, planContextFromScope, revisionContextFromScope} from './soda-factory-work-scope.js';
+import type {DetailScopeRuns} from './soda-factory-work-scope.js';
+import type {OverviewScope, OverviewScopeIssue} from '@factory/product/frontend/factory/work/progress-view.js';
+import type {FactoryRun} from '@factory/product/frontend/factory/api/run-response.js';
+import type {WorkCapabilities} from '@factory/product/frontend/factory/api/work-response.js';
+import {nativePath} from '@factory/product/frontend/factory/shared/format.js';
 import type {PreparedExtensionMount} from './soda-extension.js';
 
 /** Native opaque request id shape shared with the host alias routes. */
@@ -94,19 +96,38 @@ function resumedRepositoryName(part: unknown): string | undefined {
 
 /** Exact visible owner/name for one repository id; undefined when inaccessible or malformed. */
 async function readResumedRepository(
-  api: SetupActions['api'],
+  reading: SetupReading,
+  actions: SetupActions,
   repository: string
-): Promise<{owner: string; name: string} | undefined> {
+): Promise<{owner: string; name: string; native: string} | undefined | null> {
+  const identity = reading.factoryIdentity;
+  if (!identity || !reading.transport) return undefined;
+  const request = new AbortController();
+  actions.currentRepositoryRequest()?.abort();
+  actions.admitRepositoryRequest(request);
   try {
-    const data = object(await api('/api/environments?repository_id=' + repository));
-    const repo = object((data as Record<string, unknown>).repository);
-    if (repo.id !== repository) return undefined;
-    const owner = resumedRepositoryName(repo.owner);
-    const name = resumedRepositoryName(repo.name);
+    const resolved = await fountainRepositoryIdentity(reading.transport, repository, request.signal);
+    if (
+      request.signal.aborted ||
+      actions.currentRepositoryRequest() !== request ||
+      actions.currentFactoryIdentity() !== identity ||
+      actions.isStale() ||
+      !actions.isActiveSurface()
+    )
+      return null;
+    check(resolved.host === identity.host && resolved.actor === identity.actor);
+    const [rawOwner, rawName] = resolved.name.split('/');
+    const owner = resumedRepositoryName(rawOwner);
+    const name = resumedRepositoryName(rawName);
     if (!owner || !name) return undefined;
-    return {owner, name};
+    return {owner, name, native: resolved.native};
   } catch {
-    return undefined;
+    return request.signal.aborted ? null : undefined;
+  } finally {
+    if (actions.currentRepositoryRequest() === request) {
+      actions.admitRepositoryRequest(undefined);
+      actions.setRepositoryBusy(false);
+    }
   }
 }
 
@@ -116,7 +137,7 @@ function resumeCommittedAdmitted(reading: SetupReading, resumed: {intent: string
   if (
     reading.setupCommitted &&
     reading.reviewedIntent === resumed.intent &&
-    reading.repositoryChoice === resumed.repository
+    reading.factoryRepository === resumed.repository
   )
     return false;
   return true;
@@ -124,7 +145,7 @@ function resumeCommittedAdmitted(reading: SetupReading, resumed: {intent: string
 
 /**
  * Restore committed overview context for an accepted resume. One
- * authorized environments GET derives exact visible owner/name; the
+ * authorized canonical discovery read derives native locator/name; the
  * same existing overview mounts with the original identity. Never
  * forces the creation picker; an inaccessible repository reports
  * honest unavailability and leaves committed state untouched.
@@ -135,9 +156,16 @@ export async function resumeCommittedOverview(
   actions: SetupActions
 ): Promise<void> {
   const resumed = resumedCommittedRequest(event);
-  if (!resumed || !resumeCommittedAdmitted(read(), resumed)) return;
-  const metadata = await readResumedRepository(actions.api, resumed.repository);
-  if (actions.isStale() || read().requestId !== resumed.intent) return;
+  const reading = read();
+  if (!resumed || !resumeCommittedAdmitted(reading, resumed)) return;
+  const metadata = await readResumedRepository(reading, actions, resumed.repository);
+  if (
+    metadata === null ||
+    actions.isStale() ||
+    read().requestId !== resumed.intent ||
+    actions.currentFactoryIdentity() !== reading.factoryIdentity
+  )
+    return;
   if (!metadata) {
     actions.notifyFactory(
       `Saved repository ${resumed.repository} is unavailable; the request overview cannot be shown.`
@@ -145,12 +173,13 @@ export async function resumeCommittedOverview(
     return;
   }
   actions.setReviewedIntent(resumed.intent);
-  actions.setRepositoryChoice(resumed.repository);
+  actions.setRepositoryChoice(metadata.native);
   actions.setRepositoryResult({
-    items: [{id: resumed.repository, owner: metadata.owner, name: metadata.name, canCreate: false, project: null}],
+    items: [{id: metadata.native, owner: metadata.owner, name: metadata.name, canCreate: false, project: null}],
     page: 1,
     nextCursor: '',
   });
+  actions.setFactoryRepository(resumed.repository);
   actions.setSetupCommitted(true);
   actions.setSetup('intent');
   actions.notifyFactory('');
@@ -236,7 +265,9 @@ export interface SetupReading {
   hasSelection: boolean;
   setupReturn: SetupReturn | undefined;
   firstSpace: Space | undefined;
-  actorId: string;
+  factoryIdentity: FountainAccountIdentity | undefined;
+  factoryIdentityError: string;
+  factoryRepository: string;
   requestId: string;
   reviewAuthorization: {ideas: number; tasks: number} | undefined;
   reviewedIntent: string | undefined;
@@ -253,6 +284,8 @@ export interface SetupActions {
   setSetup(setup: 'intent' | 'repositories' | 'configure' | null): void;
   setRepositoryQuery(query: string): void;
   setRepositoryChoice(choice: string): void;
+  setFactoryRepository(repository: string): void;
+  currentFactoryIdentity(): FountainAccountIdentity | undefined;
   setRepositoryResult(result: RepositoryChoices | undefined): void;
   setRepositoryCursors(cursors: string[]): void;
   setRepositoryError(error: string): void;
@@ -289,13 +322,19 @@ export interface SetupHost {
 }
 
 /** Committed-request overview context from retained setup state; undefined until every part is exact. */
-export function setupOverviewContext(reading: SetupReading): WorkOverviewContext | undefined {
-  if (!reading.setupCommitted || !reading.transport || !reading.reviewedIntent) return undefined;
+export function setupOverviewContext(reading: SetupReading): FountainWorkOverviewContext | undefined {
+  if (!reading.setupCommitted || !reading.transport || !reading.reviewedIntent || !id(reading.factoryRepository))
+    return undefined;
   const choice = reading.repositoryResult?.items.find((item) => item.id === reading.repositoryChoice);
   if (!choice) return undefined;
   const repositoryPath = `${reading.forgejoPrefix}/${choice.owner}/${choice.name}`;
   if (!nativePath(repositoryPath)) return undefined;
-  return {transport: reading.transport, repository: choice.id, repositoryPath, intentID: reading.reviewedIntent};
+  return {
+    transport: reading.transport,
+    repository: reading.factoryRepository,
+    repositoryPath,
+    intentID: reading.reviewedIntent,
+  };
 }
 
 const scopeCapabilityKinds = ['watch', 'stop', 'retry', 'takeover', 'pause', 'resume'] as const;
@@ -368,7 +407,10 @@ export interface WorkChildScope {
  * Gated child-view feed: a non-retired scope whose keys match the
  * retained committed identity, on the current intent surface only.
  */
-export function childScopeFromReading(reading: SetupReading, context: WorkOverviewContext): WorkChildScope | undefined {
+export function childScopeFromReading(
+  reading: SetupReading,
+  context: FountainWorkOverviewContext
+): WorkChildScope | undefined {
   const scope = reading.overviewScope;
   if (!scope || scope.repository === '') return undefined;
   if (reading.setup !== 'intent' || reading.stale) return undefined;
@@ -454,7 +496,7 @@ function renderWorkDetail(children: WorkChildScope, space: Space | undefined, is
   return html`<soda-factory-work-detail .context=${context}></soda-factory-work-detail>`;
 }
 
-function renderWorkChildren(reading: SetupReading, context: WorkOverviewContext): TemplateResult {
+function renderWorkChildren(reading: SetupReading, context: FountainWorkOverviewContext): TemplateResult {
   const children = childScopeFromReading(reading, context);
   if (!children) return html``;
   const plan: WorkPlanContext = planContextFromScope(
@@ -508,10 +550,8 @@ export function renderSetupBody(
   if (reading.setup === 'intent') {
     const context = setupOverviewContext(reading);
     if (!context) return '';
-    return html`<soda-factory-work-overview .context=${context}></soda-factory-work-overview>${renderWorkChildren(
-        reading,
-        context
-      )}`;
+    return html`<soda-factory-work-overview .context=${fountainOverviewContext(context)}></soda-factory-work-overview
+      >${renderWorkChildren(reading, context)}`;
   }
   return renderWorkspaceIntro({
     kind: setupIntroKind(reading.busy),
@@ -540,8 +580,55 @@ export function onRepositoryQuery(actions: SetupActions, value: string) {
   actions.setRepositoryBusy(false);
 }
 
+async function prepareIntentProject(
+  event: CustomEvent<{intent: string; repository: string}>,
+  read: () => SetupReading,
+  actions: SetupActions
+) {
+  const reading = read(),
+    detail = event.detail;
+  if (
+    !detail ||
+    !requestIDPattern.test(detail.intent) ||
+    !id(detail.repository) ||
+    reading.stale ||
+    !reading.activeSurface ||
+    !reading.factoryIdentity ||
+    (reading.requestId && reading.requestId !== detail.intent)
+  )
+    return;
+  const metadata = await readResumedRepository(reading, actions, detail.repository);
+  if (
+    metadata === null ||
+    actions.isStale() ||
+    !actions.isActiveSurface() ||
+    actions.currentFactoryIdentity() !== reading.factoryIdentity
+  )
+    return;
+  if (!metadata) {
+    actions.notifyFactory('The saved repository is unavailable. Refresh before opening Project setup.');
+    return;
+  }
+  actions.setReviewedIntent(detail.intent);
+  actions.setRepositoryChoice(metadata.native);
+  actions.setFactoryRepository(detail.repository);
+  actions.setRepositoryResult({
+    items: [{id: metadata.native, owner: metadata.owner, name: metadata.name, canCreate: false, project: null}],
+    page: 1,
+    nextCursor: '',
+  });
+  actions.setSetup('configure');
+  actions.showManagement(metadata.native, 'journey');
+}
+
 export function renderSetup(reading: SetupReading, actions: SetupActions, host: SetupHost, read: () => SetupReading) {
   const blocked = reading.stale || !reading.canRestore;
+  if (!reading.factoryIdentity) {
+    if (reading.stale || reading.reconnectRequired || !reading.available)
+      return renderSetupBody(reading, actions, host, blocked, read);
+    return html`<p role="status">${reading.factoryIdentityError || 'Loading Factory account…'}</p>
+      ${reading.factoryIdentityError ? html`<button class="ui button" ?disabled=${!reading.activeSurface} @click=${reading.onRefresh}>Refresh projects</button>` : ''}`;
+  }
   const formClass = reading.setup === 'repositories' ? 'soda-setup-form' : 'soda-setup-welcome';
   return html`<div
     class="soda-setup-panel"
@@ -552,10 +639,11 @@ export function renderSetup(reading: SetupReading, actions: SetupActions, host: 
     <div class=${formClass}>
       <soda-intent
         .api=${actions.api}
-        .actor=${reading.actorId}
+        .actor=${reading.factoryIdentity.actor}
+        .draftScope=${`fountain:${reading.factoryIdentity.host}`}
         .request=${reading.requestId}
         .blocked=${blocked || !reading.activeSurface || !reading.available}
-        .active=${reading.welcomeScreen || reading.setup === 'intent'}
+        .active=${reading.welcomeScreen || reading.setup === 'intent' || reading.setup === 'repositories'}
         ?hidden=${!reading.welcomeScreen && reading.setup !== 'intent'}
         @intent-saved=${(event: Event) => actions.syncIntentRoute(intentIdentity(event))}
         @intent-resumed=${(event: Event) => {
@@ -564,11 +652,7 @@ export function renderSetup(reading: SetupReading, actions: SetupActions, host: 
         }}
         @intent-reviewed=${(event: Event) => chooseIntentRepository(event, read(), actions, host)}
         @intent-preparation=${(event: CustomEvent<{intent: string; repository: string}>) => {
-          if (actions.isStale() || !actions.isActiveSurface()) return;
-          actions.setReviewedIntent(event.detail.intent);
-          actions.setRepositoryChoice(event.detail.repository);
-          actions.setSetup('configure');
-          actions.showManagement(event.detail.repository, 'journey');
+          void prepareIntentProject(event, read, actions);
         }}
         @intent-accepted=${(event: Event) => {
           void resumeCommittedOverview(event, read, actions);
@@ -762,23 +846,50 @@ export async function searchRepositories(reading: SetupReading, actions: SetupAc
 
 export async function configureProject(reading: SetupReading, actions: SetupActions, host: SetupHost) {
   const choice = reading.repositoryResult?.items.find((item) => item.id === reading.repositoryChoice);
-  if (!choice || !configureAdmitted(reading)) return;
+  if (!choice || !configureAdmitted(reading) || !reading.transport || !reading.factoryIdentity) return;
   const intent = host.querySelector<SodaIntent>('soda-intent');
   if (!intent) return;
+  const identity = reading.factoryIdentity;
+  const request = new AbortController();
+  actions.currentRepositoryRequest()?.abort();
+  actions.admitRepositoryRequest(request);
   actions.setRepositoryBusy(true);
-  const accepted = await intent.acceptRepository(choice.id);
-  actions.setRepositoryBusy(false);
-  if (!accepted) {
-    actions.setRepositoryError(
-      'Could not save the accepted product direction. Your Project has not been created. Try again.'
-    );
-    return;
+  try {
+    const repository = await fountainRepository(reading.transport, choice.id, request.signal);
+    if (
+      request.signal.aborted ||
+      actions.currentRepositoryRequest() !== request ||
+      actions.isStale() ||
+      !actions.isActiveSurface() ||
+      actions.currentFactoryIdentity() !== identity
+    )
+      return;
+    check(repository.host === identity.host && repository.actor === identity.actor);
+    if (!(await intent.acceptRepository(repository.repository))) throw Error('Repository acceptance failed.');
+    if (
+      request.signal.aborted ||
+      actions.isStale() ||
+      !actions.isActiveSurface() ||
+      actions.currentFactoryIdentity() !== identity
+    )
+      return;
+    check(intent.revision?.repository === repository.repository);
+    actions.setFactoryRepository(repository.repository);
+    actions.notifyFactory(intent.generationNotice);
+    actions.setSetup('intent');
+    actions.setSetupCommitted(intent.revision?.state === 'accepted');
+    focusSetupIntent(host, actions.isStale, actions.isActiveSurface);
+  } catch {
+    if (!request.signal.aborted && actions.currentRepositoryRequest() === request)
+      actions.setRepositoryError(
+        'Could not save the accepted product direction. Your Project has not been created. Try again.'
+      );
+  } finally {
+    if (actions.currentRepositoryRequest() === request) {
+      actions.admitRepositoryRequest(undefined);
+      actions.setRepositoryBusy(false);
+    }
   }
-  if (actions.isStale() || !actions.isActiveSurface()) return;
-  actions.notifyFactory(intent.generationNotice);
-  actions.setSetup('intent');
-  actions.setSetupCommitted(intent.revision?.state === 'accepted');
-  focusSetupIntent(host, actions.isStale, actions.isActiveSurface);
 }
 function configureAdmitted(reading: SetupReading) {
   return !reading.repositoryBusy && !reading.stale && reading.canRestore && reading.setup === 'repositories';

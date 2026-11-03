@@ -96,7 +96,7 @@ fn stage_branding_assets(source: &Path, stage: &Path, build: &Path) -> Result<()
     std::fs::write(&css, text.replace("../theme/palette.css", "palette.css"))
         .map_err(|e| StageError::failure(e.to_string()))?;
     std::fs::copy(
-        source.join("assets/branding/theme/palette.css"),
+        source.join("node_modules/@factory/product/assets/branding/theme/palette.css"),
         brand.join("palette.css"),
     )
     .map_err(|e| StageError::failure(e.to_string()))?;
@@ -138,7 +138,10 @@ fn stage_forgejo_context(source: &Path, forgejo: &Path) -> Result<(), StageError
         &source.join("assets/branding/forgejo/css"),
         &custom.join("css"),
     )?;
-    copy_tree(&source.join("assets/branding/theme"), &custom.join("theme"))?;
+    copy_tree(
+        &source.join("node_modules/@factory/product/assets/branding/theme"),
+        &custom.join("theme"),
+    )?;
     let styles: Vec<PathBuf> = std::fs::read_dir(custom.join("css"))
         .map_err(|e| StageError::failure(e.to_string()))?
         .filter_map(|entry| entry.ok().map(|entry| entry.path()))

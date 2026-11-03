@@ -1,5 +1,5 @@
 import {nativeAppSubUrl} from './soda-native-paths.js';
-import {id} from './sodaspaces-api.js';
+import {id} from '@factory/product/frontend/factory/api/models.js';
 import type {MountContext, ResumeValidation} from './fountain-browser-contract.js';
 
 /**

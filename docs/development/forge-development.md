@@ -3,6 +3,24 @@
 From the local `sodaos` checkout, deploy the working tree to the retained
 development appliance reached by `ssh soda`:
 
+First install the shared Factory UI source dependency. For local development,
+use the Factory checkout you edit:
+
+```sh
+bash scripts/setup-factory-ui.sh /home/vince/Projects/factory
+```
+
+The script installs each checkout's locked Bun dependencies and registers the
+standard `@factory/product` Bun link. Components, Storybook and desktop UI belong
+to Factory; Forge keeps its host adapters. Edits in Factory are read directly by
+both source builds, and `dev:watch` watches that linked component/design tree.
+Run Factory's Storybook and desktop commands in its own checkout.
+
+For a clean build or CI, omit the argument. Setup clones the public Factory
+commit selected by Forge's `go.mod`, then links and installs it. This keeps the
+default Go and UI inputs on one selected source revision. An explicit checkout
+is a development override and can contain newer local edits.
+
 ```sh
 cd /home/vince/Projects/sodaos
 bun run dev:deploy
@@ -19,7 +37,7 @@ bun run dev:watch    # update automatically after browser-source edits
 Refresh the app after the command reports the update ready. These commands need
 an active development deployment. They build only the extension's JavaScript and
 CSS and copy its browser assets; they do not compile Go or Forgejo, install a
-package, run a database migration, or restart either service. Existing pages can
+package, run a database migration, or restart any service. Existing pages can
 still load their older hashed chunks while a refreshed page loads the new build.
 
 The update is an explicit development override of the installed Soda package's
@@ -34,11 +52,12 @@ browser-only command stop with that explanation.
 For those full changes, run the relevant [focused checks](testing.md#source-checks),
 then `bun run dev:deploy` and refresh the browser. The full deploy builds
 Forge presentation templates, CSS and browser modules, the Soda extension
-assets/backend, and the Go dashboard. It transfers the prepared files over SSH
-and restarts Forge and the dashboard to activate them.
+assets/backend, and both the Forge and Factory executables. It transfers the
+prepared files over SSH and restarts Fountain, Forge and Factory to activate
+them. The installed release must contain the separate Factory service Quadlet.
 
 The local machine needs the repository's Go, Rust and Bun toolchains,
-and `bun install --frozen-lockfile`. The build uses the matching cached SDK at
+and the Factory UI setup above. The build uses the matching cached SDK at
 `WORK/inputs/fountain-source-REVISION/sdk`, where `REVISION` is the first seven
 characters of the source pin in `fountain-source.json`. Otherwise it uses the
 sibling `forgejo-ext` SDK checkout selected by `go.mod`; `--sdk-dir PATH`
@@ -61,7 +80,7 @@ cargo run --release --locked -p soda-release-assets --bin soda-dev -- deploy --h
 ## What changes on the appliance
 
 The command adds development Quadlet overrides that mount the prepared Forge
-presentation and dashboard executable read-only. It packs the extension as a
+presentation and the Forge and Factory executables read-only. It packs the extension as a
 normal USTAR package, seeds the SHA256-addressed package cache, and selects a
 development catalog. Fountain installs the package through its existing
 extension manager, preserving package identity and requested state.
@@ -73,7 +92,7 @@ The initial `soda-metal` setup copied schema 67 into a development database at
 schema 69; the native database stays at 67. Forge accounts and Git repositories
 are shared with the installed Forge and remain visible in either mode.
 
-Only full deployments restart Forge and the dashboard. The appliance keeps its retained data,
+Only full deployments restart Fountain, Forge and Factory. The appliance keeps its retained data,
 configuration and Project containers. This development loop does not perform
 a `bootc` update, rebuild installation media, or publish a release.
 
@@ -90,7 +109,10 @@ cargo run --release --locked -p soda-release-assets --bin soda-dev -- build
 
 Repository routes use one tree rooted at `/{owner}/{repo}/feed`, with
 `/requests/{request}`, `/app`, `/knowledge`, `/terminals`,
-`/settings/{section}` and `/issues[/{issue}]` beneath it. Links, native
+`/settings/{section}` and `/work/{kind}[/{item}]` beneath it. Issues use
+`/work/issues` and `/work/issues/{number}`; `?tab=factory` opens the issue's
+Factory controls. The shared pull/editor routes show their explicit native
+counterpart until those screens are implemented. Links, native
 templates, manifest and host routing use this tree directly. There are no
 repository `/workspace` routes or redirects and no alternate route tracks.
 
@@ -121,8 +143,8 @@ bun run dev:disable
 bun run dev:status
 ```
 
-Disabling removes the development overrides and restarts Forge and the
-dashboard using their installed configuration and original Soda application
+Disabling removes the development overrides and restarts Fountain, Forge and
+Factory using their installed configuration and original Soda application
 database. The `soda_dev` copy remains available for the next development
 deployment.
 

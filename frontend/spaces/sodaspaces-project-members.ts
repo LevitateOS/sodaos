@@ -1,6 +1,6 @@
 import {LitElement, html} from 'lit';
 import type {PreparedExtensionMount} from './soda-extension.js';
-import {check, id, object, projectId, readSodaJSON} from './sodaspaces-api.js';
+import {check, id, object, projectId, readSodaJSON} from '@factory/product/frontend/factory/api/models.js';
 
 interface Access {
   revision: number;

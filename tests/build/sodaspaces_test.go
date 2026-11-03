@@ -132,6 +132,13 @@ func TestSodaspacesActualStageRecipeWithSyntheticBuildInputs(t *testing.T) {
 	copyTree(t, filepath.Join(RepoRoot, "assets"), filepath.Join(checkout, "assets"))
 	chmodTree(t, filepath.Join(checkout, "assets"))
 	copyTree(t, filepath.Join(RepoRoot, "frontend"), filepath.Join(checkout, "frontend"))
+	// Use the actual declared Factory design source, as a normal linked-source
+	// build does. Other compiled program inputs below remain synthetic fixtures.
+	factorySource, err := filepath.EvalSymlinks(filepath.Join(RepoRoot, "node_modules/@factory/product"))
+	Require(t, err == nil, "resolve Factory source package: %v", err)
+	factoryLink := filepath.Join(checkout, "node_modules/@factory/product")
+	Require(t, os.MkdirAll(filepath.Dir(factoryLink), 0o755) == nil, "mkdir Factory package parent")
+	Require(t, os.Symlink(factorySource, factoryLink) == nil, "link Factory design source")
 	copyTree(t, filepath.Join(RepoRoot, "system", "host", "config"), filepath.Join(checkout, "system/host/config"))
 	copyTree(t, filepath.Join(RepoRoot, "system", "project"), filepath.Join(checkout, "system/project"))
 	WriteFile(t, filepath.Join(checkout, ".artifacts/canlang/canlang-tools-linux-x86_64.tar.gz"), []byte("synthetic Canlang archive; never executed"), 0o644)

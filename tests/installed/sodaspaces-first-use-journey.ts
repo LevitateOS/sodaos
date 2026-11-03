@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import type {Page, Response} from 'playwright';
 import {object} from './sodaspaces-input';
-import {projectId} from '../../frontend/spaces/sodaspaces-api';
+import {projectId} from '@factory/product/frontend/factory/api/models';
 import {mountedSpacesFacts, nativeSpacesMount, spacesContent} from './sodaspaces-journey-evidence';
 import type {FirstUseEvidence} from './sodaspaces-journey-evidence';
 

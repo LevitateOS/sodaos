@@ -7,7 +7,7 @@ import payload from '../frontend/forgejo/payload.json';
 import {buildForgejoAssets} from './build-forgejo.ts';
 import {buildSodaExtensionAssets} from './build-soda-extension.ts';
 import {scenarioModel, scenarios, type Scenario, type Model} from './fixtures/spaces-scenarios.ts';
-import {object} from '../frontend/spaces/sodaspaces-api.ts';
+import {object} from '@factory/product/frontend/factory/api/models.ts';
 import type {Server, ServerWebSocket} from 'bun';
 const root = resolve(import.meta.dir, '..');
 type Fault = 'healthy' | 'slow' | 'offline' | 'expired' | 'join-failed' | 'create-failed';

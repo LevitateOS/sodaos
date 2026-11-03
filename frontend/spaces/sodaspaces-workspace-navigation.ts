@@ -1,7 +1,7 @@
 import {html} from 'lit';
 import {repeat} from 'lit/directives/repeat.js';
 import type {Space} from './sodaspaces-inventory-response.js';
-import type {SavedRequest} from './sodaspaces-intent-response.js';
+import type {SavedRequest} from '@factory/product/frontend/factory/api/request-response.js';
 import {attentionReason} from './sodaspaces-attention.js';
 import type {LayoutEntry, PaneTree} from './sodaspaces-layout.js';
 import {paneFor, sameLocator} from './sodaspaces-layout.js';

@@ -1,4 +1,4 @@
-import {SodaRequestError} from './sodaspaces-api.js';
+import {SodaRequestError} from '@factory/product/frontend/factory/api/models.js';
 import {osObservation} from './sodaspaces-project-response.js';
 import type {Environment, OSObservation} from './sodaspaces-project-response.js';
 import {mutate} from './sodaspaces-project-mutations.js';

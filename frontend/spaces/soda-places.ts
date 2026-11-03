@@ -1,4 +1,9 @@
 // Canonical SodaOS repository routes. Links and parsing share this owner.
+import {check, id} from '@factory/product/frontend/factory/api/models.js';
+
+export type WorkKind = 'issues' | 'pulls';
+type WorkTab = 'factory' | 'conversation' | 'files' | 'checks';
+export type WorkPlace = {place: WorkKind; item?: string; tab?: WorkTab; fragment?: string};
 
 /** Repository SodaOS settings sections, in place-bar order. */
 export const settingsSections = ['environment', 'access', 'network', 'factory'] as const;
@@ -12,7 +17,7 @@ export type Place =
   | {place: 'knowledge'; item?: string}
   | {place: 'terminals'; run?: string}
   | {place: 'settings'; section: string}
-  | {place: 'factory-status'; issue?: string};
+  | WorkPlace;
 export type PlaceName = Place['place'];
 
 /** Address builders for one repository's SodaOS places. */
@@ -28,9 +33,26 @@ export interface SodaPlaces {
   knowledge(item?: string): string;
   terminals(run?: string): string;
   settings(section: SettingsSection | string): string;
+  issues(item?: string | number, tab?: 'factory'): string;
+  pulls(item?: string | number): string;
   factoryStatus(issue?: string | number): string;
   /** The address of a parsed place (the inverse of placeFromPath). */
   to(place: Place): string;
+}
+
+/** The same work tree serves native links and owner/repository place builders. */
+export function repositoryWorkPath(repository: string, kind: WorkKind, item?: string | number, tab?: WorkTab) {
+  check(kind === 'issues' || kind === 'pulls');
+  check(item === undefined || item === 'new' || id(String(item)));
+  check(
+    tab === undefined ||
+      (item !== undefined &&
+        item !== 'new' &&
+        (kind === 'issues'
+          ? ['factory', 'conversation'].includes(tab)
+          : ['conversation', 'files', 'checks'].includes(tab)))
+  );
+  return `${repository}/feed/work/${kind}${item === undefined ? '' : '/' + String(item)}${query('tab', tab)}`;
 }
 
 function query(name: string, value: string | undefined): string {
@@ -55,9 +77,10 @@ export function repositoryPlaces(prefix: string, slug: string): SodaPlaces {
     app: (delivery) => `${root}/app${query('delivery', delivery)}`,
     knowledge: (item) => `${root}/knowledge${query('item', item)}`,
     terminals: (run) => `${root}/terminals${query('run', run)}`,
-    settings: (section) =>
-      `${root}/settings/${encodeURIComponent(section)}`,
-    factoryStatus: (issue) => `${root}/issues${issue === undefined ? '' : '/' + encodeURIComponent(String(issue))}`,
+    settings: (section) => `${root}/settings/${encodeURIComponent(section)}`,
+    issues: (item, tab) => repositoryWorkPath(repository, 'issues', item, tab),
+    pulls: (item) => repositoryWorkPath(repository, 'pulls', item),
+    factoryStatus: (issue) => places.issues(issue, issue === undefined ? undefined : 'factory'),
     to(place) {
       switch (place.place) {
         case 'feed':
@@ -72,8 +95,9 @@ export function repositoryPlaces(prefix: string, slug: string): SodaPlaces {
           return places.terminals(place.run);
         case 'settings':
           return places.settings(place.section);
-        case 'factory-status':
-          return places.factoryStatus(place.issue);
+        case 'issues':
+        case 'pulls':
+          return repositoryWorkPath(repository, place.place, place.item, place.tab) + (place.fragment ?? '');
       }
     },
   };
@@ -99,7 +123,7 @@ export function placeFromPath(address: string, prefix: string): {slug: string; p
   if (!owner || !repo) return undefined;
   const slug = `${owner}/${repo}`;
   const param = (name: string) => url.searchParams.get(name) || undefined;
-  const place = fixed === 'feed' ? feedRoutePlace(path, param) : undefined;
+  const place = fixed === 'feed' ? feedRoutePlace(path, param, url.hash) : undefined;
   return place && {slug, place};
 }
 
@@ -114,19 +138,38 @@ function feedPlace(param: Param): Place {
 }
 
 /** A place under the repository feed route. */
-function feedRoutePlace([first, second, ...rest]: string[], param: Param): Place | undefined {
+function feedRoutePlace([first, second, ...rest]: string[], param: Param, fragment: string): Place | undefined {
+  if (first === 'work') {
+    if (second !== 'issues' && second !== 'pulls') return;
+    const [item, ...extra] = rest;
+    if (extra.length || (item !== undefined && item !== 'new' && !id(item))) return;
+    const tab = param('tab');
+    if (tab !== undefined && tab !== 'factory' && tab !== 'conversation' && tab !== 'files' && tab !== 'checks') return;
+    if (
+      tab !== undefined &&
+      (!item ||
+        item === 'new' ||
+        (second === 'issues' ? !['factory', 'conversation'].includes(tab) : tab === 'factory'))
+    )
+      return;
+    return {
+      place: second,
+      ...optional('item', item),
+      ...(tab ? {tab} : {}),
+      ...optional('fragment', fragment || undefined),
+    };
+  }
   if (rest.length) return undefined;
   if (first === undefined) return feedPlace(param);
-  if (first === 'requests') return second && /^d[0-9a-f]{24}$/.test(second) ? {place: 'request', request: second} : undefined;
+  if (first === 'requests')
+    return second && /^d[0-9a-f]{24}$/.test(second) ? {place: 'request', request: second} : undefined;
   if (second !== undefined) {
     if (first === 'settings') return {place: 'settings', section: second};
-    if (first === 'issues') return {place: 'factory-status', issue: second};
     return undefined;
   }
   if (first === 'app') return {place: 'app', ...optional('delivery', param('delivery'))};
   if (first === 'knowledge') return {place: 'knowledge', ...optional('item', param('item'))};
   if (first === 'terminals') return {place: 'terminals', ...optional('run', param('run'))};
-  if (first === 'issues') return {place: 'factory-status'};
   return undefined;
 }
 

@@ -1,7 +1,7 @@
 import {LitElement, html, nothing} from 'lit';
 import type {TemplateResult} from 'lit';
 import type {PreparedExtensionMount} from './soda-extension.js';
-import {readSodaJSON} from './sodaspaces-api.js';
+import {readSodaJSON} from '@factory/product/frontend/factory/api/models.js';
 import {availableConnectionView, enrollmentView, items} from './soda-identity-response.js';
 import type {Connection, ProviderID} from './soda-identity-response.js';
 import {providersChangedEvent} from './soda-providers-events.js';

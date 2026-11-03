@@ -1,4 +1,4 @@
-import {check, fingerprint, id, object} from './sodaspaces-api.js';
+import {check, fingerprint, id, object} from '@factory/product/frontend/factory/api/models.js';
 
 export interface SavedKey {
   id: string;

@@ -1,4 +1,4 @@
-import {readSodaJSON} from '../spaces/sodaspaces-api.js';
+import {readSodaJSON} from '@factory/product/frontend/factory/api/models.js';
 import {settingsView} from './soda-tailnet-response.js';
 import type {Enrollment, Host, Settings} from './soda-tailnet-response.js';
 

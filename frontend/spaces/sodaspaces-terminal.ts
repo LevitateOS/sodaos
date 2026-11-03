@@ -1,7 +1,7 @@
 import {LitElement} from 'lit';
 import {renderTerminal, terminalCommands, terminalPresentation} from './sodaspaces-terminal-view.js';
 import type {TerminalViewInput} from './sodaspaces-terminal-view.js';
-import {id as identifier} from './sodaspaces-api.js';
+import {id as identifier} from '@factory/product/frontend/factory/api/models.js';
 import {terminalID} from './sodaspaces-terminal-response.js';
 import type {Terminal, ITerminalOptions, ITerminalInitOnlyOptions, ITerminalAddon} from '@xterm/xterm';
 import type {FitAddon} from '@xterm/addon-fit';

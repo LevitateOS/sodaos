@@ -1,4 +1,4 @@
-import {object} from './sodaspaces-api.js';
+import {object} from '@factory/product/frontend/factory/api/models.js';
 import {terminalFailureMessage, terminalClosedMessage} from './sodaspaces-terminal-error.js';
 import {terminalID, terminalResponse} from './sodaspaces-terminal-response.js';
 import type {TerminalMetadata} from './sodaspaces-terminal-response.js';

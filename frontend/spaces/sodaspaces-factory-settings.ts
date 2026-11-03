@@ -1,21 +1,35 @@
 import {LitElement, html, nothing} from 'lit';
+import '@factory/product/frontend/factory/work/activity.js';
+import {fountainActivityItem} from './soda-factory-links.js';
 import type {PreparedExtensionMount} from './soda-extension.js';
-import {object, readSodaJSON} from './sodaspaces-api.js';
-import {resumeResult} from './sodaspaces-factory-work-response.js';
-import {factoryAccessResponse} from './sodaspaces-factory-access-response.js';
-import type {FactoryAccess, FactoryAccessEditable, FactoryAccessUsage} from './sodaspaces-factory-access-response.js';
+import {object, readSodaJSON} from '@factory/product/frontend/factory/api/models.js';
+import {resumeResult} from '@factory/product/frontend/factory/api/work-response.js';
+import {factoryAccessResponse} from '@factory/product/frontend/factory/api/access-response.js';
+import type {
+  FactoryAccess,
+  FactoryAccessEditable,
+  FactoryAccessUsage,
+} from '@factory/product/frontend/factory/api/access-response.js';
 import './sodaspaces-factory-work.js';
-import './sodaspaces-factory-repair.js';
+import '@factory/product/frontend/factory/work/repair-funding.js';
 import {openProviders, providersChangedEvent} from './soda-providers-events.js';
+import {fountainCommandScope, fountainRepository} from './soda-factory-feed-host.js';
 
-type FactoryContext = {
+type NativeSettingsContext = {
   transport: PreparedExtensionMount;
-  repository: string;
+  /** Native Fountain locator from the Project binding. */
+  nativeRepository: string;
   environment: string;
   profile?: unknown;
   repositoryURL?: string;
   /** Settings → SodaOS → Factory (M19): appliance-wide and personal controls stay out. */
   place?: boolean;
+};
+
+type FactoryContext = NativeSettingsContext & {
+  /** Canonical Factory repository; never used for native Project operations. */
+  repository: string;
+  signal: AbortSignal;
 };
 
 type View = {
@@ -102,6 +116,8 @@ function accessActorText(actor: string): string {
   switch (actor) {
     case 'owner_or_admin':
       return 'repository owner or administrator';
+    case 'repository_owner':
+      return 'repository owner';
     case 'operator':
       return 'operator';
     case 'connection_owner':
@@ -299,12 +315,13 @@ function integer(form: HTMLFormElement, name: string, minimum = 0) {
 export class SodaFactorySettings extends LitElement {
   static properties = {view: {state: true}};
   declare private view: View;
+  private incomingContext: NativeSettingsContext | undefined;
   private contextValue: FactoryContext | undefined;
+  private contextReads: AbortController | undefined;
   private activeValue = true;
   private needsLoad = true;
-  private interrupted = false;
   private serial = 0;
-  private pendingPreparation?: PendingPreparation;
+  private pendingPreparation: PendingPreparation | undefined;
 
   constructor() {
     super();
@@ -316,18 +333,26 @@ export class SodaFactorySettings extends LitElement {
     return this;
   }
 
-  set context(value: FactoryContext) {
+  set context(value: NativeSettingsContext) {
     if (
-      this.contextValue?.transport === value.transport &&
-      this.contextValue.repository === value.repository &&
-      this.contextValue.environment === value.environment &&
-      this.contextValue.repositoryURL === value.repositoryURL &&
-      this.contextValue.place === value.place &&
-      JSON.stringify(this.contextValue.profile) === JSON.stringify(value.profile)
+      this.incomingContext?.transport === value.transport &&
+      this.incomingContext.nativeRepository === value.nativeRepository &&
+      this.incomingContext.environment === value.environment &&
+      this.incomingContext.repositoryURL === value.repositoryURL &&
+      this.incomingContext.place === value.place &&
+      JSON.stringify(this.incomingContext.profile) === JSON.stringify(value.profile)
     )
       return;
-    this.contextValue = value;
+    this.incomingContext = value;
+    this.retireContext();
+  }
+
+  private retireContext() {
+    this.contextReads?.abort();
+    this.contextReads = undefined;
+    this.contextValue = undefined;
     this.serial++;
+    this.pendingPreparation = undefined;
     this.view = {connections: [], selectedConnection: '', message: '', busy: false};
     this.needsLoad = true;
   }
@@ -341,13 +366,15 @@ export class SodaFactorySettings extends LitElement {
     this.activeValue = value;
     if (!value) {
       this.serial++;
-      this.interrupted = true;
+      this.contextReads?.abort();
+      this.needsLoad = true;
+      this.view = {...this.view, busy: false};
     }
     this.requestUpdate();
   }
 
   protected updated() {
-    if (this.needsLoad && this.activeValue && this.contextValue) void this.refresh();
+    if (this.needsLoad && this.activeValue && this.incomingContext) void this.refresh();
   }
 
   connectedCallback() {
@@ -358,32 +385,43 @@ export class SodaFactorySettings extends LitElement {
 
   disconnectedCallback() {
     document.removeEventListener(providersChangedEvent, this.connectionsChanged);
-    this.serial++;
-    this.contextValue = undefined;
+    this.incomingContext = undefined;
+    this.retireContext();
     super.disconnectedCallback();
   }
 
   private connectionsChanged = () => {
-    if (!this.contextValue) return;
-    void this.loadConnections()
+    const context = this.contextValue;
+    if (!context || !this.activeValue) return;
+    void this.loadConnections(context)
       .then((connections) => {
+        if (this.contextValue !== context || context.signal.aborted) return;
         this.view = {...this.view, connections};
       })
       .catch(() => {
+        if (this.contextValue !== context || context.signal.aborted) return;
         this.view = {...this.view, message: 'Could not refresh connected accounts. Try Refresh.'};
       });
   };
 
-  private async request(path: string, method = 'GET', body?: Record<string, unknown>, timeoutMs = 15000) {
-    const context = this.contextValue;
-    if (!context) throw Error('Reload this Forgejo page before changing factory settings.');
+  private async request(
+    context: FactoryContext,
+    path: string,
+    method = 'GET',
+    body?: Record<string, unknown>,
+    timeoutMs = 15000
+  ) {
+    context.signal.throwIfAborted();
+    if (context !== this.contextValue || !this.activeValue)
+      throw Error('Factory settings changed. Refresh and try again.');
     const response = await context.transport.request(path.replace(/^\/api\//, ''), {
       method,
       headers: body ? {'Content-Type': 'application/json'} : {},
       ...(body ? {body: JSON.stringify(body)} : {}),
-      signal: AbortSignal.timeout(timeoutMs),
+      signal: AbortSignal.any([context.signal, AbortSignal.timeout(timeoutMs)]),
     });
     const payload = await this.responsePayload(response);
+    context.signal.throwIfAborted();
     this.requireSuccessfulResponse(response, payload);
     return payload;
   }
@@ -409,29 +447,30 @@ export class SodaFactorySettings extends LitElement {
   }
 
   private async refresh() {
-    const context = this.contextValue;
-    if (!context || !this.activeValue) return;
+    const incoming = this.incomingContext;
+    if (!incoming || !this.activeValue) return;
     this.needsLoad = false;
-    this.interrupted = false;
     const serial = this.serial;
     const retained = {sourceSelection: this.view.sourceSelection, sourcePreview: this.view.sourcePreview};
     this.view = {...this.view, busy: true, message: ''};
     try {
+      let context = this.contextValue;
+      if (!context || context.signal.aborted) {
+        const reads = new AbortController();
+        this.contextReads?.abort();
+        this.contextReads = reads;
+        const resolved = await fountainRepository(incoming.transport, incoming.nativeRepository, reads.signal);
+        if (serial !== this.serial || reads.signal.aborted) return;
+        context = {...incoming, repository: resolved.repository, signal: reads.signal};
+        this.contextValue = context;
+      }
       const next = await this.loadView(context, retained);
-      if (serial !== this.serial) return this.discardInterruptedLoad();
+      if (serial !== this.serial) return;
       this.view = {...next, busy: false};
     } catch (error) {
-      if (serial !== this.serial) return this.discardInterruptedLoad();
+      if (serial !== this.serial) return;
       this.showRefreshError(error);
     }
-  }
-
-  private discardInterruptedLoad() {
-    if (!this.interrupted) return;
-    this.interrupted = false;
-    this.needsLoad = true;
-    this.view = {...this.view, busy: false};
-    this.requestUpdate();
   }
 
   private async loadView(
@@ -439,9 +478,10 @@ export class SodaFactorySettings extends LitElement {
     retained: {sourceSelection: View['sourceSelection']; sourcePreview: View['sourcePreview']}
   ): Promise<View> {
     const [status, preparation, access] = await Promise.all([
-      this.request(`/api/repositories/${context.repository}/factory`),
+      this.request(context, `/api/repositories/${context.repository}/factory`),
       context.environment
         ? this.request(
+            context,
             `/api/environments/${context.environment}/preparation`,
             'GET',
             undefined,
@@ -455,7 +495,7 @@ export class SodaFactorySettings extends LitElement {
     let connections = this.view.connections;
     let message = '';
     try {
-      connections = await this.loadConnections();
+      connections = await this.loadConnections(context);
     } catch {
       message =
         'Provider accounts could not be refreshed. Other settings are current; showing the last available accounts.';
@@ -478,14 +518,16 @@ export class SodaFactorySettings extends LitElement {
 
   private async loadAccess(context: FactoryContext) {
     try {
-      return factoryAccessResponse(await this.request(`/api/repositories/${context.repository}/factory/access`));
+      return factoryAccessResponse(
+        await this.request(context, `/api/repositories/${context.repository}/factory/access`)
+      );
     } catch {
       return undefined;
     }
   }
 
-  private async loadConnections() {
-    const connections = await this.request('/api/identity/connections');
+  private async loadConnections(context: FactoryContext) {
+    const connections = await this.request(context, '/api/identity/connections');
     if (!Array.isArray(connections)) throw Error('Provider accounts could not be loaded. Refresh to try again.');
     return connections.map(asObject);
   }
@@ -517,7 +559,7 @@ export class SodaFactorySettings extends LitElement {
   };
 
   private async act(form: HTMLFormElement, action: (form: HTMLFormElement) => Promise<void>, refreshAfter = true) {
-    if (this.view.busy || !this.contextValue) return;
+    if (this.view.busy || !this.activeValue || !this.contextValue) return;
     const serial = this.serial;
     this.view = {...this.view, busy: true, message: 'Applying the explicit factory setting…'};
     try {
@@ -590,7 +632,7 @@ export class SodaFactorySettings extends LitElement {
   private submitHold = async (form: HTMLFormElement) => {
     const context = this.contextValue;
     if (!context) throw Error('Reload this Forgejo page before changing factory settings.');
-    await this.request(`/api/environments/${context.environment}/preparation`, 'POST', {
+    await this.request(context, `/api/environments/${context.environment}/preparation`, 'POST', {
       action: inputValue(form, 'hold_action'),
     });
   };
@@ -611,7 +653,7 @@ export class SodaFactorySettings extends LitElement {
       required_tools: requiredTools,
     };
     const response = asObject(
-      await this.request(`/api/environments/${context.environment}/preparation/actions`, 'POST', {
+      await this.request(context, `/api/environments/${context.environment}/preparation/actions`, 'POST', {
         action: 'source-preview',
         ...selection,
       })
@@ -629,7 +671,7 @@ export class SodaFactorySettings extends LitElement {
     if (!sourceInputs)
       throw Error('The API has not supplied a complete, ready setup-input review. No acceptance was recorded.');
     const accepted = asObject(
-      await this.request(`/api/environments/${context.environment}/preparation/acceptances`, 'POST', {
+      await this.request(context, `/api/environments/${context.environment}/preparation/acceptances`, 'POST', {
         decision_id: factoryDecisionId(),
         predecessor: safeText(requirements.predecessor) || undefined,
         source_commit: safeText(requirements.source_commit),
@@ -677,7 +719,7 @@ export class SodaFactorySettings extends LitElement {
       throw Error('Record bounded, factual effects and readiness evidence before approval.');
     if (!inputChecked(form, 'verified'))
       throw Error('Review the installed service/resource facts and separately confirm they are ready before approval.');
-    await this.request(`/api/environments/${context.environment}/preparation/actions`, 'POST', {
+    await this.request(context, `/api/environments/${context.environment}/preparation/actions`, 'POST', {
       action: 'approve-initial',
       decision_id: factoryDecisionId(),
       predecessor: safeText(currentPreparation.approval) || undefined,
@@ -692,7 +734,7 @@ export class SodaFactorySettings extends LitElement {
     const context = this.contextValue;
     if (!context) throw Error('Reload this Forgejo page before changing factory settings.');
     const input = this.prepareInput(form);
-    await this.request(`/api/environments/${context.environment}/preparation/actions`, 'POST', input, 65000);
+    await this.request(context, `/api/environments/${context.environment}/preparation/actions`, 'POST', input, 65000);
   };
 
   private prepareInput(form: HTMLFormElement) {
@@ -773,7 +815,7 @@ export class SodaFactorySettings extends LitElement {
       throw Error(
         'Review the privileged effects and separately verify current live services and resources before approval.'
       );
-    await this.request(`/api/environments/${context.environment}/preparation/actions`, 'POST', {
+    await this.request(context, `/api/environments/${context.environment}/preparation/actions`, 'POST', {
       action: 'approve',
       decision_id: factoryDecisionId(),
       predecessor: safeText(review.predecessor) || undefined,
@@ -791,7 +833,7 @@ export class SodaFactorySettings extends LitElement {
     if (!context) throw Error('Reload this Forgejo page before changing factory settings.');
     const status = this.view.status || {};
     const capacity = asObject(status.appliance || status.capacity || {});
-    await this.request('/api/factory/capacity', 'PUT', {
+    await this.request(context, '/api/factory/capacity', 'PUT', {
       expected_revision: Number(capacity.revision || 0),
       max_concurrent_runs: integer(form, 'max_concurrent_runs', 1),
     });
@@ -812,6 +854,7 @@ export class SodaFactorySettings extends LitElement {
       })
       .map((role) => `soda-${role}`);
     await this.request(
+      context,
       `/api/repositories/${context.repository}/factory/sponsorships/${encodeURIComponent(connection)}`,
       'PUT',
       {
@@ -828,7 +871,7 @@ export class SodaFactorySettings extends LitElement {
     if (!context) throw Error('Reload this Forgejo page before changing factory settings.');
     const status = this.view.status || {};
     const grant = asObject(status.operator_grant || {});
-    await this.request(`/api/repositories/${context.repository}/factory/operator-grant`, 'PUT', {
+    await this.request(context, `/api/repositories/${context.repository}/factory/operator-grant`, 'PUT', {
       expected_revision: Number(grant.revision || 0),
       active: inputChecked(form, 'operator_active'),
     });
@@ -840,7 +883,7 @@ export class SodaFactorySettings extends LitElement {
     const status = this.view.status || {};
     const grant = asObject(status.environment_grant || {});
     if (!context.profile) throw Error('Choose and review a supported Project profile first.');
-    await this.request(`/api/repositories/${context.repository}/factory/environment-grant`, 'PUT', {
+    await this.request(context, `/api/repositories/${context.repository}/factory/environment-grant`, 'PUT', {
       expected_revision: Number(grant.revision || 0),
       active: inputChecked(form, 'environment_active'),
       project: context.environment || undefined,
@@ -853,13 +896,18 @@ export class SodaFactorySettings extends LitElement {
     if (!context) throw Error('Reload this Forgejo page before changing factory settings.');
     const status = this.view.status || {};
     const policy = asObject(status.policy || {});
-    await this.request(`/api/repositories/${context.repository}/factory/policy`, 'PUT', this.policyInput(form, policy));
+    await this.request(
+      context,
+      `/api/repositories/${context.repository}/factory/policy`,
+      'PUT',
+      this.policyInput(form, policy)
+    );
   };
 
   private submitDispatch = async (_form: HTMLFormElement) => {
     const context = this.contextValue;
     if (!context) throw Error('Reload this Forgejo page before changing factory settings.');
-    const payload = await this.request(`/api/repositories/${context.repository}/factory/actions`, 'POST', {
+    const payload = await this.request(context, `/api/repositories/${context.repository}/factory/actions`, 'POST', {
       action: 'resume',
     });
     resumeResult(payload);
@@ -938,8 +986,12 @@ export class SodaFactorySettings extends LitElement {
     if (context.place) return this.renderPlaceAuthority(context, status);
     return html`<button type="button" class="ui basic button" @click=${openProviders}>AI accounts</button>
       ${this.renderSummary(status)}
-      <soda-factory-activity .context=${this.activeValue ? context : undefined}></soda-factory-activity>
-      <soda-factory-repair .context=${this.activeValue ? context : undefined}></soda-factory-repair>
+      <soda-factory-activity
+        .context=${this.activeValue && !context.signal.aborted ? {transport: context.transport, repository: context.repository, editable: this.view.access?.editable.activity_settings.editable === true, presentItem: fountainActivityItem, commandScope: (signal: AbortSignal) => fountainCommandScope(context.transport, signal)} : undefined}
+      ></soda-factory-activity>
+      <soda-factory-repair
+        .context=${this.activeValue && !context.signal.aborted ? {transport: context.transport, repository: context.repository, commandScope: (signal: AbortSignal) => fountainCommandScope(context.transport, signal)} : undefined}
+      ></soda-factory-repair>
       ${context.environment ? this.renderPreparation() : html`<p>No Project exists for this repository, so preparation controls are unavailable.</p>`}
       ${this.renderCapacity(status)} ${this.renderProjectGrants(status)} ${this.renderPolicy(status)}
       ${this.renderProviderControls()} ${this.renderExecutionUsage()}`;
@@ -951,8 +1003,12 @@ export class SodaFactorySettings extends LitElement {
   private renderPlaceAuthority(context: FactoryContext, status: Record<string, unknown>) {
     return html`${this.renderEffective(asObject(status.effective || {}), status)}
       ${this.renderSponsorshipSummary(status)}
-      <soda-factory-activity .context=${this.activeValue ? context : undefined}></soda-factory-activity>
-      <soda-factory-repair .context=${this.activeValue ? context : undefined}></soda-factory-repair>
+      <soda-factory-activity
+        .context=${this.activeValue && !context.signal.aborted ? {transport: context.transport, repository: context.repository, editable: this.view.access?.editable.activity_settings.editable === true, presentItem: fountainActivityItem, commandScope: (signal: AbortSignal) => fountainCommandScope(context.transport, signal)} : undefined}
+      ></soda-factory-activity>
+      <soda-factory-repair
+        .context=${this.activeValue && !context.signal.aborted ? {transport: context.transport, repository: context.repository, commandScope: (signal: AbortSignal) => fountainCommandScope(context.transport, signal)} : undefined}
+      ></soda-factory-repair>
       ${context.environment ? this.renderPreparation() : html`<p>No development environment exists for this repository, so preparation controls are unavailable.</p>`}
       ${this.renderEnvironmentGrant(status)} ${this.renderPolicy(status)} ${this.renderProviderControls()}
       ${this.renderOperatorOnly(status)}`;

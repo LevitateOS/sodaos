@@ -1,3 +1,4 @@
+import {factorySource} from '../../scripts/factory-source.js';
 import assert from 'node:assert/strict';
 import {mkdir, mkdtemp, readFile, rm} from 'node:fs/promises';
 import {homedir} from 'node:os';
@@ -13,7 +14,7 @@ const root = resolve(import.meta.dir, '..', '..');
 // and palette imports the browser would resolve over HTTP (palette is inlined
 // below, fonts do not affect color computation).
 async function documentCss(): Promise<string> {
-  const palette = await readFile(resolve(root, 'assets/branding/theme/palette.css'), 'utf8');
+  const palette = await readFile(factorySource('assets/branding/theme/palette.css'), 'utf8');
   const components = await readFile(resolve(root, 'assets/branding/forgejo/components.css'), 'utf8');
   return `${palette}\n${components.replace(/@import[^;]+;/g, '')}`;
 }

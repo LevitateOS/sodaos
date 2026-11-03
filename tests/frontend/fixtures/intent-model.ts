@@ -1,5 +1,6 @@
-import {intentRevision} from '../../../frontend/spaces/sodaspaces-intent-response';
-import type {ConsistencyMismatch, IntentRevision} from '../../../frontend/spaces/sodaspaces-intent-response';
+import {declaredGeneration, declaredExploration} from '@factory/product/frontend/storybook/request-fixtures.js';
+import {intentRevision} from '@factory/product/frontend/factory/api/request-response.js';
+import type {ConsistencyMismatch, IntentRevision} from '@factory/product/frontend/factory/api/request-response.js';
 
 // Synthetic planning-agent walkthroughs bound to one draft head, with the
 // clean JEV-shaped check the explicit review command would record. The
@@ -65,26 +66,29 @@ function planReview(head: IntentRevision, walkthroughs: ReturnType<typeof planWa
 }
 
 // Synthetic planning peer for browser checks; no AI, funding or native mutations.
-export function createIntentModel() {
+export function createIntentModel(owner: string | (() => string) = '1') {
   const revisions = new Map<string, IntentRevision>();
+  const generations = new Map<string, ReturnType<typeof declaredGeneration>>();
   const departments: Record<string, unknown>[] = [];
   const allowances = new Map<string, Record<string, unknown>>();
   const verificationHeads = new Map<string, Record<string, unknown>>();
   const verificationCommands = new Map<string, string>();
+  const explorationResults = new Map<string, Record<string, unknown>>();
   const plans = new Set<string>();
   let serial = 100;
   const nextID = () => 'd' + (++serial).toString(16).padStart(24, '0');
   return (path: string, method: string, body: Record<string, unknown> | null): Response | undefined => {
+    const currentOwner = typeof owner === 'function' ? owner() : owner;
     if (path.endsWith('/api/factory/departments')) {
       if (method === 'GET') return Response.json(departments);
       if (!body) return new Response(null, {status: 400});
-      departments.push({...body, owner: '1'});
+      departments.push({...body, owner: currentOwner});
       return Response.json(departments.at(-1), {status: 201});
     }
     if (path.endsWith('/api/factory/intents') && method === 'POST' && body) {
       const revision = intentRevision(body);
       revisions.set(revision.id, revision);
-      return Response.json({...body, owner: '1', created_unix: 1}, {status: 201});
+      return Response.json({...body, owner: currentOwner, created_unix: 1, planning_calls: 0}, {status: 201});
     }
     if (method === 'GET' && /\/api\/factory\/intents(\?.*)?$/.test(path)) {
       const query = new URL(path, 'http://fixture').searchParams;
@@ -133,7 +137,8 @@ export function createIntentModel() {
       const command = String(body.command_id || '');
       const request = JSON.stringify({intent, body});
       const prior = verificationCommands.get(command);
-      if (prior) return prior === request ? Response.json(current) : new Response(null, {status: 409});
+      if (prior)
+        return prior === request ? Response.json({...current, command_id: command}) : new Response(null, {status: 409});
       if (body.expected_revision !== current.revision) return new Response(null, {status: 409});
       const limits = body.limits as {runs: number; active_minutes: number};
       const previous = current.limits as {runs: number; active_minutes: number};
@@ -157,6 +162,37 @@ export function createIntentModel() {
       verificationCommands.set(command, request);
       // Persist first, then lose the reply: only the same immutable change may retry.
       throw new TypeError('verification allowance reply lost');
+    }
+    const recordedExploration = path.match(
+      /\/api\/factory\/intents\/(d[0-9a-f]{24})\/revisions\/(d[0-9a-f]{24})\/exploration$/
+    );
+    if (recordedExploration && method === 'GET') {
+      const input = revisions.get(recordedExploration[2]!);
+      if (!input || input.intent !== recordedExploration[1] || input.state !== 'draft')
+        return new Response(null, {status: 404});
+      const result = explorationResults.get(input.id);
+      return Response.json({
+        intent: input.intent,
+        basis_revision: input.id,
+        state: result ? 'recorded' : 'none',
+        ...(result ? {result} : {}),
+      });
+    }
+    const recordedPlan = path.match(/\/api\/factory\/intents\/(d[0-9a-f]{24})\/revisions\/(d[0-9a-f]{24})\/plan$/);
+    if (recordedPlan && method === 'GET') {
+      const head = revisions.get(recordedPlan[2]!);
+      if (!head || head.intent !== recordedPlan[1] || head.state !== 'draft') return new Response(null, {status: 404});
+      if (!plans.has(head.id)) return Response.json({intent: head.intent, revision: head.id, state: 'none'});
+      return Response.json({
+        intent: head.intent,
+        revision: head.id,
+        operation: 'propose_intent',
+        assignment_id: 'a'.repeat(32),
+        run_id: 'b'.repeat(32),
+        state: 'completed',
+        candidates: 1,
+        walkthroughs: planWalkthroughs(head),
+      });
     }
     const planning = path.match(/\/api\/factory\/intents\/(d[0-9a-f]{24})\/plan$/);
     if (planning) {
@@ -273,7 +309,7 @@ export function createIntentModel() {
     if (single) {
       const stored = [...revisions.values()].reverse().find((revision) => revision.intent === single[1]);
       if (!stored) return new Response(null, {status: 404});
-      return Response.json(stored);
+      return Response.json({...stored, owner: currentOwner});
     }
     if (path.includes('/api/factory/intents/') && path.endsWith('/explore') && body) {
       const prior = revisions.get(String(body.revision));
@@ -304,15 +340,36 @@ export function createIntentModel() {
           })),
       };
       revisions.set(revision.id, revision);
-      return Response.json({...revision, owner: '1', created_unix: 1});
+      const result = {
+        ...revision,
+        owner: currentOwner,
+        created_unix: 1,
+        planning_calls: 0,
+        exploration: declaredExploration(prior),
+      };
+      explorationResults.set(prior.id, result);
+      return Response.json(result);
+    }
+    const exactGeneration = path.match(
+      /\/api\/factory\/intents\/(d[0-9a-f]{24})\/revisions\/(d[0-9a-f]{24})\/generation$/
+    );
+    if (exactGeneration && method === 'GET') {
+      const saved = revisions.get(exactGeneration[2]!);
+      if (!saved || saved.intent !== exactGeneration[1] || saved.state !== 'accepted')
+        return new Response(null, {status: 404});
+      return Response.json(
+        generations.get(saved.id) ?? {intent_id: saved.intent, revision_id: saved.id, state: 'not_requested'}
+      );
     }
     if (path.includes('/api/factory/intents/') && path.endsWith('/generate') && body) {
       const intentID = path.split('/').at(-2);
-      const accepted = [...revisions.values()]
-        .reverse()
-        .find((revision) => revision.intent === intentID && revision.state === 'accepted');
-      if (!accepted) return new Response(null, {status: 409});
-      return Response.json({intent_id: accepted.intent, revision_id: accepted.id, state: 'completed'});
+      const accepted = [...revisions.values()].reverse().find((revision) => revision.intent === intentID);
+      if (!accepted) return new Response(null, {status: 404});
+      if (body.revision !== accepted.id) return Response.json({error: {code: 'stale_revision'}}, {status: 412});
+      if (accepted.state !== 'accepted') return new Response(null, {status: 409});
+      const generation = generations.get(accepted.id) ?? declaredGeneration(accepted);
+      generations.set(accepted.id, generation);
+      return Response.json(generation);
     }
     return undefined;
   };

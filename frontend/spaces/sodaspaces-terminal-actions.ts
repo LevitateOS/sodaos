@@ -1,4 +1,9 @@
-import {object, readSodaJSON, readSodaErrorCode, SodaRequestError} from './sodaspaces-api.js';
+import {
+  object,
+  readSodaJSON,
+  readSodaErrorCode,
+  SodaRequestError,
+} from '@factory/product/frontend/factory/api/models.js';
 import {terminalResponse} from './sodaspaces-terminal-response.js';
 import type {ConnectionState, TerminalObservation} from './sodaspaces-attention.js';
 import type {TerminalState} from './sodaspaces-terminal-attachment.js';

@@ -1,6 +1,6 @@
 import {mountSpacesPage} from '../../frontend/spaces/sodaspaces-page.js';
 import {parseLayout} from '../../frontend/spaces/sodaspaces-layout.js';
-import {object} from '../../frontend/spaces/sodaspaces-api.js';
+import {object} from '@factory/product/frontend/factory/api/models.js';
 import type {PreparedExtensionMount} from '../../frontend/spaces/soda-extension.js';
 // Production always uses WSS. This development-only entry maps its own loopback
 // mock transport to WS; no production module or remote destination is changed.

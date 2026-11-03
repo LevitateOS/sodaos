@@ -1,22 +1,24 @@
+import {fountainAcceptanceLinks, fountainWorkLinks} from './soda-factory-links.js';
 import {LitElement, html} from 'lit';
+import {fountainCommandScope, fountainFeedContext} from './soda-factory-feed-host.js';
+import type {FactoryFeedContext} from '@factory/product/frontend/factory/feed/feed.js';
 import type {PropertyValues} from 'lit';
-import {check, id, readSodaJSON, SodaRequestError} from './sodaspaces-api.js';
+import {check, id, readSodaJSON, SodaRequestError} from '@factory/product/frontend/factory/api/models.js';
 import type {PreparedExtensionMount} from './soda-extension.js';
-import {intentList, intentPlanStatus} from './sodaspaces-intent-response.js';
-import type {SavedRequest, IntentPlanStatus} from './sodaspaces-intent-response.js';
+import {intentList, intentPlanStatus} from '@factory/product/frontend/factory/api/request-response.js';
+import type {SavedRequest, IntentPlanStatus} from '@factory/product/frontend/factory/api/request-response.js';
 import {renderProjectWork} from './sodaspaces-project-work-view.js';
-import {SodaFactoryVerificationAllowance} from './sodaspaces-factory-verification-allowance.js';
-import './sodaspaces-factory-feed.js';
-import './sodaspaces-factory-acceptance.js';
-import './sodaspaces-factory-context-resolution.js';
-import type {SodaFactoryContextResolution} from './sodaspaces-factory-context-resolution.js';
-import './sodaspaces-factory-completion-retry.js';
-import './sodaspaces-factory-work-journey.js';
-import {nativePath} from './sodaspaces-factory-activity.js';
-import {factoryCommandId, factoryRunStatusResponse} from './sodaspaces-factory-response.js';
-import type {DeliveryRepairProgress, FactoryRunDetail} from './sodaspaces-factory-response.js';
-import {deliveryRepairDecision, retryDecision} from './sodaspaces-factory-work-response.js';
-import {terminalID} from './sodaspaces-terminal-response.js';
+import '@factory/product/frontend/factory/work/verification-allowance.js';
+import type {SodaFactoryVerificationAllowance} from '@factory/product/frontend/factory/work/verification-allowance.js';
+import '@factory/product/frontend/factory/feed/feed.js';
+import '@factory/product/frontend/factory/work/acceptance.js';
+import '@factory/product/frontend/factory/work/context-resolution.js';
+import type {SodaFactoryContextResolution} from '@factory/product/frontend/factory/work/context-resolution.js';
+import '@factory/product/frontend/factory/work/completion-retry.js';
+import '@factory/product/frontend/factory/work/journey.js';
+import {nativePath} from '@factory/product/frontend/factory/shared/format.js';
+import '@factory/product/frontend/factory/work/verification-retry.js';
+import type {SodaFactoryVerificationRetry} from '@factory/product/frontend/factory/work/verification-retry.js';
 
 export interface ProjectWorkContext {
   transport: PreparedExtensionMount;
@@ -81,6 +83,10 @@ export class SodaProjectWork extends LitElement {
   declare private issueInput: string;
   declare private issueError: string;
   private current: ProjectWorkContext | undefined;
+  private incoming: ProjectWorkContext | undefined;
+  private factoryFeed: FactoryFeedContext | undefined;
+  private identityRead: AbortController | undefined;
+  private identitySerial = 0;
   private request: AbortController | undefined;
 
   constructor() {
@@ -101,9 +107,25 @@ export class SodaProjectWork extends LitElement {
   }
 
   set context(context: ProjectWorkContext | undefined) {
-    const changed = !sameContext(context, this.current);
-    this.current = context;
+    const changed = !sameContext(context, this.incoming);
+    if (!changed) {
+      // Inventory changes do not replace the admitted canonical account/repository
+      // or reset a reviewed issue. Keep the latest run selection even while its
+      // initial identity discovery is still pending.
+      this.incoming = context;
+      if (context && this.current && context.verificationRuns?.join('|') !== this.current.verificationRuns?.join('|')) {
+        this.current = {...this.current, verificationRuns: context.verificationRuns ?? []};
+        this.requestUpdate();
+      }
+      return;
+    }
+    this.incoming = context;
     if (changed) {
+      this.identityRead?.abort();
+      this.identityRead = undefined;
+      this.identitySerial++;
+      this.current = undefined;
+      this.factoryFeed = undefined;
       this.cancelRead();
       this.clearPlans();
       this.requirementsIssue = undefined;
@@ -111,15 +133,57 @@ export class SodaProjectWork extends LitElement {
       this.issueError = '';
     }
     this.requestUpdate();
-    if (changed) void this.load(false);
+    if (changed && context && this.active) void this.prepareContext(context);
+  }
+
+  private async prepareContext(context: ProjectWorkContext) {
+    if (this.identityRead || this.incoming !== context || !this.active) return;
+    const request = new AbortController();
+    this.identityRead = request;
+    const serial = ++this.identitySerial;
+    try {
+      const feed = await fountainFeedContext(
+        context.transport,
+        {
+          repository: context.repository?.id ?? '',
+          repositories: context.repositoryNames,
+          ...(context.account ? {account: context.account} : {}),
+          global: context.mode !== 'project',
+        },
+        request.signal
+      );
+      const labels = await feed.host.repositories([], request.signal);
+      const latest = this.incoming;
+      if (request.signal.aborted || serial !== this.identitySerial || !latest || !sameContext(latest, context)) return;
+      this.factoryFeed = feed;
+      this.current = {
+        ...latest,
+        ...(feed.account ? {account: feed.account} : {}),
+        ...(context.repository ? {repository: {...context.repository, id: feed.repository}} : {}),
+        repositoryNames: new Map([...labels.refs].map(([repository, ref]) => [String(repository), ref.label])),
+      };
+      await this.load(false);
+    } catch {
+      if (!request.signal.aborted && serial === this.identitySerial && sameContext(this.incoming, context))
+        this.error = 'Repository information is unavailable.';
+    } finally {
+      if (serial === this.identitySerial) this.identityRead = undefined;
+      this.requestUpdate();
+    }
   }
 
   connectedCallback() {
     super.connectedCallback();
-    if (!this.loaded) void this.load(false);
+    if (this.incoming && !this.current) void this.prepareContext(this.incoming);
+    else if (!this.loaded) void this.load(false);
   }
 
   disconnectedCallback() {
+    this.identityRead?.abort();
+    this.identityRead = undefined;
+    this.identitySerial++;
+    this.incoming = undefined;
+    this.factoryFeed = undefined;
     this.cancelRead();
     this.current = undefined;
     this.clearPlans();
@@ -128,11 +192,17 @@ export class SodaProjectWork extends LitElement {
 
   protected updated(changed: PropertyValues<this>) {
     if (!changed.has('active')) return;
-    if (!this.active) this.cancelRead();
+    if (!this.active) {
+      this.identityRead?.abort();
+      this.identityRead = undefined;
+      this.identitySerial++;
+      this.cancelRead();
+    } else if (this.incoming && !this.current) void this.prepareContext(this.incoming);
     else if (!this.loaded) void this.load(false);
   }
 
   refresh() {
+    if (!this.current && this.incoming) return this.prepareContext(this.incoming);
     this.loaded = false;
     void this.querySelector<SodaFactoryVerificationRetry>('soda-factory-verification-retry')?.refresh();
     for (const control of this.querySelectorAll<SodaFactoryVerificationAllowance>(
@@ -411,16 +481,16 @@ export class SodaProjectWork extends LitElement {
       ${
         this.requirementsIssue
           ? html`<soda-factory-work-journey
-                .context=${this.active ? {transport: context.transport, repository: repository.id, repositoryPath, issue: this.requirementsIssue} : undefined}
+                .context=${this.active ? {transport: context.transport, repository: repository.id, links: fountainWorkLinks(repositoryPath), issue: this.requirementsIssue} : undefined}
               ></soda-factory-work-journey>
               <soda-factory-requirements-acceptance
-                .context=${this.active ? {transport: context.transport, repository: repository.id, repositoryPath, issue: this.requirementsIssue} : undefined}
+                .context=${this.active ? {transport: context.transport, repository: repository.id, links: fountainAcceptanceLinks(repositoryPath), issue: this.requirementsIssue, commandScope: (signal: AbortSignal) => fountainCommandScope(context.transport, signal)} : undefined}
               ></soda-factory-requirements-acceptance>
               <soda-factory-context-resolution
-                .context=${this.active ? {transport: context.transport, repository: repository.id, issue: this.requirementsIssue} : undefined}
+                .context=${this.active ? {transport: context.transport, repository: repository.id, issue: this.requirementsIssue, commandScope: (signal: AbortSignal) => fountainCommandScope(context.transport, signal)} : undefined}
               ></soda-factory-context-resolution>
               <soda-factory-completion-retry
-                .context=${this.active ? {transport: context.transport, repository: repository.id, issue: this.requirementsIssue} : undefined}
+                .context=${this.active ? {transport: context.transport, repository: repository.id, issue: this.requirementsIssue, commandScope: (signal: AbortSignal) => fountainCommandScope(context.transport, signal)} : undefined}
               ></soda-factory-completion-retry>`
           : ''
       }
@@ -429,7 +499,10 @@ export class SodaProjectWork extends LitElement {
 
   protected render() {
     const context = this.current;
-    if (!context) return html``;
+    if (!context)
+      return this.incoming
+        ? html`<p role=${this.error ? 'alert' : 'status'}>${this.error || 'Loading work…'}</p>`
+        : html``;
     const feed =
       context.mode === 'project' && context.repository
         ? html`<section ?hidden=${this.surface !== 'feed'} aria-label="Project conversation">
@@ -442,9 +515,7 @@ export class SodaProjectWork extends LitElement {
                 Describe a change
               </button>
             </header>
-            <soda-factory-feed
-              .context=${this.active ? {transport: context.transport, repository: context.repository.id, repositoryName: context.repository.name, repositories: context.repositoryNames, account: context.account} : undefined}
-            ></soda-factory-feed>
+            <soda-factory-feed .context=${this.active ? this.factoryFeed : undefined}></soda-factory-feed>
           </section>`
         : '';
     const plans = renderProjectWork({
@@ -460,7 +531,11 @@ export class SodaProjectWork extends LitElement {
       disabled: !this.active,
       verificationContext:
         this.active && context.mode === 'project' && context.repository
-          ? {transport: context.transport, repository: context.repository.id}
+          ? {
+              transport: context.transport,
+              repository: context.repository.id,
+              commandScope: (signal: AbortSignal) => fountainCommandScope(context.transport, signal),
+            }
           : undefined,
       newWork: () => this.newWork(),
       resume: (intent) => this.resume(intent),
@@ -474,226 +549,10 @@ export class SodaProjectWork extends LitElement {
     return html`${feed}
       <section ?hidden=${context.mode === 'project' && this.surface !== 'work'} aria-label="Plans and delivery">
         ${plans}${this.renderRequirements(context)}<soda-factory-verification-retry
-          .context=${this.active && context.mode === 'project' && context.repository ? {transport: context.transport, repository: context.repository.id, runs: context.verificationRuns ?? []} : undefined}
+          .context=${this.active && context.mode === 'project' && context.repository ? {transport: context.transport, repository: context.repository.id, runs: context.verificationRuns ?? [], commandScope: (signal: AbortSignal) => fountainCommandScope(context.transport, signal)} : undefined}
         ></soda-factory-verification-retry>
       </section>`;
   }
 }
 
 customElements.define('soda-project-work', SodaProjectWork);
-
-type VerificationRetryContext = {transport: PreparedExtensionMount; repository: string; runs: readonly string[]};
-
-// Only the selected Project's recorded issue-zero runs are read. The server's
-// exact delivery eligibility owns this control; a native exit alone is no verdict.
-class SodaFactoryVerificationRetry extends LitElement {
-  static properties = {entries: {state: true}, message: {state: true}, busy: {state: true}};
-  declare private entries: FactoryRunDetail[];
-  declare private message: string;
-  declare private busy: boolean;
-  private current: VerificationRetryContext | undefined;
-  private serial = 0;
-  private pending: {run: string; command: string; action: 'retry' | 'repair_delivery'} | undefined;
-  private repairs = new Map<string, {cause: string; cycle: string}>();
-  private refreshTimer: ReturnType<typeof setTimeout> | undefined;
-  private reading = false;
-  constructor() {
-    super();
-    this.entries = [];
-    this.message = '';
-    this.busy = false;
-  }
-  protected createRenderRoot() {
-    return this;
-  }
-  set context(context: VerificationRetryContext | undefined) {
-    if (
-      context?.transport === this.current?.transport &&
-      context?.repository === this.current?.repository &&
-      context?.runs.join('|') === this.current?.runs.join('|')
-    )
-      return;
-    this.current = context;
-    clearTimeout(this.refreshTimer);
-    this.serial++;
-    this.entries = [];
-    this.message = '';
-    this.pending = undefined;
-    this.repairs.clear();
-    this.reading = false;
-    this.busy = false;
-    if (context) {
-      check(context.runs.length <= 64 && context.runs.every(terminalID));
-      void this.load(context, this.serial);
-    }
-  }
-  disconnectedCallback() {
-    clearTimeout(this.refreshTimer);
-    super.disconnectedCallback();
-    this.current = undefined;
-    this.serial++;
-  }
-  refresh() {
-    if (this.current) return this.load(this.current, this.serial);
-  }
-  private async load(context: VerificationRetryContext, serial: number, progressOnly = false) {
-    if (this.reading) return;
-    this.reading = true;
-    clearTimeout(this.refreshTimer);
-    const runs = progressOnly
-      ? context.runs.filter(
-          (run) =>
-            this.repairs.has(run) ||
-            this.entries.some((entry) => entry.id === run && this.unsettled(entry.delivery_repair?.progress))
-        )
-      : context.runs;
-    const reads = await Promise.allSettled(
-      runs.map(async (run) => {
-        const response = await context.transport.request(`factory/runs/${run}`, {signal: AbortSignal.timeout(15000)});
-        check(response.ok);
-        const entry = factoryRunStatusResponse(await readSodaJSON(response), run, context.repository);
-        const acknowledged = this.repairs.get(run),
-          progress = entry.delivery_repair?.progress;
-        if (acknowledged && progress)
-          check(progress.cause_id === acknowledged.cause && progress.cycle_id === acknowledged.cycle);
-        if (acknowledged && !progress) entry.delivery_repair = {available: false};
-        return entry;
-      })
-    );
-    if (serial !== this.serial) return;
-    this.reading = false;
-    const entries = reads.flatMap((read) =>
-      read.status === 'fulfilled' &&
-      read.value.reconciled &&
-      read.value.view?.repository === context.repository &&
-      read.value.view.issue === undefined &&
-      (read.value.verification_retry?.available ||
-        read.value.delivery_repair?.available ||
-        read.value.delivery_repair?.progress ||
-        this.repairs.has(read.value.id) ||
-        this.pending?.run === read.value.id)
-        ? [read.value]
-        : []
-    );
-    const retained = progressOnly
-      ? this.entries
-      : this.entries.filter((entry) => reads[runs.indexOf(entry.id)]?.status === 'rejected');
-    const current = new Map(retained.map((entry) => [entry.id, entry]));
-    for (const entry of entries) current.set(entry.id, entry);
-    this.entries = [...current.values()];
-    for (const entry of entries) if (entry.delivery_repair?.progress) this.repairs.delete(entry.id);
-    if (reads.some((read) => read.status === 'rejected')) {
-      this.message =
-        'Could not read current verification or repair progress. Last confirmed states are shown; refresh verification to try again.';
-      return;
-    }
-    if (entries.some((entry) => entry.delivery_repair?.progress)) this.message = '';
-    if (this.repairs.size || this.entries.some((entry) => this.unsettled(entry.delivery_repair?.progress)))
-      this.refreshTimer = setTimeout(() => {
-        if (this.current === context && this.isConnected) void this.load(context, serial, true);
-      }, 4000);
-  }
-  private unsettled(progress: DeliveryRepairProgress | undefined) {
-    return progress !== undefined && !['adopted', 'attention', 'stale'].includes(progress.state);
-  }
-  private async requestAction(run: string, action: 'retry' | 'repair_delivery') {
-    const context = this.current;
-    if (!context || this.busy || (!this.pending && !this.entries.some((entry) => entry.id === run))) return;
-    const pending = this.pending ?? {run, command: action === 'retry' ? factoryCommandId() : '', action};
-    if (pending.run !== run || pending.action !== action) return;
-    this.pending = pending;
-    const serial = this.serial;
-    this.busy = true;
-    try {
-      const response = await context.transport.request(`factory/runs/${run}/actions`, {
-        method: 'POST',
-        headers: {'Content-Type': 'application/json'},
-        body: JSON.stringify({action: pending.action, ...(pending.command ? {command_id: pending.command} : {})}),
-        signal: AbortSignal.timeout(90000),
-      });
-      check(response.ok);
-      const value = await readSodaJSON(response);
-      let repair: ReturnType<typeof deliveryRepairDecision> | undefined;
-      if (action === 'retry') retryDecision(value, pending.command, run);
-      else repair = deliveryRepairDecision(value, run);
-      if (serial === this.serial) this.confirmed(run, action, repair);
-    } catch {
-      if (serial === this.serial)
-        this.message = action === 'retry'
-          ? 'No Retry was confirmed. Retry this same request or refresh the verification status.'
-          : 'No repair request was confirmed. Retry this same request or refresh the verification status.';
-    } finally {
-      if (serial === this.serial) this.busy = false;
-    }
-  }
-  private confirmed(
-    run: string,
-    action: 'retry' | 'repair_delivery',
-    repair?: ReturnType<typeof deliveryRepairDecision>
-  ) {
-    this.pending = undefined;
-    if (repair) {
-      this.repairs.set(run, {cause: repair.cause_id, cycle: repair.cycle_id});
-      this.entries = this.entries.map((entry) =>
-        entry.id === run ? {...entry, delivery_repair: {available: false}} : entry
-      );
-    } else this.entries = this.entries.filter((entry) => entry.id !== run);
-    this.message =
-      action === 'retry'
-        ? 'Verification Retry queued. The original result and spending are retained.'
-        : 'Application repair requested. Diagnosis is queued; the original result and spending are retained.';
-    if (repair && this.current) void this.load(this.current, this.serial);
-  }
-  private renderRepair(progress: DeliveryRepairProgress) {
-    const states = {
-      collecting: 'Collecting the recorded failure and current work.',
-      ready: 'Strategist diagnosis is queued.',
-      investigating: 'Strategist diagnosis is in progress.',
-      assessing: 'Assessing the Strategist proposal.',
-      applying: 'Adopting the qualified repair graph.',
-      adopted: 'Repair graph adopted. Fresh readiness and application verification are still required.',
-      attention: 'Application repair needs attention.',
-      stale: 'Application repair inputs changed; the retained diagnosis is stale.',
-    };
-    return html`<section aria-label="Application repair progress">
-      <p role="status">${states[progress.state]}</p>
-      <p>
-        Cause ${progress.cause_id.slice(0, 8)} · failed verification ${progress.failed_run.slice(0, 8)} · source
-        ${progress.source_commit.slice(0, 8)}
-      </p>
-      ${progress.run_id ? html`<p>Strategist run ${progress.run_id.slice(0, 8)}</p>` : ''}
-      <ul>
-        ${progress.failures.map((failure) => html`<li>${failure.check_ref}: ${failure.detail}</li>`)}
-      </ul>
-      ${progress.failure_count > progress.failures.length ? html`<p>Showing ${progress.failures.length} of ${progress.failure_count} recorded failures.</p>` : ''}
-      ${progress.judgment ? html`<p>Judgment: ${progress.judgment.option}; acceptance probability ${progress.judgment.accept_probability}; confidence ${progress.judgment.confidence}.</p>` : ''}
-      ${progress.reason ? html`<p>${progress.reason}</p>` : ''}
-    </section>`;
-  }
-  protected render() {
-    if (!this.entries.length && !this.message) return html``;
-    return html`<section aria-label="Application verification needs attention">
-      ${this.entries.length ? html`<p>Previous verification results and spending stay recorded.</p>` : ''}
-      ${this.entries.map(
-        (entry) => html`<div>
-          Verification run ${entry.id.slice(0, 8)}
-          ${entry.verification_retry?.available || (this.pending?.run === entry.id && this.pending.action === 'retry') ? html`<button type="button" class="ui button" ?disabled=${this.busy || (!!this.pending && (this.pending.run !== entry.id || this.pending.action !== 'retry'))} @click=${() => this.requestAction(entry.id, 'retry')}>${this.pending?.run === entry.id && this.pending.action === 'retry' ? 'Retry same verification request' : 'Retry application verification'}</button>` : ''}
-          ${entry.delivery_repair?.available || (this.pending?.run === entry.id && this.pending.action === 'repair_delivery') ? html`<button type="button" class="ui button" ?disabled=${this.busy || (!!this.pending && (this.pending.run !== entry.id || this.pending.action !== 'repair_delivery'))} @click=${() => this.requestAction(entry.id, 'repair_delivery')}>${this.pending?.run === entry.id && this.pending.action === 'repair_delivery' ? 'Retry same repair request' : 'Request application repair'}</button>` : ''}
-          ${entry.delivery_repair?.progress ? this.renderRepair(entry.delivery_repair.progress) : ''}
-        </div>`
-      )}
-      <p role="status">${this.message}</p>
-      <button
-        type="button"
-        class="ui button"
-        ?disabled=${this.busy}
-        @click=${() => {
-          if (this.current) void this.load(this.current, this.serial);
-        }}
-      >
-        Refresh verification
-      </button>
-    </section>`;
-  }
-}
-customElements.define('soda-factory-verification-retry', SodaFactoryVerificationRetry);

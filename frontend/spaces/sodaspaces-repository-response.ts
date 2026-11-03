@@ -1,4 +1,4 @@
-import {check, id, object, projectId} from './sodaspaces-api.js';
+import {check, id, object, projectId} from '@factory/product/frontend/factory/api/models.js';
 
 export interface RepositoryChoice {
   id: string;

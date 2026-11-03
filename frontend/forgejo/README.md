@@ -43,7 +43,7 @@ Do not mark entries read or change fixture data merely to preview this feature.
 | --- | --- |
 | `templates/` | `/data/gitea/templates/` |
 | `assets/branding/forgejo/` (repository root) | `/data/gitea/public/assets/soda/forgejo/` |
-| `assets/branding/fonts/` | `/data/gitea/public/assets/soda/fonts/` |
+| Factory package `assets/branding/fonts/` | `/data/gitea/public/assets/soda/fonts/` |
 | `assets/branding/theme/` | `/data/gitea/public/assets/soda/theme/` |
 | `assets/branding/source/` | `/data/gitea/public/assets/soda/source/` |
 

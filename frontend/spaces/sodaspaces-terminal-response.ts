@@ -1,4 +1,4 @@
-import {check, object} from './sodaspaces-api.js';
+import {check, object} from '@factory/product/frontend/factory/api/models.js';
 
 export const terminalID = (value: unknown): value is string =>
   typeof value === 'string' && /^[0-9a-f]{32}$/.test(value);

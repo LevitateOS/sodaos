@@ -1,6 +1,6 @@
 import type {WorkspaceView} from './sodaspaces-workspace-types.js';
 import {html} from 'lit';
-import {check, object, readSodaJSON, SodaRequestError} from './sodaspaces-api.js';
+import {check, object, readSodaJSON, SodaRequestError} from '@factory/product/frontend/factory/api/models.js';
 import {spacesResponse} from './sodaspaces-inventory-response.js';
 import type {Space} from './sodaspaces-inventory-response.js';
 import type {TerminalMetadata} from './sodaspaces-terminal-response.js';

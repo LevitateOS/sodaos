@@ -2,7 +2,7 @@
 import {mountSodaspaces} from '../../../frontend/spaces/sodaspaces-workspace.js';
 import {mount as mountWorkspacePanel} from '../../../frontend/spaces/soda-spaces-entry.js';
 import {mount as mountSpacesEntry} from '../../../frontend/spaces/soda-spaces-entry.js';
-import {object} from '../../../frontend/spaces/sodaspaces-api.js';
+import {object} from '@factory/product/frontend/factory/api/models.js';
 import type {ContributionNavigationOptions} from '../../../frontend/spaces/fountain-browser-contract.js';
 import {createWorkspaceModel} from './workspace-model.js';
 export {projectA, projectB} from './workspace-model.js';

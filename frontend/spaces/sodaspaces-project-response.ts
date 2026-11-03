@@ -1,4 +1,4 @@
-import {check, object, projectId} from './sodaspaces-api.js';
+import {check, object, projectId} from '@factory/product/frontend/factory/api/models.js';
 import {supportObservation} from './sodaspaces-terminal-error.js';
 import type {SupportState} from './sodaspaces-terminal-error.js';
 

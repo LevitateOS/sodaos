@@ -1,8 +1,10 @@
+import {factorySource, factoryRoot, factoryBrowserImports} from './factory-source.js';
+import {buildFactoryUI} from '@factory/product/scripts/build-factory-ui.js';
 import {expect, test} from 'bun:test';
-import {mkdir, mkdtemp, readFile, rm, stat} from 'node:fs/promises';
-import {dirname, resolve} from 'node:path';
+import {mkdir, mkdtemp, readFile, realpath, rm, stat} from 'node:fs/promises';
+import {dirname, relative, resolve} from 'node:path';
 import {buildExtensionStylesheets, buildSodaExtensionAssets, styles} from './build-soda-extension.js';
-import {feedRolePortraits} from '../frontend/spaces/sodaspaces-factory-feed-portraits.js';
+import {feedRolePortraits} from '@factory/product/frontend/factory/feed/feed-portraits.js';
 
 const root = resolve(import.meta.dir, '..');
 
@@ -90,6 +92,71 @@ test('native Soda package contains its entire local browser asset graph', async 
     expect(workspace).toContain('data:image/svg+xml;base64,');
     expect(workspace).not.toContain('soda/forgejo/icons/');
     expect(terminalCSS).toContain('@import url("./soda-terminal/xterm.css");');
+    // Build the actual shared application independently of Forge and Storybook.
+    const productOut = resolve(work, 'factory'),
+      product = await buildFactoryUI(productOut);
+    // Trace a real Fountain entry through Bun, then compare the physical common
+    // component inputs with the independently built standalone product.
+    const graph = await Bun.build({
+      entrypoints: [resolve(root, 'frontend/spaces/soda-place-issues.ts')],
+      target: 'browser',
+      format: 'esm',
+      metafile: true,
+      define: {'process.env.NODE_ENV': '"production"'},
+      plugins: [factoryBrowserImports()],
+    });
+    expect(graph.success).toBe(true);
+    const inputs = Object.keys(graph.metafile!.inputs),
+      common = new Set<string>();
+    for (const input of inputs.filter((path) => path.includes('/frontend/factory/'))) {
+      const path = await realpath(resolve(root, input));
+      expect(path.startsWith(factoryRoot + '/frontend/factory/')).toBe(true);
+      const source = relative(factoryRoot, path);
+      if (product.sources.includes(source)) common.add(source);
+    }
+    expect(common.has('frontend/factory/issues/editor.ts')).toBe(true);
+    expect(common.size).toBeGreaterThan(10);
+    expect(inputs.filter((path) => path.endsWith('/lit-element/lit-element.js'))).toHaveLength(1);
+    expect(product.files).toContain('factory-app.js');
+    expect(product.files).toContain('factory.css');
+    expect(product.sources.every((path) => path.startsWith('frontend/factory/') && !path.endsWith('.stories.ts'))).toBe(
+      true
+    );
+    for (const source of [
+      'app/browser.ts',
+      'app/factory-app.ts',
+      'feed/feed.ts',
+      'request/request.ts',
+      'request/exploration-record.ts',
+      'work/progress.ts',
+      'work/detail.ts',
+      'library/library.ts',
+      'watch/watch.ts',
+    ])
+      expect(product.sources).toContain('frontend/factory/' + source);
+    const module = await readFile(resolve(productOut, 'factory-app.js'), 'utf8');
+    expect(module).toContain('SodaFactoryApp');
+    expect(module).toContain('SodaRequestError');
+    expect(module).not.toContain('storybook');
+    const css = await readFile(resolve(productOut, 'factory.css'), 'utf8');
+    expect(css).toContain(':root{');
+    expect(css).toContain('light-dark(');
+    expect(css).not.toContain('--buncss-');
+    expect(css).toContain('data:font/woff2;base64,');
+    expect(css).not.toContain('data-page=');
+    expect(product.files).toContain('licenses/lit.LICENSE');
+    for (const portrait of Object.values(feedRolePortraits)) {
+      expect(product.files).toContain(portrait);
+      expect(await readFile(resolve(productOut, portrait))).toEqual(
+        await readFile(resolve(root, 'assets/branding', portrait))
+      );
+    }
+    for (const match of css.matchAll(/url\(([^)]+)\)/g)) {
+      const url = match[1]?.replace(/^['"]|['"]$/g, '');
+      if (!url || url.startsWith('data:')) continue;
+      expect(url).not.toMatch(/^(?:[a-z]+:|\/\/)/i);
+      expect((await stat(resolve(productOut, url))).isFile()).toBe(true);
+    }
   } finally {
     await rm(work, {recursive: true, force: true});
   }
@@ -231,9 +298,10 @@ function schemeTokenNames(css: string): string[] {
 }
 
 async function documentCss(): Promise<string> {
-  const palette = await readFile(resolve(root, 'assets/branding/theme/palette.css'), 'utf8');
+  const palette = await readFile(factorySource('assets/branding/theme/palette.css'), 'utf8');
   const components = await readFile(resolve(root, 'assets/branding/forgejo/components.css'), 'utf8');
-  return `${palette}\n${components}`;
+  const tokens = await readFile(factorySource('assets/branding/theme/tokens.css'), 'utf8');
+  return `${palette}\n${tokens}\n${components}`;
 }
 
 function matchClosingBrace(text: string, open: number, what: string): number {

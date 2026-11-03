@@ -1,4 +1,4 @@
-import {check, object, projectId} from './sodaspaces-api.js';
+import {check, object, projectId} from '@factory/product/frontend/factory/api/models.js';
 import {terminalID} from './sodaspaces-terminal-response.js';
 import type {TerminalLocator} from './sodaspaces-terminal.js';
 

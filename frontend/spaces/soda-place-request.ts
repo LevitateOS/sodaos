@@ -3,19 +3,28 @@
 // its polls survive a place switch. New requests start as a Feed post.
 import {html, render} from 'lit';
 import type {TemplateResult} from 'lit';
-import {id, object, readSodaErrorCode, readSodaJSON, SodaRequestError} from './sodaspaces-api.js';
-import './sodaspaces-intent.js';
-import type {SodaIntent} from './sodaspaces-intent.js';
-import {decisionID} from './sodaspaces-intent-response.js';
-import {requestOverview} from './sodaspaces-factory-progress-response.js';
-import {factoryIssueDetail} from './sodaspaces-factory-work-response.js';
-import './sodaspaces-factory-verification-allowance.js';
+import {
+  check,
+  id,
+  object,
+  readSodaErrorCode,
+  readSodaJSON,
+  SodaRequestError,
+} from '@factory/product/frontend/factory/api/models.js';
+import '@factory/product/frontend/factory/request/request.js';
+import type {SodaIntent} from '@factory/product/frontend/factory/request/request.js';
+import {decisionID} from '@factory/product/frontend/factory/api/request-response.js';
+import {requestOverview} from '@factory/product/frontend/factory/api/progress-response.js';
+import {factoryIssueDetail} from '@factory/product/frontend/factory/api/work-response.js';
+import '@factory/product/frontend/factory/work/verification-allowance.js';
 import {renderRepositoryPicker} from './sodaspaces-repository-picker-view.js';
 import {repositoryChoices} from './sodaspaces-repository-response.js';
 import type {RepositoryChoices} from './sodaspaces-repository-response.js';
 import type {PreparedExtensionMount} from './soda-extension.js';
 import {repositoryPlaces} from './soda-places.js';
-import type {PlaceContext, PlaceMount} from './soda-place-view.js';
+import type {PlaceContext} from './soda-place-view.js';
+import {withFactoryRepository} from './soda-place-view.js';
+import {fountainCommandScope, fountainRepository, fountainRepositoryIdentity} from './soda-factory-feed-host.js';
 
 type IntentAPI = (path: string, body?: Record<string, unknown>, signal?: AbortSignal) => Promise<unknown>;
 
@@ -31,25 +40,6 @@ function intentAPI(transport: PreparedExtensionMount): IntentAPI {
     if (response.ok) return readSodaJSON(response);
     throw new SodaRequestError(response.status, await readSodaErrorCode(response));
   };
-}
-
-// The signed-in actor, read once per session from the inventory the
-// Workspace reads too. The composer keys its local drafts and choices by it.
-const actors = new WeakMap<PreparedExtensionMount, Promise<string>>();
-function readActor(transport: PreparedExtensionMount): Promise<string> {
-  let actor = actors.get(transport);
-  if (!actor) {
-    actor = (async () => {
-      const response = await transport.request('spaces', {method: 'GET', signal: AbortSignal.timeout(20000)});
-      if (!response.ok) throw new SodaRequestError(response.status);
-      const value = object(object(await readSodaJSON(response, 4 * 1024 * 1024)).actor).id;
-      if (!id(value)) throw Error('Actor unavailable');
-      return value;
-    })();
-    actor.catch(() => actors.delete(transport));
-    actors.set(transport, actor);
-  }
-  return actor;
 }
 
 type Phase =
@@ -83,29 +73,17 @@ interface Picker {
   request?: AbortController | undefined;
 }
 
-/** Visible owner/name for a repository id; undefined when not visible. */
-async function repositorySlug(api: IntentAPI, repository: string): Promise<string | undefined> {
-  try {
-    const repo = object(object(await api('/api/environments?repository_id=' + repository)).repository);
-    if (repo.id !== repository || typeof repo.owner !== 'string' || typeof repo.name !== 'string') return undefined;
-    if (!repo.owner || !repo.name || /[/\\]/.test(repo.owner + repo.name)) return undefined;
-    return `${repo.owner}/${repo.name}`;
-  } catch {
-    return undefined;
-  }
-}
-
 function repositoryPath(context: PlaceContext): string {
   return `${context.prefix}/${context.slug.split('/').map(encodeURIComponent).join('/')}`;
 }
 
-export const mountRequestPlace: PlaceMount = (host, context, initial) => {
+export const mountRequestPlace = withFactoryRepository((host, context, initial) => {
   const api = intentAPI(context.transport);
   const places = context.places;
   const request = initial.place === 'request' ? initial.request : '';
   let active = true;
   let disposed = false;
-  let actor = '';
+  const actor = context.factoryActor;
   let phase: Phase = {kind: 'loading'};
   let accepted = false;
   let bound = '0';
@@ -121,6 +99,7 @@ export const mountRequestPlace: PlaceMount = (host, context, initial) => {
     error: '',
   };
   const lifetime = new AbortController();
+  let addressRead: AbortController | undefined;
 
   const composer = () => host.querySelector<SodaIntent>('soda-intent');
 
@@ -180,18 +159,27 @@ export const mountRequestPlace: PlaceMount = (host, context, initial) => {
     picker.busy = true;
     picker.error = '';
     draw();
-    const ok = await intent.acceptRepository(choice.id);
-    if (disposed) return;
-    picker.busy = false;
-    if (!ok) {
+    const read = new AbortController();
+    picker.request = read;
+    try {
+      const resolved = await fountainRepository(context.transport, choice.id, read.signal);
+      check(resolved.host === context.factoryHost && resolved.actor === actor);
+      if (disposed || !active || picker.request !== read || read.signal.aborted) return;
+      if (!(await intent.acceptRepository(resolved.repository))) throw Error('Repository acceptance failed.');
+      if (disposed || picker.request !== read || read.signal.aborted) return;
+      notice = intent.generationNotice;
+      picker.open = false;
+      intent.focusReview();
+    } catch {
+      if (disposed || picker.request !== read || read.signal.aborted) return;
       picker.error = 'Could not save the repository for this request. Your request stays saved; try again.';
-      draw();
-      return;
+    } finally {
+      if (picker.request === read) {
+        picker.request = undefined;
+        picker.busy = false;
+        draw();
+      }
     }
-    notice = intent.generationNotice;
-    picker.open = false;
-    draw();
-    intent.focusReview();
   }
 
   function closePicker() {
@@ -213,13 +201,18 @@ export const mountRequestPlace: PlaceMount = (host, context, initial) => {
         await api(`/api/factory/intents/${request}/overview`, undefined, lifetime.signal),
         request
       );
+      check(overview.context.repository === context.factoryRepository);
       const issues = [...new Set(overview.mappings.filter((row) => row.effective).map((row) => row.issue_index))];
       const rows = await Promise.all(
         issues.map(async (issue): Promise<WorkRow> => {
           try {
             const detail = factoryIssueDetail(
-              await api(`/api/repositories/${context.repository}/factory/issues/${issue}`, undefined, lifetime.signal),
-              context.repository,
+              await api(
+                `/api/repositories/${context.factoryRepository}/factory/issues/${issue}`,
+                undefined,
+                lifetime.signal
+              ),
+              context.factoryRepository,
               issue
             );
             const pull = detail.merge?.pr_number;
@@ -240,7 +233,7 @@ export const mountRequestPlace: PlaceMount = (host, context, initial) => {
   }
 
   function renderSummary(): TemplateResult | string {
-    if (!accepted || bound !== context.repository) return '';
+    if (!accepted || bound !== context.factoryRepository) return '';
     const repo = repositoryPath(context);
     return html`<section class="soda-build-summary" aria-label="Build summary">
       <h3>Build summary</h3>
@@ -278,7 +271,7 @@ export const mountRequestPlace: PlaceMount = (host, context, initial) => {
       <details class="soda-verification-limits">
         <summary>Verification limits</summary>
         <soda-factory-verification-allowance
-          .context=${active ? {transport: context.transport, repository: context.repository, intent: request} : undefined}
+          .context=${active ? {transport: context.transport, repository: context.factoryRepository, intent: request, commandScope: (signal: AbortSignal) => fountainCommandScope(context.transport, signal)} : undefined}
         ></soda-factory-verification-allowance>
       </details>
     </section>`;
@@ -293,22 +286,31 @@ export const mountRequestPlace: PlaceMount = (host, context, initial) => {
   }
 
   function applyRepository(repository: string, isAccepted: boolean) {
+    addressRead?.abort();
     bound = repository;
     accepted = isAccepted;
-    if (repository !== '0' && repository !== context.repository) {
+    if (repository !== '0' && repository !== context.factoryRepository) {
       phase = {kind: 'elsewhere'};
       draw();
-      void repositorySlug(api, repository).then((slug) => {
-        if (disposed || !slug || phase.kind !== 'elsewhere') return;
-        phase = {
-          kind: 'elsewhere',
-          slug,
-          href: repositoryPlaces(context.prefix, slug).to({place: 'request', request}),
-        };
-        draw();
-      });
+      const read = new AbortController();
+      addressRead = read;
+      void fountainRepositoryIdentity(context.transport, repository, AbortSignal.any([read.signal, lifetime.signal]))
+        .then((resolved) => {
+          if (disposed || read.signal.aborted || bound !== repository || phase.kind !== 'elsewhere') return;
+          check(resolved.host === context.factoryHost && resolved.actor === actor);
+          phase = {
+            kind: 'elsewhere',
+            slug: resolved.name,
+            href: repositoryPlaces(context.prefix, resolved.name).to({place: 'request', request}),
+          };
+          draw();
+        })
+        .catch(() => {
+          /* Unavailable or foreign repositories supply no native link. */
+        });
       return;
     }
+    phase = {kind: 'ready'};
     draw();
     if (accepted && !summary.loaded) void loadSummary();
   }
@@ -316,11 +318,7 @@ export const mountRequestPlace: PlaceMount = (host, context, initial) => {
   function onOperation() {
     const revision = composer()?.revision;
     if (revision && revision.intent === request) {
-      const wasAccepted = accepted;
-      bound = revision.repository;
-      accepted = revision.state === 'accepted';
-      if (accepted && !wasAccepted) void loadSummary();
-      draw();
+      applyRepository(revision.repository, revision.state === 'accepted');
     }
   }
 
@@ -340,7 +338,7 @@ export const mountRequestPlace: PlaceMount = (host, context, initial) => {
         <p role="status">This request is private to the person who made it.</p>
         <p class="soda-build-links">
           <a href=${`${repositoryPath(context)}/issues`}>Open issues</a>
-          <a href=${places.factoryStatus()}>Factory status</a>
+          <a href=${places.issues()}>Issues</a>
         </p>
       </section>`;
     if (phase.kind === 'elsewhere')
@@ -372,23 +370,23 @@ export const mountRequestPlace: PlaceMount = (host, context, initial) => {
                 <soda-intent
                   .api=${api}
                   .actor=${actor}
+                  .draftScope=${`fountain:${context.factoryHost}`}
                   .request=${request}
                   .project=${context.slug}
                   .blocked=${false}
-                  .active=${active && !picker.open}
+                  .active=${active}
                   @soda-intent-operation=${onOperation}
                   @intent-resumed=${onResumed}
                   @intent-reviewed=${openPicker}
                   @intent-accepted=${() => {
-                    accepted = true;
-                    bound = context.repository;
-                    void loadSummary();
+                    const revision = composer()?.revision;
+                    if (revision) applyRepository(revision.repository, true);
                   }}
                   @intent-preparation=${() => context.navigate(places.settings('environment'))}
                 ></soda-intent>
                 ${notice ? html`<p class="soda-request-notice" role="status">${notice}</p>` : ''}
                 ${
-                  bound === context.repository && (context.viewer.admin || context.viewer.operator)
+                  bound === context.factoryRepository && (context.viewer.admin || context.viewer.operator)
                     ? html`<p class="soda-build-links">
                         <a href=${places.settings('environment')}>Set up the development environment</a>
                       </p>`
@@ -458,8 +456,7 @@ export const mountRequestPlace: PlaceMount = (host, context, initial) => {
         throw error;
       }
       if (disposed) return;
-      // Only the author reads a request, so its owner is the actor.
-      actor = id(value.owner) ? value.owner : await readActor(context.transport);
+      check(value.owner === actor);
       if (disposed) return;
       const repository = typeof value.repository === 'string' ? value.repository : '0';
       phase = {kind: 'ready'};
@@ -478,6 +475,11 @@ export const mountRequestPlace: PlaceMount = (host, context, initial) => {
     update: () => draw(),
     setActive(value: boolean) {
       active = value;
+      if (!value) {
+        picker.request?.abort();
+        picker.request = undefined;
+        picker.busy = false;
+      }
       draw();
     },
     dispose() {
@@ -487,4 +489,4 @@ export const mountRequestPlace: PlaceMount = (host, context, initial) => {
       render(html``, host);
     },
   };
-};
+});

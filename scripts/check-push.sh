@@ -12,6 +12,7 @@ case $1 in
     case $1 in
       core)
         go mod verify
+        bash scripts/check-factory-boundaries.sh
         listed=$(go list ./cmd/... ./internal/... ./tools/...)
         mapfile -t packages < <(printf '%s\n' "$listed" | \
           grep -vE '/(internal/(store|web(/.*)?|factory/control|identity/client)|tools/soda-installed-probes)$')
@@ -24,7 +25,7 @@ case $1 in
         bash scripts/check-no-unit-tests.sh
         bash scripts/check-go-unitban.sh
         ;;
-      store) go test -count=1 ./internal/store ;;
+      store) go test -count=1 github.com/levitateos/factory/pkg/store ;;
       web) go test -count=1 ./internal/web/... ;;
     esac
     ;;

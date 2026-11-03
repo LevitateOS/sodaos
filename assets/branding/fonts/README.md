@@ -1,5 +1,10 @@
 # Soda brand fonts
 
+The canonical font CSS, WOFF2 files, source metadata and licenses now belong to
+[`LevitateOS/factory`](https://github.com/LevitateOS/factory/tree/main/assets/branding/fonts).
+Forge reads them through `@factory/product`; its public font URLs stay the same.
+Use `scripts/setup-factory-ui.sh` before building, and edit fonts in Factory.
+
 Self-hosted WOFF2 assets matching the Soda OS website's `src/app/styles/fonts.css`
 and Fontsource package versions (5.3.0), downloaded from the npm registry.
 

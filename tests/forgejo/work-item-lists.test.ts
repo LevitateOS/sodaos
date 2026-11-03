@@ -54,7 +54,10 @@ test('work items share appearance across native callers and keep usable metadata
     );
     const nativeResponse = await fetch(`${origin}/assets/css/index.css`);
     assert.equal(nativeResponse.status, 200);
-    const palette = await readFile(new URL('../../assets/branding/theme/palette.css', import.meta.url), 'utf8');
+    const palette = await readFile(
+      new URL(import.meta.resolve('@factory/product/assets/branding/theme/palette.css')),
+      'utf8'
+    );
     const css = `<style>${await nativeResponse.text()}\n${palette}\n${styles.join('\n')}</style>`;
 
     // The same unmodified native issue partial is used in all four compositions.

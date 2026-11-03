@@ -1,4 +1,4 @@
-import {object, readSodaJSON, SodaRequestError} from './sodaspaces-api.js';
+import {object, readSodaJSON, SodaRequestError} from '@factory/product/frontend/factory/api/models.js';
 import {mutate} from './sodaspaces-project-mutations.js';
 import type {MutationsInput} from './sodaspaces-project-mutations.js';
 import type {CreationProfile} from './sodaspaces-project-response.js';

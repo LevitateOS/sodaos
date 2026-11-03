@@ -1,9 +1,11 @@
+import {fountainFeedContext} from './soda-factory-feed-host.js';
+import type {FactoryFeedContext} from '@factory/product/frontend/factory/feed/feed.js';
 import {html, render} from 'lit';
 import type {MountHandle} from './fountain-browser-contract.js';
 import type {ExtensionMountContext} from './soda-extension.js';
 import {prepareExtensionMount} from './soda-extension.js';
 import {nativeAppSubUrl} from './soda-native-paths.js';
-import './sodaspaces-factory-feed.js';
+import '@factory/product/frontend/factory/feed/feed.js';
 import './sodaspaces-applications.js';
 
 export function mount(root: HTMLElement, context: ExtensionMountContext): MountHandle {
@@ -25,6 +27,10 @@ export function mount(root: HTMLElement, context: ExtensionMountContext): MountH
   const applications = context.pageId === 'applications';
   const repository = '';
   let visible = true;
+  let disposed = false;
+  let factoryContext: FactoryFeedContext | undefined;
+  let pending: AbortController | undefined;
+  let error = '';
   const show = () =>
     render(
       html`
@@ -64,34 +70,61 @@ export function mount(root: HTMLElement, context: ExtensionMountContext): MountH
                 .layout=${'apps'}
                 .prefix=${prefix}
               ></soda-applications>`
-            : html`<soda-factory-feed
-                .context=${visible ? {transport, repository, global: true, prefix} : undefined}
-              ></soda-factory-feed>`
+            : html`${error ? html`<p role="alert">${error}</p>` : !factoryContext ? html`<p role="status">Loading feed…</p>` : ''}
+                <soda-factory-feed .context=${visible ? factoryContext : undefined}></soda-factory-feed>`
         }
       `,
       content
     );
+  const load = () => {
+    if (applications || !visible || disposed || factoryContext || pending) return;
+    const request = new AbortController();
+    pending = request;
+    error = '';
+    void fountainFeedContext(transport, {repository, global: true, prefix}, request.signal).then(
+      (value) => {
+        if (disposed || pending !== request || request.signal.aborted) return;
+        pending = undefined;
+        factoryContext = value;
+        show();
+      },
+      () => {
+        if (disposed || pending !== request || request.signal.aborted) return;
+        pending = undefined;
+        error = 'Repository information is unavailable.';
+        show();
+      }
+    );
+  };
+  const present = (value: boolean) => {
+    visible = value;
+    if (!visible) {
+      pending?.abort();
+      pending = undefined;
+    } else load();
+    show();
+  };
   show();
+  load();
   return {
     update(presentation) {
-      visible = presentation.visible;
-      show();
+      present(presentation.visible);
     },
     suspend() {
-      visible = false;
-      show();
+      present(false);
     },
     resume(validation) {
       if (validation.sessionGeneration === transport.generation) {
-        visible = true;
-        show();
+        present(true);
       }
     },
     retire() {
-      visible = false;
-      show();
+      disposed = true;
+      present(false);
     },
     dispose() {
+      disposed = true;
+      pending?.abort();
       render(html``, content);
       content.remove();
       styles.forEach((el) => el.remove());

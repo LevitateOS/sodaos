@@ -1,4 +1,4 @@
-import {check, id, object} from './sodaspaces-api.js';
+import {check, id, object} from '@factory/product/frontend/factory/api/models.js';
 
 export interface ApplicationSpec {
   id: string;

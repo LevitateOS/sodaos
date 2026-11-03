@@ -7,7 +7,7 @@ import type {
   RetireReason,
 } from '../../../frontend/spaces/fountain-browser-contract.js';
 import {createWorkspaceModel} from './workspace-model.js';
-import {object} from '../../../frontend/spaces/sodaspaces-api.js';
+import {object} from '@factory/product/frontend/factory/api/models.js';
 
 // Authored fixture model; the native host supplies the actual mount transport,
 // navigation and lifecycle. The probe only records calls to the real Soda entry.

@@ -1,6 +1,6 @@
 import {LitElement, html} from 'lit';
 import type {PropertyValues} from 'lit';
-import {check, object, SodaRequestError} from './sodaspaces-api.js';
+import {check, object, SodaRequestError} from '@factory/product/frontend/factory/api/models.js';
 import type {ApplicationRequest} from './sodaspaces-applications.js';
 import {applicationsResponse, type ApplicationRecord} from './sodaspaces-application-response.js';
 

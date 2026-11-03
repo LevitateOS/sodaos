@@ -35,7 +35,12 @@ application, collaboration and required identity/project definitions. Appliance
 composition, Fountain adapters, private clients and Forge HTTP remain here.
 Do not recreate the removed `internal/factory`, `internal/store` or related
 duplicate owners. The current product queue is in the Factory repository;
-the shared UI source cutover is the next separate slice.
+the shared UI is consumed through the standard `@factory/product` Bun source
+link. Factory owns components, Storybook, fonts and theme; Forge owns its host
+adapters, public URLs and native presentation mapping. Set up that dependency
+with `scripts/setup-factory-ui.sh`; do not recreate local `frontend/factory`,
+`frontend/storybook` or `frontend/desktop` copies. The remaining Rust consumer
+cutover is tracked separately in the canonical Factory queue.
 
 The Factory engine and store consume neutral domain/runtime ports. Provider SDKs,
 appliance adapters and private transport clients belong outside their production

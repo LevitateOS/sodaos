@@ -1,9 +1,9 @@
 import type {TemplateResult} from 'lit';
-import {factoryRunLabel, factoryRunText} from './sodaspaces-factory-response.js';
-import type {FactoryRun} from './sodaspaces-factory-response.js';
+import {factoryRunLabel, factoryRunText} from '@factory/product/frontend/factory/api/run-response.js';
+import type {FactoryRun} from '@factory/product/frontend/factory/api/run-response.js';
 import type {Space} from './sodaspaces-inventory-response.js';
 import {mountFactoryWatch} from './sodaspaces-factory.js';
-import type {FactoryWatchContext} from './sodaspaces-factory.js';
+import type {FountainFactoryWatchContext} from './sodaspaces-factory.js';
 import {renderFactoryRuns} from './sodaspaces-factory-navigation-view.js';
 import type {FactoryWatch, WorkspaceContext} from './sodaspaces-workspace-types.js';
 
@@ -107,7 +107,7 @@ export function factorySection(input: FactorySectionInput): TemplateResult | str
   );
 }
 
-export interface FactoryWatchContextInput {
+export interface FountainFactoryWatchContextInput {
   binding: WorkspaceContext | undefined;
   actor: {id: string; login: string} | undefined;
   watch: FactoryWatch;
@@ -115,12 +115,12 @@ export interface FactoryWatchContextInput {
   projectName: (space: Space) => string;
 }
 
-export function factoryWatchContext(input: FactoryWatchContextInput): FactoryWatchContext | undefined {
+export function factoryWatchContext(input: FountainFactoryWatchContextInput): FountainFactoryWatchContext | undefined {
   if (!input.binding || !input.actor) return undefined;
   return {
     expectedUserId: input.actor.id,
     transport: input.binding.transport,
-    repositoryId: input.watch.repositoryId,
+    nativeRepositoryId: input.watch.repositoryId,
     environmentId: input.watch.environmentId,
     projectName: input.projectName(input.space),
     runId: input.watch.run,

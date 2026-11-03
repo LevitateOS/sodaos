@@ -1,9 +1,9 @@
 // Shared synthetic API/socket model for component tests and the local review server.
-import {object} from '../../../frontend/spaces/sodaspaces-api.js';
+import {object} from '@factory/product/frontend/factory/api/models.js';
 import {createIntentModel} from './intent-model.js';
 import type {Space} from '../../../frontend/spaces/sodaspaces-inventory-response.js';
 import type {TerminalMetadata} from '../../../frontend/spaces/sodaspaces-terminal-response.js';
-import type {DeliveryRepairProgress} from '../../../frontend/spaces/sodaspaces-factory-response.js';
+import type {DeliveryRepairProgress} from '@factory/product/frontend/factory/api/run-response.js';
 export const projectA = 'p' + '1'.repeat(24),
   projectB = 'p' + '2'.repeat(24);
 export function createWorkspaceModel(
@@ -83,7 +83,19 @@ export function createWorkspaceModel(
         }
       }
   }
-  const factoryRepositoryId = alpha.environment.repository_id;
+  const factoryNativeRepositoryId = alpha.environment.repository_id;
+  const nativeRepositories = new Map(
+    [alpha, beta].map((space) => [space.environment.repository_id, space.environment.repository])
+  );
+  const factoryRepositories = new Map<string, string>();
+  let factoryActor = actor;
+  let factoryRunRepository: string | undefined;
+  let factoryDiscoveryAllowed = true;
+  let factoryNativeActor: string | undefined;
+  let factoryAccountWait: Promise<void> | undefined;
+  let releaseFactoryAccount: (() => void) | undefined;
+  let factoryDiscoveryWait: Promise<void> | undefined;
+  let releaseFactoryDiscovery: (() => void) | undefined;
   if (firstUse) spaces.splice(0);
   const profile = {
     id: 'rocky-headless',
@@ -107,11 +119,67 @@ export function createWorkspaceModel(
     serial = 0;
   const reservations = new Set<string>();
   let pause: Promise<void> | undefined;
-  const intentRequest = createIntentModel();
+  const intentRequest = createIntentModel(() => factoryActor);
   const request = async (path: string, method = 'GET', body: Record<string, unknown> | null = null) => {
     calls.push({path, method, body});
     await pause;
     if (status !== 200 || user !== actor) return new Response(null, {status: user !== actor ? 403 : status});
+    if (path.endsWith('/api/factory/identity')) {
+      await factoryAccountWait;
+      return Response.json({host: 'a'.repeat(32), actor: factoryActor, native_actor: factoryNativeActor ?? user});
+    }
+    if (path.endsWith('/api/factory/native-repositories/resolve')) {
+      await factoryDiscoveryWait;
+      if (!factoryDiscoveryAllowed) return new Response(null, {status: 404});
+      const native = String(body?.repository);
+      const space = spaces.find((item) => item.environment.repository_id === native);
+      const name = space?.environment.repository ?? nativeRepositories.get(native);
+      if (!name) return new Response(null, {status: 404});
+      return Response.json({
+        host: 'a'.repeat(32),
+        actor: factoryActor,
+        repository: factoryRepositories.get(native) ?? native,
+        native_repository: native,
+        name,
+      });
+    }
+    const repositoryIdentity = new URL(path, origin).pathname.match(
+      /\/api\/factory\/repositories\/([1-9][0-9]*)\/identity$/
+    );
+    if (repositoryIdentity) {
+      await factoryDiscoveryWait;
+      if (!factoryDiscoveryAllowed) return new Response(null, {status: 404});
+      const native = [...nativeRepositories.keys()].find(
+        (native) => (factoryRepositories.get(native) ?? native) === repositoryIdentity[1]
+      );
+      if (!native) return new Response(null, {status: 404});
+      return Response.json({
+        host: 'a'.repeat(32),
+        actor: factoryActor,
+        repository: repositoryIdentity[1],
+        native_repository: native,
+        name:
+          spaces.find((space) => space.environment.repository_id === native)?.environment.repository ??
+          nativeRepositories.get(native),
+      });
+    }
+    const workIssue = new URL(path, origin).pathname.match(
+      /\/api\/repositories\/([1-9][0-9]*)\/factory\/issues\/([1-9][0-9]*)$/
+    );
+    if (method === 'GET' && factoryRunEnabled && workIssue) {
+      const visible = spaces.find(
+        (space) =>
+          (factoryRepositories.get(space.environment.repository_id) ?? space.environment.repository_id) ===
+            workIssue[1] && space.factory_runs.some((run) => run.issue === workIssue[2])
+      );
+      if (visible)
+        return Response.json({
+          repository: workIssue[1],
+          issue: workIssue[2],
+          status: {valid: true},
+          capabilities: {watch: {available: true}},
+        });
+    }
     const intent = intentRequest(path, method, body);
     if (intent) return intent;
     if (path.endsWith('/api/spaces'))
@@ -130,7 +198,9 @@ export function createWorkspaceModel(
         repairAvailable = false;
         return Response.json({
           run_id: repairReceiptAvailable ? factoryRunId : 'c'.repeat(32),
-          cause_id: 'a'.repeat(32), cycle_id: 'b'.repeat(32), state: 'queued',
+          cause_id: 'a'.repeat(32),
+          cycle_id: 'b'.repeat(32),
+          state: 'queued',
         });
       }
       verificationAvailable = false;
@@ -140,11 +210,20 @@ export function createWorkspaceModel(
         throw new TypeError('Fixture lost the recorded Retry reply');
       }
       if (body.command_id !== verificationCommand) return Response.json({}, {status: 409});
-      return Response.json({command_id: verificationCommand, prior_run: factoryRunId, queued: true, reason: 'New verification queued'});
+      return Response.json({
+        command_id: verificationCommand,
+        prior_run: factoryRunId,
+        queued: true,
+        reason: 'New verification queued',
+      });
     }
     const factoryStatusPath = new URL(path, origin).pathname.match(/\/api\/factory\/runs\/([a-f0-9]{32})$/);
     if (factoryStatusPath) {
       if (!factoryRunEnabled || factoryStatusPath[1] !== factoryRunId) return new Response(null, {status: 404});
+      const repository =
+        factoryRunRepository ??
+        factoryRepositories.get(alpha.environment.repository_id) ??
+        alpha.environment.repository_id;
       if (verificationEnabled)
         return Response.json({
           run: {
@@ -157,7 +236,7 @@ export function createWorkspaceModel(
             reconciled: true,
             outcome: 'succeeded',
           },
-          view: {repository: alpha.environment.repository_id, attempt: 'f'.repeat(32)},
+          view: {repository, attempt: 'f'.repeat(32)},
           verification_retry: {available: verificationAvailable},
           delivery_repair: {available: repairAvailable, ...(repairProgress ? {progress: repairProgress} : {})},
         });
@@ -173,7 +252,7 @@ export function createWorkspaceModel(
           input_sha: 'e'.repeat(40),
           reconciled: false,
         },
-        view: {repository: alpha.environment.repository_id, issue: '42', attempt: 'attempt-1'},
+        view: {repository, issue: '42', attempt: 'attempt-1'},
         state: {phase: 'running', live: true, terminal: false, output_truncated: false, ...factoryBinding},
       });
     }
@@ -315,7 +394,7 @@ export function createWorkspaceModel(
         if (
           factoryRunEnabled &&
           frame.run_id === factoryRunId &&
-          frame.repository_id === factoryRepositoryId &&
+          frame.repository_id === factoryNativeRepositoryId &&
           frame.session_generation === generation &&
           frame.cursor === 0
         ) {
@@ -397,6 +476,42 @@ export function createWorkspaceModel(
     spaces,
     calls,
     sockets,
+    addVisibleRepository(native: string, name: string) {
+      nativeRepositories.set(native, name);
+    },
+    setFactoryNativeActor(native: string) {
+      factoryNativeActor = native;
+    },
+    holdFactoryAccount() {
+      factoryAccountWait = new Promise<void>((resolve) => {
+        releaseFactoryAccount = resolve;
+      });
+    },
+    releaseFactoryAccount() {
+      factoryAccountWait = undefined;
+      releaseFactoryAccount?.();
+      releaseFactoryAccount = undefined;
+    },
+    setFactoryIdentity(native: string, repository: string, canonicalActor = actor) {
+      factoryRepositories.set(native, repository);
+      factoryActor = canonicalActor;
+    },
+    setFactoryRunRepository(repository: string) {
+      factoryRunRepository = repository;
+    },
+    denyFactoryDiscovery() {
+      factoryDiscoveryAllowed = false;
+    },
+    holdFactoryDiscovery() {
+      factoryDiscoveryWait = new Promise<void>((resolve) => {
+        releaseFactoryDiscovery = resolve;
+      });
+    },
+    releaseFactoryDiscovery() {
+      factoryDiscoveryWait = undefined;
+      releaseFactoryDiscovery?.();
+      releaseFactoryDiscovery = undefined;
+    },
     setCreateOutcome(value: typeof createOutcome) {
       createOutcome = value;
     },

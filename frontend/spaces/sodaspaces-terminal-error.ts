@@ -1,4 +1,4 @@
-import {object, SodaRequestError} from './sodaspaces-api.js';
+import {object, SodaRequestError} from '@factory/product/frontend/factory/api/models.js';
 
 const supportMessages: Readonly<Record<string, string>> = {
   terminal_support_mismatch: 'Terminal support needs an update. An appliance administrator must update this Project.',

@@ -1,5 +1,5 @@
 import {LitElement, html, nothing} from 'lit';
-import {check, id, object, projectId, readSodaJSON} from './sodaspaces-api.js';
+import {check, id, object, projectId, readSodaJSON} from '@factory/product/frontend/factory/api/models.js';
 import type {PreparedExtensionMount} from './soda-extension.js';
 import {availableConnectionView, connectionView, grantView, items, leaseView} from './soda-identity-response.js';
 import type {Connection, Grant, Lease} from './soda-identity-response.js';

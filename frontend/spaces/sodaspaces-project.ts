@@ -8,7 +8,7 @@ import type {ResumeValidation} from './fountain-browser-contract.js';
 import {LitElement, html} from 'lit';
 import {renderProjectStatus} from './sodaspaces-project-view.js';
 import type {ProjectOptions, ProjectNetwork} from '../tailnet/soda-tailnet-response.js';
-import {check, id} from './sodaspaces-api.js';
+import {check, id} from '@factory/product/frontend/factory/api/models.js';
 import type {KeyPreview, SavedKey, ProfileKeys} from './sodaspaces-keys-response.js';
 import type {OSObservation, CreationProfile, Environment, Detail} from './sodaspaces-project-response.js';
 import {renderJourney} from './sodaspaces-project-journey-view.js';

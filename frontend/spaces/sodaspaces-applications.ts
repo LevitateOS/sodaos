@@ -15,7 +15,7 @@ import type {
   ApplicationSnapshotInventory,
   ApplicationEnvironment,
 } from './sodaspaces-application-response.js';
-import {check, object, id, SodaRequestError} from './sodaspaces-api.js';
+import {check, object, id, SodaRequestError} from '@factory/product/frontend/factory/api/models.js';
 import {repositoryPlaces} from './soda-places.js';
 import type {SodaPlaces} from './soda-places.js';
 
@@ -615,7 +615,8 @@ export class SodaApplications extends LitElement {
                   ?disabled=${this.blocked()}
                   @change=${(event: Event) => {
                     const select = event.target;
-                    if (select instanceof HTMLSelectElement && select.value) void this.linkProject(record, select.value);
+                    if (select instanceof HTMLSelectElement && select.value)
+                      void this.linkProject(record, select.value);
                   }}
                 >
                   <option value="">Choose a repository</option>
@@ -1136,10 +1137,7 @@ export class SodaApplications extends LitElement {
     const confirmedEmpty = settled && !records.length && !launches.length;
     const buildMissing = !!delivery && settled && !cards.length && !buildRecords.length;
     const places = this.places;
-    return html`<section
-      class="soda-applications soda-applications-place"
-      aria-busy=${this.busy ? 'true' : 'false'}
-    >
+    return html`<section class="soda-applications soda-applications-place" aria-busy=${this.busy ? 'true' : 'false'}>
       <div class="soda-applications-toolbar">
         <button
           type="button"
@@ -1153,7 +1151,10 @@ export class SodaApplications extends LitElement {
       ${this.statusRegion()}
       ${
         delivery
-          ? html`<p>This is the verified build from the Feed.${places ? html` <a href=${places.app()}>All app versions</a>` : ''}</p>
+          ? html`<p>
+                This is the verified build from the
+                Feed.${places ? html` <a href=${places.app()}>All app versions</a>` : ''}
+              </p>
               ${buildMissing ? html`<p role="status">No app runs this build yet. ${this.canSetup ? 'Release it below.' : 'The SodaOS operator releases verified builds.'}</p>` : ''}`
           : ''
       }
@@ -1165,7 +1166,10 @@ export class SodaApplications extends LitElement {
                 ${places ? html`<p><a href=${places.feed()}>Feed</a></p>` : ''}
               </div>`
             : html`<div class="soda-applications-empty">
-                <p>No apps are available for your repositories yet. An app appears here once a build is verified and released.</p>
+                <p>
+                  No apps are available for your repositories yet. An app appears here once a build is verified and
+                  released.
+                </p>
                 <p><a href=${this.prefix + '/feed'}>Feed</a></p>
               </div>`
           : ''
@@ -1180,7 +1184,10 @@ export class SodaApplications extends LitElement {
       }
       ${
         buildRecords.length
-          ? html`<section class="soda-applications-manage" aria-label=${this.layout === 'apps' ? 'Apps you administer' : 'Manage this app'}>
+          ? html`<section
+              class="soda-applications-manage"
+              aria-label=${this.layout === 'apps' ? 'Apps you administer' : 'Manage this app'}
+            >
               <h2>${this.layout === 'apps' ? 'Apps you administer' : 'Manage this app'}</h2>
               <ul>
                 ${repeat(
@@ -1198,7 +1205,14 @@ export class SodaApplications extends LitElement {
               class="soda-applications-operator-tools"
               @application-setup-complete=${(event: Event) => this.onSetupComplete(event)}
             >
-              ${delivery ? html`<section class="soda-applications-release" aria-label="Release this build"><h2>Release this build</h2>${this.deliveryView()}</section>` : ''}
+              ${
+                delivery
+                  ? html`<section class="soda-applications-release" aria-label="Release this build">
+                      <h2>Release this build</h2>
+                      ${this.deliveryView()}
+                    </section>`
+                  : ''
+              }
               <section class="soda-applications-operator" aria-label="Operator only">
                 <h2>Operator only</h2>
                 ${delivery ? '' : this.deliveryView()}

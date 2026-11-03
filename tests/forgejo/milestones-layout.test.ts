@@ -32,7 +32,10 @@ test('milestone rows retain one canvas, clear boundaries and responsive columns'
       inlineLocalImports(await readFile(new URL(`../../assets/branding/forgejo/${file}`, import.meta.url), 'utf8'))
     )
   );
-  const palette = await readFile(new URL('../../assets/branding/theme/palette.css', import.meta.url), 'utf8');
+  const palette = await readFile(
+    new URL(import.meta.resolve('@factory/product/assets/branding/theme/palette.css')),
+    'utf8'
+  );
   const browser = await chromium.launch({channel: 'chrome', headless: true});
   try {
     const page = await browser.newPage();

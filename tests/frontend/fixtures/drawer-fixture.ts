@@ -1,6 +1,15 @@
+import {fountainFeedContext, fountainRepositoryNavigation} from '../../../frontend/spaces/soda-factory-feed-host.js';
+import {fountainIssueContexts} from '../../../frontend/spaces/soda-factory-issue-host.js';
+import {SodaFactoryIssue} from '@factory/product/frontend/factory/issues/detail.js';
+import {SodaFactoryIssues} from '@factory/product/frontend/factory/issues/issues.js';
+import type {FactoryTransport} from '@factory/product/frontend/factory/api/transport.js';
 // Browser-realm fixture only. Production modules are emitted separately, never bundled into this double.
 import {mountProjectControls} from '../../../frontend/spaces/sodaspaces-project.js';
-import {SodaFactoryFeed} from '../../../frontend/spaces/sodaspaces-factory-feed.js';
+import {SodaFactoryFeed} from '@factory/product/frontend/factory/feed/feed.js';
+import '../../../frontend/spaces/sodaspaces-project-work.js';
+import {mount as mountRepositoryEntry} from '../../../frontend/spaces/soda-repository-entry.js';
+import {createIntentModel} from './intent-model.js';
+const browserFetch = window.fetch.bind(window);
 export const environmentID = 'p0123456789abcdef01234567';
 export const fixtureProfile = {
   id: 'rocky-headless',
@@ -67,6 +76,8 @@ function createFixture(extra: Partial<State> = {}) {
     ...(state.tailnetState === 'connected' ? {addresses: ['100.64.0.2'], dns_name: 'project.soda.ts.net'} : {}),
   });
   let reply: ((call: Call) => Promise<Response | null>) | undefined;
+  let forwardedAPI: string | undefined;
+  const repositoryLabels = new Map([['7', 'alice/factory']]);
   const fetchFixture = async (input: RequestInfo | URL, init?: RequestInit) => {
     const call: Call = {
       url: String(input),
@@ -75,6 +86,8 @@ function createFixture(extra: Partial<State> = {}) {
       headers: Object.fromEntries(new Headers(init?.headers).entries()),
     };
     calls.push(call);
+    if (forwardedAPI && call.url.includes('/api/'))
+      return browserFetch(new URL('api/' + call.url.split('/api/')[1], forwardedAPI), init);
     const signal = init?.signal;
     if (signal?.aborted) throw signal.reason;
     const pending = reply?.(call);
@@ -87,10 +100,33 @@ function createFixture(extra: Partial<State> = {}) {
           new Promise<null>((_, reject) => signal.addEventListener('abort', () => reject(signal.reason), {once: true})),
         ])
       : pending);
-    if (override) return override;
+    if (override) {
+      if (call.url.includes('/api/repositories?q=')) {
+        const page = await override
+          .clone()
+          .json()
+          .catch(() => undefined);
+        for (const item of page?.items ?? [])
+          if (typeof item.id === 'string' && typeof item.owner === 'string' && typeof item.name === 'string')
+            repositoryLabels.set(item.id, `${item.owner}/${item.name}`);
+      }
+      return override;
+    }
     const {url, method, body: encoded} = call;
     if (call.headers['x-extension-session-generation'] !== 'fixture-generation')
       return Response.json({error: {code: 'reauthentication_required'}}, {status: 403});
+    if (url.endsWith('/api/factory/identity'))
+      return Response.json({host: 'a'.repeat(32), actor: '1', native_actor: '1'});
+    if (url.endsWith('/api/factory/native-repositories/resolve')) {
+      const native = String(JSON.parse(encoded || '{}').repository);
+      return Response.json({
+        host: 'a'.repeat(32),
+        actor: '1',
+        repository: native,
+        native_repository: native,
+        name: repositoryLabels.get(native) ?? `alice/repository-${native}`,
+      });
+    }
     let body: unknown;
     if (method !== 'GET') {
       const input: unknown = JSON.parse(encoded || '{}');
@@ -242,6 +278,28 @@ function createFixture(extra: Partial<State> = {}) {
     dispose() {},
   };
   const api = mountProjectControls(root, {expectedUserId: '1', repositoryId: '7', settings: true, transport});
+  let repositoryHandle: ReturnType<typeof mountRepositoryEntry> | undefined;
+  let repositoryRoot: HTMLElement | undefined;
+  let followRepositoryNavigation = false;
+  window.addEventListener('popstate', () => {
+    if (followRepositoryNavigation)
+      repositoryHandle?.update?.({
+        mode: 'page',
+        route: location.pathname + location.search + location.hash,
+        params: {},
+        visible: true,
+      });
+  });
+  const issueHost: {
+    contexts?: Awaited<ReturnType<typeof fountainIssueContexts>>;
+    transport?: FactoryTransport & {generation: string};
+    lifetime: AbortController;
+    list?: SodaFactoryIssues;
+    detail?: SodaFactoryIssue;
+    opened: {kind: string; url: string}[];
+    opening?: AbortSignal;
+    release?: () => void;
+  } = {lifetime: new AbortController(), opened: []};
   const button = (text: string) => {
     const b = [...root.querySelectorAll('button')].find((b) => b.textContent?.trim() === text);
     if (!b) throw Error('Missing button: ' + text);
@@ -262,16 +320,86 @@ function createFixture(extra: Partial<State> = {}) {
       return root.querySelectorAll('soda-terminal');
     },
     root,
+    intentModel: createIntentModel,
+    get repositoryHandle() {
+      return repositoryHandle;
+    },
+    get repositoryRoot() {
+      return repositoryRoot;
+    },
+    mountRepository(native: string, route: string, prefix = '', followNavigation = false) {
+      repositoryHandle?.dispose?.();
+      repositoryRoot?.remove();
+      history.replaceState(null, '', route);
+      repositoryRoot = document.createElement('div');
+      followRepositoryNavigation = followNavigation;
+      const navigate = (path: string) => {
+        transport.navigate(path);
+        if (followRepositoryNavigation) {
+          history.pushState(null, '', path);
+          repositoryHandle?.update?.({mode: 'page', route: path, params: {}, visible: true});
+        }
+      };
+      if (followNavigation)
+        repositoryRoot.addEventListener('click', (event) => {
+          const anchor = event.composedPath().find((node) => node instanceof HTMLAnchorElement);
+          if (
+            !(anchor instanceof HTMLAnchorElement) ||
+            event.defaultPrevented ||
+            new URL(anchor.href).origin !== location.origin
+          )
+            return;
+          if (
+            !anchor.pathname.startsWith(
+              prefix + '/' + route.slice(prefix.length).split('/').filter(Boolean).slice(0, 2).join('/') + '/feed'
+            )
+          )
+            return;
+          event.preventDefault();
+          navigate(anchor.pathname + anchor.search + anchor.hash);
+        });
+      root.append(repositoryRoot);
+      repositoryHandle = mountRepositoryEntry(repositoryRoot, {
+        extensionId: 'soda',
+        pageId: 'repository-feed',
+        repositoryId: native,
+        appSubUrl: prefix,
+        apiBase: location.origin + '/-/native/pages/soda/spaces/api/',
+        assetBase: '/assets/',
+        sessionGeneration: transport.generation,
+        contractVersion: 1,
+        request: transport.request,
+        stream: () => {
+          throw Error('Repository fixture has no terminal');
+        },
+        navigate,
+      });
+    },
+    settingsContext(nativeRepository: string) {
+      return {transport, nativeRepository, environment: environmentID, profile: fixtureProfile};
+    },
+    feedContext: fountainFeedContext,
+    repositoryNavigation: fountainRepositoryNavigation,
+    issueContexts: fountainIssueContexts,
+    issueHost,
+    issueElement: () => new SodaFactoryIssue(),
+    issuesElement: () => new SodaFactoryIssues(),
+    browserFetch,
     mountFeed() {
       const feed = new SodaFactoryFeed();
       root.append(feed);
-      feed.context = {transport, repository: '7'};
+      void fountainFeedContext(transport, {repository: '7'}).then((context) => {
+        if (feed.isConnected) feed.context = context;
+      });
       return feed;
     },
     button,
     showButton,
     setReply(value: typeof reply) {
       reply = value;
+    },
+    forwardAPI(value: string) {
+      forwardedAPI = value;
     },
   };
 }

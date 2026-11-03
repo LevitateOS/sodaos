@@ -1,4 +1,4 @@
-import {check, fingerprint, object, SodaRequestError} from './sodaspaces-api.js';
+import {check, fingerprint, object, SodaRequestError} from '@factory/product/frontend/factory/api/models.js';
 import {creationProfile, detailResponse, environmentResponse} from './sodaspaces-project-response.js';
 import type {CreationProfile, Detail, Environment} from './sodaspaces-project-response.js';
 import {savedKeysResponse} from './sodaspaces-keys-response.js';

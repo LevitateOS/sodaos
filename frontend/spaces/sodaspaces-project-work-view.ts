@@ -1,8 +1,8 @@
 import {html} from 'lit';
-import './sodaspaces-factory-verification-allowance.js';
+import '@factory/product/frontend/factory/work/verification-allowance.js';
+import type {VerificationAllowanceContext} from '@factory/product/frontend/factory/work/verification-allowance.js';
 import {repeat} from 'lit/directives/repeat.js';
-import type {SavedRequest, IntentPlanStatus} from './sodaspaces-intent-response.js';
-import type {PreparedExtensionMount} from './soda-extension.js';
+import type {SavedRequest, IntentPlanStatus} from '@factory/product/frontend/factory/api/request-response.js';
 
 export interface ProjectWorkView {
   mode: 'project' | 'all-plans';
@@ -15,7 +15,7 @@ export interface ProjectWorkView {
   error: string;
   more: boolean;
   disabled: boolean;
-  verificationContext?: {transport: PreparedExtensionMount; repository: string} | undefined;
+  verificationContext?: Omit<VerificationAllowanceContext, 'intent'> | undefined;
   newWork: () => void;
   resume: (intent: string) => void;
   refresh: () => void;

@@ -1,4 +1,4 @@
-import {check, object} from './sodaspaces-api.js';
+import {check, object} from '@factory/product/frontend/factory/api/models.js';
 import type {Space} from './sodaspaces-inventory-response.js';
 import type {LayoutEntry} from './sodaspaces-layout.js';
 import type {WorkspaceContext} from './sodaspaces-workspace-types.js';

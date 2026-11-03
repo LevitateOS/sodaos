@@ -1,4 +1,4 @@
-import {check, object, projectId, SodaRequestError} from './sodaspaces-api.js';
+import {check, object, projectId, SodaRequestError} from '@factory/product/frontend/factory/api/models.js';
 import {creationProfile} from './sodaspaces-project-response.js';
 import {savedKeysResponse} from './sodaspaces-keys-response.js';
 import {projectView} from '../tailnet/soda-tailnet-response.js';

@@ -4,12 +4,12 @@
 // Open app ↗ always opens the app at its own address in a new tab.
 import {html, render} from 'lit';
 import './sodaspaces-applications.js';
-// Registers <soda-factory-verification-retry> (Retry verification, Request
-// repair); the Workspace Work view still uses it until install E.
-import './sodaspaces-project-work.js';
+import '@factory/product/frontend/factory/work/verification-retry.js';
+import {fountainCommandScope} from './soda-factory-feed-host.js';
 import {spacesResponse} from './sodaspaces-inventory-response.js';
 import type {Place} from './soda-places.js';
-import type {PlaceContext, PlaceMount} from './soda-place-view.js';
+import type {PlaceContext} from './soda-place-view.js';
+import {withFactoryRepository} from './soda-place-view.js';
 
 function applicationRequest(context: PlaceContext) {
   return async (path: string, body?: Record<string, unknown>, signal?: AbortSignal) => {
@@ -48,7 +48,7 @@ async function verificationRuns(context: PlaceContext, signal: AbortSignal): Pro
   }
 }
 
-export const mountAppPlace: PlaceMount = (host, context, initial) => {
+export const mountAppPlace = withFactoryRepository((host, context, initial) => {
   const request = applicationRequest(context);
   let delivery = initial.place === 'app' ? (initial.delivery ?? '') : '';
   let active = true;
@@ -73,7 +73,7 @@ export const mountAppPlace: PlaceMount = (host, context, initial) => {
         <section class="soda-app-attention" aria-label="Builds that need attention">
           <h2>Builds that need attention</h2>
           <soda-factory-verification-retry
-            .context=${active && runs.length ? {transport: context.transport, repository: context.repository, runs} : undefined}
+            .context=${active ? {transport: context.transport, repository: context.factoryRepository, runs, commandScope: (signal: AbortSignal) => fountainCommandScope(context.transport, signal)} : undefined}
           ></soda-factory-verification-retry>
         </section>`,
       host
@@ -102,4 +102,4 @@ export const mountAppPlace: PlaceMount = (host, context, initial) => {
       render(html``, host);
     },
   };
-};
+});

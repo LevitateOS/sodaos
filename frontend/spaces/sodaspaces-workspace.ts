@@ -10,7 +10,7 @@ import {mountTerminal} from './sodaspaces-terminal.js';
 import type {SodaTerminal, TerminalContext} from './sodaspaces-terminal.js';
 import {emptyLayout, focusedPane, hideTab, panes} from './sodaspaces-layout.js';
 import type {WorkspaceLayout, LayoutEntry, Area} from './sodaspaces-layout.js';
-import {check, id, object, projectId} from './sodaspaces-api.js';
+import {check, id, object, projectId} from '@factory/product/frontend/factory/api/models.js';
 import type {RepositoryChoices} from './sodaspaces-repository-response.js';
 import type {Space} from './sodaspaces-inventory-response.js';
 import type {
@@ -67,9 +67,11 @@ import {isNewRouteLocation, requestIdFromLocation, requestIDPattern} from './sod
 import {newRouteFor, requestRouteFor} from './soda-places.js';
 import {resolveWatchTarget, resumeSetup} from './sodaspaces-workspace-setup.js';
 import type {FactoryWatchRequest, SetupActions, SetupReading} from './sodaspaces-workspace-setup.js';
-import type {OverviewScope} from './sodaspaces-factory-progress-view.js';
-import type {SodaIntent} from './sodaspaces-intent.js';
-import type {SavedRequest} from './sodaspaces-intent-response.js';
+import {fountainIdentity, fountainRepositoryIdentity} from './soda-factory-feed-host.js';
+import type {FountainAccountIdentity} from './soda-factory-feed-host.js';
+import type {OverviewScope} from '@factory/product/frontend/factory/work/progress-view.js';
+import type {SodaIntent} from '@factory/product/frontend/factory/request/request.js';
+import type {SavedRequest} from '@factory/product/frontend/factory/api/request-response.js';
 import './sodaspaces-project-work.js';
 import './sodaspaces-applications.js';
 import type {SodaProjectWork} from './sodaspaces-project-work.js';
@@ -92,7 +94,7 @@ import {
   unwatchRun,
   watchRun,
 } from './sodaspaces-workspace-factory.js';
-import {factoryRunLabel, factoryRunText} from './sodaspaces-factory-response.js';
+import {factoryRunLabel, factoryRunText} from '@factory/product/frontend/factory/api/run-response.js';
 import {paneChrome} from './sodaspaces-workspace-pane-view.js';
 import type {PaneChromeInput} from './sodaspaces-workspace-pane-view.js';
 import {
@@ -158,6 +160,9 @@ const validName = (name: string) => [...name].length <= 80 && !/[\p{Cc}\p{Cf}]/u
 // hosts never leave their flat parent. Rendering cannot create/attach/Return.
 export class SodaSpaces extends LitElement {
   static properties = {
+    factoryIdentity: {state: true},
+    factoryIdentityError: {state: true},
+    factoryRepository: {state: true},
     setup: {state: true},
     intentNotice: {state: true},
     savedRequests: {state: true},
@@ -240,6 +245,10 @@ export class SodaSpaces extends LitElement {
   private now = Date.now();
   private attentionTimer: number | undefined;
   private binding: WorkspaceContext | undefined;
+  declare private factoryIdentity: FountainAccountIdentity | undefined;
+  declare private factoryIdentityError: string;
+  declare private factoryRepository: string;
+  private factoryIdentityRead: AbortController | undefined;
   private routePathname = '';
   private factory: TerminalFactory = mountTerminal;
   private slots: Slot[] = [];
@@ -314,6 +323,8 @@ export class SodaSpaces extends LitElement {
   private pendingRun: string | undefined;
   constructor() {
     super();
+    this.factoryIdentity = undefined;
+    this.factoryIdentityError = this.factoryRepository = '';
     this.deliveryTarget = '';
     this.spaces = [];
     this.savedRequests = [];
@@ -342,6 +353,37 @@ export class SodaSpaces extends LitElement {
   }
   private get activeSurface() {
     return this.surfaceVisible && this.isConnected;
+  }
+  private loadFactoryIdentity() {
+    const nativeActor = this.actor?.id,
+      transport = this.binding?.transport;
+    if (
+      !nativeActor ||
+      !transport ||
+      this.terminalsOnly ||
+      !this.activeSurface ||
+      this.stale ||
+      this.disposed ||
+      this.factoryIdentity ||
+      this.factoryIdentityRead
+    )
+      return;
+    const read = new AbortController();
+    this.factoryIdentityRead = read;
+    this.factoryIdentityError = '';
+    void fountainIdentity(transport, read.signal)
+      .then((identity) => {
+        if (this.factoryIdentityRead !== read || read.signal.aborted || this.actor?.id !== nativeActor) return;
+        check(identity.nativeActor === nativeActor);
+        this.factoryIdentity = identity;
+      })
+      .catch(() => {
+        if (this.factoryIdentityRead === read && !read.signal.aborted)
+          this.factoryIdentityError = 'Factory account information is unavailable. Refresh projects to try again.';
+      })
+      .finally(() => {
+        if (this.factoryIdentityRead === read) this.factoryIdentityRead = undefined;
+      });
   }
   private get selectedSpace() {
     return this.spaces.find((s) => s.environment.repository_id === this.project);
@@ -1441,7 +1483,9 @@ export class SodaSpaces extends LitElement {
       hasSelection: this.selected !== '',
       setupReturn: this.setupReturn,
       firstSpace: this.spaces[0],
-      actorId: this.actor?.id || '',
+      factoryIdentity: this.factoryIdentity,
+      factoryIdentityError: this.factoryIdentityError,
+      factoryRepository: this.factoryRepository,
       requestId: requestIdFromLocation(this.routePathname, this.repositoryPrefix()),
       reviewAuthorization: this.reviewAuthorization,
       reviewedIntent: this.reviewedIntent,
@@ -1458,20 +1502,28 @@ export class SodaSpaces extends LitElement {
     const requestId = requestIdFromLocation(this.routePathname, this.repositoryPrefix());
     if (!requestId) return this.workRepository;
     const saved = this.savedRequests?.find((request) => request.intent === requestId)?.repository;
-    return saved && saved !== '0' ? saved : this.workRepository;
+    return saved && saved === this.factoryRepository && this.repositoryChoice
+      ? this.repositoryChoice
+      : this.workRepository;
   }
   private setupActions(): SetupActions {
     return {
       setSetup: (setup) => {
         if (this.setup && !setup) void this.querySelector<SodaProjectWork>('soda-project-work')?.refresh();
+        if (!setup) this.factoryRepository = '';
         this.setup = setup;
       },
       setRepositoryQuery: (query) => {
         this.repositoryQuery = query;
       },
       setRepositoryChoice: (choice) => {
+        if (choice !== this.repositoryChoice) this.factoryRepository = '';
         this.repositoryChoice = choice;
       },
+      setFactoryRepository: (repository) => {
+        this.factoryRepository = repository;
+      },
+      currentFactoryIdentity: () => this.factoryIdentity,
       setRepositoryResult: (result) => {
         this.repositoryResult = result;
       },
@@ -1491,6 +1543,7 @@ export class SodaSpaces extends LitElement {
         this.reviewAuthorization = auth;
       },
       setReviewedIntent: (intent) => {
+        if (intent !== this.reviewedIntent) this.factoryRepository = '';
         this.reviewedIntent = intent;
       },
       setSetupCommitted: (committed) => {
@@ -1523,7 +1576,7 @@ export class SodaSpaces extends LitElement {
       notifyFactory: (message) => {
         this.intentNotice = message;
       },
-      api: (path, body, signal) => this.api(path, body, signal),
+      api: this.requestApplication,
       syncIntentRoute: (intent) => {
         this.syncIntentRoute(intent);
       },
@@ -1536,8 +1589,20 @@ export class SodaSpaces extends LitElement {
       requestFactoryWatch: (request) => this.requestFactoryWatch(request),
     };
   }
-  private requestFactoryWatch(request: FactoryWatchRequest): void {
-    const target = resolveWatchTarget(this.spaces, request);
+  private async requestFactoryWatch(request: FactoryWatchRequest): Promise<void> {
+    const identity = this.factoryIdentity,
+      transport = this.binding?.transport;
+    if (!identity || !transport || this.stale || this.disposed || !this.activeSurface) return;
+    let native: string;
+    try {
+      const resolved = await fountainRepositoryIdentity(transport, request.repository);
+      if (this.factoryIdentity !== identity || this.stale || this.disposed || !this.activeSurface) return;
+      check(resolved.host === identity.host && resolved.actor === identity.actor);
+      native = resolved.native;
+    } catch {
+      return;
+    }
+    const target = resolveWatchTarget(this.spaces, {...request, repository: native});
     if (!target) return;
     if (!factoryWatching(this.watches, target.run.id))
       watchRun(
@@ -1921,7 +1986,14 @@ export class SodaSpaces extends LitElement {
         this.restored = restored;
       },
       setActor: (actor) => {
+        if (this.actor?.id !== actor.id) {
+          this.factoryIdentityRead?.abort();
+          this.factoryIdentityRead = undefined;
+          this.factoryIdentity = undefined;
+          this.factoryRepository = '';
+        }
         this.actor = actor;
+        this.loadFactoryIdentity();
         this.restoreProjectView();
       },
       setStorageKey: (storageKey) => {
@@ -2370,6 +2442,13 @@ export class SodaSpaces extends LitElement {
 
   setVisible(visible: boolean) {
     this.surfaceVisible = visible;
+    if (!visible) {
+      this.factoryIdentityRead?.abort();
+      this.factoryIdentityRead = undefined;
+      this.repositoryRequest?.abort();
+      this.repositoryRequest = undefined;
+      this.repositoryBusy = false;
+    } else this.loadFactoryIdentity();
     this.requestUpdate();
     this.display();
     if (visible && !this.restored) void this.refresh();
@@ -2402,6 +2481,10 @@ export class SodaSpaces extends LitElement {
     this.reconnectRequired = false;
     if (this.stale) return;
     this.stale = true;
+    this.factoryIdentityRead?.abort();
+    this.factoryIdentityRead = undefined;
+    this.factoryIdentity = undefined;
+    this.factoryRepository = this.factoryIdentityError = '';
     this.applicationOwner = '';
     this.available = this.complete = false;
     this.measurement.retire();

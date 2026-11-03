@@ -1,9 +1,10 @@
+import {factoryAssetSource} from './factory-asset-source';
 import {before, after, type TestContext} from 'node:test';
 import assert from 'node:assert/strict';
 import {chromium, type Browser, type Page} from 'playwright';
 import path from 'node:path';
 import type {State} from './drawer-fixture';
-import {feedRolePortraits} from '../../../frontend/spaces/sodaspaces-factory-feed-portraits';
+import {feedRolePortraits} from '@factory/product/frontend/factory/feed/feed-portraits';
 
 const root = path.resolve(import.meta.dirname, '../../..');
 let browser: Browser;
@@ -15,6 +16,17 @@ export function setupProjectControlsDriver() {
       target: 'browser',
       format: 'esm',
       define: {'process.env.NODE_ENV': '"production"'},
+      plugins: [
+        {
+          name: 'terminal-vendor',
+          setup(build) {
+            build.onResolve({filter: /^\.\/soda-terminal\/(?:xterm|addon-fit)\.mjs$/}, (args) => ({
+              path: args.path,
+              external: true,
+            }));
+          },
+        },
+      ],
     });
     assert(build.success, `Project controls fixture build failed: ${build.logs.join('\n')}`);
     const [fixture] = build.outputs;
@@ -24,6 +36,8 @@ export function setupProjectControlsDriver() {
       port: 0,
       fetch(req) {
         const url = new URL(req.url);
+        const factoryAsset = factoryAssetSource(url.pathname);
+        if (factoryAsset) return factoryAsset;
         if (url.pathname === '/assets/drawer-fixture.js')
           return new Response(fixture, {headers: {'Content-Type': 'text/javascript'}});
         const portrait = Object.values(feedRolePortraits).find((file) => url.pathname === `/assets/${file}`);
@@ -38,17 +52,15 @@ export function setupProjectControlsDriver() {
             ? 'frontend/spaces/sodaspaces-project.css'
             : url.pathname === '/assets/sodaspaces-page.css'
               ? 'frontend/spaces/sodaspaces-workspace.css'
-              : url.pathname === '/assets/sodaspaces-factory-conversation.css'
-                ? 'frontend/spaces/sodaspaces-factory-conversation.css'
-                : url.pathname === '/assets/sodaspaces-terminal.css'
-                  ? 'frontend/spaces/sodaspaces-terminal.css'
-                  : url.pathname.startsWith('/assets/soda-terminal/')
-                    ? '.artifacts/browser-terminal/vendor/' + path.basename(url.pathname)
-                    : url.pathname.startsWith('/assets/soda/forgejo/icons/')
-                      ? 'assets/branding/icons/octicons/' + path.basename(url.pathname)
-                      : url.pathname.startsWith('/assets/soda/')
-                        ? 'assets/branding/' + url.pathname.slice('/assets/soda/'.length)
-                        : '';
+              : url.pathname === '/assets/sodaspaces-terminal.css'
+                ? 'frontend/spaces/sodaspaces-terminal.css'
+                : url.pathname.startsWith('/assets/soda-terminal/')
+                  ? '.artifacts/browser-terminal/vendor/' + path.basename(url.pathname)
+                  : url.pathname.startsWith('/assets/soda/forgejo/icons/')
+                    ? 'assets/branding/icons/octicons/' + path.basename(url.pathname)
+                    : url.pathname.startsWith('/assets/soda/')
+                      ? 'assets/branding/' + url.pathname.slice('/assets/soda/'.length)
+                      : '';
         if (local)
           return new Response(Bun.file(path.join(root, local)), {
             headers: {
@@ -106,4 +118,8 @@ export async function click(page: Page, text: string) {
   await page.locator('[data-project-controls][aria-busy=false]').waitFor();
 }
 export const writes = (page: Page) =>
-  page.evaluate(() => window.drawerFixture.calls.filter((call) => call.method !== 'GET'));
+  page.evaluate(() =>
+    window.drawerFixture.calls.filter(
+      (call) => call.method !== 'GET' && !call.url.endsWith('/api/factory/native-repositories/resolve')
+    )
+  );

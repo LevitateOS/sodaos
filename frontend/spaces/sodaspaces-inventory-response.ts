@@ -1,10 +1,14 @@
-import {check, id, object, projectId} from './sodaspaces-api.js';
+import {check, id, object, projectId} from '@factory/product/frontend/factory/api/models.js';
 import {detailResponse} from './sodaspaces-project-response.js';
 import type {Detail, Environment} from './sodaspaces-project-response.js';
 import {terminalMetadata} from './sodaspaces-terminal-response.js';
 import type {TerminalMetadata} from './sodaspaces-terminal-response.js';
-import {spaceFactoryAuthority, spaceFactoryControl, spaceFactoryRuns} from './sodaspaces-factory-response.js';
-import type {FactoryAuthority, FactoryControl, FactoryRun} from './sodaspaces-factory-response.js';
+import {
+  spaceFactoryAuthority,
+  spaceFactoryControl,
+  spaceFactoryRuns,
+} from '@factory/product/frontend/factory/api/run-response.js';
+import type {FactoryAuthority, FactoryControl, FactoryRun} from '@factory/product/frontend/factory/api/run-response.js';
 
 export interface Space {
   terminal_support?: Detail['terminal_support'];

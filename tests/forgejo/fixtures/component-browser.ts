@@ -38,7 +38,10 @@ export async function openComponentBrowser(): Promise<ComponentBrowser> {
       inlineLocalImports(await readFile(new URL(`../../../assets/branding/forgejo/${name}`, import.meta.url), 'utf8'))
     )
   );
-  const palette = await readFile(new URL('../../../assets/branding/theme/palette.css', import.meta.url), 'utf8');
+  const palette = await readFile(
+    new URL(import.meta.resolve('@factory/product/assets/branding/theme/palette.css')),
+    'utf8'
+  );
   const browser = await chromium.launch({channel: 'chrome', headless: true, chromiumSandbox: true});
   let page: Page;
   try {

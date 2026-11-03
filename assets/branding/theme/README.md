@@ -1,5 +1,10 @@
 # Shared Soda palette
 
+The defining `palette.css` and `tokens.css` now live in
+[`LevitateOS/factory`](https://github.com/LevitateOS/factory/tree/main/assets/branding/theme).
+Forge resolves them through its `@factory/product` source dependency and keeps
+the same native public theme URLs. Edit shared theme values in Factory.
+
 `palette.css` is the source of color values for Soda's frontends. Its light and
 dark roles implement the September brutalist design: white/near-black surfaces
 and red actions. It contains values, not application selectors, native variable names,
@@ -28,7 +33,13 @@ native branding entry imports installed copies of those same sources.
 packages alongside each application's own public assets. Independent build
 outputs are intentional; never maintain a second source copy or fetch CSS
 from another service.
-There is no npm package, generator, runtime theme service, or extra build tool.
+The source is distributed with the Factory package; no runtime theme service or
+CSS generator is involved.
+
+`tokens.css` defines the shared product spacing, typography and semantic color
+tokens over that palette. Forgejo's `components.css` and the standalone Factory
+`frontend/factory/styles/base.css` import this same file. Document theme selection
+and native Forgejo-variable mappings stay in their host adapters.
 
 When changing colors, run the palette contrast and packaging tests, then render
 both applications in light, dark and automatic modes. Test actual controls and

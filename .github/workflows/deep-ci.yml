@@ -89,7 +89,7 @@ jobs:
           key: ${{ runner.os }}-cargo-${{ hashFiles('sodaos/Cargo.lock') }}
           restore-keys: ${{ runner.os }}-cargo-
       - name: Install locked source dependencies
-        run: bun install --frozen-lockfile
+        run: bash scripts/setup-factory-ui.sh
       - name: Run Go checks with PostgreSQL
         env:
           SODA_PG_HOST: 127.0.0.1
@@ -144,7 +144,7 @@ jobs:
           restore-keys: ${{ runner.os }}-cargo-
       - name: Install locked browser tooling
         run: |
-          bun install --frozen-lockfile
+          bash scripts/setup-factory-ui.sh
           bun --bun node_modules/playwright/cli.js install --with-deps chromium
       - name: Install Fountain browser fixture dependencies
         working-directory: forgejo-ext
@@ -213,7 +213,7 @@ jobs:
           key: ${{ runner.os }}-cargo-${{ hashFiles('sodaos/Cargo.lock') }}
           restore-keys: ${{ runner.os }}-cargo-
       - name: Install locked source dependencies
-        run: bun install --frozen-lockfile
+        run: bash scripts/setup-factory-ui.sh
       - name: Create the boot-owned Project admission fixture
         run: sudo install -d -o root -g root -m 0755 /var/lib/soda/project-maintenance
       - name: Run Rust tests including Docker provenance, packaging and admission contracts

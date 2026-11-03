@@ -6,7 +6,12 @@
 // "Connect from your computer (SSH)" section with the ssh command and the
 // viewer's own development keys (SPEC M19, D7).
 import {html, render} from 'lit';
-import {object, readSodaJSON, readSodaErrorCode, SodaRequestError} from './sodaspaces-api.js';
+import {
+  object,
+  readSodaJSON,
+  readSodaErrorCode,
+  SodaRequestError,
+} from '@factory/product/frontend/factory/api/models.js';
 import {detailResponse, environmentResponse} from './sodaspaces-project-response.js';
 import type {Detail, Environment} from './sodaspaces-project-response.js';
 import {keyPreviewResponse, profileKeysResponse, savedKeysResponse} from './sodaspaces-keys-response.js';

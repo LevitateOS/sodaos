@@ -74,14 +74,14 @@ package=/var/lib/soda/forgejo/gitea/extensions/soda
 die() {{ printf '%s\n' "$*" >&2; exit 1; }}
 [[ $(id -u) == 0 ]] || die 'Run the remote development action as root.'
 [[ "$release" =~ ^/var/home/soda-dev/ui/ui-[0-9]+$ ]] || die 'Invalid browser release.'
-[[ -L "$root/current" && -f /etc/containers/systemd/forgejo.container.d/zz-soda-dev.conf && -f /etc/containers/systemd/soda-dashboard.container.d/zz-soda-dev.conf ]] || die 'No active development deployment. Run soda-dev deploy once first.'
+[[ -L "$root/current" && -f /etc/containers/systemd/forgejo.container.d/zz-soda-dev.conf && -f /etc/containers/systemd/soda-dashboard.container.d/zz-soda-dev.conf && -f /etc/containers/systemd/soda-factory.container.d/zz-soda-dev.conf ]] || die 'No active development deployment. Run soda-dev deploy once first.'
 exec 9>"$root/lock"
 flock -x 9
 [[ -d "$package/assets" && ! -L "$package/assets" ]] || die 'The active Soda assets directory is unavailable.'
 (cd "$release" && sha256sum --check --strict --quiet checksums.sha256)
 diff -u <(jq --sort-keys 'del(.version)' "$package/extension.json") <(jq --sort-keys 'del(.version)' "$release/extension.json") || die 'The extension manifest changed. Use a full deployment for API, permission or route changes.'
 before=$(sha256sum "$package/backend" "$package/extension.json" "$package/.fountain-package.json")
-services=$(systemctl show forgejo.service soda-dashboard.service -p MainPID -p ActiveEnterTimestampMonotonic)
+services=$(systemctl show forgejo.service soda-dashboard.service soda-factory.service -p MainPID -p ActiveEnterTimestampMonotonic)
 cp -a -- "$package/assets" "$release/previous-assets"
 # Keep old content-addressed chunks available to pages already open. Publish
 # dependency files before fixed-name entry points so new imports are available.
@@ -113,7 +113,7 @@ for file in "$release"/assets/soda-*-entry.js; do publish "$file" "${{file##*/}}
 # root-side checks and a healthy HTTP process alone cannot prove assets load.
 podman exec --user 1000 soda-forgejo sh -ec 'for file in /data/gitea/extensions/soda/assets/soda-*-entry.js; do cat "$file" >/dev/null; done'
 [[ "$before" == "$(sha256sum "$package/backend" "$package/extension.json" "$package/.fountain-package.json")" ]] || die 'Backend or package identity changed during the browser update.'
-[[ "$services" == "$(systemctl show forgejo.service soda-dashboard.service -p MainPID -p ActiveEnterTimestampMonotonic)" ]] || die 'A service restarted during the browser update.'
+[[ "$services" == "$(systemctl show forgejo.service soda-dashboard.service soda-factory.service -p MainPID -p ActiveEnterTimestampMonotonic)" ]] || die 'A service restarted during the browser update.'
 curl --fail --silent --max-time 5 http://127.0.0.1:3000/api/healthz >/dev/null
 curl --fail --silent --max-time 5 http://127.0.0.1:8080/healthz >/dev/null
 jq --null-input --arg release "$release" --slurpfile base "$package/.fountain-package.json" '{{release:$release,base_archive:$base[0].archive_sha256}}' >"$root/browser-override.json"
@@ -129,7 +129,30 @@ fn fingerprint(source: &Path) -> Result<String> {
         files(source, &source.join(directory), &mut paths)?;
     }
     paths.push(PathBuf::from("scripts/build-soda-extension.ts"));
+    paths.push(PathBuf::from("scripts/factory-source.ts"));
+    paths.push(PathBuf::from("package.json"));
     paths.push(PathBuf::from("system/containers/extension/extension.json"));
+    let factory_source = fs::canonicalize(source.join("node_modules/@factory/product"))?;
+    let mut shared_paths = Vec::new();
+    for directory in [
+        "frontend/factory",
+        "assets/branding/fonts",
+        "assets/branding/theme",
+        "assets/branding/role-portraits",
+    ] {
+        files(
+            &factory_source,
+            &factory_source.join(directory),
+            &mut shared_paths,
+        )?;
+    }
+    shared_paths.push(PathBuf::from("scripts/factory-browser-assets.ts"));
+    shared_paths.push(PathBuf::from("package.json"));
+    paths.extend(
+        shared_paths
+            .into_iter()
+            .map(|path| factory_source.join(path)),
+    );
     let mut hash = Sha256::new();
     paths.sort();
     for path in paths {

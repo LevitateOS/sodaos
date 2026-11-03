@@ -1,4 +1,4 @@
-import {check, object, projectId} from '../spaces/sodaspaces-api.js';
+import {check, object, projectId} from '@factory/product/frontend/factory/api/models.js';
 
 const revision = (v: unknown, host = false): string => {
   check(typeof v === 'string' && (host ? /^[a-f0-9]{64}$/ : /^(?:0|[a-f0-9]{32})$/).test(v));
