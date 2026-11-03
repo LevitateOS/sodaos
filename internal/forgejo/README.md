@@ -990,7 +990,7 @@ final current-session check. Installed UI and desktop HTTPS access follow.
 
 The corresponding Fountain source changes are in `sdk/native_{issues,comments}.go`,
 `sdk/native.go` and `routers/web/extensions/callback{,_issues,_comments}.go` in the sibling
-`forgejo-ext` repository. That existing read callback now supports an explicit
+`forgejo-ext` checkout of Fountain. That existing read callback now supports an explicit
 full-body selector, stable IDs and participant/label/time metadata, and rechecks
 issue-unit access after I/O using fresh repository facts. The existing composer
 continues to request bounded previews. The enriched callback must be built with
