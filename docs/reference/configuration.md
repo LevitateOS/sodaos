@@ -9,11 +9,18 @@ Forgejo supplies browser identity and extension authority. Bounded agent work ha
 separate protected [factory operator configuration](factory.md); do not add
 factory credentials or run authority to a human project configuration.
 
-## Dashboard fields
+## Forge and Factory fields
+
+The products use the same JSON schema. Forge defaults to
+`/etc/soda/dashboard.json`; Factory defaults to `/etc/soda/factory.json`. The
+appliance shares the operator-generated integration configuration and overrides
+Factory to loopback port 8081. See the [Factory service](../../cmd/soda-factory-server/README.md).
+
 
 | Field | Meaning |
 | --- | --- |
-| `listen` | HTTP listen address for the dashboard process |
+| `listen` | Loopback HTTP address for this process; `--listen` can override it. |
+| `factory_control_socket` | Forge only: optional absolute Factory Project coordination socket. |
 | `forgejo_url` | Public Forgejo HTTPS origin |
 | `forgejo_internal_url` | Internal Forgejo API URL |
 | `database_dsn_file` | Restricted secret file holding the PostgreSQL connection URL |
@@ -24,6 +31,10 @@ factory credentials or run authority to a human project configuration.
 | `forgejo_graph_credential_file`, `forgejo_graph_actor_id` | Paired absolute restricted secret-file path and separately enrolled native service actor for bounded issue graph operations. Requires the existing background service admission inputs. Current human intent-owner code-write permission remains independently checked. The native token must grant `read:user`, `write:repository` and `read:issue`: submission and owner proofs need the first two, adoption snapshot reads need `read:issue`, and snapshot reads ride only enrolled token bindings. |
 | `typesafe_api_key_file` | Absolute server-only key file, regular and accessible only to its owner; never delivered to Projects or browser inputs. |
 | `typesafe_model` | System One classifier model; defaults to `jev-latest`. |
+
+The Fountain extension selects its Forge and Factory browser sockets separately
+through [command flags](../../cmd/soda-extension/README.md). These are not
+service JSON fields.
 
 JEV calls are free and have no cumulative call ceiling. The Factory records
 usage and keeps duplicate reservations, per-workflow allowances and retry bounds.

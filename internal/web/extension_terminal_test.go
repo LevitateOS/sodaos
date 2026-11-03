@@ -104,12 +104,12 @@ func nativeTerminalProxyFixture(t *testing.T) (*httptest.Server, *terminalNative
 	if err != nil {
 		t.Fatal(err)
 	}
-	private := httptest.NewUnstartedServer(s.ExtensionHandler())
+	private := httptest.NewUnstartedServer(s.API.ExtensionHandler())
 	private.Listener.Close()
 	private.Listener = listener
 	private.Start()
 	t.Cleanup(private.Close)
-	application, closeTransport := Extension(socket)
+	application, closeTransport := Extension(socket, socket)
 	t.Cleanup(closeTransport)
 	proxy := httptest.NewTLSServer(application.HTTP)
 	t.Cleanup(proxy.Close)

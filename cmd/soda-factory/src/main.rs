@@ -1,6 +1,6 @@
 // soda-factory is the private operator interface to supervised factory runs:
 // status reads recorded state, stop retires one run, and reconcile settles
-// outstanding runs. It addresses the dashboard backend's operator endpoint
+// outstanding runs. It addresses the standalone Factory service's operator endpoint
 // over a restricted Unix socket and keeps no database of its own.
 
 use std::collections::BTreeMap;

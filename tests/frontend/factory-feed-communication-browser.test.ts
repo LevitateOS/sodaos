@@ -26,7 +26,7 @@ test('a Finance comment opens an explicit change review and reopens its draft wi
       });
       const detail = () => ({
         post_id: comment,
-        repository: 7,
+        repository: '7',
         revision: 0,
         intake: 'recorded',
         judgment: 'recorded',
@@ -40,7 +40,7 @@ test('a Finance comment opens an explicit change review and reopens its draft wi
       });
       window.drawerFixture.setReply(async (call) => {
         if (call.url.endsWith('/api/factory/feed/subscription'))
-          return Response.json({subscriber: '1', repositories: [7], kinds: null, revision: 1});
+          return Response.json({subscriber: '1', repositories: ['7'], kinds: null, revision: 1});
         if (call.url.includes('/api/repositories?q='))
           return Response.json({
             items: [
@@ -60,7 +60,7 @@ test('a Finance comment opens an explicit change review and reopens its draft wi
               {
                 kind: 'record',
                 id: work,
-                repository: 7,
+                repository: '7',
                 seq: 1,
                 actor: 'builder',
                 author: 'Builder',
@@ -103,20 +103,40 @@ test('a Finance comment opens an explicit change review and reopens its draft wi
   await feed.getByText('Waiting for the request owner to review this proposed change.', {exact: true}).waitFor();
   const draft = feed.locator(`textarea[data-feed-draft="record:${work}"]`);
   await draft.fill('Keep the delivered EUR 420 request and its history.');
-  assert.equal(await page.evaluate(() => window.drawerFixture.calls.filter((call) => call.method !== 'GET').length), 0);
+  assert.equal(
+    await page.evaluate(
+      () =>
+        window.drawerFixture.calls.filter(
+          (call) => call.method !== 'GET' && !call.url.endsWith('/api/factory/native-repositories/resolve')
+        ).length
+    ),
+    0
+  );
   await feed.getByRole('button', {name: 'Review proposed change', exact: true}).click();
   await feed.getByRole('button', {name: 'Continue change review', exact: true}).waitFor();
   assert.deepEqual(
     await page.evaluate(() => document.body.dataset.navigated),
     `/soda-tester/demo/feed/requests/${intent}`
   );
-  const writes = await page.evaluate(() => window.drawerFixture.calls.filter((call) => call.method !== 'GET'));
+  const writes = await page.evaluate(() =>
+    window.drawerFixture.calls.filter(
+      (call) => call.method !== 'GET' && !call.url.endsWith('/api/factory/native-repositories/resolve')
+    )
+  );
   assert.equal(writes.length, 1);
   assert.deepEqual(JSON.parse(writes[0]!.body ?? '{}'), {revision: 0});
   assert.equal(writes[0]!.url.endsWith(`/api/factory/feed/posts/${comment}/review`), true);
   await feed.getByRole('button', {name: 'Continue change review', exact: true}).click();
   await page.waitForFunction(() => document.body.dataset.navigateCount === '2');
-  assert.equal(await page.evaluate(() => window.drawerFixture.calls.filter((call) => call.method !== 'GET').length), 1);
+  assert.equal(
+    await page.evaluate(
+      () =>
+        window.drawerFixture.calls.filter(
+          (call) => call.method !== 'GET' && !call.url.endsWith('/api/factory/native-repositories/resolve')
+        ).length
+    ),
+    1
+  );
   await feed.getByRole('button', {name: 'Continue change review', exact: true}).click();
   await feed
     .getByText(
@@ -139,7 +159,7 @@ test('actual consultation states refresh in the work thread while filtered views
       window.drawerFixture.api.setPresentation('settings');
       window.drawerFixture.setReply(async (request) => {
         if (request.url.endsWith('/api/factory/feed/subscription'))
-          return Response.json({subscriber: '1', repositories: [7], kinds: null, revision: 1});
+          return Response.json({subscriber: '1', repositories: ['7'], kinds: null, revision: 1});
         if (request.url.includes('/api/repositories?q='))
           return Response.json({
             items: [
@@ -161,7 +181,7 @@ test('actual consultation states refresh in the work thread while filtered views
                   {
                     kind: 'post',
                     id: decision,
-                    repository: 7,
+                    repository: '7',
                     seq: 2,
                     actor: 'factory',
                     author: 'Factory',
@@ -188,7 +208,7 @@ test('actual consultation states refresh in the work thread while filtered views
                   {
                     kind: 'record',
                     id: work,
-                    repository: 7,
+                    repository: '7',
                     seq: 1,
                     actor: 'builder',
                     author: 'Builder',
@@ -205,7 +225,7 @@ test('actual consultation states refresh in the work thread while filtered views
             items: [
               {
                 post_id: call,
-                repository: 7,
+                repository: '7',
                 revision: 0,
                 actor: 'builder',
                 author_name: 'Builder',
@@ -269,7 +289,15 @@ test('actual consultation states refresh in the work thread while filtered views
   await feed.getByRole('button', {name: 'All', exact: true}).click();
   await feed.getByText('JEV returned a result', {exact: true}).waitFor();
   assert.equal(await draft.inputValue(), 'Keep the existing EUR 420 request after this update.');
-  assert.equal(await page.evaluate(() => window.drawerFixture.calls.filter((call) => call.method !== 'GET').length), 0);
+  assert.equal(
+    await page.evaluate(
+      () =>
+        window.drawerFixture.calls.filter(
+          (call) => call.method !== 'GET' && !call.url.endsWith('/api/factory/native-repositories/resolve')
+        ).length
+    ),
+    0
+  );
 });
 
 test('a failed consultation keeps scope-accurate copy while JEV result and explanation coexist across refresh', async (t) => {
@@ -290,7 +318,7 @@ test('a failed consultation keeps scope-accurate copy while JEV result and expla
       window.drawerFixture.api.setPresentation('settings');
       window.drawerFixture.setReply(async (request) => {
         if (request.url.endsWith('/api/factory/feed/subscription'))
-          return Response.json({subscriber: '1', repositories: [7], kinds: null, revision: 1});
+          return Response.json({subscriber: '1', repositories: ['7'], kinds: null, revision: 1});
         if (request.url.includes('/api/repositories?q='))
           return Response.json({
             items: [
@@ -310,7 +338,7 @@ test('a failed consultation keeps scope-accurate copy while JEV result and expla
               {
                 kind: 'record',
                 id: work,
-                repository: 7,
+                repository: '7',
                 seq: 1,
                 actor: 'builder',
                 author: 'Builder',
@@ -324,7 +352,7 @@ test('a failed consultation keeps scope-accurate copy while JEV result and expla
           const returned = reads++ > 0;
           const failed = {
             post_id: failCall,
-            repository: 7,
+            repository: '7',
             revision: 0,
             actor: 'builder',
             author_name: 'Builder',
@@ -348,7 +376,7 @@ test('a failed consultation keeps scope-accurate copy while JEV result and expla
           };
           const reply = {
             post_id: replyCall,
-            repository: 7,
+            repository: '7',
             revision: 0,
             actor: 'builder',
             author_name: 'Builder',
@@ -369,7 +397,7 @@ test('a failed consultation keeps scope-accurate copy while JEV result and expla
                   failed,
                   {
                     post_id: okCall,
-                    repository: 7,
+                    repository: '7',
                     revision: 0,
                     actor: 'builder',
                     author_name: 'Builder',
@@ -440,17 +468,22 @@ test('a failed consultation keeps scope-accurate copy while JEV result and expla
     .waitFor();
   await feed.locator(`#post-${failCall}`).getByText('Consulted JEV · choice', {exact: true}).waitFor();
   assert.equal(await feed.locator(`#post-${failCall}`).getByText(replySummary, {exact: false}).count(), 0);
-  await feed
-    .locator(`#post-${okCall} .soda-jev-choice li[data-picked=true]`)
-    .getByText('Yes', {exact: true})
-    .waitFor();
+  await feed.locator(`#post-${okCall} .soda-jev-choice li[data-picked=true]`).getByText('Yes', {exact: true}).waitFor();
   const replyCard = feed.locator(`#post-${replyCall}`);
   await replyCard.getByRole('heading', {name: replyTitle, exact: true}).waitFor();
   await replyCard.getByText(replySummary, {exact: false}).waitFor();
   assert.equal(await replyCard.locator('.soda-feed-body-text').count(), 0);
   await feed.locator('.soda-jev-choice').first().waitFor();
   assert.equal(await draft.inputValue(), 'Hold the EUR 420 request; do not submit yet.');
-  assert.equal(await page.evaluate(() => window.drawerFixture.calls.filter((call) => call.method !== 'GET').length), 0);
+  assert.equal(
+    await page.evaluate(
+      () =>
+        window.drawerFixture.calls.filter(
+          (call) => call.method !== 'GET' && !call.url.endsWith('/api/factory/native-repositories/resolve')
+        ).length
+    ),
+    0
+  );
   const readsAfter = await page.evaluate(
     () => window.drawerFixture.calls.filter((call) => call.url.includes('/replies?')).length
   );
@@ -471,7 +504,7 @@ test('a failed consultation keeps scope-accurate copy while JEV result and expla
         }),
       path
     );
-  const conversation = await get('/assets/sodaspaces-factory-conversation.css');
+  const conversation = await get('/factory/styles/conversation.css');
   assert.equal(conversation.status, 200);
   assert.match(conversation.type ?? '', /text\/css/);
   assert.match(conversation.body, /\.soda-feed-filters/);
@@ -510,7 +543,7 @@ test('an MCP question renders its content once and answer choices edit a reply w
     window.drawerFixture.api.setPresentation('settings');
     window.drawerFixture.setReply(async (call) => {
       if (call.url.endsWith('/api/factory/feed/subscription'))
-        return Response.json({subscriber: '1', repositories: [7], kinds: null, revision: 1});
+        return Response.json({subscriber: '1', repositories: ['7'], kinds: null, revision: 1});
       if (call.url.includes('/api/repositories?q='))
         return Response.json({
           items: [
@@ -530,7 +563,7 @@ test('an MCP question renders its content once and answer choices edit a reply w
             {
               kind: 'post',
               id: postId,
-              repository: 7,
+              repository: '7',
               seq: 42,
               actor: 'architect',
               author: 'Architect',
@@ -566,7 +599,11 @@ test('an MCP question renders its content once and answer choices edit a reply w
   assert.equal(await draft.isVisible(), true);
   assert.equal(await draft.evaluate((node) => document.activeElement === node), true);
   assert.equal(await feed.locator(`[data-post-submit="post:${postId}"]`).isEnabled(), true);
-  const writes = await page.evaluate(() => window.drawerFixture.calls.filter((call) => call.method !== 'GET'));
+  const writes = await page.evaluate(() =>
+    window.drawerFixture.calls.filter(
+      (call) => call.method !== 'GET' && !call.url.endsWith('/api/factory/native-repositories/resolve')
+    )
+  );
   assert.equal(writes.length, 0);
   assert.equal(await feed.getByText('Loading discussion text…').count(), 0);
   const bodyReads = await page.evaluate(
@@ -582,7 +619,7 @@ test('findings show supplied source literally and corrections retain before and 
     window.drawerFixture.api.setPresentation('settings');
     window.drawerFixture.setReply(async (call) => {
       if (call.url.endsWith('/api/factory/feed/subscription'))
-        return Response.json({subscriber: '1', repositories: [7], kinds: null, revision: 1});
+        return Response.json({subscriber: '1', repositories: ['7'], kinds: null, revision: 1});
       if (call.url.includes('/api/repositories?q='))
         return Response.json({
           items: [
@@ -602,7 +639,7 @@ test('findings show supplied source literally and corrections retain before and 
             {
               kind: 'post',
               id: 'c'.repeat(32),
-              repository: 7,
+              repository: '7',
               seq: 46,
               actor: 'test_pilot',
               author: 'Test Pilot',
@@ -621,7 +658,7 @@ test('findings show supplied source literally and corrections retain before and 
             {
               kind: 'post',
               id: 'd'.repeat(32),
-              repository: 7,
+              repository: '7',
               seq: 45,
               actor: 'strategist',
               author: 'Strategist',
@@ -646,7 +683,7 @@ test('findings show supplied source literally and corrections retain before and 
             {
               kind: 'post',
               id: 'e'.repeat(32),
-              repository: 7,
+              repository: '7',
               seq: 44,
               actor: 'strategist',
               author: 'Strategist',
@@ -669,7 +706,7 @@ test('findings show supplied source literally and corrections retain before and 
             {
               kind: 'post',
               id: 'a'.repeat(32),
-              repository: 7,
+              repository: '7',
               seq: 43,
               actor: 'fixer',
               author: 'Fixer',
@@ -692,7 +729,7 @@ test('findings show supplied source literally and corrections retain before and 
             {
               kind: 'post',
               id: 'b'.repeat(32),
-              repository: 7,
+              repository: '7',
               seq: 42,
               actor: 'inspector',
               author: 'Inspector',
@@ -742,7 +779,15 @@ test('findings show supplied source literally and corrections retain before and 
     assert.equal(await card.locator('[data-tone="positive"]').count(), 0);
   }
   assert.equal(await feed.getByText('Recorded detail unavailable', {exact: true}).count(), 0);
-  assert.equal(await page.evaluate(() => window.drawerFixture.calls.filter((call) => call.method !== 'GET').length), 0);
+  assert.equal(
+    await page.evaluate(
+      () =>
+        window.drawerFixture.calls.filter(
+          (call) => call.method !== 'GET' && !call.url.endsWith('/api/factory/native-repositories/resolve')
+        ).length
+    ),
+    0
+  );
 });
 
 test('recorded suggestion and answer resolutions remain readable in the feed', async (t) => {
@@ -751,7 +796,7 @@ test('recorded suggestion and answer resolutions remain readable in the feed', a
     window.drawerFixture.api.setPresentation('settings');
     window.drawerFixture.setReply(async (call) => {
       if (call.url.endsWith('/api/factory/feed/subscription'))
-        return Response.json({subscriber: '1', repositories: [7], kinds: null, revision: 1});
+        return Response.json({subscriber: '1', repositories: ['7'], kinds: null, revision: 1});
       if (call.url.includes('/api/repositories?q='))
         return Response.json({
           items: [
@@ -771,7 +816,7 @@ test('recorded suggestion and answer resolutions remain readable in the feed', a
             {
               kind: 'post',
               id: 'a'.repeat(32),
-              repository: 7,
+              repository: '7',
               seq: 45,
               actor: 'architect',
               payload: {
@@ -787,7 +832,7 @@ test('recorded suggestion and answer resolutions remain readable in the feed', a
             {
               kind: 'post',
               id: 'b'.repeat(32),
-              repository: 7,
+              repository: '7',
               seq: 44,
               actor: 'architect',
               payload: {
@@ -804,7 +849,7 @@ test('recorded suggestion and answer resolutions remain readable in the feed', a
             {
               kind: 'post',
               id: 'c'.repeat(32),
-              repository: 7,
+              repository: '7',
               seq: 43,
               actor: 'architect',
               payload: {
@@ -819,7 +864,7 @@ test('recorded suggestion and answer resolutions remain readable in the feed', a
             {
               kind: 'post',
               id: 'd'.repeat(32),
-              repository: 7,
+              repository: '7',
               seq: 42,
               actor: 'builder',
               payload: {
@@ -834,7 +879,7 @@ test('recorded suggestion and answer resolutions remain readable in the feed', a
             {
               kind: 'post',
               id: 'e'.repeat(32),
-              repository: 7,
+              repository: '7',
               seq: 41,
               actor: 'architect',
               payload: {
@@ -894,7 +939,7 @@ test('every product change state renders its own outcome, action and tone', asyn
       // issue 0 — scope-only rows with no native issue yet.
       const row = (post_id: string, product_change: unknown) => ({
         post_id,
-        repository: 7,
+        repository: '7',
         revision: 0,
         intake: 'recorded',
         judgment: 'applied',
@@ -926,7 +971,7 @@ test('every product change state renders its own outcome, action and tone', asyn
       for (const item of replies) byId[(item as {post_id: string}).post_id] = item;
       window.drawerFixture.setReply(async (call) => {
         if (call.url.endsWith('/api/factory/feed/subscription'))
-          return Response.json({subscriber: '1', repositories: [7], kinds: null, revision: 1});
+          return Response.json({subscriber: '1', repositories: ['7'], kinds: null, revision: 1});
         if (call.url.includes('/api/repositories?q='))
           return Response.json({
             items: [
@@ -946,7 +991,7 @@ test('every product change state renders its own outcome, action and tone', asyn
               {
                 kind: 'record',
                 id: work,
-                repository: 7,
+                repository: '7',
                 seq: 1,
                 actor: 'builder',
                 author: 'Builder',
@@ -1018,7 +1063,15 @@ test('every product change state renders its own outcome, action and tone', asyn
     await page.evaluate(() => document.body.dataset.navigated),
     `/soda-tester/demo/feed/requests/${intent}`
   );
-  assert.equal(await page.evaluate(() => window.drawerFixture.calls.filter((call) => call.method !== 'GET').length), 0);
+  assert.equal(
+    await page.evaluate(
+      () =>
+        window.drawerFixture.calls.filter(
+          (call) => call.method !== 'GET' && !call.url.endsWith('/api/factory/native-repositories/resolve')
+        ).length
+    ),
+    0
+  );
 });
 
 test('accepted change routes only the owner to the private request', async (t) => {
@@ -1044,7 +1097,7 @@ test('accepted change routes only the owner to the private request', async (t) =
       };
       const row = (post_id: string, product_change: unknown) => ({
         post_id,
-        repository: 7,
+        repository: '7',
         revision: 0,
         intake: 'recorded',
         judgment: 'applied',
@@ -1102,7 +1155,7 @@ test('accepted change routes only the owner to the private request', async (t) =
       for (const item of replies) byId[(item as {post_id: string}).post_id] = item;
       window.drawerFixture.setReply(async (call) => {
         if (call.url.endsWith('/api/factory/feed/subscription'))
-          return Response.json({subscriber: '1', repositories: [7], kinds: null, revision: 1});
+          return Response.json({subscriber: '1', repositories: ['7'], kinds: null, revision: 1});
         if (call.url.includes('/api/repositories?q='))
           return Response.json({
             items: [
@@ -1122,7 +1175,7 @@ test('accepted change routes only the owner to the private request', async (t) =
               {
                 kind: 'record',
                 id: work,
-                repository: 7,
+                repository: '7',
                 project: 'soda-tester/demo',
                 seq: 1,
                 actor: 'builder',
@@ -1161,7 +1214,15 @@ test('accepted change routes only the owner to the private request', async (t) =
     await page.evaluate(() => document.body.dataset.navigated),
     `/soda-tester/demo/feed/requests/${intent}`
   );
-  assert.equal(await page.evaluate(() => window.drawerFixture.calls.filter((call) => call.method !== 'GET').length), 0);
+  assert.equal(
+    await page.evaluate(
+      () =>
+        window.drawerFixture.calls.filter(
+          (call) => call.method !== 'GET' && !call.url.endsWith('/api/factory/native-repositories/resolve')
+        ).length
+    ),
+    0
+  );
 });
 
 test('consultation request and interpretation reply each carry the consulting worker attribution', async (t) => {
@@ -1182,7 +1243,7 @@ test('consultation request and interpretation reply each carry the consulting wo
       window.drawerFixture.api.setPresentation('settings');
       window.drawerFixture.setReply(async (request) => {
         if (request.url.endsWith('/api/factory/feed/subscription'))
-          return Response.json({subscriber: '1', repositories: [7], kinds: null, revision: 1});
+          return Response.json({subscriber: '1', repositories: ['7'], kinds: null, revision: 1});
         if (request.url.includes('/api/repositories?q='))
           return Response.json({
             items: [
@@ -1202,7 +1263,7 @@ test('consultation request and interpretation reply each carry the consulting wo
               {
                 kind: 'record',
                 id: work,
-                repository: 7,
+                repository: '7',
                 seq: 1,
                 actor: 'builder',
                 author: 'Builder',
@@ -1217,7 +1278,7 @@ test('consultation request and interpretation reply each carry the consulting wo
             items: [
               {
                 post_id: call,
-                repository: 7,
+                repository: '7',
                 revision: 0,
                 actor: 'builder',
                 author_name: 'Builder',
@@ -1250,7 +1311,7 @@ test('consultation request and interpretation reply each carry the consulting wo
               },
               {
                 post_id: reply,
-                repository: 7,
+                repository: '7',
                 revision: 0,
                 actor: 'builder',
                 author_name: 'Builder',
@@ -1285,7 +1346,15 @@ test('consultation request and interpretation reply each carry the consulting wo
   await replyCard.getByRole('heading', {name: replyTitle, exact: true}).waitFor();
   assert.equal(await replyCard.locator('.soda-feed-reply-who strong').innerText(), 'Builder');
   assert.equal(await replyCard.getAttribute('data-role'), 'builder');
-  assert.equal(await page.evaluate(() => window.drawerFixture.calls.filter((call) => call.method !== 'GET').length), 0);
+  assert.equal(
+    await page.evaluate(
+      () =>
+        window.drawerFixture.calls.filter(
+          (call) => call.method !== 'GET' && !call.url.endsWith('/api/factory/native-repositories/resolve')
+        ).length
+    ),
+    0
+  );
 });
 
 test('consultation interpretation renders after its request in the work thread', async (t) => {
@@ -1302,7 +1371,7 @@ test('consultation interpretation renders after its request in the work thread',
       window.drawerFixture.api.setPresentation('settings');
       window.drawerFixture.setReply(async (request) => {
         if (request.url.endsWith('/api/factory/feed/subscription'))
-          return Response.json({subscriber: '1', repositories: [7], kinds: null, revision: 1});
+          return Response.json({subscriber: '1', repositories: ['7'], kinds: null, revision: 1});
         if (request.url.includes('/api/repositories?q='))
           return Response.json({
             items: [
@@ -1322,7 +1391,7 @@ test('consultation interpretation renders after its request in the work thread',
               {
                 kind: 'record',
                 id: work,
-                repository: 7,
+                repository: '7',
                 seq: 1,
                 actor: 'builder',
                 author: 'Builder',
@@ -1336,7 +1405,7 @@ test('consultation interpretation renders after its request in the work thread',
           const answered = reads++ > 0;
           const consultation = {
             post_id: call,
-            repository: 7,
+            repository: '7',
             revision: 0,
             actor: 'builder',
             author_name: 'Builder',
@@ -1376,7 +1445,7 @@ test('consultation interpretation renders after its request in the work thread',
           // display, so the fixture serves the reply before the request.
           const interpretation = {
             post_id: reply,
-            repository: 7,
+            repository: '7',
             revision: 0,
             actor: 'builder',
             author_name: 'Builder',
@@ -1412,7 +1481,15 @@ test('consultation interpretation renders after its request in the work thread',
   const ids = await feed.locator('li.soda-feed-reply').evaluateAll((nodes) => nodes.map((node) => node.id));
   assert.ok(ids.indexOf(`post-${call}`) !== -1 && ids.indexOf(`post-${reply}`) !== -1);
   assert.ok(ids.indexOf(`post-${call}`) < ids.indexOf(`post-${reply}`));
-  assert.equal(await page.evaluate(() => window.drawerFixture.calls.filter((call) => call.method !== 'GET').length), 0);
+  assert.equal(
+    await page.evaluate(
+      () =>
+        window.drawerFixture.calls.filter(
+          (call) => call.method !== 'GET' && !call.url.endsWith('/api/factory/native-repositories/resolve')
+        ).length
+    ),
+    0
+  );
 });
 
 test('consultation request and interpretation reply stay visible with the explanation on the reply', async (t) => {
@@ -1428,7 +1505,7 @@ test('consultation request and interpretation reply stay visible with the explan
       window.drawerFixture.api.setPresentation('settings');
       window.drawerFixture.setReply(async (request) => {
         if (request.url.endsWith('/api/factory/feed/subscription'))
-          return Response.json({subscriber: '1', repositories: [7], kinds: null, revision: 1});
+          return Response.json({subscriber: '1', repositories: ['7'], kinds: null, revision: 1});
         if (request.url.includes('/api/repositories?q='))
           return Response.json({
             items: [
@@ -1448,7 +1525,7 @@ test('consultation request and interpretation reply stay visible with the explan
               {
                 kind: 'record',
                 id: work,
-                repository: 7,
+                repository: '7',
                 seq: 1,
                 actor: 'builder',
                 author: 'Builder',
@@ -1463,7 +1540,7 @@ test('consultation request and interpretation reply stay visible with the explan
             items: [
               {
                 post_id: call,
-                repository: 7,
+                repository: '7',
                 revision: 0,
                 actor: 'builder',
                 author_name: 'Builder',
@@ -1496,7 +1573,7 @@ test('consultation request and interpretation reply stay visible with the explan
               },
               {
                 post_id: reply,
-                repository: 7,
+                repository: '7',
                 revision: 0,
                 actor: 'builder',
                 author_name: 'Builder',
@@ -1535,7 +1612,15 @@ test('consultation request and interpretation reply stay visible with the explan
   assert.equal(await requestCard.getByText(replySummary, {exact: false}).count(), 0);
   assert.equal(await replyCard.getByText('Consulted JEV · choice', {exact: true}).count(), 0);
   assert.equal(await feed.getByText('Recorded detail unavailable', {exact: true}).count(), 0);
-  assert.equal(await page.evaluate(() => window.drawerFixture.calls.filter((call) => call.method !== 'GET').length), 0);
+  assert.equal(
+    await page.evaluate(
+      () =>
+        window.drawerFixture.calls.filter(
+          (call) => call.method !== 'GET' && !call.url.endsWith('/api/factory/native-repositories/resolve')
+        ).length
+    ),
+    0
+  );
 });
 
 test('an unavailable change review reports honestly without opening or saving', async (t) => {
@@ -1554,7 +1639,7 @@ test('an unavailable change review reports honestly without opening or saving', 
       };
       const reviewable = () => ({
         post_id: comment,
-        repository: 7,
+        repository: '7',
         revision: 0,
         intake: 'recorded',
         judgment: 'applied',
@@ -1572,7 +1657,7 @@ test('an unavailable change review reports honestly without opening or saving', 
       const unavailable = () => ({...reviewable(), product_change: {...base, state: 'unavailable', can_review: false}});
       window.drawerFixture.setReply(async (call) => {
         if (call.url.endsWith('/api/factory/feed/subscription'))
-          return Response.json({subscriber: '1', repositories: [7], kinds: null, revision: 1});
+          return Response.json({subscriber: '1', repositories: ['7'], kinds: null, revision: 1});
         if (call.url.includes('/api/repositories?q='))
           return Response.json({
             items: [
@@ -1592,7 +1677,7 @@ test('an unavailable change review reports honestly without opening or saving', 
               {
                 kind: 'record',
                 id: work,
-                repository: 7,
+                repository: '7',
                 seq: 1,
                 actor: 'builder',
                 author: 'Builder',
@@ -1601,8 +1686,7 @@ test('an unavailable change review reports honestly without opening or saving', 
             ],
             truncated: false,
           });
-        if (call.url.includes('/replies?'))
-          return Response.json({items: [reviewable()], next_before: 0});
+        if (call.url.includes('/replies?')) return Response.json({items: [reviewable()], next_before: 0});
         if (call.url.endsWith(`/api/factory/feed/posts/${comment}`) && call.method !== 'POST')
           return Response.json(unavailable());
         return null;
@@ -1631,7 +1715,15 @@ test('an unavailable change review reports honestly without opening or saving', 
   );
   // No navigation and no save: zero intent events, zero mutations.
   assert.equal(await page.evaluate(() => Number(document.body.dataset.navigateCount ?? '0')), 0);
-  assert.equal(await page.evaluate(() => window.drawerFixture.calls.filter((call) => call.method !== 'GET').length), 0);
+  assert.equal(
+    await page.evaluate(
+      () =>
+        window.drawerFixture.calls.filter(
+          (call) => call.method !== 'GET' && !call.url.endsWith('/api/factory/native-repositories/resolve')
+        ).length
+    ),
+    0
+  );
   const reads = await page.evaluate(
     (comment) =>
       window.drawerFixture.calls.filter((call) => call.url.endsWith(`/api/factory/feed/posts/${comment}`)).length,
@@ -1647,13 +1739,20 @@ test('an unavailable change review reports honestly without opening or saving', 
   await feed.getByRole('button', {name: 'Review proposed change', exact: true}).click();
   await page.waitForFunction(
     (expected) =>
-      window.drawerFixture.calls.filter((call) => call.url.endsWith(`/api/factory/feed/posts/${expected}`)).length >
-      1,
+      window.drawerFixture.calls.filter((call) => call.url.endsWith(`/api/factory/feed/posts/${expected}`)).length > 1,
     comment
   );
   await feed
     .getByText('The proposed change detail is currently unavailable. Check progress to reload it.', {exact: true})
     .waitFor();
   assert.equal(await page.evaluate(() => Number(document.body.dataset.navigateCount ?? '0')), 0);
-  assert.equal(await page.evaluate(() => window.drawerFixture.calls.filter((call) => call.method !== 'GET').length), 0);
+  assert.equal(
+    await page.evaluate(
+      () =>
+        window.drawerFixture.calls.filter(
+          (call) => call.method !== 'GET' && !call.url.endsWith('/api/factory/native-repositories/resolve')
+        ).length
+    ),
+    0
+  );
 });

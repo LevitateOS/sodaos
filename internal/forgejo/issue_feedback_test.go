@@ -51,11 +51,14 @@ func TestIssueFeedbackReconcilesLostReplyWithoutEditingRequirements(t *testing.T
 	if err := os.WriteFile(credential, []byte("synthetic-feedback-token"), 0600); err != nil {
 		t.Fatal(err)
 	}
-	w := NewIssueGraphWriter(&graphClientFixture{}, New(server.URL), credential)
-	if err := w.DeliverIssueFeedback(context.Background(), 7, 55, 91, marker, "Please fix the filter."); err == nil {
+	identities := graphIdentityFixture(t, 7, 91, 7)
+	repository, _ := identities.LocalRepository(t.Context(), 7)
+	actor, _ := identities.LocalActor(t.Context(), "91")
+	w := NewIssueGraphWriter(&graphClientFixture{}, New(server.URL), credential, identities)
+	if err := w.DeliverIssueFeedback(context.Background(), int64(repository), 55, int64(actor), marker, "Please fix the filter."); err == nil {
 		t.Fatal("lost reply reported confirmed")
 	}
-	if err := w.DeliverIssueFeedback(context.Background(), 7, 55, 91, marker, "Please fix the filter."); err != nil {
+	if err := w.DeliverIssueFeedback(context.Background(), int64(repository), 55, int64(actor), marker, "Please fix the filter."); err != nil {
 		t.Fatal(err)
 	}
 	if posts != 1 || saved != marker+"\nPlease fix the filter." {

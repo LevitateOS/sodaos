@@ -18,6 +18,9 @@ import (
 // failures report per call without caching, so a later Fountain start or
 // credential rotation recovers without a Soda restart.
 type ServiceObserver struct {
+	// Identities binds neutral creation recovery to the adopted host. Configure
+	// it before use; snapshot transport and credential custody remain native.
+	Identities     *FountainIdentities
 	socket         string
 	credentialFile string
 	rest           *Client

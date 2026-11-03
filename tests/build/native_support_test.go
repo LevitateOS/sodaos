@@ -220,9 +220,9 @@ func TestOutsideSupportToolsAreNotApplianceCommands(t *testing.T) {
 
 func TestOutsideBootBindsBrowserServicesWithoutQuadletEnable(t *testing.T) {
 	unit := ReadFile(t, "system/host/services/soda-console.service")
-	Check(t, strings.Contains(unit, "Wants=forgejo.service soda-dashboard.service soda-proxy.service"), "missing Wants")
+	Check(t, strings.Contains(unit, "Wants=forgejo.service soda-dashboard.service soda-factory.service soda-proxy.service"), "missing Wants")
 	Check(t, !strings.Contains(unit, "enable --now"), "enable present")
-	for _, name := range []string{"soda-dashboard.container", "soda-proxy.container"} {
+	for _, name := range []string{"soda-dashboard.container", "soda-factory.container", "soda-proxy.container"} {
 		container := ReadFile(t, "system/host/services/"+name)
 		Check(t, strings.Contains(container, "ConditionPathExists=/etc/soda/activated"), "%s missing condition", name)
 	}

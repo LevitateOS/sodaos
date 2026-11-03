@@ -94,6 +94,7 @@ fn confirm_active_browser_units(ctx: &Ctx, run: &dyn Runner) -> Result<(), Error
     for unit in [
         "forgejo.service",
         "soda-dashboard.service",
+        "soda-factory.service",
         "soda-proxy.service",
     ] {
         if run

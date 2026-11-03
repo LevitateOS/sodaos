@@ -1,6 +1,6 @@
 # soda-factory
 
-Inspect and retire supervised factory runs through the dashboard backend's
+Inspect and retire supervised factory runs through the Factory service's
 private operator interface. This command is for an operator whose OS identity
 is admitted by that endpoint. The backend owns the durable run
 records; this CLI keeps no database.
@@ -11,7 +11,7 @@ factory authority and execution boundaries.
 
 ## Prerequisites
 
-Have a running dashboard backend configured with its private operator Unix
+Have a running Factory service configured with its private operator Unix
 socket and an admitted peer UID. Supply the socket explicitly with `--socket`;
 filesystem access alone does not establish endpoint authorization.
 
@@ -24,8 +24,8 @@ cargo build --locked -p soda-factory
 ## Read recorded state
 
 ```sh
-target/debug/soda-factory --socket /run/soda/operator/operator.sock status
-target/debug/soda-factory --socket /run/soda/operator/operator.sock status RUN_ID
+target/debug/soda-factory --socket /run/soda/factory-operator/operator.sock status
+target/debug/soda-factory --socket /run/soda/factory-operator/operator.sock status RUN_ID
 ```
 
 Replace `RUN_ID` with a recorded run identity. Status returns the backend's
@@ -35,8 +35,8 @@ no durable command.
 ## Retire or reconcile runs
 
 ```sh
-target/debug/soda-factory --socket /run/soda/operator/operator.sock stop RUN_ID
-target/debug/soda-factory --socket /run/soda/operator/operator.sock reconcile
+target/debug/soda-factory --socket /run/soda/factory-operator/operator.sock stop RUN_ID
+target/debug/soda-factory --socket /run/soda/factory-operator/operator.sock reconcile
 ```
 
 Each action uses the current recorded run state. An already settled run returns

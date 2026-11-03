@@ -55,6 +55,14 @@ The stock pages cover system overview, journal logs, storage and mounts, network
 
 Review diagnostic output before sharing it; it can contain private configuration. A host Linux account does not grant Forgejo, Project or application identity.
 
+The Software Updates page does not create a Soda update channel. Soda's derived
+host images use [explicit native image updates](70-updates-and-fallback.md#update-an-appliance),
+and Zincati auto-updates are disabled by the vendor default. An active Zincati
+service may be idle. If the page interprets an `ostree-image-*` origin as an
+OSTree remote and reports a missing remote configuration, do not create a remote
+with that transport name. Inspect `rpm-ostree status` and use the update procedure
+for the selected complete Soda image.
+
 ## Appliance and Docker contexts
 
 For an appliance, Cockpit administers Fedora CoreOS and Soda's host services. For Docker, Cockpit inside the Soda runtime can inspect that runtime, while the Linux operator separately administers the outer host and Docker Engine.

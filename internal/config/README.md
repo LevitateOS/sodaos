@@ -1,4 +1,4 @@
-# Dashboard configuration reader
+# Forge and Factory configuration reader
 
 Soda service startup uses this package to load operator JSON and separately
 read configured credentials. It validates inputs without writing configuration,
@@ -10,6 +10,13 @@ Import `github.com/levitateos/sodaos/internal/config` and call
 `config.Load(path)` to obtain a validated `Config`. The normal installed file
 is `/etc/soda/dashboard.json`, provisioned by
 [`soda-setup`](../../cmd/soda-setup/README.md).
+
+`config.LoadFactory(path)` uses the same schema with a default loopback listener
+on port 8081; Forge defaults to 8080. A separately installed Factory defaults to
+`/etc/soda/factory.json`. Forge's optional `factory_control_socket` must be an
+absolute path. Its CLI override belongs to [Forge](../../cmd/soda-dashboard/README.md).
+The Fountain extension selects the separate Factory browser socket through its
+own [command flags](../../cmd/soda-extension/README.md).
 
 The [public entry points](config.go) are:
 

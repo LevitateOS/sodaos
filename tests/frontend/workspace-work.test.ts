@@ -49,7 +49,10 @@ async function seedPlans(page: Page, plans: PlanSeed[]) {
 }
 
 async function writes(page: Page) {
-  return page.evaluate(() => window.workspaceFixture.calls.filter((call) => call.method !== 'GET').length);
+  // Canonical identity resolution is a read-only POST, not a work command.
+  return page.evaluate(() => window.workspaceFixture.calls.filter((call) =>
+    call.method !== 'GET' && !call.path.endsWith('/api/factory/native-repositories/resolve')
+  ).length);
 }
 
 test('Project Work opens explicit requirements review for an imported native issue without creating work', async (t) => {
@@ -69,7 +72,7 @@ test('Project Work opens explicit requirements review for an imported native iss
   await work.locator('soda-factory-work-journey').getByRole('button', {name: 'Refresh journey', exact: true}).waitFor();
   assert.equal(
     await acceptance
-      .getByRole('link', {name: 'Review issue #13 in the native forge', exact: true})
+      .getByRole('link', {name: 'Review issue #13', exact: true})
       .getAttribute('href'),
     '/alice/Alpha/issues/13'
   );
@@ -90,9 +93,14 @@ test('Project Work opens explicit requirements review for an imported native iss
   });
   const verification = work.getByRole('region', {name: 'Application verification needs attention'});
   await verification.getByRole('button', {name: 'Retry application verification', exact: true}).waitFor();
+  assert.equal(await work.getByLabel('Native issue number', {exact: true}).inputValue(), 'not-an-issue');
+  assert.equal(await acceptance.getByRole('link', {name: 'Review issue #13', exact: true}).getAttribute('href'), '/alice/Alpha/issues/13');
   assert.equal(await writes(page), 0, 'reading verification availability must not queue work');
   await verification.getByRole('button', {name: 'Retry application verification', exact: true}).click();
   await verification.getByRole('status').filter({hasText: 'No Retry was confirmed.'}).waitFor();
+  // An unchanged inventory refresh keeps this exact unconfirmed request bound.
+  await page.evaluate(() => window.workspaceFixture.api.refresh());
+  await verification.getByRole('button', {name: 'Retry same verification request', exact: true}).waitFor();
   assert.equal(await writes(page), 1, 'an unconfirmed reply must not trigger another write');
   assert.equal(await page.evaluate(() => window.workspaceFixture.calls.filter((call) => call.path.includes('/factory/commands/')).length), 0);
   await verification.getByRole('button', {name: 'Retry same verification request', exact: true}).click();
@@ -190,7 +198,64 @@ test('Project Work opens explicit requirements review for an imported native iss
   await attention.getByRole('status').filter({hasText: 'Application repair needs attention.'}).waitFor();
   await attention.getByText('Judgment: accept; acceptance probability 0.87; confidence 0.24.', {exact: true}).waitFor();
   assert.equal(await writes(attentionPage), 0, 'reading an Attention diagnosis cannot queue work');
+  await verificationMetadataRefresh(t);
 });
+
+async function verificationMetadataRefresh(t: Parameters<typeof fixture>[0]) {
+  const page = await fixture(t);
+  await page.evaluate(async () => {
+    window.workspaceFixture.api.dispose();
+    const next = window.createWorkspaceFixture('page');
+    next.setFactoryIdentity('7', '9007199254740993', '11');
+    next.holdFactoryDiscovery();
+    window.workspaceFixture = next;
+    await next.api.refresh();
+  });
+  const work = await openProjectPlans(page);
+  await work.getByText('Loading work…', {exact: true}).waitFor();
+  // Replace the host snapshot while the canonical account/repository lookup is
+  // pending. Its result must use the newest metadata, with the admitted IDs.
+  await page.evaluate(async () => {
+    window.workspaceFixture.enableVerificationRetry();
+    await window.workspaceFixture.api.refresh();
+    window.workspaceFixture.releaseFactoryDiscovery();
+  });
+  const verification = work.getByRole('region', {name: 'Application verification needs attention'});
+  const retry = verification.getByRole('button', {name: 'Retry application verification', exact: true});
+  await retry.waitFor();
+  assert.equal(await writes(page), 0);
+  const admitted = await page.evaluate(() => window.workspaceFixture.calls.filter(call => call.path.includes('/api/factory/intents?')));
+  assert(admitted.some(call => new URL(call.path, 'https://fixture.invalid').searchParams.get('repository') === '9007199254740993'));
+  assert(admitted.every(call => new URL(call.path, 'https://fixture.invalid').searchParams.get('repository') !== '7'));
+  // Losing execution admission removes the host-selected verification runs
+  // immediately on refresh; restoring it discovers them in the same view.
+  const workElement = await work.elementHandle();
+  await page.evaluate(async () => {
+    const alpha = window.workspaceFixture.spaces[0]!;
+    alpha.execution_allowed = false;
+    alpha.terminals = []; // A denied inventory cannot expose terminal attachments.
+    await window.workspaceFixture.api.refresh();
+  });
+  await page.waitForFunction(() => !document.querySelector('soda-project-work soda-factory-verification-retry section'));
+  assert.equal(await writes(page), 0);
+  await page.evaluate(async () => {
+    window.workspaceFixture.spaces[0]!.execution_allowed = true;
+    await window.workspaceFixture.api.refresh();
+  });
+  await retry.waitFor();
+  assert.equal(await work.evaluate((node, original) => node === original, workElement), true);
+  assert.equal(await writes(page), 0);
+  // Same-binding snapshots with identical runs neither repeat discovery nor
+  // queue work. Switching to another repository still retires this selection.
+  const before = await page.evaluate(() => window.workspaceFixture.calls.filter(call => call.path.endsWith(`/api/factory/runs/${'d'.repeat(32)}`)).length);
+  await page.evaluate(() => window.workspaceFixture.api.refresh());
+  await retry.waitFor();
+  const after = await page.evaluate(() => window.workspaceFixture.calls.filter(call => call.path.endsWith(`/api/factory/runs/${'d'.repeat(32)}`)).length);
+  assert.equal(after, before);
+  await page.getByRole('button', {name: 'alice/Beta', exact: true}).click();
+  await page.waitForFunction(() => !document.querySelector('soda-project-work soda-factory-verification-retry section'));
+  assert.equal(await writes(page), 0);
+}
 
 test('cold Project entry loads scoped work, keeps the directory quiet, and opens planning explicitly', async (t) => {
   const page = await fixture(t);
@@ -437,7 +502,10 @@ test('Factory watch stays connected across project filtering and work-view chang
   await page.getByRole('button', {name: 'alice/Alpha', exact: true}).click();
   await page.locator('.soda-factory.is-connected .xterm-rows').waitFor();
   assert.deepEqual(await page.evaluate(() => window.workspaceFixture.sockets.map((socket) => socket.closed)), [0]);
-  assert.equal(await writes(page), 0);
+  const mutations = await page.evaluate(() => window.workspaceFixture.calls.filter(call =>
+    call.method !== 'GET' && !(call.method === 'POST' && call.path.endsWith('/api/factory/native-repositories/resolve'))
+  ));
+  assert.deepEqual(mutations, []);
 });
 
 test('Feed, App and Work share one project and retain their owners; returning opens the saved App view', async (t) => {

@@ -1,3 +1,4 @@
+import {factoryAssetSource} from './fixtures/factory-asset-source';
 import test, {before, after} from 'node:test';
 import assert from 'node:assert/strict';
 import {chromium, type Browser} from 'playwright';
@@ -31,6 +32,8 @@ before(async () => {
     port: 0,
     fetch(request) {
       const url = new URL(request.url);
+      const factoryAsset = factoryAssetSource(url.pathname);
+      if (factoryAsset) return factoryAsset;
       if (url.pathname === '/fixture.js') return new Response(bundle, {headers: {'Content-Type': 'text/javascript'}});
       // The same production stylesheets the workspace driver loads, so the
       // App surface renders with actual product styles.
@@ -39,15 +42,13 @@ before(async () => {
           ? 'frontend/spaces/sodaspaces-project.css'
           : url.pathname === '/assets/sodaspaces-page.css'
             ? 'frontend/spaces/sodaspaces-workspace.css'
-            : url.pathname === '/assets/sodaspaces-factory-conversation.css'
-              ? 'frontend/spaces/sodaspaces-factory-conversation.css'
-              : url.pathname === '/assets/sodaspaces-terminal.css'
-                ? 'frontend/spaces/sodaspaces-terminal.css'
-                : url.pathname.startsWith('/assets/soda/forgejo/icons/')
-                  ? 'assets/branding/icons/octicons/' + url.pathname.split('/').pop()
-                  : url.pathname.startsWith('/assets/soda/')
-                    ? 'assets/branding/' + url.pathname.slice('/assets/soda/'.length)
-                    : '';
+            : url.pathname === '/assets/sodaspaces-terminal.css'
+              ? 'frontend/spaces/sodaspaces-terminal.css'
+              : url.pathname.startsWith('/assets/soda/forgejo/icons/')
+                ? 'assets/branding/icons/octicons/' + url.pathname.split('/').pop()
+                : url.pathname.startsWith('/assets/soda/')
+                  ? 'assets/branding/' + url.pathname.slice('/assets/soda/'.length)
+                  : '';
       if (local)
         return new Response(Bun.file(`${import.meta.dir}/../../${local}`), {
           headers: {

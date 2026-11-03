@@ -1,3 +1,4 @@
+import {factoryAssetSource} from './fixtures/factory-asset-source';
 import test, {before, after, type TestContext} from 'node:test';
 import assert from 'node:assert/strict';
 import {existsSync, readFileSync} from 'node:fs';
@@ -107,6 +108,8 @@ before(async () => {
     port: 0,
     fetch(req) {
       const url = new URL(req.url);
+      const factoryAsset = factoryAssetSource(url.pathname);
+      if (factoryAsset) return factoryAsset;
       if (scripts[url.pathname])
         return new Response(scripts[url.pathname], {headers: {'Content-Type': 'text/javascript'}});
       if (url.pathname === '/forge/-/native/session')

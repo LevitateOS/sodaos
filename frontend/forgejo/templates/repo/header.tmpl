@@ -113,7 +113,7 @@
 				{{template "custom/soda/places" (dict "Page" $ "Part" "lead")}}
 
 				{{if .Permission.CanRead $.UnitTypeIssues}}
-					<a class="{{if .PageIsIssueList}}active {{else}}{{template "custom/soda/places_attr" (dict "Page" $ "Part" "issues-active")}}{{end}}item" href="{{.RepoLink}}/issues">
+					<a class="{{if .PageIsIssueList}}active {{else}}{{template "custom/soda/places_attr" (dict "Page" $ "Part" "issues-active")}}{{end}}item" href="{{template "custom/soda/places_attr" (dict "Page" $ "Part" "issues-url")}}" data-soda-place="issues">
 						{{svg "octicon-issue-opened"}} {{ctx.Locale.Tr "repo.issues"}}
 						{{if (.Repository.NumOpenIssues ctx)}}
 							<span class="ui small label">{{CountFmt (.Repository.NumOpenIssues ctx)}}</span>

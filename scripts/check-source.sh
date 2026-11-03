@@ -20,6 +20,7 @@ check() {
 if [[ "$suite" != browser ]]; then
   # Let compilation and tests establish whether the installed compiler works.
   check go mod verify
+  check bash scripts/check-factory-boundaries.sh
   check go test -mod=readonly ./...
   check bash scripts/check-sql-locality.sh
   check bash scripts/check-no-npm.sh

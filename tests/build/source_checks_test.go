@@ -34,6 +34,7 @@ func gateStub(gate string) string {
 
 var expectedSourceCommands = [][]string{
 	{"go", "mod", "verify"},
+	{"bash", "scripts/check-factory-boundaries.sh"},
 	{"go", "test", "-mod=readonly", "./..."},
 	{"bash", "scripts/check-sql-locality.sh"},
 	{"bash", "scripts/check-no-npm.sh"},
@@ -63,7 +64,7 @@ func newSourceFixture(t *testing.T) sourceFixture {
 	Require(t, err == nil, "read check-source.sh: %v", err)
 	WriteFile(t, filepath.Join(scripts, "check-source.sh"), data, 0o644)
 	WriteFile(t, filepath.Join(root, "go.mod"), []byte("module fixture\n\ngo 1.26.7\n"), 0o644)
-	for _, gate := range []string{"check-sql-locality.sh", "check-no-npm.sh", "check-no-python.sh", "check-no-unit-tests.sh", "check-go-unitban.sh"} {
+	for _, gate := range []string{"check-factory-boundaries.sh", "check-sql-locality.sh", "check-no-npm.sh", "check-no-python.sh", "check-no-unit-tests.sh", "check-go-unitban.sh"} {
 		WriteFile(t, filepath.Join(scripts, gate), []byte(gateStub(gate)), 0o644)
 	}
 	tools := filepath.Join(root, "tools")
@@ -146,8 +147,8 @@ func TestSourceCommandsWorkWithoutAStageOrGitCheckout(t *testing.T) {
 	}{
 		{"default", nil, expectedSourceCommands},
 		{"all", []string{"all"}, expectedSourceCommands},
-		{"go", []string{"go"}, expectedSourceCommands[:7]},
-		{"browser", []string{"browser"}, expectedSourceCommands[7:]},
+		{"go", []string{"go"}, expectedSourceCommands[:8]},
+		{"browser", []string{"browser"}, expectedSourceCommands[8:]},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			fixture := newSourceFixture(t)
@@ -173,9 +174,9 @@ func TestSourceFailuresContinueIndependentSuites(t *testing.T) {
 	for _, suite := range []string{"all", "go", "browser"} {
 		commands := expectedSourceCommands
 		if suite == "go" {
-			commands = commands[:7]
+			commands = commands[:8]
 		} else if suite == "browser" {
-			commands = commands[7:]
+			commands = commands[8:]
 		}
 		for index, command := range commands {
 			fail := strings.Join(command, " ")

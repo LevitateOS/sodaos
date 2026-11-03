@@ -35,7 +35,7 @@ const FORGEJO_CONFIG: &str = "/data/gitea/conf/app.ini";
 const SODA_EXTENSION_ID: &str = "soda";
 const NATIVE_HOOK_TOKEN: &str = "/etc/soda/enrollment/native-hooks.pat";
 const NATIVE_HOOK_RECEIPT: &str = "/etc/soda/enrollment/hooks.json";
-const NATIVE_INTAKE_URL: &str = "http://host.containers.internal:8080/api/factory/intake";
+const NATIVE_INTAKE_URL: &str = "http://host.containers.internal:8081/-/soda/api/factory/intake";
 
 #[derive(Debug, Clone, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -1538,7 +1538,7 @@ fn restore_services_after_rollback(
             "soda-identity-runtime.socket",
         ])?;
     }
-    service.run(&["restart", "soda-dashboard.service"])
+    service.run(&["restart", "soda-factory.service"])
 }
 
 fn activate_services(service: &dyn IdentityServiceAction, maintenance: bool) -> Result<(), String> {
@@ -1552,7 +1552,7 @@ fn activate_services(service: &dyn IdentityServiceAction, maintenance: bool) -> 
         if maintenance { "restart" } else { "start" },
         "soda-identity.service",
     ])?;
-    service.run(&["restart", "soda-dashboard.service"])
+    service.run(&["restart", "soda-factory.service"])
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]

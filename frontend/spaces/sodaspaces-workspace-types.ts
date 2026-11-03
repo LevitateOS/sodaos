@@ -66,6 +66,7 @@ export interface PaneSession {
 export interface FactoryWatch {
   run: string;
   environmentId: string;
+  /** Native repository associated with this observed Project/run. */
   repositoryId: string;
   role: string;
   issue?: string;

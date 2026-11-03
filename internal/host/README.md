@@ -24,6 +24,24 @@ if err != nil {
 selected project's recorded ID. A running installed daemon and socket access
 are required; constructing a client does not authorize the requested operation.
 
+`NewFactoryObserver(hostClient, brokerClient)` projects run inspection/retirement
+and broker metadata/sealing into the neutral `factory/execution` observation
+ports. `LaunchRun` sends the captured, validated launch packet through native
+host admission; the adapter acquires no credentials or placement. Process exit,
+confirmed retirement, broker sealing and credential return remain distinct;
+unavailable or foreign observations never become absence or cleanup proof.
+The coordinator now consumes those ports and `ExportCandidate` for bounded Git
+bundle bytes. Its production dependency closure excludes this concrete package.
+Retained run/tool/admission variants and remaining command/profile boundaries
+are active T02-RUNS work. Broker binding `project` identifies the container;
+workspace provenance comes from the scoped host observation.
+
+`CommandTask` adapts a typed `execution.TaskRequest` to the existing appliance
+task-owner protocol and wraps its unchanged result in a scoped receipt. It
+rejects native process requests before transport; standalone native composition
+must supply its own exact process/manifest task commander. Task admission lives
+in `factory/service.WorkerTasks`, while the owner retains execution and replay.
+
 ## Available operations
 
 - [`Client`](client.go): create, inspect, join and observe project access and

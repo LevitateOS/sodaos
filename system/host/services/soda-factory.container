@@ -1,0 +1,42 @@
+[Unit]
+Description=Soda Factory coordinator
+After=soda-image-import.service forgejo.service soda-host.socket systemd-tmpfiles-setup.service
+Requires=soda-image-import.service soda-host.socket
+ConditionPathExists=/etc/soda/activated
+
+[Container]
+# One appliance runtime image packages two independently supervised products.
+Image=localhost/soda-dashboard:dev
+ContainerName=soda-factory
+Entrypoint=/usr/local/bin/soda-factory-server
+Pull=never
+Network=host
+User=2000:2000
+DropCapability=all
+ReadOnly=true
+NoNewPrivileges=true
+SecurityLabelType=soda_dashboard_t
+Volume=/etc/soda/dashboard.json:/etc/soda/dashboard.json:ro,z
+Volume=/etc/soda/postgres/soda.dsn:/etc/soda/postgres/soda.dsn:ro,z
+Volume=/etc/soda/factory:/etc/soda/factory:rw,z
+Volume=/run/soda/postgres:/run/soda/postgres:ro,z
+Volume=/run/soda/host:/run/soda/host:ro
+Volume=/run/soda/identity:/run/soda/identity:ro
+Volume=/var/lib/soda/dashboard:/var/lib/soda/dashboard:rw,Z
+Volume=/var/lib/soda/dashboard/factory-ipc:/var/lib/soda/dashboard/factory-ipc:rw,z
+Volume=/run/soda/extension:/ipc:z
+Volume=/run/soda/factory:/run/soda/factory:rw,z
+Volume=/run/soda/factory-operator:/run/soda/factory-operator:rw,z
+GroupAdd=2100
+Environment=FORGEJO_EXTENSION_SERVICE_CALLBACK_SOCKET=/ipc/host.sock
+Environment=FORGEJO_EXTENSION_SERVICE_CALLBACK_PEER_UID=1000
+Exec=--config=/etc/soda/dashboard.json --listen=127.0.0.1:8081 --extension-socket=/run/soda/factory/extension/service.sock --control-socket=/run/soda/factory/control/control.sock --operator-socket=/run/soda/factory-operator/operator.sock --operator-uid=0
+Tmpfs=/tmp:rw,nosuid,nodev,size=64m
+
+[Service]
+Restart=on-failure
+UMask=0077
+TimeoutStartSec=120
+
+[Install]
+WantedBy=multi-user.target

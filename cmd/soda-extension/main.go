@@ -18,13 +18,17 @@ func run() error {
 	flags := flag.NewFlagSet("soda-extension", flag.ContinueOnError)
 	packageID := flags.String("package-id", "", "exact package ID: soda or tailnet")
 	socket := flags.String("soda-socket", os.Getenv("SODA_EXTENSION_SERVICE_SOCKET"), "absolute path to the private Soda HTTP socket")
+	factorySocket := flags.String("factory-socket", "", "absolute path to the independent Factory service socket (soda package only)")
 	if err := flags.Parse(os.Args[1:]); err != nil {
 		return err
 	}
 	if flags.NArg() != 0 || !filepath.IsAbs(*socket) {
 		return errors.New("configure an absolute Soda service socket; no positional arguments are accepted")
 	}
-	application, closeTransport, err := packageApplication(*packageID, *socket)
+	if *packageID == "soda" && !filepath.IsAbs(*factorySocket) || *packageID != "soda" && *factorySocket != "" {
+		return errors.New("the soda frontend requires an absolute Factory socket; other packages must not select one")
+	}
+	application, closeTransport, err := packageApplication(*packageID, *socket, *factorySocket)
 	if err != nil {
 		return err
 	}
@@ -32,10 +36,10 @@ func run() error {
 	return extensions.Serve(application)
 }
 
-func packageApplication(packageID, socket string) (extensions.Application, func(), error) {
+func packageApplication(packageID, socket, factorySocket string) (extensions.Application, func(), error) {
 	switch packageID {
 	case "soda":
-		application, closeTransport := web.Extension(socket)
+		application, closeTransport := web.Extension(socket, factorySocket)
 		application.AuthorizeContribution = contributionAuthorizer()
 		return application, closeTransport, nil
 	case "tailnet":

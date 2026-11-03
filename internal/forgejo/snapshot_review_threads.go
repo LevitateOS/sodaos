@@ -83,14 +83,17 @@ func validThreadPage(page *ThreadPage, req SnapshotRequest) error {
 
 func checkHiddenThread(item ThreadEvidence) error {
 	if item.Digest != "" || item.Path != "" || item.Side != "" || item.Line != 0 ||
-		item.OriginalCommit != "" || item.HeadCommit != "" || len(item.Members) != 0 {
+		item.OriginalCommit != "" || item.HeadCommit != "" || item.OriginalAnchor != nil || len(item.Members) != 0 {
 		return ErrInvalidSnapshot
 	}
 	return nil
 }
 
 func checkVisibleThreadShape(item ThreadEvidence) error {
-	if item.Path == "" || (item.Side != "old" && item.Side != "new") || item.Line <= 0 {
+	if item.Path == "" || item.Line < 0 || item.Line == 0 && item.Side != "" || item.Line > 0 && item.Side != "old" && item.Side != "new" {
+		return ErrInvalidSnapshot
+	}
+	if item.OriginalAnchor != nil && !extensions.ValidRepositoryInlineAnchor(*item.OriginalAnchor) {
 		return ErrInvalidSnapshot
 	}
 	if item.OriginalCommit != "" && !fullOID(item.OriginalCommit) {
@@ -118,7 +121,8 @@ func checkVisibleThreadShape(item ThreadEvidence) error {
 }
 
 func checkThreadMembers(item ThreadEvidence) error {
-	for _, member := range item.Members {
+	seen := map[string]bool{}
+	for i, member := range item.Members {
 		if !decimalID(member.ID) || !decimalID(member.IssueID) {
 			return ErrInvalidSnapshot
 		}
@@ -126,7 +130,7 @@ func checkThreadMembers(item ThreadEvidence) error {
 			return ErrInvalidSnapshot
 		}
 		if !member.Visible {
-			if member.ContentDigest != "" {
+			if member.ContentDigest != "" || member.OriginalAnchor != nil || member.Resolved {
 				return ErrInvalidSnapshot
 			}
 			continue
@@ -134,8 +138,22 @@ func checkThreadMembers(item ThreadEvidence) error {
 		if member.ContentDigest == "" || member.ContentVersion < 0 {
 			return ErrInvalidSnapshot
 		}
+		if seen[member.ID] || member.IssueID != item.IssueID || member.OriginalAnchor != nil && !extensions.ValidRepositoryInlineAnchor(*member.OriginalAnchor) {
+			return ErrInvalidSnapshot
+		}
+		seen[member.ID] = true
+		if i == 0 && (member.ID != item.RootID || member.Resolved != item.Resolved || !sameThreadAnchor(member.OriginalAnchor, item.OriginalAnchor)) {
+			return ErrInvalidSnapshot
+		}
 	}
 	return nil
+}
+
+func sameThreadAnchor(a, b *extensions.RepositoryInlineAnchor) bool {
+	if a == nil || b == nil {
+		return a == b
+	}
+	return *a == *b
 }
 
 // validThread checks one conversation: a visible thread carries its

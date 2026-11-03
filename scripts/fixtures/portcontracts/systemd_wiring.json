@@ -62,9 +62,17 @@
       "file": "system/host/services/soda-dashboard.container",
       "lines": [
         "User=2000:2000",
-        "Volume=/etc/soda/factory:/etc/soda/factory:ro,Z",
+        "Volume=/run/soda/factory/control:/run/soda/factory/control:ro,z",
         "Volume=/run/soda/host:/run/soda/host:ro",
         "Volume=/run/soda/extension:/ipc:z"
+      ]
+    },
+    {
+      "file": "system/host/services/soda-factory.container",
+      "lines": [
+        "Entrypoint=/usr/local/bin/soda-factory-server",
+        "Volume=/etc/soda/factory:/etc/soda/factory:rw,z",
+        "Volume=/var/lib/soda/dashboard/factory-ipc:/var/lib/soda/dashboard/factory-ipc:rw,z"
       ]
     },
     {

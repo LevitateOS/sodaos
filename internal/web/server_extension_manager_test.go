@@ -36,7 +36,7 @@ func TestExtensionManagerAvailableWithoutFactoryCredentials(t *testing.T) {
 	t.Cleanup(func() { _ = server.Close() })
 	t.Setenv(extensions.ServiceCallbackEnv, socket)
 	t.Setenv(extensions.ServiceCallbackPeerEnv, strconv.Itoa(os.Geteuid()))
-	s := New(config.Config{}, nil)
+	s := NewForge(config.Config{}, nil)
 	r := httptest.NewRequest(http.MethodPost, "/operator/extensions/state", strings.NewReader(`{"package_id":"tailnet"}`))
 	r.Header.Set("Content-Type", "application/json")
 	w := httptest.NewRecorder()
@@ -53,7 +53,7 @@ func TestExtensionManagerRequiresPinnedServiceCallback(t *testing.T) {
 		t.Run(input.socket+"/"+input.peer, func(t *testing.T) {
 			t.Setenv(extensions.ServiceCallbackEnv, input.socket)
 			t.Setenv(extensions.ServiceCallbackPeerEnv, input.peer)
-			if s := New(config.Config{}, nil); s.API.ExtensionManager != nil {
+			if s := NewForge(config.Config{}, nil); s.API.ExtensionManager != nil {
 				t.Fatal("unpinned service callback enabled manager control")
 			}
 		})

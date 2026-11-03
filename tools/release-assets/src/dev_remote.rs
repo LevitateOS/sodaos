@@ -1,5 +1,5 @@
 //! The remote half of the SSH development overlay. Scripts run as root and only
-//! own their two Quadlet drop-ins, releases, development database, and cache entry.
+//! own their three Quadlet drop-ins, releases, development database, and cache entry.
 
 fn quote(value: &str) -> String {
     format!("'{}'", value.replace('\'', "'\\''"))
@@ -9,6 +9,7 @@ const COMMON: &str = r#"set -Eeuo pipefail
 root=/var/home/soda-dev
 forgejo_dropin=/etc/containers/systemd/forgejo.container.d/zz-soda-dev.conf
 dashboard_dropin=/etc/containers/systemd/soda-dashboard.container.d/zz-soda-dev.conf
+factory_dropin=/etc/containers/systemd/soda-factory.container.d/zz-soda-dev.conf
 die() { printf '%s\n' "$*" >&2; exit 1; }
 [[ $(id -u) == 0 ]] || die 'Run the remote development action as root.'
 for command in flock systemctl curl install cp mv mktemp readlink; do
@@ -20,26 +21,27 @@ flock -x 9
 
 wait_ready() {
     local attempt
-    printf '%s\n' 'Waiting for Forgejo and dashboard readiness...'
+    printf '%s\n' 'Waiting for Forgejo, Forge and Factory readiness...'
     for attempt in {1..90}; do
-        if systemctl --quiet is-failed forgejo.service soda-dashboard.service; then
-            printf '%s\n' 'Forgejo or the dashboard entered a failed state.' >&2
+        if systemctl --quiet is-failed forgejo.service soda-dashboard.service soda-factory.service; then
+            printf '%s\n' 'Forgejo, Forge or Factory entered a failed state.' >&2
             return 1
         fi
         if curl --fail --silent --max-time 2 http://127.0.0.1:3000/api/healthz >/dev/null &&
-           curl --fail --silent --max-time 2 http://127.0.0.1:8080/healthz >/dev/null; then
+           curl --fail --silent --max-time 2 http://127.0.0.1:8080/healthz >/dev/null &&
+           curl --fail --silent --max-time 2 http://127.0.0.1:8081/healthz >/dev/null; then
             return 0
         fi
         sleep 2
     done
-    printf '%s\n' 'Forgejo or the dashboard did not become ready.' >&2
+    printf '%s\n' 'Forgejo, Forge or Factory did not become ready.' >&2
     return 1
 }
 
 restart_services() {
     systemctl daemon-reload || return $?
-    systemctl reset-failed forgejo.service soda-dashboard.service || return $?
-    systemctl restart forgejo.service soda-dashboard.service || return $?
+    systemctl reset-failed forgejo.service soda-dashboard.service soda-factory.service || return $?
+    systemctl restart forgejo.service soda-dashboard.service soda-factory.service || return $?
     wait_ready
 }
 
@@ -48,6 +50,7 @@ snapshot() {
     [[ ! -e "$root/current" || -L "$root/current" ]] || die "$root/current must be a symlink."
     [[ ! -e "$forgejo_dropin" && ! -L "$forgejo_dropin" ]] || cp -a -- "$forgejo_dropin" "$transaction/forgejo.conf"
     [[ ! -e "$dashboard_dropin" && ! -L "$dashboard_dropin" ]] || cp -a -- "$dashboard_dropin" "$transaction/dashboard.conf"
+    [[ ! -e "$factory_dropin" && ! -L "$factory_dropin" ]] || cp -a -- "$factory_dropin" "$transaction/factory.conf"
     [[ ! -L "$root/current" ]] || cp -a -- "$root/current" "$transaction/current"
     changed=0
     trap finish EXIT
@@ -61,9 +64,10 @@ finish() {
     set +e
     if (( result != 0 && changed )); then
         printf '%s\n' 'Development activation failed; restoring the previous service overlays.' >&2
-        rm -f -- "$forgejo_dropin" "$dashboard_dropin" "$root/current"
+        rm -f -- "$forgejo_dropin" "$dashboard_dropin" "$factory_dropin" "$root/current"
         [[ ! -e "$transaction/forgejo.conf" && ! -L "$transaction/forgejo.conf" ]] || cp -a -- "$transaction/forgejo.conf" "$forgejo_dropin"
         [[ ! -e "$transaction/dashboard.conf" && ! -L "$transaction/dashboard.conf" ]] || cp -a -- "$transaction/dashboard.conf" "$dashboard_dropin"
+        [[ ! -e "$transaction/factory.conf" && ! -L "$transaction/factory.conf" ]] || cp -a -- "$transaction/factory.conf" "$factory_dropin"
         [[ ! -L "$transaction/current" ]] || cp -a -- "$transaction/current" "$root/current"
         if ! restart_services; then
             printf '%s\n' 'Previous overlays were restored, but service readiness still failed. Inspect the service journals.' >&2
@@ -90,6 +94,8 @@ done
 printf '%s\n' 'Verifying uploaded development files...'
 (cd "$release" && sha256sum --check --strict --quiet checksums.sha256)
 [[ -d "$release/forgejo" && -f "$release/bin/soda-dashboard" ]] || die 'The uploaded Forgejo presentation or dashboard is missing.'
+[[ -f /usr/share/containers/systemd/soda-factory.container ]] || die 'Install a release containing the separate Factory service before using this development overlay.'
+[[ -f "$release/bin/soda-factory-server" ]] || die 'The uploaded Factory service is missing.'
 [[ -f "$release/dev-schema.sql" ]] || die 'The development database schema additions are missing.'
 [[ -L "$release/forgejo/conf" && $(readlink "$release/forgejo/conf") == /data/gitea/conf ]] || die 'Forgejo conf must link to /data/gitea/conf.'
 [[ ! -e "$release/dev-catalog.json" ]] || die 'This release has already been prepared; upload a new release directory.'
@@ -162,7 +168,7 @@ chown -hR root:root "$release"
 find "$release" -type d -exec chmod 0755 {} +
 find "$release" -type f ! -path "$release/soda-dev.dsn" ! -path "$release/dev-dashboard.json" -exec chmod 0444 {} +
 chown 2000:2000 "$release/soda-dev.dsn" "$release/dev-dashboard.json"
-chmod 0755 "$release/bin/soda-dashboard"
+chmod 0755 "$release/bin/soda-dashboard" "$release/bin/soda-factory-server"
 [[ ! -f "$release/bin/fountain" ]] || chmod 0755 "$release/bin/fountain"
 {
     printf '%s\n' '[Container]'
@@ -181,12 +187,20 @@ chmod 0755 "$release/bin/soda-dashboard"
     printf 'Volume=%s/bin/soda-dashboard:/usr/local/bin/soda-dashboard:ro,Z\n' "$release"
     printf 'Volume=%s/soda-dev.dsn:/etc/soda/postgres/dev.dsn:ro,z\n' "$release"
     printf 'Volume=%s/dev-dashboard.json:/etc/soda/dev-dashboard.json:ro,z\n' "$release"
-    printf '%s\n' 'Exec=--extension-socket=/ipc/soda.sock --operator-socket=/run/soda/operator/operator.sock --operator-uid=0 --config=/etc/soda/dev-dashboard.json'
+    printf '%s\n' 'Exec=--extension-socket=/ipc/soda.sock --operator-socket=/run/soda/operator/operator.sock --operator-uid=0 --config=/etc/soda/dev-dashboard.json --factory-control-socket=/run/soda/factory/control/control.sock'
 } >"$transaction/dashboard.new"
-install -d -m 0755 "${forgejo_dropin%/*}" "${dashboard_dropin%/*}"
+{
+    printf '%s\n' '[Container]'
+    printf 'Volume=%s/bin/soda-factory-server:/usr/local/bin/soda-factory-server:ro,Z\n' "$release"
+    printf 'Volume=%s/soda-dev.dsn:/etc/soda/postgres/dev.dsn:ro,z\n' "$release"
+    printf 'Volume=%s/dev-dashboard.json:/etc/soda/dev-dashboard.json:ro,z\n' "$release"
+    printf '%s\n' 'Exec=--config=/etc/soda/dev-dashboard.json --listen=127.0.0.1:8081 --extension-socket=/run/soda/factory/extension/service.sock --control-socket=/run/soda/factory/control/control.sock --operator-socket=/run/soda/factory-operator/operator.sock --operator-uid=0'
+} >"$transaction/factory.new"
+install -d -m 0755 "${forgejo_dropin%/*}" "${dashboard_dropin%/*}" "${factory_dropin%/*}"
 changed=1
 install -m 0644 "$transaction/forgejo.new" "$forgejo_dropin"
 install -m 0644 "$transaction/dashboard.new" "$dashboard_dropin"
+install -m 0644 "$transaction/factory.new" "$factory_dropin"
 restart_services
 jq --exit-status --arg hash "$package_sha" '.package_id == "soda" and .archive_sha256 == $hash' \
     /var/lib/soda/forgejo/gitea/extensions/soda/.fountain-package.json >/dev/null || die 'Forgejo did not install the uploaded Soda package.'
@@ -206,7 +220,7 @@ pub fn disable_script() -> String {
     script.push_str(
         r#"snapshot
 changed=1
-rm -f -- "$forgejo_dropin" "$dashboard_dropin"
+rm -f -- "$forgejo_dropin" "$dashboard_dropin" "$factory_dropin"
 restart_services
 rm -f -- "$root/current"
 rm -f -- "$root/browser-override.json"
@@ -217,16 +231,17 @@ printf '%s\n' 'Development overlay disabled; installed SodaOS assets are active.
     script
 }
 
-/// Report the overlay and both services without changing the installed machine.
+/// Report the overlay and services without changing the installed machine.
 pub fn status_script() -> String {
     r#"set -uo pipefail
 root=/var/home/soda-dev
 forgejo_dropin=/etc/containers/systemd/forgejo.container.d/zz-soda-dev.conf
 dashboard_dropin=/etc/containers/systemd/soda-dashboard.container.d/zz-soda-dev.conf
-if [[ -f "$forgejo_dropin" && -f "$dashboard_dropin" ]]; then
+factory_dropin=/etc/containers/systemd/soda-factory.container.d/zz-soda-dev.conf
+if [[ -f "$forgejo_dropin" && -f "$dashboard_dropin" && -f "$factory_dropin" ]]; then
     printf '%s\n' 'mode=development'
     printf '%s\n' 'database=soda_dev'
-elif [[ -e "$forgejo_dropin" || -e "$dashboard_dropin" ]]; then
+elif [[ -e "$forgejo_dropin" || -e "$dashboard_dropin" || -e "$factory_dropin" ]]; then
     printf '%s\n' 'mode=incomplete'
 else
     printf '%s\n' 'mode=native'
@@ -238,12 +253,12 @@ fi
 if [[ -f "$root/browser-override.json" ]]; then
     printf 'browser_release=%s\n' "$(jq -r '.release' "$root/browser-override.json")"
 fi
-for service in forgejo soda-dashboard; do
+for service in forgejo soda-dashboard soda-factory; do
     printf '%s=' "$service"
     systemctl is-active "$service.service" || true
 done
 result=0
-for endpoint in 'forgejo http://127.0.0.1:3000/api/healthz' 'dashboard http://127.0.0.1:8080/healthz'; do
+for endpoint in 'forgejo http://127.0.0.1:3000/api/healthz' 'dashboard http://127.0.0.1:8080/healthz' 'factory http://127.0.0.1:8081/healthz'; do
     name=${endpoint%% *}
     url=${endpoint#* }
     if curl --fail --silent --max-time 5 "$url" >/dev/null; then

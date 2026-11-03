@@ -21,6 +21,7 @@ export interface WorkRoute {
   readonly action?: string;
   readonly status: number;
   readonly json: unknown;
+  readonly readReplies?: unknown[];
   readonly echoCommand?: boolean;
   readonly echoAcceptance?: boolean;
   loseReply?: boolean;
@@ -56,6 +57,8 @@ function withCommand(json: unknown, body: unknown): unknown {
 
 function stubTransport(): PreparedExtensionMount {
   return {
+    generation: 'declared-work-generation',
+    assetBase: '/assets',
     request: (async (path: string, init: RequestInit = {}) => {
       const method = init.method ?? 'GET';
       let body: unknown;
@@ -68,7 +71,10 @@ function stubTransport(): PreparedExtensionMount {
       }
       calls.push({method, path, body});
       const hit = routes.find((route) => route.method === method && route.path === path && matchBody(route, body));
+      if (!hit && method === 'GET' && path === 'factory/identity')
+        return Response.json({host: 'a'.repeat(32), actor: '1', native_actor: '1'});
       if (!hit) return Response.json({error: {code: 'not_found', message: 'No stub reply.'}}, {status: 404});
+      if (method === 'GET' && hit.readReplies?.length) return Response.json(hit.readReplies.shift(), {status: hit.status});
       const json = hit.echoCommand ? withCommand(hit.json, body) : hit.json;
       const acceptance =
         hit.echoAcceptance && typeof body === 'object' && body !== null

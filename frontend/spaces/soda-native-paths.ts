@@ -2,7 +2,7 @@ import type {ExtensionMountContext} from './soda-extension.js';
 
 // Only native Forgejo navigation needs its installation prefix. API authority
 // remains entirely with the mount transport.
-export function nativeAppSubUrl(context: ExtensionMountContext): string {
+export function nativeAppSubUrl(context: Pick<ExtensionMountContext, 'appSubUrl'>): string {
   const prefix = context.appSubUrl;
   if (
     typeof prefix !== 'string' ||

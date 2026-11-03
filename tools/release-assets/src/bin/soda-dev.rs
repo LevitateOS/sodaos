@@ -358,6 +358,7 @@ fn build(source: &Path, args: &Args) -> Result<(PathBuf, String)> {
     println!("Building dashboard and extension backend");
     run(go.arg("-o").arg(build.join("bin")).args([
         "./cmd/soda-dashboard",
+        "./cmd/soda-factory-server",
         "./cmd/soda-extension",
         "./tools/dev-db",
     ]))?;
@@ -413,6 +414,10 @@ fn build(source: &Path, args: &Args) -> Result<(PathBuf, String)> {
     fs::copy(
         build.join("bin/soda-dashboard"),
         context.join("bin/soda-dashboard"),
+    )?;
+    fs::copy(
+        build.join("bin/soda-factory-server"),
+        context.join("bin/soda-factory-server"),
     )?;
     let fountain = args
         .fountain

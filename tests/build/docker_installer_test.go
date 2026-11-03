@@ -498,7 +498,7 @@ func TestDockerInstallerActivatedStateRequiresServicesAndVerifiedHTTPS(t *testin
 	der, err := x509.CreateCertificate(rand.Reader, ca, ca, public, private)
 	Require(t, err == nil, "sign fixture CA: %v", err)
 	certificate := pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE", Bytes: der})
-	for _, fault := range []string{"healthy", "soda-dashboard.service", "soda-proxy.service", "https"} {
+	for _, fault := range []string{"healthy", "soda-dashboard.service", "soda-factory.service", "soda-proxy.service", "https"} {
 		t.Run(fault, func(t *testing.T) {
 			f := newDockerInstallerFixture(t)
 			script := f.script(t)

@@ -17,6 +17,7 @@ PublishPort=127.0.0.1:3000:3000
 PublishPort=127.0.0.1:2222:22
 Volume=/var/lib/soda/forgejo:/data:Z
 Volume=/run/soda/extension:/ipc:z
+Volume=/run/soda/factory/extension:/factory:ro,z
 Volume=/etc/soda/postgres/forgejo.passwd:/etc/forgejo/db_passwd:ro,Z
 GroupAdd=2100
 Environment=USER_UID=1000

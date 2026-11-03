@@ -215,6 +215,7 @@ setup_browser() {
   compose cp soda:/var/lib/soda/proxy/caddy/pki/authorities/local/root.crt "$scratch/soda-root.crt"
   openssl x509 -in "$scratch/soda-root.crt" -noout -fingerprint -sha256
   compose exec -T soda systemctl is-active --quiet soda-dashboard.service
+  compose exec -T soda systemctl is-active --quiet soda-factory.service
   compose exec -T soda systemctl is-active --quiet soda-proxy.service
   curl --fail --silent --show-error --proto '=https' --connect-timeout 10 --max-time 30 \
     --cacert "$scratch/soda-root.crt" "https://$bind_ip/api/healthz" > /dev/null ||

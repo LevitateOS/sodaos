@@ -37,17 +37,17 @@ path = "tests/cli/main.rs"
 [dependencies]
 clap = { version = "=4.6.7", default-features = false, features = ["std", "help", "usage", "error-context"] }
 serde = { version = "=1.0.229", features = ["derive"] }
-serde_json = { version = "=1.0.151", features = ["raw_value"] }
+serde_json = { version = "=1.0.154", features = ["raw_value"] }
 getrandom = { version = "=0.4.3", features = ["std"] }
 soda-build-tools = { path = "../release-inputs" }
 soda-release-build = { path = "../soda-release-build" }
 soda-release-deliver = { path = "../soda-release-deliver" }
 soda-release-image = { path = "../soda-release-image" }
-libc = "=0.2.190"
+libc = "=0.2.191"
 sha2 = "0.10"
 hyper = { version = "=1.12.0", default-features = false, features = ["http1", "server"] }
 hyper-util = { version = "=0.1.21", default-features = false, features = ["tokio"] }
-tokio = { version = "=1.53.2", default-features = false, features = ["rt", "net", "time", "sync", "fs", "io-util", "macros"] }
+tokio = { version = "=1.54.1", default-features = false, features = ["rt", "net", "time", "sync", "fs", "io-util", "macros"] }
 url = "=2.5.8"
 percent-encoding = "=2.3.2"
 soda-wire-time = { path = "../wire-time" }

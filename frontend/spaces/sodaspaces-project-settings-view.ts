@@ -457,7 +457,7 @@ export function renderFactoryView(input: SettingsViewInput) {
     <soda-factory-settings
       .context=${{
         transport,
-        repository: input.readBindingRepository(),
+        nativeRepository: input.readBindingRepository(),
         environment: input.readEnvironment()?.id || '',
         profile: input.readProfiles().find((profile) => profile.id === input.readSelectedProfile()),
         repositoryURL: input.readRepositoryURL(),

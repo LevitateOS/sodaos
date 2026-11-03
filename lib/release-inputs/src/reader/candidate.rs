@@ -2,10 +2,12 @@
 use super::is_digest;
 use std::collections::BTreeMap;
 
-pub const REQUIRED_CONTENT: [&str; 15] = [
+pub const REQUIRED_CONTENT: [&str; 17] = [
     "dashboard:/usr/local/bin/soda-dashboard",
+    "dashboard:/usr/local/bin/soda-factory-server",
     "host:/usr/share/containers/systemd/forgejo.container",
     "host:/usr/share/containers/systemd/soda-dashboard.container",
+    "host:/usr/share/containers/systemd/soda-factory.container",
     "host:/usr/share/containers/systemd/soda-proxy.container",
     "host:/usr/share/containers/systemd/soda-postgres.container",
     "host:/usr/share/soda/extensions/catalog.json",

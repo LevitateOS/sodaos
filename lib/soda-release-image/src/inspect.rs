@@ -52,6 +52,8 @@ pub fn inspect_complete_quadlets(
     )?;
     if generated.contains("additionalimagestore")
         || !generated.contains("soda-image-import.service")
+        || !generated.contains("soda-factory.service")
+        || !generated.contains("/usr/local/bin/soda-factory-server")
     {
         return Err(Error::msg(
             "native Quadlet generator lost ordinary Podman import ordering",

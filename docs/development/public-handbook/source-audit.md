@@ -137,7 +137,7 @@ bind executable task graphs, lanes, checks and trusted checkpoint/output imports
 `app_verification.go::{ApplicationVerificationEvidence,verifyApplicationReport,
 driveAppVerifications}` binds observed checks, integrated version and coverage.
 `frontend/spaces/sodaspaces-factory-navigation-view.ts` and
-`sodaspaces-factory-view.ts` distinguish watching output from control.
+`frontend/factory/watch/watch-view.ts` distinguish watching output from control.
 `internal/factory/control/operator.go` and `cmd/soda-factory/src/main.rs` expose
 recorded status/stop/reconcile, not the complete automatic admission workflow.
 

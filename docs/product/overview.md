@@ -8,6 +8,13 @@ automatic merge, and reconsideration of dependent work. AI coding CLIs run in th
 repository's development environment, with account access supplied by Soda's
 Identity Broker. People observe the work and intervene through Spaces.
 
+Factory is a separate product, served by `soda-factory-server`. Soda Forge
+provides its Fountain-hosted browser integration alongside Project administration
+and human terminals. SodaOS packages both as separately supervised services.
+They currently share the existing PostgreSQL schema and Project records; this
+separation does not introduce a second database or standalone browser shell.
+See the [Factory service guide](../../cmd/soda-factory-server/README.md).
+
 This document owns the target factory behavior. The [factory reference](../reference/factory.md)
 describes the implemented operator commands; those commands do not define the
 limits of this product contract. [Trust](../architecture/trust.md) owns authority

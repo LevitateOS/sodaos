@@ -5,11 +5,13 @@
 {{- $here := $p.ExtensionPageURL -}}{{- if and (not $here) $p.PageIsExtension}}{{$here = $p.Link}}{{end -}}
 {{- $feed := $soda -}}{{- $requests := "" -}}{{- $app := "" -}}{{- $terminals := "" -}}{{- $knowledge := "" -}}{{- $settings := "" -}}{{- $issues := "" -}}{{- $factory := "" -}}
 {{- if $soda -}}
-{{- $requests = print $soda "/requests"}}{{$app = print $soda "/app"}}{{$terminals = print $soda "/terminals"}}{{$knowledge = print $soda "/knowledge"}}{{$settings = print $soda "/settings"}}{{$issues = print $soda "/issues" -}}
-{{- with $p.Issue}}{{$factory = print $soda "/issues/" .Index}}{{end -}}
+{{- $requests = print $soda "/requests"}}{{$app = print $soda "/app"}}{{$terminals = print $soda "/terminals"}}{{$knowledge = print $soda "/knowledge"}}{{$settings = print $soda "/settings"}}{{$issues = print $soda "/work/issues" -}}
+{{- with $p.Issue}}{{$factory = print $soda "/work/issues/" .Index "?tab=factory"}}{{end -}}
 {{- end -}}
 {{- if eq $part "issues-active" -}}
-	{{- if and $issues (StringUtils.HasPrefix $here $issues)}}active {{end -}}
+	{{- if and $issues (or (eq $here $issues) (StringUtils.HasPrefix $here (print $issues "/")))}}active {{end -}}
+{{- else if eq $part "issues-url" -}}
+  {{- if $issues}}{{$issues}}{{else}}{{$p.RepoLink}}/issues{{end -}}
 {{- else if eq $part "settings-active" -}}
 	{{- if and $settings (StringUtils.HasPrefix $here $settings)}}active {{end -}}
 {{- end -}}

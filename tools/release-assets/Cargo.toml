@@ -48,7 +48,7 @@ roxmltree = "=0.21.1"
 svgtypes = "=0.16.1"
 tempfile = "=3.27.0"
 serde = { version = "=1.0.229", features = ["derive"] }
-serde_json = { version = "=1.0.151", features = ["raw_value"] }
+serde_json = { version = "=1.0.154", features = ["raw_value"] }
 soda-build-tools = { path = "../../lib/release-inputs" }
 ureq = { version = "2", default-features = false, features = ["tls"] }
 flate2 = "1"
@@ -56,4 +56,4 @@ tar = "0.4"
 sha2 = "0.10"
 base64 = "0.22"
 url = "=2.5.8"
-libc = "=0.2.190"
+libc = "=0.2.191"

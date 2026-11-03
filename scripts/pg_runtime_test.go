@@ -96,7 +96,7 @@ func TestPostgresProvisionUnitWiring(t *testing.T) {
 func TestDashboardUnitDatabaseWiring(t *testing.T) {
 	body := readRuntimeFile(t, "system/host/services/soda-dashboard.container")
 	requireContains(t, body,
-		"Volume=/etc/soda/postgres/soda.dsn:/etc/soda/postgres/soda.dsn:ro,Z",
+		"Volume=/etc/soda/postgres/soda.dsn:/etc/soda/postgres/soda.dsn:ro,z",
 		"Volume=/run/soda/postgres:/run/soda/postgres:ro,z",
 	)
 }

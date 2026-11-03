@@ -1,5 +1,5 @@
 [Unit]
-Description=Soda dashboard
+Description=Soda Forge backend
 After=soda-image-import.service forgejo.service soda-host.socket systemd-tmpfiles-setup.service
 Requires=soda-image-import.service soda-host.socket
 ConditionPathExists=/etc/soda/activated
@@ -14,18 +14,15 @@ DropCapability=all
 ReadOnly=true
 NoNewPrivileges=true
 SecurityLabelType=soda_dashboard_t
-Volume=/etc/soda/dashboard.json:/etc/soda/dashboard.json:ro,Z
-Volume=/etc/soda/postgres/soda.dsn:/etc/soda/postgres/soda.dsn:ro,Z
-Volume=/etc/soda/factory:/etc/soda/factory:ro,Z
+Volume=/etc/soda/dashboard.json:/etc/soda/dashboard.json:ro,z
+Volume=/etc/soda/postgres/soda.dsn:/etc/soda/postgres/soda.dsn:ro,z
 Volume=/run/soda/postgres:/run/soda/postgres:ro,z
 # Share only the stable host IPC directory, so socket recreation remains
 # visible after a daemon failure. Keep it unlabeled: systemd owns the listener
 # and the appliance policy grants this dashboard only its socket access.
 Volume=/run/soda/host:/run/soda/host:ro
 Volume=/run/soda/identity:/run/soda/identity:ro
-Volume=/var/lib/soda/dashboard:/var/lib/soda/dashboard:rw,Z
-# Only the authenticated worker MCP socket directory is shared with Projects.
-Volume=/var/lib/soda/dashboard/factory-ipc:/var/lib/soda/dashboard/factory-ipc:rw,z
+Volume=/run/soda/factory/control:/run/soda/factory/control:ro,z
 # Read-only directory FD shares native maintenance admission; private journal
 # contents remain root-only. Keep its host inode and label unchanged.
 Volume=/var/lib/soda/project-maintenance:/var/lib/soda/project-maintenance:ro
@@ -37,7 +34,7 @@ Environment=FORGEJO_EXTENSION_SERVICE_CALLBACK_SOCKET=/ipc/host.sock
 # forgejo.container); the dashboard (2000) must pin that peer identity
 # or the SDK refuses the cross-user dial before any request flows.
 Environment=FORGEJO_EXTENSION_SERVICE_CALLBACK_PEER_UID=1000
-Exec=--extension-socket=/ipc/soda.sock --operator-socket=/run/soda/operator/operator.sock --operator-uid=0
+Exec=--extension-socket=/ipc/soda.sock --operator-socket=/run/soda/operator/operator.sock --operator-uid=0 --factory-control-socket=/run/soda/factory/control/control.sock
 Tmpfs=/tmp:rw,nosuid,nodev,size=64m
 
 [Service]

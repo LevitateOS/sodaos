@@ -69,15 +69,26 @@ func TestActorCallersUsePrivateHTTP1LookupAndKeepSharedPool(t *testing.T) {
 		t.Fatal(err)
 	}
 	background := &ServiceBackground{}
-	publisher := NewPublisher(background, rest, "https://internal.invalid", t.TempDir(), credential)
+	identities := graphIdentityFixture(t, 7, actorID, 18)
+	localActor, err := identities.LocalActor(ctx, "17")
+	if err != nil {
+		t.Fatal(err)
+	}
+	publisher := NewPublisher(background, rest, "https://internal.invalid", t.TempDir(), credential, identities)
 	callers := []struct {
 		name string
 		call func() error
 	}{
-		{"checks", func() error { return NewCheckAssessor(background, rest, credential).checkActor(ctx, actorID) }},
-		{"merge", func() error { return NewMerger(background, rest, credential).checkActor(ctx, actorID) }},
-		{"review", func() error { return NewReviewer(background, rest, credential).checkActor(ctx, actorID) }},
-		{"publish", func() error { return publisher.checkActor(ctx, actorID) }},
+		{"checks", func() error {
+			return NewCheckAssessor(background, rest, credential, identities).checkActor(ctx, int64(localActor))
+		}},
+		{"merge", func() error {
+			return NewMerger(background, rest, credential, identities).checkActor(ctx, int64(localActor))
+		}},
+		{"review", func() error {
+			return NewReviewer(background, rest, credential, identities).checkActor(ctx, int64(localActor))
+		}},
+		{"publish", func() error { return publisher.checkActor(ctx, int64(localActor)) }},
 	}
 	for i, caller := range callers {
 		caller := caller

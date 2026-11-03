@@ -8,6 +8,7 @@ import type {Page} from 'playwright';
 import {setupWorkspaceDriver, fixture, reviewFirstIntent} from './fixtures/workspace-driver';
 import {captureSpacesComponent} from '../../scripts/screenshot';
 setupWorkspaceDriver();
+const fountainDraftScope = encodeURIComponent('fountain:' + 'a'.repeat(32));
 
 type ExplorationMode = 'supported' | 'unsupported' | 'challenges' | 'votes' | 'settled';
 interface IntentStore {
@@ -40,6 +41,7 @@ interface IntentStore {
 async function installIntentStore(page: Page) {
   await page.evaluate(() => {
     const records = new Map<string, Record<string, unknown>>();
+    const savedRevisions = new Map<string, Record<string, unknown>>();
     const gates = new Map<string, () => void>();
     const single = (url: string) => url.match(/\/api\/factory\/intents\/([^/?#]+)$/)?.[1] || '';
     const challengeTexts = [
@@ -56,7 +58,13 @@ async function installIntentStore(page: Page) {
     ];
     const buildExploration = (
       mode: ExplorationMode,
-      json: {id: string; intent: string; objective: string; ideas: {id: string; decision?: string}[]}
+      json: {
+        id: string;
+        predecessor?: string;
+        intent: string;
+        objective: string;
+        ideas: {id: string; decision?: string}[];
+      }
     ) => {
       const shared = {
         key: 'shared_review',
@@ -88,7 +96,7 @@ async function installIntentStore(page: Page) {
         producer: 'soda-authored-v1',
         supported: mode !== 'unsupported',
         intent: json.intent,
-        revision: json.id,
+        revision: json.predecessor || json.id,
         objective: json.objective,
         facts: [json.objective],
         ...(mode === 'unsupported'
@@ -133,7 +141,7 @@ async function installIntentStore(page: Page) {
               recommendation: {
                 producer: 'soda-authored-v1',
                 intent: json.intent,
-                revision: json.id,
+                revision: json.predecessor || json.id,
                 objective: json.objective,
                 recommended: 'shared_review',
                 alternative: shared,
@@ -148,7 +156,7 @@ async function installIntentStore(page: Page) {
               consistency: {
                 producer: 'soda-authored-v1',
                 intent: json.intent,
-                revision: json.id,
+                revision: json.predecessor || json.id,
                 mismatches: [],
                 confidence: 0.92,
                 advice: 'e'.repeat(64),
@@ -188,7 +196,10 @@ async function installIntentStore(page: Page) {
         resolve?.();
       },
       seed(entries: Record<string, unknown>[]) {
-        for (const entry of entries) records.set(String(entry.intent), entry);
+        for (const entry of entries) {
+          records.set(String(entry.intent), entry);
+          savedRevisions.set(String(entry.id), entry);
+        }
       },
       seedHistory(intent: string, revisions: Record<string, unknown>[]) {
         histories.set(String(intent), revisions);
@@ -350,6 +361,23 @@ async function installIntentStore(page: Page) {
             task_issue_ids: store.generation.state === 'pending' ? {} : {k1: '1'},
           });
         }
+        const savedPlan = url.match(/\/api\/factory\/intents\/(d[0-9a-f]{24})\/revisions\/(d[0-9a-f]{24})\/plan$/);
+        if (savedPlan && method === 'GET') {
+          const record = savedRevisions.get(savedPlan[2]!);
+          if (!record || record.intent !== savedPlan[1] || record.state !== 'draft')
+            return new Response(null, {status: 404});
+          const status = plans.get(savedPlan[2]!);
+          if (!status) return Response.json({intent: savedPlan[1], revision: savedPlan[2], state: 'none'});
+          const entry = status.state === 'completed' && !store.planBare ? planEntry(record) : undefined;
+          return Response.json({
+            ...status,
+            intent: savedPlan[1],
+            operation: 'propose_intent',
+            assignment_id: 'a'.repeat(32),
+            run_id: 'b'.repeat(32),
+            ...(entry ? {walkthroughs: entry.content} : {}),
+          });
+        }
         if (url.includes('/api/factory/intents/') && url.endsWith('/plan/review') && method === 'POST') {
           const record = records.get(url.split('/').at(-3) || '');
           if (!record || record.state !== 'draft' || record.repository === '0')
@@ -451,13 +479,20 @@ async function installIntentStore(page: Page) {
           if (store.exploreFundingRequired)
             return Response.json({error: {code: 'planning_funding_required'}}, {status: 409});
           const response = await original(input, init);
-          if (!response.ok || !store.exploration) return response;
+          if (!response.ok) return response;
           const json = (await response.json()) as {
+            predecessor?: string;
             id: string;
             intent: string;
             objective: string;
             ideas: {id: string; decision?: string}[];
           };
+          const present = (value: Record<string, unknown>) => {
+            records.set(String(value.intent), value);
+            savedRevisions.set(String(value.id), value);
+            return Response.json(value);
+          };
+          if (!store.exploration) return present(json);
           if (store.exploration === 'settled') {
             const settled: string[] = [];
             const ideas = json.ideas.map((idea) => {
@@ -467,7 +502,7 @@ async function installIntentStore(page: Page) {
             });
             const exploration = buildExploration('supported', {...json, ideas});
             exploration.settled = settled;
-            return Response.json({...json, ideas, exploration});
+            return present({...json, ideas, exploration});
           }
           if (store.exploration === 'votes') {
             const extra = {
@@ -485,15 +520,16 @@ async function installIntentStore(page: Page) {
               {idea: json.ideas[0]?.id || '', ...challengeTexts[0]},
               {idea: extra.id, ...challengeTexts[1]},
             ];
-            return Response.json({...json, ideas, exploration});
+            return present({...json, ideas, exploration});
           }
-          return Response.json({...json, exploration: buildExploration(store.exploration, json)});
+          return present({...json, exploration: buildExploration(store.exploration, json)});
         }
         if (url.endsWith('/api/factory/intents') && method === 'POST') {
           const response = await original(input, init);
           if (response.ok && typeof init?.body === 'string') {
             const body = JSON.parse(init.body) as Record<string, unknown>;
             records.set(String(body.intent), {...body});
+            savedRevisions.set(String(body.id), {...body});
           }
           return response;
         }
@@ -554,6 +590,7 @@ async function planBoundIntent(page: Page, launchUnconfirmed = false) {
   await planning.getByRole('button', {name: 'Refresh status', exact: true}).click();
   await page.getByRole('button', {name: 'Check walkthrough', exact: true}).click();
   await page.getByRole('button', {name: 'Accept and build', exact: true}).click();
+  await page.waitForFunction(() => !(document.querySelector('soda-intent') as unknown as {busy: boolean})?.busy);
   await page.getByRole('heading', {name: 'Review your product direction', exact: true}).waitFor();
   return draft;
 }
@@ -568,6 +605,1286 @@ async function lastPostedBody(page: Page, state: string): Promise<Record<string,
     const found = [...calls].reverse().find((call) => call.body?.state === wanted);
     return (found?.body || {}) as Record<string, unknown>;
   }, state);
+}
+
+async function requestLifetime(standalone: Page) {
+  const composer = standalone.locator('soda-intent');
+  const entry = composer.getByRole('textbox', {name: 'Describe what you want to build', exact: true});
+  const posts = () => standalone.evaluate(() => window.factoryRequestFixture.calls().filter((call) => !!call.body));
+  const idle = () => standalone.waitForFunction(() => !window.factoryRequestFixture.snapshot().busy);
+  const settle = () =>
+    standalone.evaluate(() => new Promise<void>((resolve) => requestAnimationFrame(() => resolve())));
+  // Every actual save request is made by the production Explore action. Changing
+  // its host lifetime must abort its signal and prevent the chained explore.
+  for (const retirement of [
+    'active',
+    'blocked',
+    'api',
+    'profile',
+    'actor',
+    'request',
+    'disconnect',
+    'reset',
+    'cycle',
+  ] as const) {
+    await standalone.evaluate(() => window.factoryRequestFixture.lifetime('save'));
+    await entry.fill('Keep this writing in its original request.');
+    await composer.getByRole('button', {name: 'Explore ideas', exact: true}).click();
+    await standalone.waitForFunction(() => window.factoryRequestFixture.held() === 1);
+    const submitted = (await posts())[0]!;
+    assert(submitted.body?.id);
+    await standalone.evaluate((kind) => window.factoryRequestFixture.retire(kind), retirement);
+    await idle();
+    if (retirement === 'request') await composer.getByRole('textbox', {name: 'Desired outcome'}).waitFor();
+    assert.equal(await standalone.evaluate(() => window.factoryRequestFixture.aborted()), true);
+    await standalone.evaluate(() => window.factoryRequestFixture.clearEvents());
+    const before = await standalone.evaluate(() => window.factoryRequestFixture.snapshot());
+    await standalone.evaluate(() => window.factoryRequestFixture.release());
+    await settle();
+    assert.equal((await posts()).length, 1, retirement + ' cannot chain a write through either API');
+    assert.deepEqual(
+      await standalone.evaluate(() => window.factoryRequestFixture.snapshot()),
+      before,
+      retirement + ' ignores late saved revision'
+    );
+    assert.deepEqual(await standalone.evaluate(() => window.factoryRequestFixture.events()), []);
+    if (retirement === 'disconnect') {
+      assert.equal(await composer.count(), 0);
+      await standalone.evaluate(() => window.factoryRequestFixture.reattach());
+      await entry.waitFor();
+      assert.equal(await entry.inputValue(), 'Keep this writing in its original request.');
+      assert.equal((await posts()).length, 1);
+    }
+  }
+  // Identical host props must leave the admitted action alone. It completes its
+  // save and chained exploration using the same API and its captured lifetime.
+  await standalone.evaluate(() => window.factoryRequestFixture.lifetime('save'));
+  await entry.fill('Continue the unchanged request.');
+  await composer.getByRole('button', {name: 'Explore ideas', exact: true}).click();
+  await standalone.waitForFunction(() => window.factoryRequestFixture.held() === 1);
+  await standalone.evaluate(() => window.factoryRequestFixture.repeat());
+  assert.equal(await standalone.evaluate(() => window.factoryRequestFixture.aborted()), false);
+  assert.equal(await standalone.evaluate(() => window.factoryRequestFixture.snapshot().busy), true);
+  await standalone.evaluate(() => window.factoryRequestFixture.release());
+  await composer
+    .getByRole('heading', {name: 'Review your product direction'})
+    .waitFor()
+    .catch(async () => {
+      throw Error(
+        JSON.stringify(
+          await standalone.evaluate(() => ({
+            snapshot: window.factoryRequestFixture.snapshot(),
+            calls: window.factoryRequestFixture.calls(),
+            text: document.querySelector('soda-intent')?.shadowRoot?.textContent?.slice(-1200),
+          }))
+        )
+      );
+    });
+  assert.equal((await posts()).length, 2);
+  assert((await posts())[1]!.path.endsWith('/explore'));
+  assert((await posts()).every((call) => call.api === 'A'));
+
+  // Held reads, a derived proposal, native planning and generation all reject
+  // late replies/errors. No old finalizer may repaint or signal a new scope.
+  for (const kind of ['resume', 'explore', 'plan', 'generate', 'poll'] as const) {
+    await standalone.evaluate((kind) => window.factoryRequestFixture.lifetime(kind), kind);
+    if (kind === 'explore') {
+      await entry.fill('Retire a derived proposal.');
+      await composer.getByRole('button', {name: 'Explore ideas', exact: true}).click();
+    } else if (kind === 'plan') {
+      await composer.getByText('Planning details', {exact: true}).click();
+      await composer.getByRole('button', {name: 'Plan work', exact: true}).click();
+    } else if (kind === 'generate') {
+      await idle();
+      await standalone.evaluate(() => window.factoryRequestFixture.accept());
+    } else if (kind === 'poll') {
+      await idle();
+      await standalone.evaluate(() => window.factoryRequestFixture.poll());
+    }
+    await standalone.waitForFunction(() => window.factoryRequestFixture.held() === 1);
+    const oldPosts = (await posts()).length;
+    await standalone.evaluate(() => window.factoryRequestFixture.retire('profile'));
+    await idle();
+    await standalone.evaluate(() => window.factoryRequestFixture.clearEvents());
+    const before = await standalone.evaluate(() => window.factoryRequestFixture.snapshot());
+    assert.equal(await standalone.evaluate(() => window.factoryRequestFixture.aborted()), true);
+    await standalone.evaluate(() => window.factoryRequestFixture.release(true));
+    await settle();
+    assert.deepEqual(
+      await standalone.evaluate(() => window.factoryRequestFixture.snapshot()),
+      before,
+      kind + ' cannot repaint the new profile'
+    );
+    assert.deepEqual(await standalone.evaluate(() => window.factoryRequestFixture.events()), []);
+    assert.equal((await posts()).length, oldPosts);
+  }
+}
+
+async function requestDraftRecovery(page: Page) {
+  const composer = page.locator('soda-intent');
+  const entry = () => composer.getByRole('textbox', {name: 'Describe what you want to build', exact: true});
+  const outcome = () => composer.getByRole('textbox', {name: 'Desired outcome', exact: true});
+  const status = (text: string) =>
+    composer
+      .getByRole('region', {name: 'Request draft recovery'})
+      .getByRole('status')
+      .filter({hasText: text})
+      .waitFor();
+  const retry = () => composer.getByRole('button', {name: 'Try saving draft again', exact: true});
+  const mount = (state: 'entry' | 'review', profile: string) =>
+    page.evaluate(({state, profile}) => window.factoryRequestFixture.draftMount(state, profile), {state, profile});
+  const noPost = async () =>
+    assert((await page.evaluate(() => window.factoryRequestFixture.calls())).every((call) => !call.body));
+  await mount('entry', 'draft-entry');
+  await entry().fill('Keep the exact local description.');
+  const original = (await page.evaluate(() => window.factoryRequestFixture.saved()))!;
+  const record = JSON.parse(original) as Record<string, unknown>;
+  assert.equal(record.scope, 'storybook:request:draft-entry:entry');
+  assert.equal(record.actor, '9007199254740993');
+  assert.equal(record.subject, 'new');
+  assert.equal(record.base, '');
+  assert.equal(record.repository, '0');
+  await page.reload();
+  await page.waitForFunction(
+    () =>
+      document.querySelector('soda-intent')?.shadowRoot?.querySelector('textarea')?.value ===
+      'Keep the exact local description.'
+  );
+  assert.equal(await page.evaluate(() => window.factoryRequestFixture.saved()), original);
+  await noPost();
+  await mount('entry', 'draft-other-profile');
+  assert.equal(await entry().inputValue(), '');
+  await mount('entry', 'draft-entry');
+  assert.equal(await entry().inputValue(), 'Keep the exact local description.');
+
+  await mount('review', 'draft-review');
+  await outcome().fill('Keep edited direction without rerunning the planner.');
+  await composer.getByRole('combobox', {name: /^Choice:/}).selectOption('edit');
+  await composer.getByLabel('What should change?', {exact: true}).fill('Keep the exact human correction.');
+  await composer.locator('summary').filter({hasText: 'Delivery approach'}).click();
+  await composer.getByLabel('Choose how to deliver the accepted workflow', {exact: true}).selectOption('incremental');
+  const reviewBytes = (await page.evaluate(() => window.factoryRequestFixture.saved()))!;
+  const review = JSON.parse(reviewBytes) as Record<string, unknown>;
+  assert.equal(review.base, 'd' + '2'.repeat(24));
+  assert.equal(review.approach, 'incremental');
+  assert.deepEqual(review.ideas, [
+    {id: 'd' + '3'.repeat(24), decision: 'edit', correction: 'Keep the exact human correction.'},
+  ]);
+  await page.reload();
+  await page.waitForFunction(
+    () =>
+      document
+        .querySelector('soda-intent')
+        ?.shadowRoot?.querySelector<HTMLTextAreaElement>('section.intent-review textarea')?.value ===
+      'Keep edited direction without rerunning the planner.'
+  );
+  assert.equal(
+    await composer.getByLabel('What should change?', {exact: true}).inputValue(),
+    'Keep the exact human correction.'
+  );
+  assert.equal(
+    await composer.getByLabel('Choose how to deliver the accepted workflow', {exact: true}).inputValue(),
+    'incremental'
+  );
+  assert.equal(await page.evaluate(() => window.factoryRequestFixture.saved()), reviewBytes);
+  await noPost();
+
+  // The whole record is refused, with no partial scalar/review restoration.
+  const patches: Record<string, unknown>[] = [
+    {scope: 'another-profile'},
+    {actor: '9007199254740992'},
+    {subject: 'd' + '9'.repeat(24)},
+    {maxIssues: 0},
+    {extra: true},
+    {shelf: [{key: 'bad'}]},
+    {shelfDeps: {bad: {deps: [], ideas: []}}},
+    {ideas: [{id: 'd' + '3'.repeat(24), decision: 'edit', correction: 'foreign'}]},
+  ];
+  for (const [index, patch] of patches.entries()) {
+    const profile = 'draft-invalid-' + index;
+    await mount('entry', profile);
+    await entry().waitFor();
+    const corrupt = JSON.stringify({...record, scope: 'storybook:request:' + profile + ':entry', ...patch});
+    await page.evaluate((raw) => window.factoryRequestFixture.seed(raw), corrupt);
+    await mount('entry', profile);
+    await status('could not be verified');
+    assert.equal(await entry().inputValue(), '');
+    assert.equal(await page.evaluate(() => window.factoryRequestFixture.saved()), corrupt);
+    await entry().fill('Current writing survives without replacing unknown bytes.');
+    await mount('entry', profile);
+    assert.equal(await entry().inputValue(), 'Current writing survives without replacing unknown bytes.');
+    assert.equal(await page.evaluate(() => window.factoryRequestFixture.saved()), corrupt);
+    await noPost();
+  }
+  await mount('entry', 'draft-legacy');
+  await entry().waitFor();
+  const legacy = JSON.stringify({base: '', objective: 'Earlier bytes without verified scope.'});
+  await page.evaluate((raw) => window.factoryRequestFixture.seed(raw), legacy);
+  await mount('entry', 'draft-legacy');
+  await status('could not be verified');
+  assert.equal(await entry().inputValue(), '');
+  assert.equal(await page.evaluate(() => window.factoryRequestFixture.saved()), legacy);
+  // Mismatched revision, repository or review identity preserves every field.
+  for (const [index, patch] of [
+    {base: 'd' + '9'.repeat(24)},
+    {repository: '7'},
+    {ideas: [{id: 'd' + '9'.repeat(24), decision: 'decline'}]},
+  ].entries()) {
+    const profile = 'draft-stale-' + index;
+    await mount('review', profile);
+    await outcome().waitFor();
+    const stale = JSON.stringify({...review, scope: 'storybook:request:' + profile + ':review', ...patch});
+    await page.evaluate((raw) => window.factoryRequestFixture.seed(raw), stale);
+    await mount('review', profile);
+    await status('another revision or repository');
+    assert.equal(await outcome().inputValue(), 'Help a small team track release readiness.');
+    assert.equal(await page.evaluate(() => window.factoryRequestFixture.saved()), stale);
+    await composer.getByText('Preserved saved writing', {exact: true}).click();
+    assert.equal(
+      await composer.getByLabel('Preserved saved outcome', {exact: true}).inputValue(),
+      'Keep edited direction without rerunning the planner.'
+    );
+    await noPost();
+  }
+  // A failed read does not authorize overwriting unknown storage. Local writing
+  // can still survive remount, then persist once absence is positively observed.
+  await mount('entry', 'draft-read-failure');
+  await entry().waitFor();
+  await page.evaluate(() => window.factoryRequestFixture.storageFailure('read'));
+  await mount('entry', 'draft-read-failure');
+  await entry().fill('Keep writing while storage cannot be read.');
+  await status('could not be saved durably');
+  assert.equal(await page.evaluate(() => window.factoryRequestFixture.saved()), null);
+  await mount('entry', 'draft-read-failure');
+  assert.equal(await entry().inputValue(), 'Keep writing while storage cannot be read.');
+  await page.evaluate(() => window.factoryRequestFixture.storageFailure('none'));
+  await retry().click();
+  assert.equal(
+    JSON.parse((await page.evaluate(() => window.factoryRequestFixture.saved()))!).objective,
+    'Keep writing while storage cannot be read.'
+  );
+  assert.equal(await composer.getByRole('region', {name: 'Request draft recovery'}).count(), 0);
+  await noPost();
+
+  // Two real documents share persisted bytes, but retain their own unsent copy.
+  // Include a failed write: its cached value must not hide a newer saved copy.
+  for (const failure of [false, true]) {
+    const profile = failure ? 'draft-two-docs-failed' : 'draft-two-docs';
+    await mount('entry', profile);
+    await entry().fill('Original saved baseline.');
+    const baseline = (await page.evaluate(() => window.factoryRequestFixture.saved()))!;
+    if (failure) {
+      await page.evaluate(() => window.factoryRequestFixture.storageFailure('write'));
+      await entry().fill('First document keeps its unsent copy.');
+      await status('could not be saved durably');
+      assert.equal(await page.evaluate(() => window.factoryRequestFixture.saved()), baseline);
+      await mount('entry', profile);
+      assert.equal(await entry().inputValue(), 'First document keeps its unsent copy.');
+    }
+    const other = await page.context().newPage();
+    try {
+      await other.goto(page.url());
+      const otherEntry = other
+        .locator('soda-intent')
+        .getByRole('textbox', {name: 'Describe what you want to build', exact: true});
+      await otherEntry.fill('Second document saved newer writing.');
+      const newer = (await other.evaluate(() => window.factoryRequestFixture.saved()))!;
+      await page.evaluate(() => window.factoryRequestFixture.storageFailure('none'));
+      if (failure) await retry().click();
+      else await entry().fill('First document keeps its unsent copy.');
+      await status('Both copies were preserved');
+      assert.equal(await page.evaluate(() => window.factoryRequestFixture.saved()), newer);
+      await entry().fill('First document keeps its latest unsent writing.');
+      await mount('entry', profile);
+      assert.equal(await entry().inputValue(), 'First document keeps its latest unsent writing.');
+      assert.equal(await page.evaluate(() => window.factoryRequestFixture.saved()), newer);
+      await composer.getByText('Preserved saved writing', {exact: true}).click();
+      assert.equal(
+        await composer.getByLabel('Preserved saved outcome', {exact: true}).inputValue(),
+        'Second document saved newer writing.'
+      );
+      await other.reload();
+      assert.equal(await otherEntry.inputValue(), 'Second document saved newer writing.');
+      await noPost();
+    } finally {
+      await other.close();
+    }
+  }
+}
+
+// Production element + browser persistence and declared HTTP-shaped peer; no backend/model effects.
+async function requestSaveRecovery(page: Page) {
+  const composer = page.locator('soda-intent');
+  const entry = () => composer.getByRole('textbox', {name: 'Describe what you want to build', exact: true});
+  const outcome = () => composer.getByRole('textbox', {name: 'Desired outcome', exact: true});
+  const recovery = () => composer.getByRole('region', {name: 'Request save recovery'});
+  const check = () => recovery().getByRole('button', {name: 'Check saved result', exact: true}).click();
+  const idle = () => page.waitForFunction(() => !window.factoryRequestFixture.snapshot().busy);
+  const mount = (profile: string, mode: 'lost' | 'missing' | 'ok' = 'lost', isEntry = true) =>
+    page.evaluate(({profile, mode, isEntry}) => window.factoryRequestFixture.saveMount(profile, mode, isEntry), {
+      profile,
+      mode,
+      isEntry,
+    });
+  const raw = () => page.evaluate(() => window.factoryRequestFixture.saveRaw());
+  const writes = () => page.evaluate(() => window.factoryRequestFixture.calls().filter((call) => !!call.body));
+  const submit = async (text: string) => {
+    await entry().fill(text);
+    await composer.getByRole('button', {name: 'Explore ideas', exact: true}).click();
+    await idle();
+  };
+  await mount('save-reload');
+  await submit('Keep the exact original save.');
+  const original = (await raw())!;
+  const command = JSON.parse(original).pending as {revision: Record<string, unknown>};
+  assert.deepEqual(
+    (await writes()).map((call) => call.body),
+    [command.revision]
+  );
+  await page.reload();
+  await recovery().getByText('An earlier save needs confirmation.', {exact: false}).waitFor();
+  assert.equal(await raw(), original);
+  assert.equal((await writes()).length, 0, 'reload never replays commands');
+  await check();
+  await idle();
+  assert.equal(await raw(), null);
+  assert.equal(await entry().inputValue(), 'Keep the exact original save.');
+  assert.deepEqual(await page.evaluate(() => window.factoryRequestFixture.events()), ['intent-saved']);
+  assert.equal((await writes()).length, 0, 'receipt confirmation starts no exploration/planning/generation');
+
+  for (const mode of ['changed', 'owner', 'host', 'denied'] as const) {
+    await mount('save-refuse-' + mode);
+    await submit('Original private save ' + mode);
+    const pending = await raw();
+    await page.evaluate((mode) => window.factoryRequestFixture.saveMode(mode), mode);
+    const reads = (await page.evaluate(() => window.factoryRequestFixture.calls())).filter((call) =>
+      call.path.includes('/revisions/')
+    ).length;
+    await check();
+    await idle();
+    assert.equal(await raw(), pending, mode + ' preserves the pending bytes');
+    assert.equal(await entry().inputValue(), 'Original private save ' + mode);
+    assert.equal((await writes()).length, 1);
+    if (mode !== 'changed')
+      assert.equal(
+        (await page.evaluate(() => window.factoryRequestFixture.calls())).filter((call) =>
+          call.path.includes('/revisions/')
+        ).length,
+        reads,
+        'refused identity sends no private lookup'
+      );
+  }
+  for (const laterHead of [false, true]) {
+    await mount('save-newer-' + laterHead);
+    await submit('The originally submitted text.');
+    if (laterHead) await page.evaluate(() => window.factoryRequestFixture.saveMode('head'));
+    else await entry().fill('Later writing must survive confirmation.');
+    const text = await entry().inputValue();
+    await check();
+    await idle();
+    assert.equal(await entry().inputValue(), text);
+    assert.equal(await raw(), null);
+    assert.equal(await page.evaluate(() => window.factoryRequestFixture.snapshot().revision), undefined);
+    assert.equal((await writes()).length, 1);
+    assert.deepEqual(await page.evaluate(() => window.factoryRequestFixture.events()), []);
+  }
+  await mount('save-missing', 'missing');
+  await submit('Retry this same original body.');
+  const missing = (await writes())[0]!.body;
+  await check();
+  await idle();
+  await recovery().getByText('It may still finish.', {exact: false}).waitFor();
+  assert.equal((await writes()).length, 1);
+  await entry().fill('Preserve writing added before the explicit retry.');
+  await page.evaluate(() => window.factoryRequestFixture.saveMode('ok'));
+  await recovery().getByRole('button', {name: 'Retry original save', exact: true}).click();
+  await idle();
+  assert.deepEqual(
+    (await writes()).map((call) => call.body),
+    [missing, missing]
+  );
+  assert.equal(await entry().inputValue(), 'Preserve writing added before the explicit retry.');
+  assert.equal(await raw(), null);
+
+  await mount('save-obsolete', 'missing', false);
+  await outcome().waitFor();
+  await idle();
+  await composer.locator('summary', {hasText: 'More options'}).click();
+  await composer.getByRole('spinbutton', {name: 'Maximum work items', exact: true}).fill('3');
+  await composer.getByRole('button', {name: 'Update proposal', exact: true}).click();
+  await idle();
+  const obsolete = await raw();
+  assert(obsolete);
+  await outcome().fill('Keep later writing when releasing a fenced save.');
+  await page.evaluate(() => window.factoryRequestFixture.saveMode('obsolete'));
+  await check();
+  await idle();
+  assert.equal(await raw(), obsolete);
+  await recovery().getByRole('button', {name: 'Release obsolete save', exact: true}).click();
+  await idle();
+  assert.equal(await raw(), null);
+  assert.equal(await outcome().inputValue(), 'Keep later writing when releasing a fenced save.');
+  assert.equal((await writes()).length, 1, 'releasing a fenced save sends no mutation');
+
+  for (const failure of ['read', 'write'] as const) {
+    await mount('save-storage-' + failure);
+    await page.evaluate((failure) => window.factoryRequestFixture.saveStorageFailure(failure), failure);
+    await submit('Keep writing when command storage fails.');
+    assert.equal((await writes()).length, 0, failure + ' never dispatches an unretained save');
+    assert.equal(await entry().inputValue(), 'Keep writing when command storage fails.');
+    await page.evaluate(() => window.factoryRequestFixture.saveStorageFailure('none'));
+  }
+  for (const replacement of ['{unknown', JSON.stringify({version: 22}), 'foreign']) {
+    await mount('save-unknown-' + replacement.length);
+    let value = replacement;
+    if (replacement === 'foreign') {
+      await submit('Retain the owner-bound save.');
+      const row = JSON.parse((await raw())!) as Record<string, unknown>;
+      row.actor = '9007199254740992';
+      value = JSON.stringify(row);
+    }
+    await page.evaluate((value) => window.factoryRequestFixture.seedSave(value), value);
+    const count = (await writes()).length;
+    await submit('Never replace unknown or foreign command bytes.');
+    assert.equal((await writes()).length, count);
+    assert.equal(await raw(), value);
+  }
+  for (const failure of ['archive', 'remove'] as const) {
+    await mount('save-settlement-' + failure);
+    await submit('Archive the exact recovery before clearing.');
+    const pending = await raw();
+    await page.evaluate((failure) => window.factoryRequestFixture.saveStorageFailure(failure), failure);
+    await check();
+    await idle();
+    assert.equal(await raw(), pending);
+    await recovery().getByText('recovery metadata could not be retained', {exact: false}).waitFor();
+    await page.evaluate(() => window.factoryRequestFixture.saveStorageFailure('none'));
+    await check();
+    await idle();
+    assert.equal(await raw(), null);
+  }
+  await mount('save-retired');
+  await submit('The old host save stays scoped.');
+  const retired = await raw();
+  await page.evaluate(() => window.factoryRequestFixture.savePause('receipt'));
+  await check();
+  await page.waitForFunction(() => window.factoryRequestFixture.held() === 1);
+  await page.evaluate(() => window.factoryRequestFixture.retire('profile'));
+  await idle();
+  const snapshot = await page.evaluate(() => window.factoryRequestFixture.snapshot());
+  await page.evaluate(() => window.factoryRequestFixture.release());
+  await page.evaluate(() => new Promise<void>((resolve) => requestAnimationFrame(() => resolve())));
+  assert.equal(await raw(), retired);
+  assert.deepEqual(await page.evaluate(() => window.factoryRequestFixture.snapshot()), snapshot);
+  assert.deepEqual(await page.evaluate(() => window.factoryRequestFixture.events()), []);
+
+  // A lost decline save must restore its exact shelf and the kept task's cut edge.
+  await mount('save-shelf', 'lost', false);
+  await outcome().waitFor();
+  await idle();
+  await composer
+    .getByRole('combobox', {name: /^Choice:/})
+    .first()
+    .selectOption('decline');
+  await composer.getByRole('button', {name: 'Update proposal', exact: true}).click();
+  await idle();
+  const shelf = JSON.parse((await raw())!).pending.after as {
+    shelf: {key: string}[];
+    shelfDeps: Record<string, {deps: string[]}>;
+  };
+  assert.equal(shelf.shelf[0]!.key, 'd' + '5'.repeat(24));
+  assert.deepEqual(shelf.shelfDeps['d' + '6'.repeat(24)]!.deps, ['d' + '5'.repeat(24)]);
+  await page.reload();
+  await outcome().waitFor();
+  await idle();
+  await check();
+  await idle();
+  assert.equal(await raw(), null);
+  await page.reload();
+  await outcome().waitFor();
+  await idle();
+  // The archive remains bound to the saved revision even when a pre-save local draft was retained.
+  await composer.getByRole('button', {name: /^Re-accept declined idea /}).waitFor();
+  assert.equal((await writes()).length, 0);
+  await page.evaluate(() => window.factoryRequestFixture.saveMode('ok'));
+  await composer.getByRole('button', {name: /^Re-accept declined idea /}).click();
+  await composer.getByRole('button', {name: 'Update proposal', exact: true}).click();
+  await idle();
+  const restoredBody = (await writes()).find((call) => call.path === '/api/factory/intents')!.body!;
+  const restoredTasks = restoredBody.tasks as {key: string; depends_on?: string[]}[];
+  assert(restoredTasks.some((task) => task.key === 'd' + '5'.repeat(24)));
+  assert.deepEqual(restoredTasks.find((task) => task.key === 'd' + '6'.repeat(24))!.depends_on, ['d' + '5'.repeat(24)]);
+
+  await mount('save-two-documents');
+  const other = await page.context().newPage();
+  try {
+    await other.goto(page.url());
+    await entry().fill('First document writing.');
+    await other
+      .locator('soda-intent')
+      .getByRole('textbox', {name: 'Describe what you want to build', exact: true})
+      .fill('Second document writing.');
+    await Promise.all([
+      composer.getByRole('button', {name: 'Explore ideas', exact: true}).click(),
+      other.locator('soda-intent').getByRole('button', {name: 'Explore ideas', exact: true}).click(),
+    ]);
+    await idle();
+    await other.waitForFunction(() => !window.factoryRequestFixture.snapshot().busy);
+    assert.equal(
+      (await writes()).length +
+        (await other.evaluate(() => window.factoryRequestFixture.calls().filter((call) => !!call.body))).length,
+      1,
+      'one durable pending slot admits one initial POST'
+    );
+    assert.equal(await entry().inputValue(), 'First document writing.');
+    assert.equal(
+      await other
+        .locator('soda-intent')
+        .getByRole('textbox', {name: 'Describe what you want to build', exact: true})
+        .inputValue(),
+      'Second document writing.'
+    );
+  } finally {
+    await other.close();
+  }
+}
+
+async function requestExplorationRecovery(page: Page) {
+  const composer = page.locator('soda-intent');
+  const writing = () => composer.getByRole('textbox', {name: /^(Desired outcome|Describe what you want to build)$/});
+  const panel = () => composer.getByRole('region', {name: 'Exploration recovery'});
+  const idle = () => page.waitForFunction(() => !window.factoryRequestFixture.snapshot().busy);
+  const mount = async (profile: string, mode: 'lost' | 'missing' = 'lost', advanced = false) => {
+    await page.evaluate(
+      ({profile, mode, advanced}) => window.factoryRequestFixture.explorationMount(profile, mode, advanced),
+      {profile, mode, advanced}
+    );
+    await writing().waitFor();
+    await idle();
+  };
+  const raw = () => page.evaluate(() => window.factoryRequestFixture.explorationRaw());
+  const posts = () => page.evaluate(() => window.factoryRequestFixture.calls().filter((call) => !!call.body));
+  const explorations = async () => (await posts()).filter((call) => call.path.endsWith('/explore'));
+  const issue = async () => {
+    await writing().fill('Explore a small release review workflow.');
+    await composer.getByRole('button', {name: 'Update proposal', exact: true}).click();
+    await idle();
+  };
+  const check = async () => {
+    await panel().getByRole('button', {name: 'Check exploration result', exact: true}).click();
+    await idle();
+  };
+  await mount('exploration-reload');
+  await issue();
+  const initial = (await raw())!,
+    pending = JSON.parse(initial).pending as {revision: {id: string}; writing: {base: string}};
+  assert.equal(pending.writing.base, pending.revision.id);
+  assert.deepEqual(
+    (await explorations()).map((call) => call.body),
+    [{revision: pending.revision.id}]
+  );
+  await writing().fill('Keep later writing after a lost exploration reply.');
+  await page.reload();
+  await writing().waitFor();
+  await idle();
+  assert.equal(await raw(), initial);
+  assert.equal((await posts()).length, 0, 'reload sends no mutation');
+  const preserved = composer.getByRole('region', {name: 'Request draft recovery'});
+  await preserved.getByText('Preserved saved writing', {exact: true}).click();
+  assert.equal(
+    await preserved.getByRole('textbox', {name: 'Preserved saved outcome', exact: true}).inputValue(),
+    'Keep later writing after a lost exploration reply.'
+  );
+  const before = await page.evaluate(() => window.factoryRequestFixture.snapshot());
+  await check();
+  assert.equal(await raw(), null);
+  assert.equal((await posts()).length, 0);
+  assert.deepEqual(await page.evaluate(() => window.factoryRequestFixture.events()), []);
+  assert.equal((await page.evaluate(() => window.factoryRequestFixture.snapshot())).revision, before.revision);
+  assert.equal(
+    await preserved.getByRole('textbox', {name: 'Preserved saved outcome', exact: true}).inputValue(),
+    'Keep later writing after a lost exploration reply.'
+  );
+  for (const mode of [
+    'intent',
+    'basis',
+    'result',
+    'predecessor',
+    'owner',
+    'content',
+    'advice',
+    'state',
+    'unavailable',
+    'host',
+    'actor',
+    'denied',
+  ] as const) {
+    await mount('exploration-mismatch-' + mode);
+    await issue();
+    const original = await raw();
+    await page.evaluate((mode) => window.factoryRequestFixture.explorationMode(mode), mode);
+    await check();
+    assert.equal(await raw(), original, mode + ' cannot settle original command');
+    assert.equal((await explorations()).length, 1);
+    await page.evaluate(() => window.factoryRequestFixture.explorationMode('ok'));
+    await check();
+    assert.equal(await raw(), null);
+  }
+  await mount('exploration-missing', 'missing');
+  await issue();
+  const request = (await explorations())[0]!.body;
+  await writing().fill('Keep writing while resuming the exact original exploration.');
+  await composer.getByRole('button', {name: 'Explore ideas', exact: true}).click();
+  await idle();
+  assert.equal((await posts()).length, 2, 'unresolved exploration cannot blindly save a successor');
+  await check();
+  await panel().getByRole('button', {name: 'Resume original exploration', exact: true}).waitFor();
+  await page.evaluate(() => window.factoryRequestFixture.explorationMode('ok'));
+  await panel().getByRole('button', {name: 'Resume original exploration', exact: true}).click();
+  await idle();
+  assert.equal(await raw(), null);
+  assert.deepEqual(
+    (await explorations()).map((call) => call.body),
+    [request, request]
+  );
+  assert.equal((await posts()).length, 3, 'resume adds only its captured exploration POST');
+  assert.equal(await writing().inputValue(), 'Keep writing while resuming the exact original exploration.');
+  assert.deepEqual(await page.evaluate(() => window.factoryRequestFixture.events()), []);
+  await mount('exploration-advanced');
+  await issue();
+  await mount('exploration-advanced', 'lost', true);
+  await writing().fill('Keep the later saved direction edits.');
+  const advanced = await page.evaluate(() => window.factoryRequestFixture.snapshot().revision);
+  await check();
+  assert.equal(await raw(), null);
+  assert.equal((await posts()).length, 0);
+  assert.equal(await writing().inputValue(), 'Keep the later saved direction edits.');
+  assert.equal(await page.evaluate(() => window.factoryRequestFixture.snapshot().revision), advanced);
+  await mount('exploration-release', 'missing');
+  await issue();
+  await page.evaluate(() => window.factoryRequestFixture.explorationAdvanced());
+  await check();
+  await panel().getByRole('button', {name: 'Release superseded exploration', exact: true}).click();
+  await idle();
+  assert.equal(await raw(), null);
+  assert.equal((await explorations()).length, 1);
+  for (const failure of ['read', 'write'] as const) {
+    await mount('exploration-storage-' + failure);
+    await page.evaluate((failure) => window.factoryRequestFixture.explorationStorage(failure), failure);
+    await issue();
+    assert.equal((await explorations()).length, 0);
+    await page.evaluate(() => window.factoryRequestFixture.explorationStorage('none'));
+  }
+  for (const failure of ['archive', 'remove'] as const) {
+    await mount('exploration-settlement-' + failure);
+    await issue();
+    const original = await raw();
+    await page.evaluate((failure) => window.factoryRequestFixture.explorationStorage(failure), failure);
+    await check();
+    assert.equal(await raw(), original);
+    await page.evaluate(() => window.factoryRequestFixture.explorationStorage('none'));
+    await check();
+    assert.equal(await raw(), null);
+  }
+
+  await mount('exploration-refused-removal');
+  await page.evaluate(() => {
+    window.factoryRequestFixture.explorationMode('refused');
+    window.factoryRequestFixture.explorationStorage('remove');
+  });
+  await issue();
+  assert(await raw());
+  await page.evaluate(() => {
+    window.factoryRequestFixture.explorationMode('ok');
+    window.factoryRequestFixture.explorationStorage('none');
+  });
+  await check();
+  await panel().getByRole('button', {name: 'Resume original exploration', exact: true}).click();
+  await idle();
+  assert.equal(
+    await raw(),
+    null,
+    'a saved refusal archive can retain the eventual result of an explicitly resumed command'
+  );
+  await mount('exploration-foreign');
+  await issue();
+  const foreign = '{unknown newer exploration bytes';
+  await page.evaluate((bytes) => window.factoryRequestFixture.explorationSeed(bytes), foreign);
+  await check();
+  assert.equal(await raw(), foreign);
+  assert.equal((await explorations()).length, 1);
+  for (const replacement of [false, true]) {
+    await mount('exploration-held-' + replacement);
+    await issue();
+    const original = await raw();
+    await page.evaluate(() => window.factoryRequestFixture.explorationPause('receipt'));
+    await panel().getByRole('button', {name: 'Check exploration result', exact: true}).click();
+    await page.waitForFunction(() => window.factoryRequestFixture.held() === 1);
+    if (replacement) await page.evaluate((bytes) => window.factoryRequestFixture.explorationSeed(bytes), foreign);
+    else {
+      await page.evaluate(() => window.factoryRequestFixture.retire('profile'));
+      await idle();
+    }
+    const snapshot = await page.evaluate(() => window.factoryRequestFixture.snapshot());
+    await page.evaluate(() => window.factoryRequestFixture.release());
+    await page.evaluate(() => new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve))));
+    await idle();
+    if (!replacement) assert.deepEqual(await page.evaluate(() => window.factoryRequestFixture.snapshot()), snapshot);
+    assert.equal(await raw(), replacement ? foreign : original);
+    assert.deepEqual(await page.evaluate(() => window.factoryRequestFixture.events()), []);
+  }
+  await mount('exploration-two-documents');
+  const other = await page.context().newPage();
+  try {
+    await other.goto(page.url());
+    await other.locator('soda-intent').getByRole('textbox', {name: 'Desired outcome', exact: true}).waitFor();
+    await other.waitForFunction(() => !window.factoryRequestFixture.snapshot().busy);
+    await writing().fill('First document exploration writing.');
+    await other
+      .locator('soda-intent')
+      .getByRole('textbox', {name: 'Desired outcome', exact: true})
+      .fill('Second document exploration writing.');
+    await Promise.all([
+      composer.getByRole('button', {name: 'Update proposal', exact: true}).click(),
+      other.locator('soda-intent').getByRole('button', {name: 'Update proposal', exact: true}).click(),
+    ]);
+    await idle();
+    await other.waitForFunction(() => !window.factoryRequestFixture.snapshot().busy);
+    const otherPosts = await other.evaluate(() =>
+      window.factoryRequestFixture.calls().filter((call) => call.path.endsWith('/explore') && !!call.body)
+    );
+    assert.equal(
+      (await explorations()).length + otherPosts.length,
+      1,
+      'one pending save/exploration slot admits one initial exploration across documents'
+    );
+  } finally {
+    await other.close();
+  }
+}
+async function requestPlanningRecovery(page: Page) {
+  const composer = page.locator('soda-intent');
+  const outcome = () => composer.getByRole('textbox', {name: 'Desired outcome', exact: true});
+  const panel = () => composer.getByRole('region', {name: 'Planning recovery'});
+  const idle = () => page.waitForFunction(() => !window.factoryRequestFixture.snapshot().busy);
+  const mount = async (profile: string, mode: 'lost' | 'missing' = 'lost', advanced = false) => {
+    await page.evaluate(
+      ({profile, mode, advanced}) => window.factoryRequestFixture.planningMount(profile, mode, advanced),
+      {profile, mode, advanced}
+    );
+    await outcome().waitFor();
+    await idle();
+  };
+  const raw = () => page.evaluate(() => window.factoryRequestFixture.planningRaw());
+  const posts = () => page.evaluate(() => window.factoryRequestFixture.calls().filter((call) => !!call.body));
+  const issue = async () => {
+    await composer.getByText('Planning details', {exact: true}).click();
+    await composer.getByRole('button', {name: 'Plan work', exact: true}).click();
+    await idle();
+  };
+  const check = async () => {
+    await panel().getByRole('button', {name: 'Check planning result', exact: true}).click();
+    await idle();
+  };
+  await mount('planning-reload');
+  await issue();
+  const initial = (await raw())!;
+  const pending = JSON.parse(initial).pending as {revision: {id: string}; operation: string; assignment: string};
+  assert.deepEqual(
+    (await posts()).map((call) => call.body),
+    [{revision: pending.revision.id, operation: 'propose_intent'}]
+  );
+  assert.equal(pending.assignment, '');
+  await outcome().fill('Later local planning writing.');
+  await page.reload();
+  await outcome().waitFor();
+  await idle();
+  assert.equal(await raw(), initial);
+  assert.equal((await posts()).length, 0);
+  assert.equal(await outcome().inputValue(), 'Later local planning writing.');
+  await check();
+  assert.equal(await raw(), null);
+  assert.equal((await posts()).length, 0);
+  assert.equal(await outcome().inputValue(), 'Later local planning writing.');
+  await composer
+    .getByText('Planning is recorded. This read does not confirm native start; check the existing run for progress.', {
+      exact: true,
+    })
+    .waitFor();
+  assert.deepEqual(await page.evaluate(() => window.factoryRequestFixture.events()), []);
+  for (const mode of ['operation', 'revision', 'state', 'start', 'unavailable', 'host', 'owner', 'denied'] as const) {
+    await mount('planning-invalid-' + mode);
+    await issue();
+    const before = await raw();
+    await page.evaluate((mode) => window.factoryRequestFixture.planningMode(mode), mode);
+    await check();
+    assert.equal(await raw(), before, mode + ' cannot consume pending identity');
+    assert.equal((await posts()).length, 1);
+    await page.evaluate(() => window.factoryRequestFixture.planningMode('ok'));
+    await check();
+    assert.equal(await raw(), null);
+  }
+  await mount('planning-missing', 'missing');
+  await issue();
+  await composer.getByRole('combobox', {name: 'Planning operation', exact: true}).selectOption('decomposition_options');
+  await outcome().fill('Preserve this later planning edit.');
+  assert.equal(await composer.getByRole('button', {name: 'Plan work', exact: true}).isDisabled(), true);
+  await composer.getByRole('button', {name: 'Update proposal', exact: true}).click();
+  await idle();
+  assert.equal((await posts()).length, 1, 'pending planning blocks successor saves and a newly selected operation');
+  await check();
+  await panel().getByRole('button', {name: 'Resume original planning', exact: true}).waitFor();
+  await page.evaluate(() => window.factoryRequestFixture.planningMode('ok'));
+  await panel().getByRole('button', {name: 'Resume original planning', exact: true}).click();
+  await idle();
+  assert.equal(await raw(), null);
+  assert.equal((await posts()).length, 2);
+  assert.deepEqual((await posts())[0]!.body, (await posts())[1]!.body);
+  assert.equal(await outcome().inputValue(), 'Preserve this later planning edit.');
+  await mount('planning-advanced', 'missing');
+  await issue();
+  await page.evaluate(() => window.factoryRequestFixture.planningAdvanced());
+  await check();
+  await panel().getByRole('button', {name: 'Release superseded planning', exact: true}).click();
+  await idle();
+  assert.equal(await raw(), null);
+  assert.equal((await posts()).length, 1);
+  for (const mode of ['assignment', 'run', 'none'] as const) {
+    await mount('planning-known-' + mode);
+    await page.evaluate(() => window.factoryRequestFixture.planningMode('unconfirmed'));
+    await issue();
+    const before = (await raw())!;
+    assert.equal(JSON.parse(before).pending.assignment, 'a'.repeat(32));
+    assert.equal(JSON.parse(before).pending.launch, 'unconfirmed');
+    await page.evaluate((mode) => window.factoryRequestFixture.planningMode(mode), mode);
+    await check();
+    assert.equal(await raw(), before);
+    assert.equal(await panel().getByRole('button', {name: 'Resume original planning', exact: true}).count(), 0);
+    assert.equal((await posts()).length, 1);
+  }
+  for (const failure of ['read', 'write'] as const) {
+    await mount('planning-predispatch-' + failure);
+    await page.evaluate((failure) => window.factoryRequestFixture.planningStorage(failure), failure);
+    await issue();
+    assert.equal((await posts()).length, 0);
+    await page.evaluate(() => window.factoryRequestFixture.planningStorage('none'));
+  }
+  for (const failure of ['archive', 'remove'] as const) {
+    await mount('planning-settlement-' + failure);
+    await issue();
+    await page.evaluate((failure) => window.factoryRequestFixture.planningStorage(failure), failure);
+    await check();
+    assert(await raw());
+    await page.evaluate(() => window.factoryRequestFixture.planningStorage('none'));
+    await check();
+    assert.equal(await raw(), null);
+  }
+  await mount('planning-observed');
+  await page.evaluate(() => window.factoryRequestFixture.planningMode('bind'));
+  await issue();
+  assert.equal(JSON.parse((await raw())!).pending.assignment, '');
+  await composer
+    .getByText('Observed run identities are kept in this window only. Copy the details before closing or reloading.', {
+      exact: true,
+    })
+    .waitFor();
+  await page.evaluate(() => window.factoryRequestFixture.planningStorage('none'));
+  await mount('planning-observed');
+  await check();
+  assert.equal(await raw(), null);
+  await mount('planning-foreign');
+  await issue();
+  const foreign = '{newer unknown planning bytes';
+  await page.evaluate((bytes) => window.factoryRequestFixture.planningSeed(bytes), foreign);
+  await check();
+  assert.equal(await raw(), foreign);
+  assert.equal((await posts()).length, 1);
+
+  await mount('planning-historical');
+  await issue();
+  await mount('planning-historical', 'lost', true);
+  await outcome().fill('Keep the new head writing.');
+  const head = await page.evaluate(() => window.factoryRequestFixture.snapshot().revision);
+  await check();
+  assert.equal(await raw(), null);
+  assert.equal((await posts()).length, 0);
+  assert.equal(await outcome().inputValue(), 'Keep the new head writing.');
+  assert.equal(await page.evaluate(() => window.factoryRequestFixture.snapshot().revision), head);
+  await mount('planning-two-documents');
+  const other = await page.context().newPage();
+  try {
+    await other.goto(page.url());
+    await other.locator('soda-intent').getByRole('textbox', {name: 'Desired outcome', exact: true}).waitFor();
+    await other.waitForFunction(() => !window.factoryRequestFixture.snapshot().busy);
+    await Promise.all([
+      composer.getByText('Planning details', {exact: true}).click(),
+      other.locator('soda-intent').getByText('Planning details', {exact: true}).click(),
+    ]);
+    await Promise.all([
+      composer.getByRole('button', {name: 'Plan work', exact: true}).click(),
+      other.locator('soda-intent').getByRole('button', {name: 'Plan work', exact: true}).click(),
+    ]);
+    await idle();
+    await other.waitForFunction(() => !window.factoryRequestFixture.snapshot().busy);
+    const otherPosts = await other.evaluate(() => window.factoryRequestFixture.calls().filter((call) => !!call.body));
+    assert.equal(
+      (await posts()).length + otherPosts.length,
+      1,
+      'one durable slot admits one initial planning POST across documents'
+    );
+  } finally {
+    await other.close();
+  }
+  await mount('planning-late');
+  await issue();
+  await page.evaluate(() => window.factoryRequestFixture.planningPause('receipt'));
+  await panel().getByRole('button', {name: 'Check planning result', exact: true}).click();
+  await page.waitForFunction(() => window.factoryRequestFixture.held() === 1);
+  await page.evaluate(() => window.factoryRequestFixture.retire('profile'));
+  await idle();
+  const retired = await page.evaluate(() => window.factoryRequestFixture.snapshot());
+  await page.evaluate(() => window.factoryRequestFixture.release());
+  await page.evaluate(() => new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve))));
+  assert.deepEqual(await page.evaluate(() => window.factoryRequestFixture.snapshot()), retired);
+  assert.deepEqual(await page.evaluate(() => window.factoryRequestFixture.events()), []);
+}
+async function requestGenerationRecovery(page: Page) {
+  const composer = page.locator('soda-intent');
+  const outcome = () => composer.getByRole('textbox', {name: 'Desired outcome', exact: true});
+  const panel = () => composer.getByRole('region', {name: 'Work creation recovery'});
+  const idle = () => page.waitForFunction(() => !window.factoryRequestFixture.snapshot().busy);
+  const mount = async (
+    profile: string,
+    mode: 'lost' | 'missing' | 'pending' | 'committed' = 'lost',
+    advanced = false
+  ) => {
+    await page.evaluate(
+      ({profile, mode, advanced}) => window.factoryRequestFixture.generationMount(profile, mode, advanced),
+      {profile, mode, advanced}
+    );
+    await outcome().waitFor();
+    await idle();
+  };
+  const raw = () => page.evaluate(() => window.factoryRequestFixture.generationRaw());
+  const posts = () =>
+    page.evaluate(() =>
+      window.factoryRequestFixture.calls().filter((call) => call.path.endsWith('/generate') && !!call.body)
+    );
+  const issue = async () => {
+    await page.evaluate(() => window.factoryRequestFixture.accept());
+    await idle();
+  };
+  const check = async () => {
+    await panel().getByRole('button', {name: 'Check work creation', exact: true}).click();
+    await idle();
+  };
+  await mount('generation-reload');
+  await issue();
+  const original = (await raw())!;
+  const pending = JSON.parse(original).pending as {revision: {id: string}; operation: string};
+  assert.equal(pending.operation, 'intent-' + pending.revision.id);
+  assert.deepEqual(
+    (await posts()).map((call) => call.body),
+    [{revision: pending.revision.id}]
+  );
+  await page.reload();
+  await outcome().waitFor();
+  await idle();
+  assert.equal(await raw(), original);
+  assert.equal((await posts()).length, 0, 'reload never resumes work creation automatically');
+  assert.equal(
+    (await page.evaluate(() => window.factoryRequestFixture.calls())).filter((call) =>
+      call.path.includes('/revisions/')
+    ).length,
+    0,
+    'command recovery itself waits for the explicit check'
+  );
+  await check();
+  assert.equal(await raw(), null);
+  assert.deepEqual(await page.evaluate(() => window.factoryRequestFixture.events()), []);
+  assert.equal((await posts()).length, 0);
+  await panel().getByText('recorded as completed', {exact: false}).waitFor();
+
+  for (const advanced of [false, true]) {
+    const profile = 'generation-later-' + advanced;
+    await mount(profile);
+    await issue();
+    if (advanced) await mount(profile, 'lost', true);
+    else {
+      await outcome().fill('Later writing remains after original work is confirmed.');
+      await page.reload();
+      await outcome().waitFor();
+      await idle();
+      assert.equal(await outcome().inputValue(), 'Later writing remains after original work is confirmed.');
+    }
+    const text = await outcome().inputValue();
+    const revision = await page.evaluate(() => window.factoryRequestFixture.snapshot().revision);
+    await check();
+    assert.equal(await raw(), null);
+    assert.equal(await outcome().inputValue(), text);
+    assert.equal(await page.evaluate(() => window.factoryRequestFixture.snapshot().revision), revision);
+    assert.equal((await posts()).length, 0, 'historical confirmation never dispatches newer work');
+  }
+  for (const mode of [
+    'operation',
+    'revision',
+    'authorization',
+    'owner',
+    'host',
+    'denied',
+    'unavailable',
+    'cancelled',
+  ] as const) {
+    await mount('generation-mismatch-' + mode);
+    await issue();
+    const retained = await raw();
+    await page.evaluate((mode) => window.factoryRequestFixture.generationMode(mode), mode);
+    const before = (await page.evaluate(() => window.factoryRequestFixture.calls())).filter((call) =>
+      call.path.includes('/revisions/')
+    ).length;
+    await check();
+    assert.equal(await raw(), retained, mode + ' cannot clear the exact command');
+    assert.equal((await posts()).length, 1);
+    if (['owner', 'host', 'denied'].includes(mode))
+      assert.equal(
+        (await page.evaluate(() => window.factoryRequestFixture.calls())).filter((call) =>
+          call.path.includes('/revisions/')
+        ).length,
+        before,
+        'refused identity never reads the private receipt'
+      );
+  }
+  for (const mode of ['owner', 'denied', 'unavailable'] as const) {
+    await mount('generation-dispatch-' + mode);
+    await page.evaluate((mode) => window.factoryRequestFixture.generationMode(mode), mode);
+    await issue();
+    assert.equal((await posts()).length, 0, 'unverified identity or preparation read never dispatches generation');
+    assert.equal(await raw(), null);
+  }
+  await mount('generation-missing', 'missing');
+  await issue();
+  const body = (await posts())[0]!.body;
+  await check();
+  await outcome().fill('Preserve later writing while explicitly resuming the old request.');
+  await page.evaluate(() => window.factoryRequestFixture.generationMode('ok'));
+  await panel().getByRole('button', {name: 'Resume original work creation', exact: true}).click();
+  await idle();
+  assert.deepEqual(
+    (await posts()).map((call) => call.body),
+    [body, body]
+  );
+  assert.equal(await outcome().inputValue(), 'Preserve later writing while explicitly resuming the old request.');
+  assert.equal(await raw(), null);
+
+  for (const mode of ['pending', 'committed'] as const) {
+    await mount('generation-unresolved-' + mode, mode);
+    await issue();
+    const retained = await raw();
+    assert(retained);
+    await panel().getByText('final outcome is not confirmed', {exact: false}).waitFor();
+    await check();
+    assert.equal(await raw(), retained);
+    assert.equal((await posts()).length, 1);
+    await page.evaluate(() => window.factoryRequestFixture.generationMode('ok'));
+    await check();
+    assert.equal(await raw(), null);
+    assert.equal((await posts()).length, 1);
+  }
+  for (const mode of ['refused'] as const) {
+    await mount('generation-terminal-' + mode);
+    await issue();
+    await page.evaluate((mode) => window.factoryRequestFixture.generationMode(mode), mode);
+    await check();
+    assert.equal(await raw(), null);
+    await panel()
+      .getByText('was ' + mode, {exact: false})
+      .waitFor();
+    assert.equal((await posts()).length, 1);
+    assert.equal(await page.evaluate(() => window.factoryRequestFixture.snapshot().error), '');
+  }
+  await mount('generation-superseded', 'missing');
+  await issue();
+  const superseded = await raw();
+  await page.evaluate(() => window.factoryRequestFixture.generationAdvanced());
+  await outcome().fill('Keep writing when releasing unstarted superseded work.');
+  await check();
+  assert.equal(await raw(), superseded);
+  await panel().getByRole('button', {name: 'Release superseded request', exact: true}).click();
+  await idle();
+  assert.equal(await raw(), null);
+  assert.equal(await outcome().inputValue(), 'Keep writing when releasing unstarted superseded work.');
+  assert.equal((await posts()).length, 1);
+
+  for (const failure of ['read', 'write'] as const) {
+    await mount('generation-storage-' + failure);
+    await page.evaluate((failure) => window.factoryRequestFixture.generationStorage(failure), failure);
+    await issue();
+    assert.equal((await posts()).length, 0, 'storage failure before dispatch sends no command');
+    await page.evaluate(() => window.factoryRequestFixture.generationStorage('none'));
+  }
+  for (const failure of ['archive', 'remove'] as const) {
+    await mount('generation-settlement-' + failure);
+    await issue();
+    const retained = await raw();
+    await page.evaluate((failure) => window.factoryRequestFixture.generationStorage(failure), failure);
+    await check();
+    assert.equal(await raw(), retained);
+    await panel().getByText('could not be archived', {exact: false}).waitFor();
+    await page.evaluate(() => window.factoryRequestFixture.generationStorage('none'));
+    await check();
+    assert.equal(await raw(), null);
+  }
+  for (const replacement of ['{unknown', '{"future":7}', 'foreign']) {
+    await mount('generation-unknown-' + replacement.length);
+    let bytes = replacement;
+    if (replacement === 'foreign') {
+      await issue();
+      const row = JSON.parse((await raw())!) as Record<string, unknown>;
+      row.actor = '9007199254740992';
+      bytes = JSON.stringify(row);
+    }
+    await page.evaluate((bytes) => window.factoryRequestFixture.generationSeed(bytes), bytes);
+    const count = (await posts()).length;
+    await issue();
+    assert.equal(await raw(), bytes);
+    assert.equal((await posts()).length, count);
+  }
+  for (const replace of [false, true]) {
+    await mount('generation-held-' + replace);
+    await issue();
+    const retained = await raw();
+    await page.evaluate(() => window.factoryRequestFixture.generationPause('receipt'));
+    await panel().getByRole('button', {name: 'Check work creation', exact: true}).click();
+    await page.waitForFunction(() => window.factoryRequestFixture.held() === 1);
+    if (replace) await page.evaluate(() => window.factoryRequestFixture.generationSeed('{newer unknown bytes'));
+    else await page.evaluate(() => window.factoryRequestFixture.retire('profile'));
+    await page.evaluate(() => window.factoryRequestFixture.clearEvents());
+    if (!replace) await idle();
+    const snapshot = await page.evaluate(() => window.factoryRequestFixture.snapshot());
+    await page.evaluate(() => window.factoryRequestFixture.release());
+    await idle();
+    await page.evaluate(() => new Promise<void>((resolve) => requestAnimationFrame(() => resolve())));
+    assert.equal(await raw(), replace ? '{newer unknown bytes' : retained);
+    if (!replace) assert.deepEqual(await page.evaluate(() => window.factoryRequestFixture.snapshot()), snapshot);
+    assert.deepEqual(await page.evaluate(() => window.factoryRequestFixture.events()), []);
+    assert.equal((await posts()).length, 1);
+  }
+  await mount('generation-two-documents');
+  const other = await page.context().newPage();
+  try {
+    await other.goto(page.url());
+    await other.locator('soda-intent').getByRole('textbox', {name: 'Desired outcome', exact: true}).waitFor();
+    await other.waitForFunction(() => !window.factoryRequestFixture.snapshot().busy);
+    await Promise.all([
+      page.evaluate(() => window.factoryRequestFixture.accept()),
+      other.evaluate(() => window.factoryRequestFixture.accept()),
+    ]);
+    await idle();
+    await other.waitForFunction(() => !window.factoryRequestFixture.snapshot().busy);
+    const otherPosts = await other.evaluate(() =>
+      window.factoryRequestFixture.calls().filter((call) => call.path.endsWith('/generate') && !!call.body)
+    );
+    assert.equal((await posts()).length + otherPosts.length, 1, 'one pending slot admits one initial generation POST');
+  } finally {
+    await other.close();
+  }
+}
+
+async function standaloneRequest(page: Page) {
+  const build = await Bun.build({
+    entrypoints: [join(import.meta.dir, 'fixtures/factory-request-fixture.ts')],
+    target: 'browser',
+    format: 'esm',
+    define: {'process.env.NODE_ENV': '"production"'},
+  });
+  assert(build.success, `Standalone request fixture failed: ${build.logs.join('\n')}`);
+  const script = build.outputs[0];
+  assert(script);
+  const root = join(import.meta.dir, '../..');
+  const server = Bun.serve({
+    hostname: '127.0.0.1',
+    port: 0,
+    async fetch(request) {
+      const path = new URL(request.url).pathname;
+      if (path === '/assets/request-fixture.js')
+        return new Response(script, {headers: {'Content-Type': 'text/javascript'}});
+      if (path.startsWith('/frontend/factory/styles/') || path.startsWith('/assets/branding/')) {
+        const file = Bun.file(join(root, path));
+        if (await file.exists()) return new Response(file);
+      }
+      if (path !== '/') return new Response(null, {status: 404});
+      return new Response(
+        '<!doctype html><link rel="icon" href="data:,"><link rel="stylesheet" href="/frontend/factory/styles/base.css"><main class="soda-factory-root" data-factory-scheme="light"></main><script type="module" src="/assets/request-fixture.js"></script>',
+        {headers: {'Content-Type': 'text/html'}}
+      );
+    },
+  });
+  const browser = page.context().browser();
+  assert(browser);
+  const context = await browser.newContext({viewport: {width: 1280, height: 900}});
+  const standalone = await context.newPage();
+  standalone.setDefaultTimeout(5000);
+  const errors: string[] = [];
+  standalone.on('pageerror', (error) => errors.push(error.message));
+  standalone.on('response', (response) => {
+    if (response.url().startsWith(server.url.origin) && response.status() >= 400)
+      errors.push(`Standalone asset failed (${response.status()}): ${response.url()}`);
+  });
+  try {
+    await standalone.goto(server.url.href);
+    const composer = standalone.locator('soda-intent');
+    const entry = composer.getByRole('textbox', {name: 'Describe what you want to build'});
+    await entry.fill('Keep the standalone request after remount.');
+    await standalone.evaluate(() => window.factoryRequestFixture.mount('entry'));
+    await standalone.waitForFunction(
+      () =>
+        document.querySelector('soda-intent')?.shadowRoot?.querySelector('textarea')?.value ===
+        'Keep the standalone request after remount.'
+    );
+    await standalone.evaluate(() => window.factoryRequestFixture.mount('entry', 'another-profile'));
+    assert.equal(await entry.inputValue(), '');
+    await standalone.evaluate(() => window.factoryRequestFixture.mount('entry'));
+    await standalone.waitForFunction(
+      () =>
+        document.querySelector('soda-intent')?.shadowRoot?.querySelector('textarea')?.value ===
+        'Keep the standalone request after remount.'
+    );
+    const background = () => standalone.locator('main').evaluate((node) => getComputedStyle(node).backgroundColor);
+    assert.equal(await background(), 'rgb(255, 255, 255)');
+    await standalone.locator('main').evaluate((node) => node.setAttribute('data-factory-scheme', 'dark'));
+    assert.equal(await background(), 'rgb(16, 16, 16)');
+    await standalone.evaluate(() => window.factoryRequestFixture.mount('review'));
+    await composer.getByRole('heading', {name: 'Review your product direction'}).waitFor();
+    assert.equal(
+      await composer.getByRole('textbox', {name: 'Desired outcome'}).inputValue(),
+      'Help a small team track release readiness.'
+    );
+    await standalone.evaluate(() => window.factoryRequestFixture.mount('stale'));
+    const outcome = composer.getByRole('textbox', {name: 'Desired outcome'});
+    await outcome.fill('Retain this writing while reviewing a newer revision.');
+    await composer.getByRole('button', {name: 'Update proposal'}).click();
+    await composer.getByText('Could not save or plan this request. Your choices are kept; try again.').waitFor();
+    assert.equal(await outcome.inputValue(), 'Retain this writing while reviewing a newer revision.');
+    await standalone.evaluate(() => window.factoryRequestFixture.mount('denied'));
+    await composer.getByText('Could not load the saved request. Your current edits are kept; try again.').waitFor();
+    await standalone.evaluate(() => window.factoryRequestFixture.mount('offline'));
+    await composer.getByText('Could not load the saved request. Your current edits are kept; try again.').waitFor();
+    await standalone.evaluate(() => window.factoryRequestFixture.mount('loading'));
+    await composer.getByText('Loading saved request…').waitFor();
+    await standalone.evaluate(() => window.factoryRequestFixture.mount('entry'));
+    await entry.waitFor();
+    await requestLifetime(standalone);
+    await requestDraftRecovery(standalone);
+    await requestSaveRecovery(standalone);
+    await requestGenerationRecovery(standalone);
+    await requestPlanningRecovery(standalone);
+    await requestExplorationRecovery(standalone);
+    await standalone.evaluate(() => document.fonts.ready.then(() => undefined));
+    assert.deepEqual(errors, []);
+  } finally {
+    await context.close();
+    server.stop(true);
+  }
 }
 
 test('intent-first entry binds a draft before native planning and accepted generation', async (t) => {
@@ -652,7 +1969,18 @@ test('intent-first entry binds a draft before native planning and accepted gener
   );
   await planBoundIntent(page, true);
   const accepted = await lastPostedBody(page, 'accepted');
-  assert.equal(accepted.predecessor, bound.body.id);
+  const generationCommands = await page.evaluate(() =>
+    window.workspaceFixture.calls.filter((call) => call.path.endsWith('/generate') && call.method === 'POST')
+  );
+  assert.deepEqual(
+    generationCommands.map((call) => call.body),
+    [{revision: accepted.id}]
+  );
+  assert.equal(
+    accepted.predecessor,
+    bound.body.id,
+    await page.locator('soda-intent').evaluate((node) => node.shadowRoot?.textContent?.slice(-5000) || '')
+  );
   assert.equal(accepted.repository, bound.body.repository);
   assert.deepEqual(accepted.ideas, bound.body.ideas);
   assert.equal(
@@ -662,6 +1990,7 @@ test('intent-first entry binds a draft before native planning and accepted gener
   assert.deepEqual(await page.evaluate(() => (window as unknown as {intentStore: IntentStore}).intentStore.planCalls), [
     {revision: String(bound.body.id), operation: 'propose_intent'},
   ]);
+  await standaloneRequest(page);
 });
 
 test('native generation failure retains acceptance and explains the remaining enrollment', async (t) => {
@@ -1547,12 +2876,19 @@ test('an unavailable proposal keeps the objective editable and permits a bounded
   });
   await page.getByLabel('Describe what you want to build', {exact: true}).fill('Build a leave tracker');
   await page.getByRole('button', {name: 'Explore ideas', exact: true}).click();
-  await page.getByText('Exploration could not run. Your description is saved; try again.', {exact: true}).waitFor();
+  await page
+    .getByText(
+      'Exploration could not be confirmed. Your description is saved; check the original exploration result before trying again.',
+      {exact: true}
+    )
+    .waitFor();
   assert.equal(
     await page.getByLabel('Describe what you want to build', {exact: true}).inputValue(),
     'Build a leave tracker'
   );
-  await page.getByRole('button', {name: 'Explore ideas', exact: true}).click();
+  const recovery = page.getByRole('region', {name: 'Exploration recovery'});
+  await recovery.getByRole('button', {name: 'Check exploration result', exact: true}).click();
+  await recovery.getByRole('button', {name: 'Resume original exploration', exact: true}).click();
   await page.getByRole('heading', {name: 'Review your product direction'}).waitFor();
   assert.equal(
     await page.evaluate(() => window.workspaceFixture.calls.filter((call) => call.body?.state === 'accepted').length),
@@ -1564,7 +2900,7 @@ test('proposal refusals name the task limit only for task-limit failures', async
   await installIntentStore(page);
   await page.evaluate(() => {
     const original = window.fetch;
-    const codes = ['invalid_proposal_task_limit', 'invalid_proposal'];
+    const codes = ['invalid_proposal_task_limit', 'invalid_proposal', 'planning_funding_required'];
     (window as unknown as {refusedExplores: number}).refusedExplores = 0;
     Object.defineProperty(window, 'fetch', {
       configurable: true,
@@ -1572,7 +2908,9 @@ test('proposal refusals name the task limit only for task-limit failures', async
         if (String(input).endsWith('/explore') && codes.length > 0) {
           const code = codes.shift();
           (window as unknown as {refusedExplores: number}).refusedExplores += 1;
-          return Promise.resolve(Response.json({error: {code}}, {status: 400}));
+          return Promise.resolve(
+            Response.json({error: {code}}, {status: code === 'planning_funding_required' ? 409 : 400})
+          );
         }
         return original(input, init);
       },
@@ -1594,8 +2932,15 @@ test('proposal refusals name the task limit only for task-limit failures', async
       {exact: true}
     )
     .waitFor();
-  // Both failures came from explicit clicks; the UI never retried on its own.
-  assert.equal(await page.evaluate(() => (window as unknown as {refusedExplores: number}).refusedExplores), 2);
+  await page.getByRole('button', {name: 'Explore ideas', exact: true}).click();
+  await page
+    .getByText(
+      'Exploration needs planning credit. Your description is saved; check its allowance before trying again.',
+      {exact: true}
+    )
+    .waitFor();
+  // All failures came from explicit clicks; the UI never retried on its own.
+  assert.equal(await page.evaluate(() => (window as unknown as {refusedExplores: number}).refusedExplores), 3);
   assert.equal(
     await page.getByLabel('Describe what you want to build', {exact: true}).inputValue(),
     'Build a leave tracker'
@@ -1678,8 +3023,10 @@ test('a request resumes by id while superseded and refused loads keep safe conte
   });
   await resetIntent(page);
   await resumeIntent(page, id1);
-  await page.waitForTimeout(300);
-  assert.equal(await intentObjective(page), '');
+  // Lost native authority removes the Factory account binding and composer;
+  // it must not keep the previous account's writing in an empty-looking form.
+  await page.waitForFunction(() => document.querySelector('soda-intent') === null);
+  assert.equal(await page.locator('soda-intent').count(), 0);
   assert.equal(
     await page.evaluate(() => (window as unknown as {resumed: unknown[]}).resumed.length),
     resumedBeforeSwitch
@@ -2706,7 +4053,7 @@ async function draftShelfEntry(page: Page, intent: string): Promise<Record<strin
   return page.evaluate((key: string) => {
     const raw = localStorage.getItem(key);
     return raw ? (JSON.parse(raw) as Record<string, unknown>) : null;
-  }, `soda-intent-draft:v1:1:${intent}`);
+  }, `soda-intent-draft:v1:${fountainDraftScope}:1:${intent}`);
 }
 
 function shelfKeys(entry: Record<string, unknown> | null): string[] {
@@ -3279,7 +4626,7 @@ test('shelf validation keeps a 26+ link task yet still rejects an over-length li
   await page.locator('article').first().getByRole('combobox').selectOption('decline');
   await updateProposal(page);
   checkCanonical('wide-shelf-decline-drop', await lastPostedBody(page, 'draft'));
-  const key = `soda-intent-draft:v1:1:${intent}`;
+  const key = `soda-intent-draft:v1:${fountainDraftScope}:1:${intent}`;
   // Widen one shelved task to 30 dependency links: the canonical task shape
   // allows up to 64 entries of up to 25 chars each, so the count side of
   // reload validation must keep it (a single shared 25 limit would discard
@@ -3906,7 +5253,10 @@ interface HistoryIdea {
   decision: string;
 }
 async function clearDraftEntry(page: Page, intent: string) {
-  await page.evaluate((key: string) => localStorage.removeItem(key), `soda-intent-draft:v1:1:${intent}`);
+  await page.evaluate(
+    (key: string) => localStorage.removeItem(key),
+    `soda-intent-draft:v1:${fountainDraftScope}:1:${intent}`
+  );
 }
 async function seedCurrentHead(page: Page, head: Record<string, unknown>) {
   await page.evaluate(

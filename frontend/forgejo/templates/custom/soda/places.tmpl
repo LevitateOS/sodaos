@@ -5,8 +5,8 @@
 {{- $here := $p.ExtensionPageURL -}}{{- if and (not $here) $p.PageIsExtension}}{{$here = $p.Link}}{{end -}}
 {{- $feed := $soda -}}{{- $requests := "" -}}{{- $app := "" -}}{{- $terminals := "" -}}{{- $knowledge := "" -}}{{- $settings := "" -}}{{- $issues := "" -}}{{- $factory := "" -}}
 {{- if $soda -}}
-{{- $requests = print $soda "/requests"}}{{$app = print $soda "/app"}}{{$terminals = print $soda "/terminals"}}{{$knowledge = print $soda "/knowledge"}}{{$settings = print $soda "/settings"}}{{$issues = print $soda "/issues" -}}
-{{- with $p.Issue}}{{$factory = print $soda "/issues/" .Index}}{{end -}}
+{{- $requests = print $soda "/requests"}}{{$app = print $soda "/app"}}{{$terminals = print $soda "/terminals"}}{{$knowledge = print $soda "/knowledge"}}{{$settings = print $soda "/settings"}}{{$issues = print $soda "/work/issues" -}}
+{{- with $p.Issue}}{{$factory = print $soda "/work/issues/" .Index "?tab=factory"}}{{end -}}
 {{- end -}}
 {{- if eq $part "generic" -}}
 {{- with $p.ExtensionPages}}{{range index . "repository"}}{{if and (ne .Permission "admin") (ne .ExtensionID $sodaExtension)}}
@@ -56,6 +56,6 @@
 
 {{- else if eq $part "factory-status" -}}
 	{{- if $factory}}
-		<p class="soda-repo-thread-factory"><a href="{{$factory}}" data-soda-place="factory-status">{{svg "octicon-cpu"}} Factory status</a></p>
+		<p class="soda-repo-thread-factory"><a href="{{$factory}}" data-soda-place="issues">{{svg "octicon-cpu"}} Factory status</a></p>
 	{{- end -}}
 {{- end -}}

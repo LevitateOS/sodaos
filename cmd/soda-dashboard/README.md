@@ -1,55 +1,40 @@
-# soda-dashboard
+# soda-dashboard — Soda Forge backend
 
-Run Soda's backend for native Forgejo extension pages, project operations and
-factory coordination. This is a service process for appliance operators;
-people use its features through Forgejo's installed Soda extension.
+Run Project administration, human terminals, account controls, private
+applications and its private native API. Factory coordination runs in
+[`soda-factory-server`](../soda-factory-server/README.md), a separate product and
+process. This command never starts a coordinator or worker MCP listener.
 
-## Installed use
-
-The [dashboard container recipe](../../system/host/services/soda-dashboard.container)
-runs `/usr/local/bin/soda-dashboard` inside the dashboard image as UID/GID 2000.
-It starts after activation and receives private configuration, database access
-and host/identity sockets through the appliance's mounts.
-
-Inspect an installed service with:
+Build from the repository root:
 
 ```sh
-systemctl status soda-dashboard.service
-journalctl -u soda-dashboard.service
+go build -o .artifacts/bin/soda-dashboard ./cmd/soda-dashboard
 ```
-
-Follow [Operator setup](../../docs/guides/operator-setup.md) and
-[Installation](../../docs/guides/installation.md) for provisioning and activation.
-
-## Process inputs
 
 | Flag | Meaning |
 | --- | --- |
-| `--config PATH` | Dashboard JSON; default `/etc/soda/dashboard.json`. |
-| `--extension-socket PATH` | Optional absolute Unix socket for the native extension bridge. |
-| `--operator-socket PATH` | Optional absolute Unix socket for factory operator commands. |
-| `--operator-uid UID` | Required admitted OS peer UID when the operator socket is configured. |
+| `--config PATH` | Configuration; default `/etc/soda/dashboard.json`. |
+| `--listen IP:PORT` | Override the configured loopback HTTP listener. |
+| `--extension-socket PATH` | Private native-extension Unix listener. |
+| `--operator-socket PATH` | Private Project and extension administration listener. |
+| `--operator-uid UID` | Required admitted OS peer UID for operator commands. |
+| `--factory-control-socket PATH` | Factory's private Project coordination endpoint. |
 
-The installed container supplies `/ipc/soda.sock` for the extension listener and
-`/run/soda/operator/operator.sock` with peer UID `0` for operator commands.
-`--help` prints flags before opening service resources. Configuration fields
-belong to [Service configuration](../../docs/reference/configuration.md).
+The Factory control socket may instead be supplied in JSON. With it omitted,
+Forge runs without Factory. A Project with retained Factory policy or work still
+requires Factory coordination for lifecycle changes; removing configuration does
+not bypass its recorded authority.
 
-## Prerequisites and effects
+The installed `soda-dashboard.service` runs as UID/GID 2000 and exposes health on
+loopback port 8080. Its operator socket remains
+`/run/soda/operator/operator.sock`; Factory commands use Factory's separate socket.
+The Fountain extension sends Factory browser calls directly to Factory's own
+extension socket. The public intake route also goes directly to Factory.
+Native browser URLs and authority checks are preserved.
 
-Startup validates embedded avatars, loads configuration and restricted secret
-files, opens the encrypted PostgreSQL store, and takes exclusive factory-ledger
-ownership. It reconciles outstanding work before serving. Selected background
-Forgejo integrations require their configured private transport and credentials.
+SIGINT/SIGTERM drains Forge requests and closes its human terminal attachments.
+It does not stop Factory. Inspect with `systemctl status soda-dashboard.service`
+and `journalctl -u soda-dashboard.service`.
 
-The HTTP listener uses the configured `listen` address. It serves backend probes,
-public avatars and the configured intake handler; protected product operations
-use the dedicated extension listener and verified native authority. Factory
-operator commands use the separate socket and OS peer identity.
-
-Requests can write database state and invoke host, broker and native Forgejo
-operations. On SIGINT/SIGTERM the process closes admission, drains HTTP, closes
-terminal peers and releases coordinator ownership. Failures are logged and exit
-`1`. Route and authority details belong to the
-[HTTP API](../../docs/reference/api.md), [Factory](../../docs/reference/factory.md)
-and [Trust](../../docs/architecture/trust.md) guides.
+See [configuration](../../docs/reference/configuration.md) and
+[architecture](../../docs/architecture/overview.md).

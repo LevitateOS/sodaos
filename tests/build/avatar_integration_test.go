@@ -176,6 +176,7 @@ func TestAvatarProductionRoutesWithTestOwnedUpstreams(t *testing.T) {
 	ports := map[string]int{
 		"127.0.0.1:3000": upstream(t, "forgejo"),
 		"127.0.0.1:8080": upstream(t, "soda"),
+		"127.0.0.1:8081": upstream(t, "factory"),
 	}
 	var replaceDials func(node any)
 	replaceDials = func(node any) {
@@ -311,7 +312,7 @@ func TestAvatarProductionRoutesWithTestOwnedUpstreams(t *testing.T) {
 	intake := "/-/soda/api/factory/intake"
 	response, err = probe(http.MethodPost, intake, `{"issue":{"number":1}}`)
 	Require(t, err == nil, "intake request: %v", err)
-	Check(t, response["upstream"] == "soda" && response["path"] == intake, "intake route = %v", response)
+	Check(t, response["upstream"] == "factory" && response["path"] == intake, "intake route = %v", response)
 	Check(t, response["cookie"] == nil && response["authorization"] == nil, "intake browser credentials = %v", response)
 	Check(t, response["signature"] == "fixture-signature" && response["delivery"] == "fixture-delivery" && response["event"] == "issue_comment",
 		"intake HMAC headers = %v", response)

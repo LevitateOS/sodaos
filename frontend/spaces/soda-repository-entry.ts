@@ -20,7 +20,8 @@ import {mountAppPlace} from './soda-place-app.js';
 import {mountKnowledgePlace} from './soda-place-knowledge.js';
 import {mountTerminalsPlace} from './soda-place-terminals.js';
 import {mountSettingsPlace} from './soda-place-settings.js';
-import {mountFactoryStatusPlace} from './soda-place-factory-status.js';
+import {mountIssuesPlace} from './soda-place-issues.js';
+import {fountainRepository} from './soda-factory-feed-host.js';
 
 interface PlaceDefinition {
   title: string;
@@ -52,7 +53,8 @@ const placeDefinitions: Record<PlaceName, PlaceDefinition> = {
     mount: mountSettingsPlace,
     refusal: (viewer) => (viewer.admin || viewer.operator ? undefined : notAdmin),
   },
-  'factory-status': {title: 'Factory status', mount: mountFactoryStatusPlace},
+  issues: {title: 'Issues', mount: mountIssuesPlace},
+  pulls: {title: 'Pull requests', mount: mountIssuesPlace},
 };
 
 /** At most this many request composers stay alive; the oldest hidden one goes first. */
@@ -67,10 +69,11 @@ function headerHasSodaTabs(root: HTMLElement): boolean {
 }
 
 /** Read the viewer's standing once from the repository's Factory access view. */
-async function readViewer(context: PlaceContext): Promise<PlaceViewer> {
+async function readViewer(context: PlaceContext, signal: AbortSignal): Promise<PlaceViewer> {
+  const resolved = await fountainRepository(context.transport, context.repository, signal);
   const response = await context.transport.request(
-    `repositories/${encodeURIComponent(context.repository)}/factory/access`,
-    {method: 'GET'}
+    `repositories/${encodeURIComponent(resolved.repository)}/factory/access`,
+    {method: 'GET', signal}
   );
   if (!response.ok) throw Error('Viewer permission unavailable');
   const value = (await response.json()) as {viewer?: Record<string, unknown>};
@@ -96,7 +99,7 @@ function placeBarItems(places: SodaPlaces, prefix: string, viewer: PlaceViewer, 
     {label: 'Code', href: repository, active: false},
     {label: 'Feed', href: places.feed(), active: name === 'feed' || name === 'request'},
     {label: 'App', href: places.app(), active: name === 'app'},
-    {label: 'Issues', href: places.factoryStatus(), active: name === 'factory-status'},
+    {label: 'Issues', href: places.issues(), active: name === 'issues'},
     {label: 'Pull requests', href: `${repository}/pulls`, active: false},
     viewer.codeWrite && {label: 'Terminals', href: places.terminals(), active: name === 'terminals'},
     {label: 'Knowledge', href: places.knowledge(), active: name === 'knowledge'},
@@ -135,7 +138,13 @@ export function mount(root: HTMLElement, context: ExtensionMountContext): MountH
   if (context.pageId !== 'repository-feed' || context.panelId || !context.repositoryId)
     throw Error('Invalid SodaOS repository mount');
   const transport = prepareExtensionMount(root, context);
-  const styles = ['components.css', 'sodaspaces.css', 'sodaspaces-page.css', 'sodaspaces-drawer.css', 'sodaspaces-terminal.css'].map((name) => {
+  const styles = [
+    'components.css',
+    'sodaspaces.css',
+    'sodaspaces-page.css',
+    'sodaspaces-drawer.css',
+    'sodaspaces-terminal.css',
+  ].map((name) => {
     const link = document.createElement('link');
     link.rel = 'stylesheet';
     link.href = transport.assetBase + name;
@@ -171,10 +180,7 @@ export function mount(root: HTMLElement, context: ExtensionMountContext): MountH
   const retained = new Map<string, LiveView>();
 
   const drawChrome = () => {
-    render(
-      headerHasSodaTabs(root) ? html`` : placeBar(placeBarItems(places, prefix, viewer, place)),
-      bar
-    );
+    render(headerHasSodaTabs(root) ? html`` : placeBar(placeBarItems(places, prefix, viewer, place)), bar);
   };
 
   // An error in one view stays in that view.
@@ -293,7 +299,8 @@ export function mount(root: HTMLElement, context: ExtensionMountContext): MountH
   };
 
   route(location.pathname + location.search + location.hash);
-  readViewer(placeContext)
+  const viewerReads = new AbortController();
+  readViewer(placeContext, viewerReads.signal)
     .then((read) => Object.assign(viewer, read))
     .catch(() => Object.assign(viewer, {loaded: true}))
     .finally(() => {
@@ -318,12 +325,14 @@ export function mount(root: HTMLElement, context: ExtensionMountContext): MountH
       if (validation.sessionGeneration === transport.generation) setVisible(true);
     },
     retire() {
+      viewerReads.abort();
       retired = true;
       visible = false;
       releaseAll();
       drawChrome();
     },
     dispose() {
+      viewerReads.abort();
       retired = true;
       releaseAll();
       render(html``, bar);

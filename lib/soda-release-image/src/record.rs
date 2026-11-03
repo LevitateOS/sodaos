@@ -35,8 +35,13 @@ pub fn candidate_content(out: &str, native: &str) -> Result<Vec<(String, String)
             "dashboard:/usr/local/bin/soda-dashboard".to_string(),
             sys::join(&[native, "bin/soda-dashboard"]),
         ),
+        (
+            "dashboard:/usr/local/bin/soda-factory-server".to_string(),
+            sys::join(&[native, "bin/soda-factory-server"]),
+        ),
         host("/usr/share/containers/systemd/forgejo.container"),
         host("/usr/share/containers/systemd/soda-dashboard.container"),
+        host("/usr/share/containers/systemd/soda-factory.container"),
         host("/usr/share/containers/systemd/soda-proxy.container"),
         host("/usr/share/containers/systemd/soda-postgres.container"),
         host("/usr/share/soda/extensions/catalog.json"),

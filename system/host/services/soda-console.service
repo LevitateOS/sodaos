@@ -6,7 +6,7 @@ Before=getty@tty1.service
 # Quadlet-generated units cannot be enabled; bind them here instead. The
 # dashboard and proxy carry their own activated condition, so pre-setup boots
 # only render the welcome and start the loopback Forgejo installer.
-Wants=forgejo.service soda-dashboard.service soda-proxy.service
+Wants=forgejo.service soda-dashboard.service soda-factory.service soda-proxy.service
 
 [Service]
 Type=oneshot

@@ -5,6 +5,12 @@ publication adapter. It is an internal Go package consumed by
 `forgejo.Publisher`; operators configure that integration and repository users
 see its resulting branches and pull requests in native Forgejo.
 
+This package handles native publication packet and receipt scope. Its parent
+`forgejo.Publisher` resolves canonical Factory actor/repository/correction-author
+keys before calling it, projects returned operation metadata into existing local
+mappings, and retains raw native receipts for scoped adoption. It does not
+rewrite durable Factory work or credential custody to native IDs.
+
 ## Configure the consumer
 
 `Config` requires an absolute private workspace root, a native repository

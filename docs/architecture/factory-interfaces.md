@@ -12,39 +12,33 @@ Package placement belongs to [Go ownership](../development/go.md#factory-interfa
 
 ## Service and persistence placement
 
-Run one `factory/control` coordinator inside the existing `soda-dashboard`
-backend. It uses that service's `store` database for factory policy, acceptance,
-attempts, runs and commands alongside Project records. `web` constructs it and
-owns explicit start/shutdown wiring; `web/api` admits requests and invokes it.
-Constructing an HTTP handler does not launch work. Operator tools address this
-same coordinator; retire their independent execution engine and `execution.db`.
-Startup must obtain exclusive coordinator ownership of this database and finish
-reconciling outstanding work before reopening dispatch. This is one appliance
-process, not a replicated scheduler or leader-election protocol.
+Run one `factory/control` coordinator in `soda-factory-server`, independently
+of the `soda-dashboard` Forge backend. `web.NewFactory` constructs it;
+`web/serve` binds its listeners and owns startup/shutdown. Constructing an HTTP
+handler does not launch work. Factory acquires exclusive ledger ownership and
+reconciles before admitting requests. Operator tools address that same process.
 
-The Identity Broker keeps its existing separate service, database and credential
-custody. Fixed host operations orchestrate lease acquisition and native launch;
-the coordinator receives metadata, never provider credential delivery. The host
-persists only protected mechanical preparation/start/stop receipts, not factory
-policy or a competing run ledger. Fountain retains its own native records and
-operation ledger. No transaction spans these services.
+Factory and Forge currently share the existing `store` PostgreSQL schema and
+canonical Project records. This split introduces neither a second schema owner
+nor an independent Project database. Factory alone owns coordinator admission,
+planning, background native operations, publication and worker MCP. The broker
+retains its separate database, encrypted credentials and execution custody.
 
-The backend retains the unprivileged `forgejo/publish` executor, adds Git to its
-image and uses a private publication directory under its existing writable data
-root. Native actor secret files and background service admission stay outside
-Projects. Existing read-only root, dropped capabilities and private socket
-boundaries remain applicable. Sharing the backend avoids another daemon and
-cross-service factory/database coordination, but also shares its availability and trusted
-native-actor boundary. Git is an additional backend dependency.
+The Fountain extension sends Factory browser routes directly over the private
+Factory extension socket; Factory independently verifies native authority. The
+private Project control socket admits only the service OS UID and exposes
+stop/start coordination and effective authority. Forge keeps its own human
+terminal registry and lifecycle admission. A missing Factory fails explicitly;
+Forge never starts a fallback coordinator or retries an uncertain mutation.
 
-This choice follows the actual startup/store wiring in
-[`cmd/soda-dashboard`](../../cmd/soda-dashboard/main.go), the coordinator in
-[`factory/control`](../../internal/factory/control/coordinator.go), existing
-[`host` lease delivery](../../internal/host/identity.go), and the current
-[backend image](../../system/containers/dashboard/Containerfile). Three fresh Jev
-consultations supported backend placement and host delivery; that advice does
-not prove either implementation. The [planning evidence](https://github.com/LevitateOS/sodaos/blob/83cf27a3c46811617a8615e25364ee9d1ead3df0/docs/development/factory-implementation-plan.md#interface-definition)
-records their scope and source revisions.
+The Factory container uses Git and the existing private publication root.
+Its worker MCP socket remains at the existing mounted data-root path. Existing
+Project roots, credentials, process identities and ledger records are preserved.
+Factory and Forge use independently supervised containers from the appliance's
+shared backend image, and can be started separately from their source commands.
+The current browser interface reuses the existing Fountain extension assets.
+The [Factory service guide](../../cmd/soda-factory-server/README.md)
+documents configuration, installation dependencies and the shared-storage limit.
 
 ## Factory MCP role interface
 
@@ -62,7 +56,7 @@ subscription details remain the finite choices in the owning design.
 
 This is a target interface, pending the native proofs and production tasks in the
 [workflow contracts](../development/factory-workflow-contracts.md).
-One Go MCP implementation runs in the existing `soda-dashboard` process on a
+One Go MCP implementation runs in the standalone `soda-factory-server` process on a
 dedicated private Unix HTTP listener. A fixed `soda-project-terminal factory-mcp`
 Rust relay presents native stdio MCP to each admitted CLI. Mount only a dedicated
 read-only IPC directory containing this listener, so socket recreation after

@@ -1,3 +1,4 @@
+import {factoryAssetSource} from './factory-asset-source';
 import {before, after, type TestContext} from 'node:test';
 import assert from 'node:assert/strict';
 import {chromium, type Browser, type Page} from 'playwright';
@@ -37,6 +38,8 @@ export function setupTerminalDriver() {
       port: 0,
       fetch(request) {
         const pathname = new URL(request.url).pathname;
+        const factoryAsset = factoryAssetSource(pathname);
+        if (factoryAsset) return factoryAsset;
         if (pathname === '/assets/terminal-fixture.js')
           return new Response(module, {headers: {'Content-Type': 'text/javascript'}});
         const css =

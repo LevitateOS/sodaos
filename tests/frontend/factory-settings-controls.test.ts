@@ -3,17 +3,218 @@ import assert from 'node:assert/strict';
 import {setupProjectControlsDriver, fixture, refresh, writes} from './fixtures/project-controls-driver';
 setupProjectControlsDriver();
 
+test('Factory settings resolve the native Project once and preserve string repository and policy actor identities', async (t) => {
+  const page = await fixture(t);
+  await page.evaluate(() => {
+    const repository = '9007199254740993';
+    const actor = '9007199254740995';
+    window.drawerFixture.setReply(async (call) => {
+      if (call.url.endsWith('/api/factory/native-repositories/resolve'))
+        return Response.json({
+          host: 'a'.repeat(32),
+          actor: '11',
+          repository,
+          native_repository: '7',
+          name: 'alice/demo',
+        });
+      if (call.url.endsWith(`/api/repositories/${repository}/factory`) && call.method === 'GET')
+        return Response.json({
+          repository,
+          capacity: {revision: 4, max_concurrent_runs: 2},
+          native_bindings: [
+            'git.ref.publish',
+            'pull_request.create',
+            'pull_request.review.submit',
+            'pull_request.review.thread.resolve',
+            'pull_request.merge',
+          ].map((kind) => ({kind, actor_id: actor, token_id: '56'})),
+        });
+      if (call.url.endsWith('/factory/activity') && call.method === 'GET')
+        return Response.json({
+          repository,
+          revision: 0,
+          observed_unix: 1,
+          settings: {issue_created: true, pr_created: true, verified_merge: true},
+          items: [],
+        });
+      if (call.url.endsWith('/factory/repair') && call.method === 'GET')
+        return Response.json({revision: 0, grant: null, charges: [], episodes: []});
+      return null;
+    });
+    window.drawerFixture.api.setPresentation('settings');
+  });
+  await refresh(page);
+  await page.getByRole('tab', {name: 'Factory'}).click();
+  const settings = page.locator('soda-factory-settings');
+  await settings.getByText('Capacity: 2 concurrent runs').waitFor();
+  const policy = settings.locator('form[data-action="policy"]');
+  for (const [field, value] of Object.entries({
+    target_branch: 'refs/heads/main',
+    required_checks: 'native-ci/check',
+    coder_model: 'fixture-coder',
+    reviewer_model: 'fixture-reviewer',
+  }))
+    await policy.locator(`input[name="${field}"]`).fill(value);
+  await policy.getByRole('button', {name: 'Save repository policy', exact: true}).click();
+  await settings.getByRole('status').filter({hasText: 'Change confirmed by the current API.'}).waitFor();
+  await settings.getByRole('button', {name: 'Apply hold state', exact: true}).click();
+  await settings.getByRole('status').filter({hasText: 'Change confirmed by the current API.'}).waitFor();
+  const calls = await page.evaluate(() => window.drawerFixture.calls);
+  assert.equal(calls.filter((call) => call.url.endsWith('/api/factory/native-repositories/resolve')).length, 1);
+  const scopes = calls.filter((call) => /\/repositories\/\d+\/factory/.test(call.url));
+  assert(scopes.length > 5);
+  assert(scopes.every((call) => call.url.includes('/repositories/9007199254740993/factory')));
+  assert(scopes.some((call) => call.url.endsWith('/factory/activity')));
+  assert(scopes.some((call) => call.url.endsWith('/factory/repair')));
+  const write = scopes.find((call) => call.url.endsWith('/factory/policy') && call.method === 'PUT');
+  assert(write);
+  const body = JSON.parse(write.body!);
+  for (const field of ['publish_actor', 'create_actor', 'review_actor', 'resolve_actor', 'merge_actor'])
+    assert.deepEqual(body[field], {actor_id: '9007199254740995', token_id: '56'});
+  assert(
+    calls.some(
+      (call) => call.url.endsWith('/api/environments/p0123456789abcdef01234567/preparation') && call.method === 'POST'
+    )
+  );
+  assert(!calls.some((call) => /\/environments\/9007199254740993/.test(call.url)));
+});
+
+test('Factory settings discard late discovery, refuse a mismatched native locator and rediscover after hiding', async (t) => {
+  const page = await fixture(t);
+  await page.evaluate(() => {
+    let release: (() => void) | undefined;
+    const waiting = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    let stallAccounts = false;
+    let releaseAccounts: (() => void) | undefined;
+    const accounts = new Promise<void>((resolve) => {
+      releaseAccounts = resolve;
+    });
+    window.addEventListener(
+      'hold-settings-accounts',
+      () => {
+        stallAccounts = true;
+      },
+      {once: true}
+    );
+    window.addEventListener(
+      'release-settings-accounts',
+      () => {
+        stallAccounts = false;
+        releaseAccounts?.();
+      },
+      {once: true}
+    );
+    window.addEventListener('release-settings-discovery', () => release?.(), {once: true});
+    window.drawerFixture.setReply(async (call) => {
+      if (stallAccounts && call.url.endsWith('/api/identity/connections')) await accounts;
+      if (call.url.endsWith('/api/factory/native-repositories/resolve')) {
+        const native = JSON.parse(call.body!).repository;
+        if (native === '7') await waiting;
+        return Response.json({
+          host: 'a'.repeat(32),
+          actor: '11',
+          repository: native === '7' ? '41' : '43',
+          native_repository: native === '10' ? '9' : native,
+          name: `alice/repository-${native}`,
+        });
+      }
+      if (/\/repositories\/\d+\/factory$/.test(call.url))
+        return Response.json({
+          repository: call.url.match(/repositories\/(\d+)/)![1],
+          capacity: {revision: 1, max_concurrent_runs: 3},
+        });
+      return null;
+    });
+    const settings = document.createElement('soda-factory-settings') as HTMLElement & {
+      context: ReturnType<typeof window.drawerFixture.settingsContext>;
+    };
+    settings.id = 'identity-settings';
+    settings.context = window.drawerFixture.settingsContext('7');
+    window.drawerFixture.root.append(settings);
+  });
+  await page.waitForFunction(() =>
+    window.drawerFixture.calls.some((call) => call.url.endsWith('/native-repositories/resolve'))
+  );
+  assert.equal(
+    await page.evaluate(
+      () => window.drawerFixture.calls.filter((call) => /\/repositories\/\d+\/factory/.test(call.url)).length
+    ),
+    0
+  );
+  await page.evaluate(() => {
+    const settings = document.querySelector('#identity-settings') as HTMLElement & {
+      context: ReturnType<typeof window.drawerFixture.settingsContext>;
+    };
+    settings.context = window.drawerFixture.settingsContext('9');
+    settings.context = window.drawerFixture.settingsContext('9');
+    window.dispatchEvent(new Event('release-settings-discovery'));
+  });
+  const settings = page.locator('#identity-settings');
+  await settings.getByText('Capacity: 3 concurrent runs').waitFor();
+  await settings.getByRole('button', {name: 'Save Project grant', exact: true}).click();
+  await settings.getByRole('status').filter({hasText: 'Change confirmed by the current API.'}).waitFor();
+  const grant = (await writes(page)).find((call) => call.url.endsWith('/repositories/43/factory/environment-grant'));
+  assert(grant);
+  assert.equal(JSON.parse(grant.body!).project, 'p0123456789abcdef01234567');
+  assert.equal(
+    await page.evaluate(
+      () => window.drawerFixture.calls.filter((call) => call.url.includes('/repositories/41/factory')).length
+    ),
+    0
+  );
+  await page.evaluate(() => {
+    window.dispatchEvent(new Event('hold-settings-accounts'));
+    document.dispatchEvent(new Event('soda-provider-connections-changed'));
+    (document.querySelector('#identity-settings') as HTMLElement & {active: boolean}).active = false;
+  });
+  await settings.evaluate(async (element) => {
+    await (element as HTMLElement & {updateComplete: Promise<unknown>}).updateComplete;
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    window.dispatchEvent(new Event('release-settings-accounts'));
+  });
+  assert.doesNotMatch(await settings.innerText(), /Could not refresh connected accounts/);
+  const beforeResume = await page.evaluate(() => window.drawerFixture.calls.length);
+  await page.evaluate(() => {
+    (document.querySelector('#identity-settings') as HTMLElement & {active: boolean}).active = true;
+  });
+  await page.waitForFunction(
+    () =>
+      window.drawerFixture.calls.filter(
+        (call) => call.url.endsWith('/native-repositories/resolve') && JSON.parse(call.body!).repository === '9'
+      ).length === 2
+  );
+  await settings.getByText('Capacity: 3 concurrent runs').waitFor();
+  const resumed = await page.evaluate((start) => window.drawerFixture.calls.slice(start), beforeResume);
+  assert(resumed[0]?.url.endsWith('/native-repositories/resolve'));
+  await page.evaluate(() => {
+    (
+      document.querySelector('#identity-settings') as HTMLElement & {
+        context: ReturnType<typeof window.drawerFixture.settingsContext>;
+      }
+    ).context = window.drawerFixture.settingsContext('10');
+  });
+  await settings.getByRole('status').filter({hasText: 'Invalid or mismatched Soda response'}).waitFor();
+  const calls = await page.evaluate(() => window.drawerFixture.calls);
+  const bad = calls.map((call) => call.url.endsWith('/native-repositories/resolve')).lastIndexOf(true);
+  assert.equal(calls.slice(bad + 1).filter((call) => /\/repositories\/\d+\/factory/.test(call.url)).length, 0);
+  assert.equal(await settings.getByRole('button', {name: 'Save repository policy', exact: true}).count(), 0);
+});
+
 test('Factory activity preserves exact native links and saves only local display preferences', async (t) => {
   const page = await fixture(t);
   await page.evaluate(() => {
-    window.drawerFixture.setReply(async (call) =>
+    window.drawerFixture.setReply(async (call) => {
+      if (call.url.endsWith('/factory/access')) return Response.json({editable: {activity_settings: {editable: true}}});
+      return (
       call.url.endsWith('/api/repositories/7/factory/activity')
         ? Response.json({
             repository: '7',
             repository_path: '/fixture/repository',
-            revision: 3,
+            revision: call.method === 'PUT' ? 4 : 3,
             observed_unix: 4,
-            settings: {issue_created: true, pr_created: true, verified_merge: true},
+            settings: call.method === 'PUT' ? JSON.parse(call.body || '{}').settings : {issue_created: true, pr_created: true, verified_merge: true},
             items: [
               {
                 id: 'issue',
@@ -43,7 +244,8 @@ test('Factory activity preserves exact native links and saves only local display
               },
             ],
           })
-        : null
+        : null);
+      }
     );
     window.drawerFixture.api.setPresentation('settings');
   });
@@ -157,13 +359,10 @@ test('Factory settings render current authority and submit capacity through the 
   assert.equal(capacity.method, 'PUT');
   assert.equal(capacity.headers['x-extension-session-generation'], 'fixture-generation');
   const payload = JSON.parse(capacity.body || '{}') as Record<string, unknown>;
-  assert.deepEqual(
-    payload,
-    {
-      expected_revision: 4,
-      max_concurrent_runs: 2,
-    }
-  );
+  assert.deepEqual(payload, {
+    expected_revision: 4,
+    max_concurrent_runs: 2,
+  });
 
   const repair = page.locator('soda-factory-repair');
   await repair.getByText('No repair grant has been authorized.', {exact: false}).waitFor();
@@ -1034,12 +1233,7 @@ test('sponsorship sends only the owner choices and surfaces stale authority once
   assert(sponsor);
   assert.equal(sponsor.method, 'PUT');
   const payload = JSON.parse(sponsor.body || '{}') as Record<string, unknown>;
-  assert.deepEqual(Object.keys(payload).sort(), [
-    'active',
-    'allowance_minutes',
-    'expected_revision',
-    'roles',
-  ]);
+  assert.deepEqual(Object.keys(payload).sort(), ['active', 'allowance_minutes', 'expected_revision', 'roles']);
   assert.deepEqual(payload.roles, ['soda-coder']);
   assert.equal(writesSent.filter((call) => call.url.includes('/factory/sponsorships/')).length, 1);
 });

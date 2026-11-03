@@ -66,6 +66,7 @@ factory work.
 | --- | --- |
 | [Development index](development/README.md) | How to work on this repository |
 | [Source ownership](development/ownership.md) | Language, package and process boundaries |
+| [Factory products implementation plan](development/factory-products/ideal-filetree-plan.md) | Shared Lit feed/issues/PRs, native desktop, Factory runtime seams, Fountain/GitHub connectors, reuse and implementation order |
 | [Remaining factory work](development/factory-remaining-tasks.md) | The current founder-demo checklist |
 | [Founder-demo implementation checklist](development/factory-remaining-tasks.md#founder-demo-checklist) | 39 connected tasks for the journey, conversational decisions/JEV, app use at its own address, policy update and demo qualification |
 | [Handbook todo list](development/public-handbook/cutover.md#what-can-proceed-now) | Ready work, partially available work and exact dependencies for all 41 public pages, examples, captures, validation and handoff |
@@ -74,7 +75,7 @@ factory work.
 | [Go ownership](development/go.md) | Package placement and house style |
 | [Go packages](development/go-packages.md) | Package file/role convention |
 | [TypeScript](development/typescript.md) | Bun workspace and frontend TS |
-| [Lit](development/lit.md) | Spaces Lit components |
+| [Lit](development/lit.md) | Spaces and shared Factory Lit components, Storybook and Linux Tauri workbench |
 | [Testing](development/testing.md) | Native/source validation and finished-factory acceptance criteria |
 | [Banning unit tests](development/no-unit-tests.md) | Removing unit tests and enforcing the ban per language |
 | [Why unit tests are forbidden](development/why-no-unit-tests.md) | The six reasons behind the unit-test ban |

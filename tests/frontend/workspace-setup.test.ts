@@ -12,6 +12,175 @@ import {
 import {captureSpacesComponent} from '../../scripts/screenshot';
 setupWorkspaceDriver();
 
+test('workspace setup waits for its canonical account and keeps Project creation on native IDs', async (t) => {
+  const page = await fixture(t, 'page', undefined, true);
+  await page.evaluate(async () => {
+    window.workspaceFixture.api.dispose();
+    const next = window.createWorkspaceFixture('page', true);
+    next.setFactoryIdentity('7', '41', '11');
+    next.holdFactoryAccount();
+    window.workspaceFixture = next;
+    await next.api.refresh();
+  });
+  await page.getByText('Loading Factory account…', {exact: true}).waitFor();
+  assert.equal(await page.locator('soda-intent').count(), 0);
+  await page.evaluate(() => window.workspaceFixture.releaseFactoryAccount());
+  await page.getByRole('heading', {name: 'What do you want to build?', exact: true}).waitFor();
+  const account = await page.locator('soda-intent').evaluate((el) => ({
+    actor: (el as HTMLElement & {actor: string}).actor,
+    scope: (el as HTMLElement & {draftScope: string}).draftScope,
+  }));
+  assert.deepEqual(account, {actor: '11', scope: 'fountain:' + 'a'.repeat(32)});
+  await chooseFirstRepository(page);
+  const calls = await page.evaluate(() => window.workspaceFixture.calls);
+  const bound = calls.filter((call) => call.path.endsWith('/api/factory/intents') && call.body?.repository === '41');
+  assert(bound.length > 0);
+  const authored = calls.filter((call) => call.path.endsWith('/api/factory/intents') && call.body);
+  assert(
+    authored.some((call) =>
+      (call.body?.ideas as {provenance?: string; actor?: string}[]).some(
+        (idea) => idea.provenance === 'human' && idea.actor === '11'
+      )
+    )
+  );
+  assert.equal(
+    calls.filter((call) => /\/api\/(?:repositories\/41\/profiles|environments\?repository_id=41)/.test(call.path))
+      .length,
+    0
+  );
+  await page.getByRole('button', {name: 'Create project', exact: true}).click();
+  await page.getByRole('heading', {name: 'Review your product direction', exact: true}).waitFor();
+  const created = await page.evaluate(() => ({
+    commands: window.workspaceFixture.calls.filter(
+      (call) => call.method === 'POST' && call.path.endsWith('/api/environments')
+    ),
+    owner: window.workspaceFixture.spaces[0]?.environment.owner_id,
+  }));
+  assert.equal(created.commands.length, 1);
+  assert.equal(created.commands[0]?.body?.repository_id, '7');
+  assert.equal(created.owner, '1');
+});
+
+test('workspace repository selection refuses a different acting scope before saving a request', async (t) => {
+  const page = await fixture(t, 'page', undefined, true);
+  await page.evaluate(async () => {
+    window.workspaceFixture.api.dispose();
+    const next = window.createWorkspaceFixture('page', true);
+    next.setFactoryIdentity('7', '41', '11');
+    window.workspaceFixture = next;
+    await next.api.refresh();
+  });
+  await reviewFirstIntent(page);
+  await page.getByRole('radio', {name: /alice\/Alpha/}).check();
+  const before = await page.evaluate(() => {
+    window.workspaceFixture.setFactoryIdentity('7', '41', '12');
+    return window.workspaceFixture.calls.filter(
+      (call) => call.method === 'POST' && call.path.endsWith('/api/factory/intents')
+    ).length;
+  });
+  await page.getByRole('button', {name: 'Continue', exact: true}).click();
+  await page
+    .getByText('Could not save the accepted product direction. Your Project has not been created. Try again.', {
+      exact: true,
+    })
+    .waitFor();
+  assert.equal(
+    await page.evaluate(
+      () =>
+        window.workspaceFixture.calls.filter(
+          (call) => call.method === 'POST' && call.path.endsWith('/api/factory/intents')
+        ).length
+    ),
+    before
+  );
+  assert.equal(await page.evaluate(() => window.workspaceFixture.spaces.length), 0);
+});
+
+test('workspace committed requests resolve canonical repositories to native navigation and watch custody', async (t) => {
+  const page = await fixture(t);
+  await page.evaluate(async () => {
+    window.workspaceFixture.api.dispose();
+    const next = window.createWorkspaceFixture('page', false, '/mapped');
+    next.setFactoryIdentity('7', '41', '11');
+    next.enableFactoryRun('5');
+    window.workspaceFixture = next;
+    const intent = 'd' + '1'.repeat(24),
+      idea = 'd' + '2'.repeat(24);
+    await next.request('/api/factory/intents', 'POST', {
+      id: intent,
+      intent,
+      owner: '11',
+      repository: '41',
+      objective: 'Mapped saved work',
+      state: 'accepted',
+      max_issues: 1,
+      ideas: [
+        {
+          id: idea,
+          description: 'Show work',
+          consequence: 'The owner sees progress',
+          decision: 'accept',
+          assumption: false,
+        },
+      ],
+      tasks: [{key: 'd' + '3'.repeat(24), objective: 'Show work', outcomes: ['Work is visible'], idea_ids: [idea]}],
+      effective_outcomes: [idea],
+    });
+    await next.api.refresh();
+    history.pushState({}, '', '/mapped/workspace/requests/' + intent);
+    next.presentRoute();
+  });
+  const overview = page.locator('soda-factory-work-overview');
+  await overview.getByText('Mapped saved work', {exact: true}).waitFor();
+  assert.equal(
+    await overview.getByRole('link', {name: 'issue #5', exact: true}).getAttribute('href'),
+    '/mapped/alice/Alpha/issues/5'
+  );
+  await overview.evaluate((el) =>
+    el.dispatchEvent(
+      new CustomEvent('soda-factory-watch-request', {
+        detail: {run: 'd'.repeat(32), repository: '41', environment: 'p' + '1'.repeat(24)},
+        bubbles: true,
+        composed: true,
+      })
+    )
+  );
+  await page.locator('.soda-factory.is-connected .xterm-rows').waitFor();
+  const stream = await page.evaluate(
+    () => window.workspaceFixture.sockets.find((socket) => String(socket.url).includes('/factory/runs/'))?.sent
+  );
+  assert.deepEqual(stream, [
+    {run_id: 'd'.repeat(32), repository_id: '7', session_generation: 'fixture-generation', cursor: 0},
+  ]);
+  const calls = await page.evaluate(() => window.workspaceFixture.calls);
+  assert(calls.some((call) => call.path.endsWith('/api/factory/repositories/41/identity')));
+  assert.equal(calls.filter((call) => /\/api\/environments\?repository_id=41/.test(call.path)).length, 0);
+});
+
+test('workspace setup refuses another native account and retries canonical account discovery', async (t) => {
+  const page = await fixture(t, 'page', undefined, true);
+  await page.evaluate(async () => {
+    window.workspaceFixture.api.dispose();
+    const next = window.createWorkspaceFixture('page', true);
+    next.setFactoryIdentity('7', '41', '11');
+    next.setFactoryNativeActor('2');
+    window.workspaceFixture = next;
+    await next.api.refresh();
+  });
+  await page
+    .getByText('Factory account information is unavailable. Refresh projects to try again.', {exact: true})
+    .waitFor();
+  assert.equal(await page.locator('soda-intent').count(), 0);
+  assert.equal(
+    await page.evaluate(() => window.workspaceFixture.calls.filter((call) => call.method !== 'GET').length),
+    0
+  );
+  await page.evaluate(() => window.workspaceFixture.setFactoryNativeActor('1'));
+  await page.getByRole('button', {name: 'Refresh projects', exact: true}).click();
+  await page.getByRole('heading', {name: 'What do you want to build?', exact: true}).waitFor();
+  assert.equal(await page.locator('soda-intent').evaluate((el) => (el as HTMLElement & {actor: string}).actor), '11');
+});
+
 async function resumeSavedPlan(page: Page, action = 'View progress', objective = 'Build a small project tracker') {
   await page.getByRole('button', {name: 'Saved plans', exact: true}).click();
   await page.getByRole('button', {name: action + ': ' + objective, exact: true}).click();
@@ -161,7 +330,7 @@ test('setup: pending creation keeps its selection and disables navigation withou
   assert.equal(await outcomeRegion.locator('.soda-feedback').getAttribute('role'), null);
   assert.match(await outcomeRegion.innerText(), /Creating your project/);
   const conversation = await page.evaluate(() =>
-    fetch('/assets/sodaspaces-factory-conversation.css').then(async (r) => ({
+    fetch('/factory/styles/conversation.css').then(async (r) => ({
       status: r.status,
       type: r.headers.get('content-type'),
       body: await r.text(),
@@ -729,7 +898,10 @@ test('setup: detail Watch binds the live run target into an observe-only watch',
     )
   );
   const writes = await page.evaluate(
-    (before) => window.workspaceFixture.calls.slice(before).filter((call) => call.method !== 'GET'),
+    (before) =>
+      window.workspaceFixture.calls
+        .slice(before)
+        .filter((call) => call.method !== 'GET' && !call.path.endsWith('/api/factory/native-repositories/resolve')),
     calls
   );
   assert.deepEqual(writes, []);
@@ -982,6 +1154,7 @@ test('first use: second-project setup cancellation preserves the live renderer, 
 test('setup cancel restores the non-first return target instead of selecting the first project', async (t) => {
   const page = await fixture(t, 'page', undefined, false);
   await page.evaluate(() => {
+    window.workspaceFixture.addVisibleRepository('9', 'alice/Gamma');
     const original = window.fetch;
     Object.defineProperty(window, 'fetch', {
       configurable: true,
@@ -1038,6 +1211,7 @@ test('setup cancel restores the non-first return target instead of selecting the
 test('setup cancel falls back to the first project only when the return target is gone', async (t) => {
   const page = await fixture(t, 'page', undefined, false);
   await page.evaluate(() => {
+    window.workspaceFixture.addVisibleRepository('9', 'alice/Gamma');
     const original = window.fetch;
     Object.defineProperty(window, 'fetch', {
       configurable: true,
@@ -1113,6 +1287,7 @@ test('setup: join states its account, authority and factory independence', async
 test('setup: welcome footer tracks describe, repository and create steps', async (t) => {
   const page = await fixture(t, 'page', undefined, false);
   await page.evaluate(() => {
+    window.workspaceFixture.addVisibleRepository('9', 'alice/Gamma');
     const original = window.fetch;
     Object.defineProperty(window, 'fetch', {
       configurable: true,
@@ -1215,7 +1390,11 @@ test('setup: direct /workspace/new load activates fresh entry in populated works
   await mountNewRoute();
   await page.getByRole('heading', {name: 'What do you want to build?', exact: true}).waitFor();
   assert.deepEqual(
-    await page.evaluate(() => window.workspaceFixture.calls.filter((call) => call.method !== 'GET')),
+    await page.evaluate(() =>
+      window.workspaceFixture.calls.filter(
+        (call) => call.method !== 'GET' && !call.path.endsWith('/api/factory/native-repositories/resolve')
+      )
+    ),
     []
   );
   // Reload keeps the fresh entry without provisioning.
@@ -1224,14 +1403,22 @@ test('setup: direct /workspace/new load activates fresh entry in populated works
   await mountNewRoute();
   await page.getByRole('heading', {name: 'What do you want to build?', exact: true}).waitFor();
   assert.deepEqual(
-    await page.evaluate(() => window.workspaceFixture.calls.filter((call) => call.method !== 'GET')),
+    await page.evaluate(() =>
+      window.workspaceFixture.calls.filter(
+        (call) => call.method !== 'GET' && !call.path.endsWith('/api/factory/native-repositories/resolve')
+      )
+    ),
     []
   );
   // Back exits to the ordinary workspace with terminals/navigation preserved.
   await page.getByRole('button', {name: 'Back', exact: true}).click();
   await page.getByRole('navigation', {name: 'Projects', exact: true}).waitFor();
   assert.deepEqual(
-    await page.evaluate(() => window.workspaceFixture.calls.filter((call) => call.method !== 'GET')),
+    await page.evaluate(() =>
+      window.workspaceFixture.calls.filter(
+        (call) => call.method !== 'GET' && !call.path.endsWith('/api/factory/native-repositories/resolve')
+      )
+    ),
     []
   );
   // Traversal back into the new route reactivates the entry.
@@ -1251,7 +1438,11 @@ test('setup: retained owner follows native forward to /workspace/new without rem
   });
   await page.getByRole('heading', {name: 'What do you want to build?', exact: true}).waitFor();
   assert.deepEqual(
-    await page.evaluate(() => window.workspaceFixture.calls.filter((call) => call.method !== 'GET')),
+    await page.evaluate(() =>
+      window.workspaceFixture.calls.filter(
+        (call) => call.method !== 'GET' && !call.path.endsWith('/api/factory/native-repositories/resolve')
+      )
+    ),
     []
   );
 });

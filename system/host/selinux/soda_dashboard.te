@@ -36,6 +36,8 @@ allow soda_dashboard_t container_file_t:chr_file { getattr open read write };
 allow soda_dashboard_t container_file_t:sock_file { create getattr setattr unlink write };
 allow soda_dashboard_t container_t:unix_stream_socket connectto;
 allow container_t soda_dashboard_t:unix_stream_socket connectto;
+# Forge and Factory use their dedicated service sockets in the shared domain.
+allow soda_dashboard_t self:unix_stream_socket connectto;
 
 # systemd owns this socket and recreates it with RemoveOnStop. A dedicated
 # socket type preserves that lifecycle while granting the dashboard only the

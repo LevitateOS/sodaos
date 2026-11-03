@@ -1,50 +1,42 @@
-# web
+# Forge and Factory HTTP applications
 
-Wire Soda's dashboard HTTP facade, native extension bridge and factory
-coordinator. This internal Go package is for backend integration consumers;
-it has no executable. Operators run
-[`soda-dashboard`](../../cmd/soda-dashboard/README.md), and people use native
-Forgejo contributions.
+This package constructs two products from shared domain, API and storage
+packages. Their process lifecycle and private listeners live in `web/serve`.
 
-## Construct the backend
+- `NewForge(config.Config, *store.Store)` constructs Project, terminal,
+  application, account and extension administration. It never creates a Factory
+  coordinator, claims its ledger lock or starts worker MCP.
+- `NewFactory(config.Config, *store.Store)` supplies native runtime/collaboration
+  ports to `factory/service.NewApplication` and constructs intake and Factory API.
+  The shared application owns coordinator/background assembly and explicit
+  startup/admission-stop/drain lifetime. Its private extension handler
+  refuses unrelated Project, account and terminal routes.
 
-Call `web.New(config.Config, *store.Store)` with admitted configuration and an
-already opened encrypted store. It constructs the Forgejo and host clients,
-[`auth`](auth/README.md), [`api`](api/README.md), identity client and factory
-coordinator. Optional configured background Forgejo services supply readiness,
-publication, review, merge and check adapters.
+The Fountain extension sends Factory routes directly to its configured Factory
+socket, preserving native authority for verification at the destination.
+Forge refuses Factory browser routes. `factory_control_socket` supplies the narrow
+Project stop/start and authority interface. Human terminal ownership stays in
+Forge. Missing Factory connections never create a local coordinator or retry a
+mutation. Forge health does not depend on Factory availability.
 
-The serving process owns this lifecycle:
+The products share the existing PostgreSQL schema and canonical Project records
+in this repository. This is a process and product-lifecycle separation, not
+independent database ownership or support for another forge/execution backend.
+Factory retains the configured publication root and worker IPC path so existing
+Project mounts and retained runs keep their identities.
 
-1. Call `StartCoordinator(ctx)` to acquire exclusive ledger ownership and settle
-   outstanding work before accepting requests.
-2. Serve the `Server` as an `http.Handler`, using coordinator HTTP admission as
-   shown by the dashboard entry point.
-3. Mount `ExtensionHandler()` on the dedicated private extension Unix listener.
-4. Stop admission and drain HTTP, call `CloseTerminals()`, then
-   `CloseCoordinator()` during shutdown.
+Factory startup binds worker MCP before `StartCoordinator`, takes exclusive
+ledger ownership and reconciles before admitting work. Shutdown closes admission,
+drains HTTP and worker requests, then closes the shared application before Store.
+The application delegates to the existing coordinator gate/ledger lock. Forge drains
+its own HTTP listeners and terminal peers without touching Factory.
 
-The configured publication root must be writable for the coordinator lock.
-Startup and coordinator reconciliation can write state and invoke retirement.
-`SetForgejo` and `SetHost` replace facade clients and the corresponding API
-dependencies for integration use.
+`web.Extension(forgeSocket, factorySocket)` remains the native Fountain integration.
+Its frontend adapter selects each product's private extension listener using the
+canonical Factory route boundary. Native authority, same-origin checks and
+capability-bound worker admission remain required across the product boundary.
 
-## HTTP and extension boundaries
-
-The facade serves the `/healthz` probe, redirects `/` to the configured Forgejo
-origin, and serves the public namespaced avatar route. It enforces canonical
-Soda paths and rejects encoded aliases.
-Product routes are supplied by the private extension handler. Authenticated
-webhook intake is wired with its separately configured secret; an absent or
-unreadable secret disables admission.
-
-`web.Extension(socket)` constructs the SDK application used by
-[`soda-extension`](../../cmd/soda-extension/README.md), including the supported
-Forgejo username policy, and returns its transport close function. That socket
-must target the dedicated private backend listener. Native authority is checked
-at both ends of the bridge.
-
-Handler effects and callable routes belong to [HTTP API](../../docs/reference/api.md),
-factory lifecycle to [Factory](../../docs/reference/factory.md), and native
-authority to [Trust](../../docs/architecture/trust.md). Configuration belongs to
+Operator commands: [Factory service](../../cmd/soda-factory-server/README.md),
+[Forge backend](../../cmd/soda-dashboard/README.md). Route contracts:
+[HTTP API](../../docs/reference/api.md). Configuration:
 [Service configuration](../../docs/reference/configuration.md).

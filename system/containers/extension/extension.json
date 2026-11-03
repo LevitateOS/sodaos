@@ -18,8 +18,8 @@
         {"pattern": "knowledge", "title": "Knowledge"},
         {"pattern": "terminals", "title": "Terminals"},
         {"pattern": "settings/{section}", "title": "SodaOS settings"},
-        {"pattern": "issues", "title": "Factory status"},
-        {"pattern": "issues/{issue}", "title": "Factory status"}
+        {"pattern": "work/{kind}", "title": "Work"},
+        {"pattern": "work/{kind}/{item}", "title": "Work"}
       ]
     },
     {"id": "feed", "route": "feed", "title": "Feed", "scope": "global", "entry": "soda-feed-entry.js"},
@@ -38,6 +38,14 @@
     "native.service.bridge",
     "native.background.operations",
     "native.repository.issues.intake",
+    "native.repository.comments.write",
+    "native.repository.discussions.edit",
+    "native.repository.discussions.lock",
+    "native.repository.discussions.state",
+    "native.repository.reviews.write",
+    "native.repository.merges.write",
+    "native.repository.issues.create",
+    "native.repository.pulls.create",
     "native.extension.lifecycle"
   ],
   "policies": [

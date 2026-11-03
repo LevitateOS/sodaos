@@ -230,6 +230,10 @@ pub fn rootfs_file_map() -> Vec<(String, String)> {
             "usr/lib/sysctl.d/90-soda-routing.conf",
         ),
         (
+            "system/host/config/90-soda-image.toml",
+            "usr/lib/zincati/config.d/90-soda-image.toml",
+        ),
+        (
             "system/host/config/cockpit.socket.conf",
             "usr/lib/systemd/system/cockpit.socket.d/10-soda.conf",
         ),
@@ -279,6 +283,7 @@ pub fn rootfs_file_map() -> Vec<(String, String)> {
     for name in [
         "forgejo.container",
         "soda-dashboard.container",
+        "soda-factory.container",
         "soda-proxy.container",
         "soda-postgres.container",
         "soda.network",

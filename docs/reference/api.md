@@ -1,5 +1,11 @@
 # Soda HTTP API
 
+Factory routes are served by `soda-factory-server`. The Fountain extension sends
+the existing browser requests directly over Factory's private Unix socket.
+Forge retains its own Project, terminal and account routes.
+The [service guide](../../cmd/soda-factory-server/README.md)
+describes listener admission and shared-storage scope.
+
 Soda's product API is private to the Forgejo native extension service. It is not
 an independently callable browser API under `/-/soda/`. The public
 `/-/soda/avatars/v1/` route serves generated avatars. Forgejo pages and navigation
@@ -15,6 +21,73 @@ runs or grant factory execution authority.
 ## Native extension API
 
 The private service socket serves requests from the Forgejo extension runtime.
+
+Human PR merge commands use the shared Factory routes below. Repository/PR path
+IDs are canonical decimal strings; the current host/operator comes from native
+admission. See the [shared HTTP owner](../../internal/factory/httpapi/README.md)
+for exact bounds, safe outcome fields and completion semantics.
+
+| Method | Route | Purpose |
+| --- | --- | --- |
+| POST | `/api/factory/collaboration/repositories/{repository}/pulls/{number}/merges` | `command_id`, `method`, and `message` for ordinary methods, or `commit_oid` for `manual`; mixed selectors refuse. |
+| GET | `/api/factory/collaboration/repositories/{repository}/pulls/{number}/merges/commands/{command}` | Reconcile the original saved command under current admission; no replacement intent/query. |
+| POST | `/api/factory/collaboration/repositories/{repository}/pulls/{number}/merges/commands/{command}/cancel` | Strict `{}`; scoped cleanup of the original command, without creating new intent. |
+
+Human issue and PR creation use the same admission and safe outcome contract.
+PR source repository IDs are canonical decimal strings and branches must already
+exist. Creation does not grant agent execution authority.
+
+| Method | Route | Purpose |
+| --- | --- | --- |
+| POST | `/api/factory/collaboration/repositories/{repository}/issues` | Required `command_id` and `title`; optional string `body`. |
+| GET | `/api/factory/collaboration/repositories/{repository}/issue-creation/commands/{command}` | Reconcile the original saved issue creation under current admission. |
+| POST | `/api/factory/collaboration/repositories/{repository}/issue-creation/commands/{command}/cancel` | Strict `{}`; scoped cleanup of the original issue-creation command. |
+| POST | `/api/factory/collaboration/repositories/{repository}/pulls` | Required `command_id`, string `head_repository`, `base_branch`, `head_branch`, `title`; optional string `body` and boolean `allow_maintainer_edit`. |
+| GET | `/api/factory/collaboration/repositories/{repository}/pull-creation/commands/{command}` | Reconcile the original saved creation under current admission; no query or replacement source/writing. |
+| POST | `/api/factory/collaboration/repositories/{repository}/pull-creation/commands/{command}/cancel` | Strict `{}`; recover the original command for scoped cleanup. |
+
+Issue creation results also contain `issue`: null, or the exact canonical
+`{kind:"issue",repository,external_id,number}` reference, with decimal strings for
+repository/number. The original authenticated creation receipt selects it; a
+fresh ordinary issue read must confirm visibility and identity. A missing
+destination preserves the actual committed outcome and can be checked again
+through the same command. It does not permit a replacement submission. Current
+account withdrawal during this read suppresses the entire result. Full issue
+collection/detail GETs allow a bounded 2 MiB response through the frontend bridge;
+command/capability responses retain their ordinary bounds.
+
+Human issue/PR comments and title/description edits also cross the Fountain
+frontend bridge under the same native admission. These paths use canonical
+repository IDs and issue/PR numbers; provider preparation stays server-side.
+
+| Method | Route | Purpose |
+| --- | --- | --- |
+| POST | `/api/factory/collaboration/repositories/{repository}/{issues\|pulls}/{number}/comments` | Required `command_id` and original Markdown `body`. |
+| POST | `/api/factory/collaboration/repositories/{repository}/{issues\|pulls}/{number}/edits` | Required `command_id` and at least one string `title` or `body`; optional `expected` original-content condition. An empty body clears the description. |
+| GET | `/api/factory/collaboration/repositories/{repository}/{issues\|pulls}/{number}/{comments\|edits}/commands/{command}` | Reconcile the original command in its exact parent scope. |
+| POST | `/api/factory/collaboration/repositories/{repository}/{issues\|pulls}/{number}/{comments\|edits}/commands/{command}/cancel` | Strict `{}`; cancel the saved command without replacement writing. |
+
+Comment/edit submissions allow a 512 KiB JSON envelope for escaped writing;
+cancellation retains the ordinary 64 KiB limit. Original body and title bounds
+and safe result fields are defined by the shared HTTP owner linked above.
+
+For edits based on a displayed draft, send `expected` as exactly
+`{external_id,title,body_digest}`: the normal read's external issue/PR ID and
+original title, plus lowercase SHA-256 of its exact UTF-8 body. These are content
+conditions, not admission. Factory durably captures the condition and native
+preparation; stale content obtains a real cancellation/no-effect outcome before
+any edit dispatch. A lost cancellation reply must be looked up under that same
+command. Conditions cannot be changed or dropped on retry. Later native races
+remain fenced by the captured revision/title/body CAS. Original-condition data
+and provider preparations remain private in responses.
+
+The shared issue-comment composer uses these existing comment routes. It keeps
+the original command and Markdown durably before submit, performs lookup on
+restore and requests retries/cancellation explicitly. Cancellation still sends
+strict `{}` and recovers the original writing server-side. A missing command,
+unavailable lookup or unfinished completion never proves that no comment was
+posted; the UI preserves the pending submission instead of replacing its ID.
+
 The extension SDK supplies verified actor, contribution and session-generation
 authority to Soda, and application handlers consume that verified context
 directly. Mutations also require the native same-origin request checks. These
@@ -32,6 +105,8 @@ repository and Project permissions.
 | DELETE | `/api/me/development-keys/{key}` | Remove a development key |
 | GET | `/api/me/forgejo-keys` | List the current actor's native Forgejo public keys |
 | GET | `/api/repositories` | Native repository picker (`q`, `cursor`) |
+| POST | `/api/factory/native-repositories/resolve` | Strict native `repository` locator; current canonical host/repository/actor plus native navigation name and configured `default_branch`. |
+| GET | `/api/factory/repositories/{repositoryID}/identity` | Current navigation metadata for a canonical repository ID; the same scoped identity and `default_branch` fields. |
 | GET | `/api/repositories/{repositoryID}/profiles` | Supported creation profiles |
 | GET | `/api/repositories/{repositoryID}/factory` | Factory policy, effective grants and missing authority |
 | GET, PUT | `/api/repositories/{repositoryID}/factory/activity` | Local lifecycle facts with observation time/truncation and independent owner/admin activity settings |
@@ -51,15 +126,20 @@ repository and Project permissions.
 | GET | `/api/factory/intents/{intentID}/history` | Owner-private immutable revision history, newest first |
 | GET | `/api/factory/intents/{intentID}/overview` | Current owner-private request overview; unknown/foreign requests 404 without disclosure |
 | GET | `/api/factory/intents/{intentID}/revisions?limit=1..5` | Recent scope revisions with structural deltas and affected work states |
+| GET | `/api/factory/intents/{intentID}/revisions/{revisionID}` | Exact immutable saved revision under the current authenticated request owner; no query parameters |
+| GET | `/api/factory/intents/{intentID}/revisions/{revisionID}/generation` | Exact owner-private recorded generation for that acceptance, independent of head/history; explicit `not_requested` when no operation is recorded; no query parameters or dispatch |
+| GET | `/api/factory/intents/{intentID}/revisions/{revisionID}/plan` | Owner-private recorded planning operation/assignment/run and outcome for the original draft; independent of the current head, no query, review, funding or launch |
+| GET | `/api/factory/intents/{intentID}/revisions/{revisionID}/exploration` | Private saved exploration result/review from that exact input draft, independent of head/history; explicit `none` when no atomic transition is recorded; no query or judgments |
 | POST | `/api/factory/intents/{intentID}/explore` | Bounded approach/assumption/consolidation/consistency judgments for a current draft; revision fields stay flat with one added `exploration` object (`content`, `challenges`, `settled`, `recommendation`, `consistency`); supported/reversible choices settle autonomously, only consequential assumptions interrupt |
 | POST | `/api/factory/intents/{intentID}/plan` | Plan the exact current draft and operation; 201 names the launched assignment/run/revision. An uncertain start returns 202 with those same admitted identities and `launch_confirmed:false`; inspect the existing run instead of submitting another plan. |
 | GET | `/api/factory/intents/{intentID}/plan` | Read the current draft's retained planning status and canonical result; never funds or launches work. |
 | POST | `/api/factory/intents/{intentID}/plan/review` | Explicitly compare and check the planning agent's concrete walkthrough against the exact retained current revision; ordinary status reads never invoke JEV. |
-| POST | `/api/factory/intents/{intentID}/generate` | Native issue graph creation from accepted current scope |
+| POST | `/api/factory/intents/{intentID}/generate` | Native issue graph creation for the exact selected acceptance; strict body `{ "revision": "d…" }`, no query; changed head returns 412 before planning/native effects |
 | GET | `/api/factory/intents/{intentID}/generation` | Durable generation outcome for the current revision |
 | POST | `/api/factory/feed/posts` | Submit a post with `repository`, `body`, `idempotency_key` and optional `parent_id`; a reply uses the same post model |
 | GET | `/api/factory/feed/posts/{id}` | Post from the communication store or a canonical workflow record, with its parent and optional pipeline or product-change projection; reads never start work |
-| POST | `/api/factory/feed/posts/{id}/retry` | Revise the exact authored post or reply using `expected_revision` and `body`, then reassess its intake |
+| POST | `/api/factory/feed/posts/{id}/retry` | Revise the authored post/reply with `command_id`, canonical string `repository`, explicit `expected_revision` and `body`; return the immutable scoped retry receipt. Identical replay returns the same receipt without repeating transition/capture |
+| GET | `/api/factory/feed/posts/{id}/retry/{command}?repository=N` | Recover a committed retry receipt through current visibility/authorship; read-only, missing/foreign/uncommitted identities never submit a retry |
 | GET | `/api/factory/feed/posts/{id}/replies?repository=N` | Direct child posts in the authorized thread, with `before` paging; descendants retain their immediate parents |
 | POST | `/api/factory/feed/posts/{id}/review` | Current repository administrator and original product owner explicitly opens a post-bound successor draft; strict body `{ "revision": N }` |
 | PUT | `/api/factory/capacity` | Operator appliance capacity (command envelope) |
@@ -109,6 +189,102 @@ repository and Project permissions.
 Create binds an immutable profile. Join creates the project-local account and
 records membership only after confirmed native success. Terminal details are in
 the [managed terminal contract](terminal.md).
+
+### Reading a recorded planning attempt
+
+The revision-specific planning GET reads the selected immutable draft through
+current private owner/account admission. A recorded attempt includes `intent`,
+`revision`, `operation`, `assignment_id`, `run_id`, `state` and any reported
+summary/candidate count/authored walkthroughs. It validates the assignment and
+captured scope against that draft. No attempt returns scoped `state: "none"`
+without fabricated operation/run identities. Unknown, foreign, mismatched or
+non-draft revision identities return private 404. Responses are no-store.
+
+This read remains available after the head advances or is accepted. It never
+consults a judge, replays walkthrough review, funds work or starts a process.
+It does not emit `launch_confirmed`: recorded admission alone cannot confirm a
+native start. Clients must match the requested operation and any already observed
+assignment/run identities before confirming their retained command. `none` alone
+does not exclude an in-flight planning request.
+
+The shared request composer retains the exact revision/operation before POST,
+binds observed assignment/run IDs, and checks this historical receipt explicitly
+through fresh host/account admission. Confirmation archives its writing and launch
+knowledge without replacing later edits or inferring native start. Absence keeps
+the command uncertain; explicit same-request resume and superseded-head release
+remain separate user actions.
+
+### Recovering an exploration result
+
+`GET /api/factory/intents/{intentID}/revisions/{revisionID}/exploration` treats
+`revisionID` as the original input draft, whose result ID was not known before
+POST. Current private ownership and account admission apply before the read and
+before disclosure. It returns no-store JSON and accepts no query parameters.
+Unknown, foreign and non-draft inputs return private 404.
+
+A recorded atomic proposal/review transition returns
+`{intent,basis_revision,state:"recorded",result}`. The result is the flat saved
+proposal with its recorded `exploration` presentation, matching the original
+exploration response. Intent, input/predecessor, result, owner, repository and
+review bindings are checked. Ambiguous or invalid stored bindings refuse instead
+of selecting a result. Later head changes, including declining the direction,
+do not replace this receipt; ordinary successor saves cannot confirm exploration.
+
+No recorded transition returns `{intent,basis_revision,state:"none"}`, without
+fabricated result IDs or advice. This does not rule out an in-flight consultation,
+prove that no credit was consumed or authorize retry. Reading consults no judge,
+reserves no funding, moves no head and starts no work. The existing atomic
+revision/review rows supply the receipt; there is no new action journal or schema.
+The shared composer retains the original draft and writing before POST and
+checks this receipt explicitly through fresh host/account admission. It validates
+transition/advice bindings and archives before clearing its matching pending
+command. Later writing and newer heads are preserved; recovery chains no work.
+Explicit resume posts only the captured input; superseded release reads an
+advanced head followed by absence. Known validation, funding and unavailable-
+judgment refusals retain writing without claiming a result. Other uncertain
+outcomes remain pending; reload never automatically retries exploration.
+
+### Generating an accepted request
+
+Generation uses its accepted revision as the existing operation identity. The
+server never chooses a replacement acceptance for a delayed POST. Exact replay
+requires current owner/repository authority and retains the recorded graph
+operation and receipt. Missing/invalid revision input returns 400; a changed head
+returns 412 `stale_revision`. Generation status GET does not dispatch work.
+
+The shared composer durably retains its exact host/account/acceptance and original
+operation before POST. Reload offers **Check work creation** without mutation.
+The revision-specific generation GET remains available after the head advances;
+it returns the recorded operation or exactly scoped `not_requested`. Unknown,
+foreign, mismatched or nonaccepted revisions return private 404. Both hosts check
+current account admission before disclosure, and responses are not cacheable.
+
+Only matching operation/revision/authorization facts can settle a saved command.
+Completed/refused results archive the captured writing before clearing that
+command. Pending/committed outcomes and unrecorded operations remain unresolved;
+absence alone cannot exclude an in-flight command. **Resume original work
+creation** explicitly submits the same revision through current write admission.
+A superseded request with no recorded generation can be released only after
+fresh head and subsequent absence reads fence a late creation. Neither checking
+nor release launches work. Later writing and newer saved directions stay intact.
+
+### Recovering a saved request revision
+
+The exact revision GET returns the captured record, including server-bound owner
+and creation time, even after the request head advances beyond the bounded
+history page. Unknown, foreign or mismatched intent/revision identities return
+404. Both hosts recheck current account admission before disclosure. This read
+starts no work and neither replays a save nor changes the head.
+
+Recovery clients must compare the complete retained save input with the returned
+record before confirming their command; the current head alone is insufficient.
+A missing receipt does not prove an earlier in-flight save cannot still finish.
+The shared request composer retains its exact save before POST and offers an
+explicit receipt check or retry of that same identity. Recovery starts no
+exploration, planning or generation. Later writing stays intact. An explicit
+obsolete-save release requires an advanced head and another absent-receipt read
+after that head observation, so an intervening commit cannot be mistaken for an
+unrecorded save. Exploration/planning journals remain a separate slice.
 
 ### Product changes from feed replies
 

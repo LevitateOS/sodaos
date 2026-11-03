@@ -267,6 +267,7 @@ pub fn candidate_live_config(
         "getty@tty1.service",
         "forgejo.service",
         "soda-dashboard.service",
+        "soda-factory.service",
         "soda-proxy.service",
         "soda-host.service",
         "soda-host.socket",

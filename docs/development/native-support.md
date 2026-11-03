@@ -258,8 +258,15 @@ Runtime files and base provenance remain intact; native OSTree imports the plain
 filesystem instead of requiring base chunks that flattening removed.
 Obsolete payload
 readers and storage selectors are removed. No bootc installer, update engine, bound storage,
-lint or sysusers workaround is used, and Zincati is not disabled. Fedora's inherited
-packages/bootable-container labels are not a Soda bootc integration.
+lint or sysusers workaround is used. The host stages
+`system/host/config/90-soda-image.toml` under `/usr/lib/zincati/config.d/` to
+disable automatic updates for Soda's derived images, which have no published
+update graph. Zincati remains running idle; administrator overrides belong under
+`/etc/zincati/config.d/`. Host package inspection verifies the shipped disabled
+default. Native rpm-ostree image selection remains operator-owned under
+[host update ownership](../architecture/release.md#host-update-ownership).
+Fedora's inherited packages/bootable-container labels do not establish a Soda
+update channel or bootc integration.
 
 Outputs occupy `work/`, `artifacts/`, `evidence/`, `release/` and `logs/`.
 `artifacts/` contains the host OCI archive and four application archives under `images/`, tool binaries and

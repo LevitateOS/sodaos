@@ -153,7 +153,7 @@ pub fn bind_project_support(
 fn remove_container_only_host_commands(context: &str) -> Result<(), Error> {
     // Component contexts already hold hardlinks to these bytes. Their servers
     // execute inside the dashboard/extension images, not on the native host.
-    for name in ["soda-dashboard", "soda-extension"] {
+    for name in ["soda-dashboard", "soda-factory-server", "soda-extension"] {
         fs::remove_file(sys::join(&[context, "rootfs/usr/libexec/soda", name]))?;
     }
     Ok(())

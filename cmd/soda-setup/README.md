@@ -121,7 +121,7 @@ The manifest also selects the root-only `/etc/soda/enrollment/native-hooks.pat`
 and exact repository IDs/owner names for the issue intake hook. Setup verifies
 each repository ID using the authenticated Forgejo API, inventories its hooks,
 and creates only an absent `forgejo` JSON hook at
-`http://host.containers.internal:8080/api/factory/intake` with the `issues`
+`http://host.containers.internal:8081/-/soda/api/factory/intake` with the `issues`
 event and selected intake secret. It rereads the nonsecret hook fields after
 creation. A root-owned `/etc/soda/enrollment/hooks.json` receipt records only
 the selected Forgejo target, repository IDs/names and hook IDs; it contains no

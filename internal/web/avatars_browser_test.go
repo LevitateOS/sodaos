@@ -19,7 +19,7 @@ func TestAvatarBrowserRendering(t *testing.T) {
 		t.Skip("set SODA_AVATAR_BROWSER_CHECK=1 with local Playwright and Chrome")
 	}
 	mux := http.NewServeMux()
-	mux.Handle(avatarPrefix, New(config.Config{}, nil))
+	mux.Handle(avatarPrefix, NewForge(config.Config{}, nil))
 	mux.HandleFunc("GET /reference/{hash}", func(w http.ResponseWriter, r *http.Request) {
 		svg, err := avatar.Render(r.PathValue("hash"), 128)
 		if err != nil {

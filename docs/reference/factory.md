@@ -16,7 +16,7 @@ belong to [architecture](../architecture/overview.md), and authority to
 
 ## Operator endpoint
 
-The `factory/control` coordinator runs inside the dashboard backend and owns
+The `factory/control` coordinator runs inside the standalone `soda-factory-server` process and owns
 the factory run records in that service's database. Operator commands
 reach it through `POST /operator/factory` on a private Unix socket that is
 not reachable through the public HTTP mux. The listener admits only its
@@ -28,10 +28,10 @@ Build the operator binary from the pinned Cargo workspace:
 
 ```sh
 cargo build --locked -p soda-factory
-target/debug/soda-factory --socket /run/soda/operator/operator.sock status
-target/debug/soda-factory --socket /run/soda/operator/operator.sock status RUN_ID
-target/debug/soda-factory --socket /run/soda/operator/operator.sock stop RUN_ID
-target/debug/soda-factory --socket /run/soda/operator/operator.sock reconcile
+target/debug/soda-factory --socket /run/soda/factory-operator/operator.sock status
+target/debug/soda-factory --socket /run/soda/factory-operator/operator.sock status RUN_ID
+target/debug/soda-factory --socket /run/soda/factory-operator/operator.sock stop RUN_ID
+target/debug/soda-factory --socket /run/soda/factory-operator/operator.sock reconcile
 ```
 
 Status is a read without a durable command and returns bounded recorded run
@@ -54,7 +54,7 @@ Reconcile applies the same path to every outstanding recorded run: it
 retires remaining execution, closes broker executions and settles
 accounting. It cannot launch, retry, spend or publish. Runs whose effects
 stay unresolved are listed as fenced with their reasons. Settled runs never
-reopen. Dashboard startup takes exclusive coordinator ownership of the
+reopen. Factory startup takes exclusive coordinator ownership of the
 database and settles outstanding runs before serving.
 
 While it owns the database, the same coordinator revisits durable automatic

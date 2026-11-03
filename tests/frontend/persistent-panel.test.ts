@@ -1,3 +1,4 @@
+import {factoryAssetSource} from './fixtures/factory-asset-source';
 import test, {after, before} from 'node:test';
 import assert from 'node:assert/strict';
 import path from 'node:path';
@@ -69,6 +70,8 @@ before(async () => {
     port: 0,
     fetch(request) {
       const url = new URL(request.url);
+      const factoryAsset = factoryAssetSource(url.pathname);
+      if (factoryAsset) return factoryAsset;
       if (url.pathname === assets + 'persistent-panel.js')
         return new Response(fixture, {headers: {'Content-Type': 'text/javascript'}});
       if (url.pathname === '/assets/native-host.js')

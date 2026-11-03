@@ -104,11 +104,24 @@ It does not claim hardware coverage, product-wide acceptance or upgrade support.
 The following applies to appliance installations. The
 [Docker runtime](#docker-runtime) has a separate deployment lifecycle.
 
-The appliance follows Fedora CoreOS update mechanics (rpm-ostree, Zincati).
-Soda has no parallel host updater: upgrade by reinstalling from new media after a
-[backup](../public/50-Operate/50-backups-and-restoration.md), or through the
-plain native image update. Retained Project tooling is refreshed separately with
+The appliance uses rpm-ostree for explicit native image updates. Its derived
+Soda images have no published automatic update channel or Cincinnati graph;
+Fedora's graph does not describe Soda's archive and candidate origins. The vendor
+default at `/usr/lib/zincati/config.d/90-soda-image.toml` disables automatic
+updates while leaving Zincati running idle for status observers. Administrator
+configuration under `/etc/zincati/config.d/` retains its normal precedence.
+
+Soda has no parallel host updater. After a
+[backup](../public/50-Operate/50-backups-and-restoration.md), an operator can
+reinstall from new media or explicitly select a verified complete Soda host
+image with native rpm-ostree. A local OCI archive or a generated `:candidate`
+reference is not a discoverable update channel. Rebasing to Fedora's base image
+would replace Soda's host content. Retained Project tooling is refreshed separately with
 [`soda-project-maintain`](../../cmd/soda-project-maintain/README.md).
+
+The [development deployment](../development/forge-development.md) updates a
+selected component on an existing appliance; it is separate from a host image
+transition and does not establish an update channel.
 
 The public rootfs contains the host and an OSTree repository inside its EROFS
 root. Application OCI bodies are acquired separately from the Payload v4 pins

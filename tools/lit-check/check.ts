@@ -33,8 +33,11 @@ assert(config.fileNames.length > 0, 'Empty browser source inventory');
 const authored: unknown = configFile.config.include;
 assert(Array.isArray(authored) && authored.length > 0, 'Missing authored browser roots');
 for (const pattern of authored) {
-  assert(typeof pattern === 'string' && pattern.endsWith('/*.ts'), 'Review changed browser discovery pattern');
-  const directory = resolve(root, pattern.slice(0, -5));
+  assert(
+    typeof pattern === 'string' && /\/(?:\*\*\/)?\*\.ts$/.test(pattern),
+    'Review changed browser discovery pattern'
+  );
+  const directory = resolve(root, pattern.replace(/\/(?:\*\*\/)?\*\.ts$/, ''));
   for (const file of ts.sys.readDirectory(directory, ['.ts'], undefined, ['**/*.ts'])) {
     assert(config.fileNames.includes(file), `Authored browser source skipped by compiler/analyzer: ${file}`);
   }

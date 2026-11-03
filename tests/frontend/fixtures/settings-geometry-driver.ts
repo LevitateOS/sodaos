@@ -1,3 +1,4 @@
+import {factoryAssetSource} from './factory-asset-source';
 import {before, after, type TestContext} from 'node:test';
 import assert from 'node:assert/strict';
 import {chromium, type Browser, type Page} from 'playwright';
@@ -29,6 +30,8 @@ export function setupSettingsGeometryDriver(createPage?: (viewport: SettingsView
       port: 0,
       fetch(req) {
         const url = new URL(req.url);
+        const factoryAsset = factoryAssetSource(url.pathname);
+        if (factoryAsset) return factoryAsset;
         if (url.pathname === '/assets/drawer-fixture.js')
           return new Response(fixture, {headers: {'Content-Type': 'text/javascript'}});
         const local =

@@ -18,10 +18,10 @@ Product concepts: [overview](../product/overview.md). Trust and privilege:
 | Host | Fedora CoreOS, native rpm-ostree layering, Podman, systemd |
 | Docker deployment | Privileged Docker runtime with Fedora userspace, systemd and internal Podman; operator-maintained Linux host |
 | Native operator services | Stock branded Cockpit, Tailnet/Runners management, `tailscaled`, restricted Soda project helper |
-| Appliance applications | Separate Podman containers for the maintained Forgejo extension host, Soda's Go API service and Caddy |
+| Appliance applications | Separate Podman containers for the maintained Forgejo extension host, Soda Forge and Factory services, and Caddy |
 | Persistent application data | Soda PostgreSQL database and a separate Forgejo volume (including installed extension packages) |
 | Identity Broker | Host userspace `soda-identity`, private administration/execution sockets and encrypted subscription custody |
-| Factory execution | Supervised runs inside persistent Projects, `factory/control` coordinator, run ledger and private `soda-factory` operator endpoint |
+| Factory execution | Separate `soda-factory-server` process with supervised Project runs, `factory/control`, run ledger, operator endpoint and worker MCP |
 | Projects | Persistent Project OS containers with project-local accounts, writable roots, SSH and shared installations |
 | Project workloads | Nested Podman inside the project |
 
@@ -35,9 +35,10 @@ path is not a compatibility requirement.
 is not a user database, init system or filesystem. Project containers share the host
 kernel; the Project OS distribution supplies userspace.
 
-The `soda-dashboard` command, container, config and data names identify the Go
-backend. Do not rename persistent records or roots merely because the UI is called
-Spaces.
+`soda-dashboard` is the Forge backend; `soda-factory-server` owns Factory.
+They run as separate services and currently share the existing PostgreSQL schema.
+Factory retains the publication root and worker IPC under the existing dashboard
+data directory. Do not rename retained records or roots for the product split.
 
 ## Component ownership
 
@@ -45,8 +46,8 @@ Spaces.
 | --- | --- |
 | Fountain / native Forgejo | Identity, Git, collaboration, Actions UI/scheduling, native sessions and generic extension contributions |
 | Soda Forgejo extension | Native browser pages, persistent workspace panel and narrowly scoped calls into the Soda service |
-| Soda Go service (`web`, `web/api`, `web/auth`) | Environment/project APIs, membership and operator policy, terminal streams and runner/Tailnet operations |
-| Factory control (`factory/control`) | Readiness and execution coordination, verification and merge eligibility, execution records, limits and cancellation |
+| Soda Forge backend (`web`, `web/api`, `web/auth`) | Environment/project APIs, membership and operator policy, terminal streams and runner/Tailnet operations |
+| Factory service (`cmd/soda-factory-server`, `factory/control`) | Readiness and execution coordination, verification and merge eligibility, execution records, limits and cancellation |
 | Factory publisher (`forgejo/publish`) | Permitted native publication; run authority remains distinct from Project membership |
 | Identity Broker (`cmd/soda-identity`) | Explicit subscription ownership/delegation and serialized native execution leases; [credential boundary](../reference/credentials.md#identity-broker) |
 | `soda-host` daemon | Privileged project, terminal and Tailnet companion execution |
@@ -85,7 +86,7 @@ against the [factory acceptance criteria](../development/testing.md#factory-acce
 | Decision | Rationale and consequence |
 | --- | --- |
 | One persistent Project execution foundation serves humans and factory roles. | The [environment model](../product/projects.md) preserves the repository's tools, services and human work. Native role separation, read-only attachment and targeted process termination have focused experimental support. Replace the disposable factory runtime; qualify real CLI/broker integration in the selected Project OS before enabling it. |
-| Soda owns one durable coordinator and execution ledger; Forgejo owns collaboration records. | Host `factory/control` in the existing Soda backend and persist product authority/execution in its existing store. Broker custody stays separate. Operator commands and Spaces control that coordinator; native issues, dependencies, PRs, reviews and CI remain native. [Interface placement](factory-interfaces.md#service-and-persistence-placement) owns lifecycle, publisher packaging and the shared availability tradeoff. |
+| Soda owns one durable coordinator and execution ledger; Forgejo owns collaboration records. | Host `factory/control` only in the standalone Factory service and retain the existing shared store for this product separation. Broker custody stays separate. Operator commands and Spaces control that coordinator; native issues, dependencies, PRs, reviews and CI remain native. [Interface placement](factory-interfaces.md#service-and-persistence-placement) owns lifecycle, publisher packaging and the shared availability tradeoff. |
 | Background writes use native principals and generic constraints at the native mutation boundary. | Browser-bound callbacks cannot authorize unattended work, and a separate policy preflight cannot close a write race. Keep Soda policy in Soda and require the [conditional mutation contract](trust.md#conditional-native-mutations) from Fountain/native Forgejo. Do not create another login or general credential-relay system. |
 | Execution, provider lease, browser attachment and intervention remain separate authorities. | A viewer disappearing must not kill an agent; a role UID or surviving checkout must not revive a lease. Bind each execution to its actual process generation, keep factory views read-only, and perform takeover under the member's own identity. [Trust](trust.md#project-execution-boundary) and [Spaces](../product/spaces.md#sessions-and-views) own the details. |
 | Qualification composes proven native boundaries with the actual product journey. | Synthetic probes support feasibility but cannot prove a provider, broker protocol or rendered Spaces. Use bounded integration checks before release qualification, then demonstrate the real automatic loop with exact candidate and authority evidence. |
@@ -185,4 +186,4 @@ operator command's fresh workspaces follow its documented disposable lifecycle.
 - Requirement-to-source assessment: [Factory capability map](../research/factory-capability-map.md)
 - Appliance topology: `system/host/services/`
 - Project images and units: `system/project/`
-- Entrypoints: `cmd/soda-dashboard`, `lib/host` (`soda-host`), `cmd/soda-factory`
+- Entrypoints: `cmd/soda-dashboard` (Forge), `cmd/soda-factory-server` (Factory), `lib/host` (`soda-host`), `cmd/soda-factory` (operator client)

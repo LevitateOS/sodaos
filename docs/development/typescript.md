@@ -14,6 +14,8 @@ bun run test
 bun run build
 bun run build:preview # local Forgejo branding mount
 bun run dev:spaces # local interactive Spaces mock backend and frontend
+bun run storybook # shared production Factory components with development fixtures
+bun run dev:desktop-ui # same stories in a native Linux Tauri window
 bun run screenshot --help
 ```
 

@@ -10,6 +10,7 @@
 //     functions that happen to share a name do not trip the gate.
 // Run `bun scripts/check-ts-unitban.ts --self-test` for inline fixtures.
 import {readFile} from 'node:fs/promises';
+import {existsSync} from 'node:fs';
 import assert from 'node:assert/strict';
 // Classic compiler API (root typescript is v7 native without it); shared
 // with tools/lit-check, which pins this copy.
@@ -171,13 +172,14 @@ async function loadAllow(): Promise<Set<string>> {
 
 async function main(): Promise<void> {
   const allow = await loadAllow();
-  const proc = Bun.spawnSync(['git', 'ls-files', '*.ts'], {cwd: ROOT});
+  const proc = Bun.spawnSync(['git', 'ls-files', '--cached', '--others', '--exclude-standard', '-z', '*.ts', '*.tsx'], {
+    cwd: ROOT,
+  });
   if (proc.exitCode !== 0) throw new Error('git ls-files failed');
   const files = proc.stdout
     .toString()
-    .trim()
-    .split('\n')
-    .filter((f) => f !== '');
+    .split('\0')
+    .filter((f) => f !== '' && existsSync(`${ROOT}/${f}`));
   const findings: Finding[] = [];
   for (const path of files) {
     const text = await readFile(`${ROOT}/${path}`, 'utf8');

@@ -12,11 +12,11 @@ path = "src/lib.rs"
 
 [dependencies]
 serde = { version = "=1.0.229", features = ["derive"] }
-serde_json = { version = "=1.0.151", features = ["raw_value"] }
+serde_json = { version = "=1.0.154", features = ["raw_value"] }
 soda-build-tools = { path = "../release-inputs" }
 sha2 = "0.10"
 base64 = "0.22"
 flate2 = "1"
 url = "=2.5.8"
-libc = "=0.2.190"
+libc = "=0.2.191"
 tar = "=0.4.46"

@@ -292,12 +292,14 @@ fn start_activation_services(sys: &mut dyn Sys) -> Result<(), ActivateError> {
             "systemctl",
             "start",
             "soda-dashboard.service",
+            "soda-factory.service",
             "soda-proxy.service",
         ],
     )?;
     let mut pending = vec![
         "forgejo.service",
         "soda-dashboard.service",
+        "soda-factory.service",
         "soda-proxy.service",
     ];
     let deadline = sys.elapsed() + std::time::Duration::from_secs(60);

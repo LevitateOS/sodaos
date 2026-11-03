@@ -42,6 +42,14 @@ image-owned branding/templates, not a second public copy of extension UI assets.
 Installing or replacing Soda therefore does not rebuild Fountain or update the
 host image.
 
+The required package also adapts the shared frontend to two independent
+executables. Its `--soda-socket` selects Forge's private API, while
+`--factory-socket` selects Factory's private API directly. The appliance mounts
+Factory's extension socket directory read-only at `/factory`; its separate
+Project control directory is not mounted into Fountain. Backend availability
+is independent: Factory requests never fall back to Forge, and the extension
+does not start either backend. See the [extension command](../../cmd/soda-extension/README.md).
+
 Public navigation presents product pages directly, without package names or an
 Extensions menu. Repository Workspace links use `/OWNER/REPO/workspace` and choose
 the observed repository for display; they do not create, join or start a Project.

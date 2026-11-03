@@ -1,5 +1,8 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import path from 'node:path';
+import type {Page} from 'playwright';
+import {factoryAssetSource} from './fixtures/factory-asset-source';
 import {
   setupWorkspaceDriver,
   fixture,
@@ -25,7 +28,12 @@ test('repository context selects by exact native ID despite colliding display na
   assert.equal(await selected.locator('..').getAttribute('data-environment-id'), 'p' + '2'.repeat(24));
   assert.equal(await selected.count(), 1);
   assert.equal(
-    await page.evaluate(() => window.workspaceFixture.calls.filter((call) => call.method !== 'GET').length),
+    await page.evaluate(
+      () =>
+        window.workspaceFixture.calls.filter(
+          (call) => call.method !== 'GET' && !call.path.endsWith('/api/factory/native-repositories/resolve')
+        ).length
+    ),
     0
   );
 });
@@ -40,7 +48,12 @@ test('repository Workspace selects its native observed Project without commands'
   );
   assert.equal(await page.locator('.soda-selected-project h1').innerText(), 'alice/Beta');
   assert.equal(
-    await page.evaluate(() => window.workspacePageModel.calls.filter((call) => call.method !== 'GET').length),
+    await page.evaluate(
+      () =>
+        window.workspacePageModel.calls.filter(
+          (call) => call.method !== 'GET' && !call.path.endsWith('/api/factory/native-repositories/resolve')
+        ).length
+    ),
     0
   );
 });
@@ -56,7 +69,12 @@ test('repository Workspace with no Project opens only its observed configuration
     1
   );
   assert.equal(
-    await page.evaluate(() => window.workspacePageModel.calls.filter((call) => call.method !== 'GET').length),
+    await page.evaluate(
+      () =>
+        window.workspacePageModel.calls.filter(
+          (call) => call.method !== 'GET' && !call.path.endsWith('/api/factory/native-repositories/resolve')
+        ).length
+    ),
     0
   );
 });
@@ -79,7 +97,10 @@ for (const firstUse of [false, true])
     }
     const existingOwner = firstUse ? await page.locator('soda-project-controls').elementHandle() : undefined;
     const writesBeforeSettings = await page.evaluate(
-      () => window.workspaceFixture.calls.filter((call) => call.method !== 'GET').length
+      () =>
+        window.workspaceFixture.calls.filter(
+          (call) => call.method !== 'GET' && !call.path.endsWith('/api/factory/native-repositories/resolve')
+        ).length
     );
     await page.getByRole('button', {name: 'Project settings', exact: true}).click();
     await page.getByRole('tab', {name: 'Factory', exact: true}).click();
@@ -87,12 +108,25 @@ for (const firstUse of [false, true])
     const settings = page.locator('soda-factory-settings');
     await settings.waitFor({state: 'visible'});
     assert.equal(await settings.count(), 1);
-    assert(await settings.locator('form[data-action="policy"]').isVisible());
+    await settings.locator('form[data-action="policy"]').waitFor({state: 'visible'});
+    const discovery = await page.evaluate(() =>
+      window.workspaceFixture.calls.filter((call) => call.path.endsWith('/api/factory/native-repositories/resolve'))
+    );
+    assert(discovery.length > 0);
+    assert.equal(
+      discovery.at(-1)?.body?.repository,
+      await page.locator('[data-project-controls]').getAttribute('data-repository-id')
+    );
     assert(await settings.getByRole('button', {name: 'Save repository policy', exact: true}).isVisible());
     if (firstUse)
       assert(await existingOwner?.evaluate((node) => node.isConnected), 'settings must reuse the journey owner');
     assert.equal(
-      await page.evaluate(() => window.workspaceFixture.calls.filter((call) => call.method !== 'GET').length),
+      await page.evaluate(
+        () =>
+          window.workspaceFixture.calls.filter(
+            (call) => call.method !== 'GET' && !call.path.endsWith('/api/factory/native-repositories/resolve')
+          ).length
+      ),
       writesBeforeSettings,
       'opening settings must not submit a command'
     );
@@ -207,7 +241,15 @@ test('project drafts and independent terminal owners survive detail switching', 
   );
   assert.equal(await page.locator('.xterm').count(), 1);
   assert.equal(await page.evaluate(() => window.workspaceFixture.sockets[0]?.closed), 0);
-  assert.equal(await page.evaluate(() => window.workspaceFixture.calls.filter((c) => c.method !== 'GET').length), 0);
+  assert.equal(
+    await page.evaluate(
+      () =>
+        window.workspaceFixture.calls.filter(
+          (c) => c.method !== 'GET' && !c.path.endsWith('/api/factory/native-repositories/resolve')
+        ).length
+    ),
+    0
+  );
 });
 test('pending rename keeps original ID while another project is deliberately selected', async (t) => {
   const page = await fixture(t);
@@ -253,6 +295,120 @@ test('search and This page change navigation only; New defaults to selected orig
   await page.getByRole('button', {name: 'Cancel', exact: true}).click();
   assert.equal(await page.evaluate(() => window.workspaceFixture.calls.length), calls);
 });
+test('Factory watch resolves canonical run metadata and retains the native Project stream binding', async (t) => {
+  const page = await fixture(t);
+  await page.evaluate(async () => {
+    window.workspaceFixture.setFactoryIdentity('7', '41', '11');
+    window.workspaceFixture.enableFactoryRun();
+    await window.workspaceFixture.api.refresh();
+  });
+  const work = page.getByRole('button', {name: 'Work', exact: true});
+  if (await work.isVisible()) await work.click();
+  await page.getByRole('button', {name: /^Watch · Coding agent · issue #42 · active$/}).click();
+  await page.locator('.soda-factory.is-connected .xterm-rows').waitFor();
+  await page.waitForFunction(() =>
+    document.querySelector('.soda-factory .xterm-rows')?.textContent?.includes('Fixture factory output')
+  );
+  const evidence = await page.evaluate(() => ({
+    calls: window.workspaceFixture.calls,
+    native: window.workspaceFixture.spaces[0]?.environment,
+    peer: window.workspaceFixture.sockets.find((socket) =>
+      String(socket.url).endsWith('/factory/runs/' + 'd'.repeat(32) + '/output')
+    )?.sent,
+  }));
+  assert.equal(evidence.native?.repository_id, '7');
+  assert.equal(evidence.native?.owner_id, '1');
+  assert.deepEqual(evidence.peer, [
+    {run_id: 'd'.repeat(32), repository_id: '7', session_generation: 'fixture-generation', cursor: 0},
+  ]);
+  const runRead = evidence.calls.findIndex((call) => call.path.endsWith('/api/factory/runs/' + 'd'.repeat(32)));
+  assert(runRead > 0);
+  assert(
+    evidence.calls
+      .slice(0, runRead)
+      .some((call) => call.path.endsWith('/factory/native-repositories/resolve') && call.body?.repository === '7')
+  );
+  assert.equal(
+    evidence.calls.filter(
+      (call) => call.method !== 'GET' && !call.path.endsWith('/factory/native-repositories/resolve')
+    ).length,
+    0
+  );
+});
+
+test('Factory watch refuses native run metadata or unavailable discovery before opening an output stream', async (t) => {
+  for (const denied of [false, true]) {
+    const page = await fixture(t);
+    await page.evaluate(async () => {
+      window.workspaceFixture.setFactoryIdentity('7', '41', '11');
+      window.workspaceFixture.enableFactoryRun();
+      await window.workspaceFixture.api.refresh();
+    });
+    const work = page.getByRole('button', {name: 'Work', exact: true});
+    if (await work.isVisible()) await work.click();
+    await page.evaluate((denied) => {
+      if (denied) window.workspaceFixture.denyFactoryDiscovery();
+      else window.workspaceFixture.setFactoryRunRepository('7');
+    }, denied);
+    await page.getByRole('button', {name: /^Watch · Coding agent · issue #42 · active$/}).click();
+    await page
+      .locator('.soda-factory')
+      .getByText('Could not authorize or attach. Sign in again or inspect the exact run; nothing was replayed.', {
+        exact: true,
+      })
+      .waitFor();
+    const evidence = await page.evaluate(() => ({
+      reads: window.workspaceFixture.calls.filter((call) => call.path.endsWith('/api/factory/runs/' + 'd'.repeat(32)))
+        .length,
+      peers: window.workspaceFixture.sockets.filter((socket) => String(socket.url).includes('/factory/runs/')).length,
+    }));
+    assert.equal(evidence.peers, 0);
+    assert.equal(evidence.reads, denied ? 0 : 1);
+  }
+});
+
+test('closing a Factory watch during discovery prevents a late run read or stream', async (t) => {
+  const page = await fixture(t);
+  await page.evaluate(async () => {
+    window.workspaceFixture.setFactoryIdentity('7', '41', '11');
+    window.workspaceFixture.enableFactoryRun();
+    await window.workspaceFixture.api.refresh();
+  });
+  const work = page.getByRole('button', {name: 'Work', exact: true});
+  if (await work.isVisible()) await work.click();
+  const before = await page.evaluate(() => {
+    window.workspaceFixture.holdFactoryDiscovery();
+    return window.workspaceFixture.calls.filter((call) => call.path.endsWith('/factory/native-repositories/resolve'))
+      .length;
+  });
+  await page.getByRole('button', {name: /^Watch · Coding agent · issue #42 · active$/}).click();
+  await page.waitForFunction(
+    (before) =>
+      window.workspaceFixture.calls.filter((call) => call.path.endsWith('/factory/native-repositories/resolve'))
+        .length > before,
+    before
+  );
+  await page.getByRole('button', {name: /^Watching · Coding agent · issue #42 · active$/}).click();
+  await page.evaluate(async () => {
+    window.workspaceFixture.releaseFactoryDiscovery();
+    await new Promise<void>((resolve) => requestAnimationFrame(() => requestAnimationFrame(() => resolve())));
+  });
+  assert.equal(await page.locator('.soda-factory').count(), 0);
+  assert.equal(
+    await page.evaluate(
+      () =>
+        window.workspaceFixture.calls.filter((call) => call.path.endsWith('/api/factory/runs/' + 'd'.repeat(32))).length
+    ),
+    0
+  );
+  assert.equal(
+    await page.evaluate(
+      () => window.workspaceFixture.sockets.filter((socket) => String(socket.url).includes('/factory/runs/')).length
+    ),
+    0
+  );
+});
+
 test('Factory view binds one read-only run while refresh and hide retain its renderer', async (t) => {
   const page = await fixture(t),
     runId = 'd'.repeat(32);
@@ -298,7 +454,9 @@ test('Factory view binds one read-only run while refresh and hide retain its ren
     {run_id: runId, repository_id: '7', session_generation: 'fixture-generation', cursor: 0},
   ]);
   assert.deepEqual(
-    original.calls.filter((call) => call.method !== 'GET'),
+    original.calls.filter(
+      (call) => call.method !== 'GET' && !call.path.endsWith('/api/factory/native-repositories/resolve')
+    ),
     []
   );
   assert(original.calls.some((call) => call.path.endsWith(`/api/factory/runs/${runId}`)));
@@ -345,7 +503,9 @@ test('Factory view binds one read-only run while refresh and hide retain its ren
       url: String(socket?.url),
       sent: socket?.sent,
       received: socket?.received,
-      methods: window.workspaceFixture.calls.map((call) => call.method),
+      methods: window.workspaceFixture.calls
+        .filter((call) => !call.path.endsWith('/api/factory/native-repositories/resolve'))
+        .map((call) => call.method),
     };
   }, factoryIndex);
   assert(new URL(stream.url).pathname.endsWith(`/api/factory/runs/${runId}/output`));
@@ -370,11 +530,100 @@ test('Factory view binds one read-only run while refresh and hide retain its ren
   assert.equal(await watch(false).count(), 1);
   const afterClose = await page.evaluate(() => ({
     closed: window.workspaceFixture.sockets.map((socket) => socket.closed),
-    methods: window.workspaceFixture.calls.map((call) => call.method),
+    methods: window.workspaceFixture.calls
+      .filter((call) => !call.path.endsWith('/api/factory/native-repositories/resolve'))
+      .map((call) => call.method),
   }));
   assert.equal(afterClose.closed.length, 3);
   assert.equal(afterClose.closed[0], 0, 'closing a Factory view leaves the terminal socket open');
   assert.deepEqual(afterClose.closed.slice(1), [1, 1]);
   assert.equal(afterClose.closed[factoryIndex], 1);
   assert(afterClose.methods.every((method) => method === 'GET'));
+  await standaloneWatch(page);
 });
+
+async function standaloneWatch(parent: Page) {
+  const root = path.resolve(import.meta.dirname, '../..');
+  const build = await Bun.build({entrypoints: [path.join(root, 'tests/frontend/fixtures/factory-watch-fixture.ts')], target: 'browser', format: 'esm', define: {'process.env.NODE_ENV': '"production"'}});
+  assert(build.success, `Standalone Watch build failed: ${build.logs.join('\n')}`);
+  const script = build.outputs[0]; assert(script);
+  const host = Bun.serve({hostname: '127.0.0.1', port: 0, fetch(request) {
+    const pathname = new URL(request.url).pathname;
+    if (pathname === '/watch.js') return new Response(script, {headers: {'Content-Type': 'text/javascript'}});
+    if (pathname === '/xterm.css') return new Response(Bun.file(path.join(root, 'node_modules/@xterm/xterm/css/xterm.css')), {headers: {'Content-Type': 'text/css'}});
+    const asset = factoryAssetSource(pathname); if (asset) return asset;
+    if (pathname !== '/') return new Response(null, {status: 404});
+    return new Response('<!doctype html><link rel="icon" href="data:,"><link rel="stylesheet" href="/factory/styles/base.css"><link rel="stylesheet" href="/xterm.css"><main class="soda-factory-root" data-factory-scheme="light"></main><script type="module" src="/watch.js"></script>', {headers: {'Content-Type': 'text/html'}});
+  }});
+  const browser = parent.context().browser(); assert(browser);
+  const page = await browser.newPage({viewport: {width: 1100, height: 800}}); page.setDefaultTimeout(7000);
+  const errors: string[] = [];
+  page.on('pageerror', error => errors.push(error.message));
+  page.on('response', response => { if (response.url().startsWith(host.url.origin) && response.status() >= 400) errors.push(`Standalone asset failed (${response.status()}): ${response.url()}`); });
+  try {
+    await page.goto(host.url.href);
+    const view = page.locator('soda-factory-watch');
+    const ready = () => page.waitForFunction(() => document.querySelector('.soda-factory .xterm-rows')?.textContent?.includes('Declared live output.'));
+    await view.getByRole('button', {name: 'Watch run', exact: true}).click(); await ready();
+    assert.deepEqual(await page.evaluate(() => window.factoryWatchFixture.peers()[0]?.sent), [{observe: 'a'.repeat(32), after: 0, capability: 'declared-watch:idle'}]);
+    const terminal = await view.locator('.xterm').elementHandle(); assert(terminal);
+    await view.locator('.soda-terminal-screen').click(); await page.keyboard.type('must not send input');
+    await page.setViewportSize({width: 390, height: 740});
+    assert.equal(await page.evaluate(() => window.factoryWatchFixture.peers()[0]?.sent.length), 1);
+    assert.equal(await page.locator('main').evaluate(node => getComputedStyle(node).backgroundColor), 'rgb(255, 255, 255)');
+    await page.locator('main').evaluate(node => node.setAttribute('data-factory-scheme', 'dark'));
+    assert.equal(await page.locator('main').evaluate(node => getComputedStyle(node).backgroundColor), 'rgb(16, 16, 16)');
+    await page.evaluate(() => { window.factoryWatchFixture.suspend(); window.factoryWatchFixture.resume(); });
+    assert.equal(await page.evaluate(() => window.factoryWatchFixture.peers().length), 1);
+    assert.equal(await page.evaluate(() => window.factoryWatchFixture.reads().length), 1);
+    assert(await terminal.evaluate(node => node.isConnected));
+    await view.getByRole('button', {name: 'Stop watching', exact: true}).click();
+    await page.evaluate(() => window.factoryWatchFixture.late());
+    assert.equal(await page.evaluate(() => window.factoryWatchFixture.peers()[0]?.state), 3);
+    assert.doesNotMatch(await view.innerText(), /Retired output must not render/);
+    await view.getByRole('button', {name: 'Watch again', exact: true}).click();
+    await page.waitForFunction(() => document.querySelector('.soda-factory .xterm-rows')?.textContent?.includes('Resumed output.'));
+    const retained = await view.locator('.xterm').elementHandle(); assert(retained);
+    await page.evaluate(() => window.factoryWatchFixture.lose());
+    await page.waitForFunction(() => window.factoryWatchFixture.peers().length === 3 && window.factoryWatchFixture.peers()[2]?.sent.length === 1);
+    const peers = await page.evaluate(() => window.factoryWatchFixture.peers());
+    assert.equal(peers[2]?.sent[0]?.after, new TextEncoder().encode('Resumed output.\r\n').length);
+    assert(await retained.evaluate(node => node.isConnected && node === document.querySelector('.soda-factory .xterm')));
+    await view.getByRole('button', {name: 'Stop watching', exact: true}).waitFor();
+    await view.getByRole('button', {name: 'Stop watching', exact: true}).click();
+    for (const state of ['ended', 'offline', 'denied', 'invalid'] as const) {
+      await page.evaluate(state => window.factoryWatchFixture.mount(state), state);
+      await view.getByRole('button', {name: 'Watch run', exact: true}).click();
+      if (state === 'ended') {
+        await view.getByRole('status').filter({hasText: 'This run has finished'}).waitFor();
+        await view.getByText('Technical details', {exact: true}).click();
+        await view.getByText('Recorded final output.', {exact: false}).waitFor();
+        assert.equal(await page.evaluate(() => window.factoryWatchFixture.peers().length), 0);
+      } else if (state === 'offline') await view.getByRole('status').filter({hasText: 'Could not authorize or attach.'}).waitFor();
+      else if (state === 'denied') {
+        await view.getByRole('status').filter({hasText: 'Page context changed.'}).waitFor();
+        assert.equal(await page.evaluate(() => window.factoryWatchFixture.authorityLosses()), 1);
+        assert.equal(await view.getByRole('button', {name: 'Watch again', exact: true}).count(), 0);
+      } else await view.getByRole('status').filter({hasText: 'Invalid or overloaded stream.'}).waitFor();
+    }
+    await page.evaluate(() => window.factoryWatchFixture.mount('live'));
+    await view.getByRole('button', {name: 'Watch run', exact: true}).click(); await ready();
+    await page.evaluate(() => { window.factoryWatchFixture.retireGeneration(); window.factoryWatchFixture.late(); });
+    await view.getByRole('status').filter({hasText: 'Page context changed.'}).waitFor();
+    assert.equal(await view.locator('.xterm').count(), 0);
+    assert.equal(await page.evaluate(() => window.factoryWatchFixture.peers()[0]?.state), 3);
+    for (const mode of ['generation', 'retire'] as const) {
+      await page.evaluate(() => window.factoryWatchFixture.mount('live', true));
+      await view.getByRole('button', {name: 'Watch run', exact: true}).click();
+      await page.waitForFunction(() => window.factoryWatchFixture.reads().length === 1);
+      await page.evaluate(mode => {
+        if (mode === 'generation') window.factoryWatchFixture.retireGeneration(); else window.factoryWatchFixture.retire();
+        window.factoryWatchFixture.release();
+      }, mode);
+      await page.evaluate(() => new Promise<void>(resolve => requestAnimationFrame(() => resolve())));
+      assert.equal(await page.evaluate(() => window.factoryWatchFixture.peers().length), 0);
+      assert.equal(await page.evaluate(() => window.factoryWatchFixture.aborted()), true);
+    }
+    await page.evaluate(() => document.fonts.ready.then(() => undefined)); assert.deepEqual(errors, []);
+  } finally { await page.close(); host.stop(true); }
+}

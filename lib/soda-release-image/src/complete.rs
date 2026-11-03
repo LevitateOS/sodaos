@@ -62,6 +62,7 @@ pub fn write_complete_quadlets(
     for (role, unit) in [
         (model::Role::Forgejo, "forgejo.container"),
         (model::Role::Dashboard, "soda-dashboard.container"),
+        (model::Role::Dashboard, "soda-factory.container"),
         (model::Role::Proxy, "soda-proxy.container"),
         (model::Role::Postgres, "soda-postgres.container"),
     ] {
