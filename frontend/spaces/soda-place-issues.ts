@@ -147,6 +147,7 @@ export const mountIssuesPlace = withFactoryRepository((host, context, initial) =
               transport: admitted.list.transport, host: context.factoryHost, actor: context.factoryActor,
               repository: context.factoryRepository, pull: place.item, scope: admitted.list.scope,
               initialTab: place.tab === 'files' ? 'files' : place.tab === 'checks' ? 'checks' : 'conversation',
+              commandScope: (signal) => fountainCommandScope(admitted.list.transport, signal),
               resolveLink(href) {
                 if (!href || /[\\\u0000-\u001f\u007f]/.test(href)) return;
                 return markdownLink(new URL(href, href.startsWith('#') || href.startsWith('?') ? page : new URL(repositoryPath + '/', location.origin)).href);
