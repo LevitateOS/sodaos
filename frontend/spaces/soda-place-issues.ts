@@ -244,6 +244,15 @@ export const mountIssuesPlace = withFactoryRepository((host, context, initial) =
               issue: place.item,
               scope: admitted.list.scope,
               commandScope: (signal) => fountainCommandScope(admitted.list.transport, signal),
+            },
+            {
+              transport: admitted.list.transport,
+              host: context.factoryHost,
+              actor: context.factoryActor,
+              repository: context.factoryRepository,
+              issue: place.item,
+              scope: admitted.list.scope,
+              commandScope: (signal) => fountainCommandScope(admitted.list.transport, signal),
             }
           );
           release = screen.dispose;
