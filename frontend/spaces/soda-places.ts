@@ -2,7 +2,7 @@
 import {check, id} from '@factory/product/frontend/factory/api/models.js';
 
 export type WorkKind = 'issues' | 'pulls';
-type WorkTab = 'factory' | 'conversation' | 'files' | 'checks';
+type WorkTab = 'factory' | 'conversation' | 'reviews' | 'threads' | 'files' | 'checks';
 export type WorkPlace = {place: WorkKind; item?: string; tab?: WorkTab; fragment?: string};
 
 /** Repository SodaOS settings sections, in place-bar order. */
@@ -34,7 +34,7 @@ export interface SodaPlaces {
   terminals(run?: string): string;
   settings(section: SettingsSection | string): string;
   issues(item?: string | number, tab?: 'factory'): string;
-  pulls(item?: string | number): string;
+  pulls(item?: string | number, tab?: Exclude<WorkTab, 'factory'>): string;
   factoryStatus(issue?: string | number): string;
   /** The address of a parsed place (the inverse of placeFromPath). */
   to(place: Place): string;
@@ -50,7 +50,7 @@ export function repositoryWorkPath(repository: string, kind: WorkKind, item?: st
         item !== 'new' &&
         (kind === 'issues'
           ? ['factory', 'conversation'].includes(tab)
-          : ['conversation', 'files', 'checks'].includes(tab)))
+          : ['conversation', 'reviews', 'threads', 'files', 'checks'].includes(tab)))
   );
   return `${repository}/feed/work/${kind}${item === undefined ? '' : '/' + String(item)}${query('tab', tab)}`;
 }
@@ -79,7 +79,7 @@ export function repositoryPlaces(prefix: string, slug: string): SodaPlaces {
     terminals: (run) => `${root}/terminals${query('run', run)}`,
     settings: (section) => `${root}/settings/${encodeURIComponent(section)}`,
     issues: (item, tab) => repositoryWorkPath(repository, 'issues', item, tab),
-    pulls: (item) => repositoryWorkPath(repository, 'pulls', item),
+    pulls: (item, tab) => repositoryWorkPath(repository, 'pulls', item, tab),
     factoryStatus: (issue) => places.issues(issue, issue === undefined ? undefined : 'factory'),
     to(place) {
       switch (place.place) {
@@ -144,7 +144,7 @@ function feedRoutePlace([first, second, ...rest]: string[], param: Param, fragme
     const [item, ...extra] = rest;
     if (extra.length || (item !== undefined && item !== 'new' && !id(item))) return;
     const tab = param('tab');
-    if (tab !== undefined && tab !== 'factory' && tab !== 'conversation' && tab !== 'files' && tab !== 'checks') return;
+    if (tab !== undefined && tab !== 'factory' && tab !== 'conversation' && tab !== 'reviews' && tab !== 'threads' && tab !== 'files' && tab !== 'checks') return;
     if (
       tab !== undefined &&
       (!item ||

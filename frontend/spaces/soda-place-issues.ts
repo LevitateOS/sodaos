@@ -146,7 +146,11 @@ export const mountIssuesPlace = withFactoryRepository((host, context, initial) =
             view.context = {
               transport: admitted.list.transport, host: context.factoryHost, actor: context.factoryActor,
               repository: context.factoryRepository, pull: place.item, scope: admitted.list.scope,
-              initialTab: place.tab === 'files' ? 'files' : place.tab === 'checks' ? 'checks' : 'conversation',
+              initialTab: place.tab === 'reviews' || place.tab === 'threads' || place.tab === 'files' || place.tab === 'checks' ? place.tab : 'conversation',
+              navigateTab(tab, opening) {
+                opening.throwIfAborted(); check(current());
+                context.navigate(context.places.pulls(place.item!, tab));
+              },
               commandScope: (signal) => fountainCommandScope(admitted.list.transport, signal),
               resolveLink(href) {
                 if (!href || /[\\\u0000-\u001f\u007f]/.test(href)) return;
