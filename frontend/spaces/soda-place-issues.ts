@@ -3,6 +3,10 @@
 import {html, render} from 'lit';
 import {ifDefined} from 'lit/directives/if-defined.js';
 import {SodaFactoryIssues} from '@factory/product/frontend/factory/issues/issues.js';
+import {SodaFactoryPulls} from '@factory/product/frontend/factory/pulls/list.js';
+import {SodaFactoryPull} from '@factory/product/frontend/factory/pulls/detail.js';
+import {check, id} from '@factory/product/frontend/factory/api/models.js';
+import {markdownLink} from '@factory/product/frontend/factory/shared/markdown.js';
 import {SodaFactoryIssueCreate} from '@factory/product/frontend/factory/issues/create.js';
 import {mountIssueScreen} from '@factory/product/frontend/factory/issues/screen.js';
 import {fountainIssueContexts} from './soda-factory-issue-host.js';
@@ -86,17 +90,6 @@ export const mountIssuesPlace = withFactoryRepository((host, context, initial) =
           ? nativePullLink(repositoryPath, place.item)
           : `${repositoryPath}/${place.item === 'new' ? 'compare' : 'pulls'}`
         : `${repositoryPath}/issues/new`;
-    if (place.place === 'pulls') {
-      render(
-        html`<section aria-label="Pull requests">
-          <h2>Pull requests</h2>
-          <p role="status">The shared pull request view is not available yet.</p>
-          <a href=${ifDefined(native)}>Open in Fountain</a>
-        </section>`,
-        content
-      );
-      return;
-    }
     render(html`<p role="status">Loading repository information…</p>`, content);
     void fountainIssueContexts(
       context.transport,
@@ -125,6 +118,50 @@ export const mountIssuesPlace = withFactoryRepository((host, context, initial) =
           if (!current()) return;
           ports = admitted;
           render(html``, content);
+          if (place.place === 'pulls') {
+            const navigation = document.createElement('nav');
+            navigation.setAttribute('aria-label', 'Pull request navigation');
+            render(html`<a href=${context.places.pulls()}>Pull requests</a>
+              ${place.item && place.item !== 'new' ? html` <a href=${ifDefined(nativePullLink(repositoryPath, place.item))}>Open in Fountain</a>` : ''}`, navigation);
+            content.append(navigation);
+            if (!place.item || place.item === 'new') {
+              if (place.item === 'new') {
+                const notice = document.createElement('section');
+                render(html`<p>Choose a branch pair in Fountain to create a pull request.</p><a href=${ifDefined(native)}>Open compare view</a>`, notice);
+                content.append(notice);
+                return;
+              }
+              const list = new SodaFactoryPulls();
+              list.context = {...admitted.list, openPull: (pull, opening) => {
+                opening.throwIfAborted();
+                check(current() && pull.kind === 'pull' && pull.repository === context.factoryRepository && id(pull.number));
+                context.navigate(context.places.pulls(pull.number));
+              }};
+              release = () => { list.context = undefined; list.remove(); };
+              content.append(list);
+              return;
+            }
+            const view = new SodaFactoryPull();
+            const page = new URL(context.places.pulls(place.item), location.origin);
+            view.context = {
+              transport: admitted.list.transport, host: context.factoryHost, actor: context.factoryActor,
+              repository: context.factoryRepository, pull: place.item, scope: admitted.list.scope,
+              initialTab: place.tab === 'files' ? 'files' : place.tab === 'checks' ? 'checks' : 'reviews',
+              resolveLink(href) {
+                if (!href || /[\\\u0000-\u001f\u007f]/.test(href)) return;
+                return markdownLink(new URL(href, href.startsWith('#') || href.startsWith('?') ? page : new URL(repositoryPath + '/', location.origin)).href);
+              },
+              openLink(url, opening) {
+                opening.throwIfAborted(); check(current());
+                const target = new URL(url);
+                if (target.origin === location.origin) context.navigate(target.pathname + target.search + target.hash);
+                else window.open(target.href, '_blank', 'noopener,noreferrer');
+              },
+            };
+            release = () => { view.context = undefined; view.remove(); };
+            content.append(view);
+            return;
+          }
           const navigation = document.createElement('nav');
           navigation.setAttribute('aria-label', 'Issue navigation');
           render(
@@ -226,8 +263,9 @@ export const mountIssuesPlace = withFactoryRepository((host, context, initial) =
     update(next) {
       if (next.place !== 'issues' && next.place !== 'pulls') return;
       const same = next.place === place.place && next.item === place.item;
+      const changedPullTab = next.place === 'pulls' && next.tab !== place.tab;
       place = next;
-      if (same) {
+      if (same && !changedPullTab) {
         const panel = controls?.querySelector('details');
         if (panel) panel.open = place.tab === 'factory';
         scroll();
