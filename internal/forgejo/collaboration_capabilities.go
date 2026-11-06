@@ -60,6 +60,20 @@ func (s HumanReads) ReadCapabilities(ctx context.Context, actor collaboration.Ac
 			r.MergeMethods[method] = collaboration.Capability{State: collaboration.Availability(fact.State), Reason: fact.Reason}
 		}
 	}
+	if q.Subject == "issue" {
+		// The state operation has its own permission and blocker rules. The
+		// general issue-edit capability does not describe Close or Reopen.
+		snapshot, err := s.Authority.RepositoryStateSnapshot(ctx, nativeRepo, extensions.RepositoryStateSnapshotRequest{Subject: q.Subject, Index: index})
+		if err == nil {
+			if snapshot.SubjectID != native.ResourceID || snapshot.ActorID != nativeActor {
+				return empty, factoryservice.ErrCapabilitiesChanged
+			}
+			r.StateActions = map[string]collaboration.Capability{
+				"close":  {State: collaboration.Availability(snapshot.CloseAction.State), Reason: snapshot.CloseAction.Reason},
+				"reopen": {State: collaboration.Availability(snapshot.ReopenAction.State), Reason: snapshot.ReopenAction.Reason},
+			}
+		}
+	}
 	after, err := s.Authority.Native().CurrentActor(ctx)
 	if err != nil {
 		return empty, humanCapabilitiesError(err)
