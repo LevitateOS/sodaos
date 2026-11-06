@@ -128,7 +128,7 @@
 				{{end}}
 
 				{{if and .Repository.CanEnablePulls (.Permission.CanRead $.UnitTypePullRequests)}}
-					<a class="{{if .PageIsPullList}}active {{end}}item" href="{{.RepoLink}}/pulls">
+					<a class="{{if .PageIsPullList}}active {{else}}{{template "custom/soda/places_attr" (dict "Page" $ "Part" "pulls-active")}}{{end}}item" href="{{template "custom/soda/places_attr" (dict "Page" $ "Part" "pulls-url")}}" data-soda-place="pulls">
 						{{svg "octicon-git-pull-request"}} {{ctx.Locale.Tr "repo.pulls"}}
 						{{if (.Repository.NumOpenPulls ctx)}}
 							<span class="ui small label">{{CountFmt (.Repository.NumOpenPulls ctx)}}</span>
