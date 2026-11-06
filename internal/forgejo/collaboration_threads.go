@@ -76,7 +76,11 @@ func (s HumanReads) ReadThreads(ctx context.Context, actor collaboration.ActorID
 				}
 				body.Author = &author
 			}
-			r.Comments.Items = append(r.Comments.Items, collaboration.ReviewComment{ReviewID: t.ReviewID, Comment: body, Anchor: threadAnchor(c.Anchor, pull)})
+			comment := collaboration.ReviewComment{Comment: body, Anchor: threadAnchor(c.Anchor, pull)}
+			if t.ReviewID != "" {
+				comment.ReviewID = &t.ReviewID
+			}
+			r.Comments.Items = append(r.Comments.Items, comment)
 		}
 		p.Items = append(p.Items, r)
 	}

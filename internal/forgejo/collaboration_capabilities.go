@@ -54,6 +54,12 @@ func (s HumanReads) ReadCapabilities(ctx context.Context, actor collaboration.Ac
 	for key, fact := range native.Actions {
 		r.Actions[collaboration.Action(key)] = collaboration.Capability{State: collaboration.Availability(fact.State), Reason: fact.Reason}
 	}
+	if native.MergeMethods != nil {
+		r.MergeMethods = make(map[string]collaboration.Capability, len(native.MergeMethods))
+		for method, fact := range native.MergeMethods {
+			r.MergeMethods[method] = collaboration.Capability{State: collaboration.Availability(fact.State), Reason: fact.Reason}
+		}
+	}
 	after, err := s.Authority.Native().CurrentActor(ctx)
 	if err != nil {
 		return empty, humanCapabilitiesError(err)
