@@ -2,7 +2,7 @@
 import {check, id} from '@factory/product/frontend/factory/api/models.js';
 
 export type WorkKind = 'issues' | 'pulls';
-type WorkTab = 'factory' | 'conversation' | 'reviews' | 'threads' | 'files' | 'checks';
+type WorkTab = 'factory' | 'conversation' | 'commits' | 'reviews' | 'threads' | 'files' | 'checks';
 export type WorkPlace = {place: WorkKind; item?: string; tab?: WorkTab; fragment?: string};
 
 /** Repository SodaOS settings sections, in place-bar order. */
@@ -50,7 +50,7 @@ export function repositoryWorkPath(repository: string, kind: WorkKind, item?: st
         item !== 'new' &&
         (kind === 'issues'
           ? ['factory', 'conversation'].includes(tab)
-          : ['conversation', 'reviews', 'threads', 'files', 'checks'].includes(tab)))
+          : ['conversation', 'commits', 'reviews', 'threads', 'files', 'checks'].includes(tab)))
   );
   return `${repository}/feed/work/${kind}${item === undefined ? '' : '/' + String(item)}${query('tab', tab)}`;
 }
@@ -144,7 +144,7 @@ function feedRoutePlace([first, second, ...rest]: string[], param: Param, fragme
     const [item, ...extra] = rest;
     if (extra.length || (item !== undefined && item !== 'new' && !id(item))) return;
     const tab = param('tab');
-    if (tab !== undefined && tab !== 'factory' && tab !== 'conversation' && tab !== 'reviews' && tab !== 'threads' && tab !== 'files' && tab !== 'checks') return;
+    if (tab !== undefined && tab !== 'factory' && tab !== 'conversation' && tab !== 'commits' && tab !== 'reviews' && tab !== 'threads' && tab !== 'files' && tab !== 'checks') return;
     if (
       tab !== undefined &&
       (!item ||

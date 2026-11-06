@@ -296,6 +296,7 @@ func (s *API) registerExtensionProductRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("GET /api/factory/collaboration/repositories/{repository}/pulls/{number}/checks", protect(s.apiFactoryCollaborationChecks, http.MethodGet))
 	mux.HandleFunc("GET /api/factory/collaboration/repositories/{repository}/pulls/{number}/checks/jobs", protect(s.apiFactoryCollaborationChecks, http.MethodGet))
 	mux.HandleFunc("GET /api/factory/collaboration/repositories/{repository}/pulls/{number}/files", protect(s.apiFactoryCollaborationPullFiles, http.MethodGet))
+	mux.HandleFunc("GET /api/factory/collaboration/repositories/{repository}/pulls/{number}/commits", protect(s.apiFactoryCollaborationPullCommits, http.MethodGet))
 	mux.HandleFunc("GET /api/factory/collaboration/repositories/{repository}/pulls", protect(s.apiFactoryCollaborationPulls, http.MethodGet))
 	mux.HandleFunc("GET /api/factory/collaboration/repositories/{repository}/pulls/{number}", protect(s.apiFactoryCollaborationPulls, http.MethodGet))
 	mux.HandleFunc("GET /api/factory/collaboration/repositories/{repository}/pulls/{number}/comments", protect(s.apiFactoryCollaborationDiscussions, http.MethodGet))

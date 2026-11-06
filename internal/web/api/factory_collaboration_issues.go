@@ -109,6 +109,15 @@ func (s *API) apiFactoryCollaborationPullFiles(w http.ResponseWriter, r *http.Re
 	product.Handler().ServeHTTP(w, r)
 }
 
+func (s *API) apiFactoryCollaborationPullCommits(w http.ResponseWriter, r *http.Request, v store.Session) {
+	product, source, ok := s.collaborationReads(w, r, v)
+	if !ok {
+		return
+	}
+	product.PullCommits = factoryhttpapi.CollaborationPullCommits{Service: factoryservice.CollaborationPullCommits{Source: source}}
+	product.Handler().ServeHTTP(w, r)
+}
+
 func (s *API) apiFactoryCollaborationReviews(w http.ResponseWriter, r *http.Request, v store.Session) {
 	product, source, ok := s.collaborationReads(w, r, v)
 	if !ok {

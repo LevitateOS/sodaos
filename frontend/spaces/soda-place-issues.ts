@@ -146,7 +146,7 @@ export const mountIssuesPlace = withFactoryRepository((host, context, initial) =
             view.context = {
               transport: admitted.list.transport, host: context.factoryHost, actor: context.factoryActor,
               repository: context.factoryRepository, pull: place.item, scope: admitted.list.scope,
-              initialTab: place.tab === 'reviews' || place.tab === 'threads' || place.tab === 'files' || place.tab === 'checks' ? place.tab : 'conversation',
+              initialTab: place.tab === 'commits' || place.tab === 'reviews' || place.tab === 'threads' || place.tab === 'files' || place.tab === 'checks' ? place.tab : 'conversation',
               navigateTab(tab, opening) {
                 opening.throwIfAborted(); check(current());
                 context.navigate(context.places.pulls(place.item!, tab));
