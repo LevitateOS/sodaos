@@ -152,6 +152,9 @@ func boundExtensionResponse(response *http.Response) error {
 		if len(parts) >= 7 && parts[0] == "factory" && parts[1] == "collaboration" && parts[6] == "threads" && extensionFactoryRoute(parts, http.MethodGet) {
 			limit = factoryhttpapi.CollaborationThreadResponseLimit
 		}
+		if len(parts) == 7 && parts[0] == "factory" && parts[1] == "collaboration" && parts[6] == "commits" && extensionFactoryRoute(parts, http.MethodGet) {
+			limit = factoryhttpapi.CollaborationPullCommitsResponseLimit
+		}
 	}
 	body, err := io.ReadAll(io.LimitReader(response.Body, int64(limit)+1))
 	closeErr := response.Body.Close()
@@ -462,7 +465,7 @@ func extensionFactoryRoute(parts []string, method string) bool {
 			return repo && number && review
 		}
 		if len(parts) == 7 {
-			if parts[2] != "repositories" || parts[4] != "issues" && parts[4] != "pulls" || (parts[6] != "comments" && (parts[4] != "pulls" || parts[6] != "files" && parts[6] != "reviews" && parts[6] != "threads" && parts[6] != "checks")) || method != http.MethodGet {
+			if parts[2] != "repositories" || parts[4] != "issues" && parts[4] != "pulls" || (parts[6] != "comments" && (parts[4] != "pulls" || parts[6] != "files" && parts[6] != "commits" && parts[6] != "reviews" && parts[6] != "threads" && parts[6] != "checks")) || method != http.MethodGet {
 				return false
 			}
 			_, repo := auth.PositiveID(parts[3])
