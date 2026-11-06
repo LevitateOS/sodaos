@@ -249,11 +249,11 @@ export const mountRequestPlace = withFactoryRepository((host, context, initial) 
           ? html`<ul class="soda-build-rows">
               ${summary.rows.map(
                 (row) => html`<li>
-                  <a href=${`${repo}/issues/${row.issue}`}>Issue #${row.issue}</a>
+                  <a href=${places.issues(row.issue)}>Issue #${row.issue}</a>
                   <a href=${places.factoryStatus(row.issue)}>Factory status</a>
                   ${
                     row.pull
-                      ? html`<a href=${`${repo}/pulls/${row.pull}`}>Pull request #${row.pull}</a>`
+                      ? html`<a href=${places.pulls(row.pull)}>Pull request #${row.pull}</a>`
                       : html`<span class="soda-build-muted">No pull request yet</span>`
                   }
                 </li>`

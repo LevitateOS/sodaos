@@ -31,6 +31,18 @@ export const mountIssuesPlace = withFactoryRepository((host, context, initial) =
   let ports: Awaited<ReturnType<typeof fountainIssueContexts>> | undefined;
   // Native link helpers validate decoded paths; the place router owns encoding.
   const repositoryPath = `${context.prefix}/${context.slug}`;
+  const nativeRoot = new URL(repositoryPath + '/', location.origin).pathname.replace(/\/$/, '');
+  const navigateInternal = (path: string) => {
+    const target = new URL(path, location.origin);
+    check(target.origin === location.origin);
+    const relative = target.pathname.startsWith(nativeRoot + '/') ? target.pathname.slice(nativeRoot.length) : '';
+    const match = /^\/(issues|pulls)\/([1-9][0-9]*)$/.exec(relative);
+    if (match && !target.search && id(match[2])) {
+      if (match[1] === 'issues') return context.navigate(context.places.issues(match[2]) + target.hash);
+      if (!target.hash) return context.navigate(context.places.pulls(match[2]));
+    }
+    context.navigate(target.pathname + target.search + target.hash);
+  };
   const scroll = () => {
     if (!active || disposed) return;
     const target = place.fragment?.slice(1) || (place.tab === 'factory' ? 'factory' : '');
@@ -104,7 +116,7 @@ export const mountIssuesPlace = withFactoryRepository((host, context, initial) =
         issuePath: (number) => context.places.issues(number),
         navigate(path, opening) {
           opening.throwIfAborted();
-          context.navigate(path);
+          navigateInternal(path);
         },
         openExternal(url, opening) {
           opening.throwIfAborted();
@@ -159,7 +171,7 @@ export const mountIssuesPlace = withFactoryRepository((host, context, initial) =
               openLink(url, opening) {
                 opening.throwIfAborted(); check(current());
                 const target = new URL(url);
-                if (target.origin === location.origin) context.navigate(target.pathname + target.search + target.hash);
+                if (target.origin === location.origin) navigateInternal(target.pathname + target.search + target.hash);
                 else window.open(target.href, '_blank', 'noopener,noreferrer');
               },
             };

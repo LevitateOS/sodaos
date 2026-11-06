@@ -10,6 +10,11 @@ export function fountainIssueLink(repositoryPath: string, issue: string): string
   return repositoryWorkPath(repositoryPath, 'issues', issue);
 }
 
+export function fountainPullLink(repositoryPath: string, pull: string): string | undefined {
+  if (!nativePath(repositoryPath) || !id(pull)) return;
+  return repositoryWorkPath(repositoryPath, 'pulls', pull);
+}
+
 // Fountain alone owns these native URL shapes; shared views receive callbacks.
 export function nativeIssueLink(repositoryPath: string, issue: string): string | undefined {
   if (!nativePath(repositoryPath) || !id(issue)) return undefined;
@@ -28,7 +33,7 @@ export function fountainActivityItem(item: ActivityItem, activity: FactoryActivi
       ? nativePullLink(activity.repository_path, item.pr ?? '')
       : nativeIssueLink(activity.repository_path, item.issue);
   return expected && item.url === expected
-    ? {href: item.kind === 'pr_created' ? expected : fountainIssueLink(activity.repository_path, item.issue)!}
+    ? {href: item.kind === 'pr_created' ? fountainPullLink(activity.repository_path, item.pr ?? '')! : fountainIssueLink(activity.repository_path, item.issue)!}
     : undefined;
 }
 
@@ -40,7 +45,12 @@ export function fountainWorkLinks(repositoryPath: string, recorded?: WorkLinks):
         ? recorded.issue_url
         : fountainIssueLink(repositoryPath, String(number));
     },
-    pull: (number) => (recorded ? recorded.pull_url : nativePullLink(repositoryPath, String(number))),
+    pull: (number) => {
+      const native = nativePullLink(repositoryPath, String(number));
+      return recorded && recorded.pull_url !== native
+        ? recorded.pull_url
+        : fountainPullLink(repositoryPath, String(number));
+    },
   };
 }
 

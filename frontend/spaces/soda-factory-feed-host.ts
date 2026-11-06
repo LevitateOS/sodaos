@@ -6,7 +6,7 @@ import {nativePath} from '@factory/product/frontend/factory/shared/format.js';
 import {repositoryChoices} from './sodaspaces-repository-response.js';
 import {applicationsResponse} from './sodaspaces-application-response.js';
 import {repositoryPlaces} from './soda-places.js';
-import {fountainIssueLink, nativePullLink} from './soda-factory-links.js';
+import {fountainIssueLink, fountainPullLink} from './soda-factory-links.js';
 
 interface FountainFeedOptions {
   /** Native Fountain repository locator; resolved before a Factory context exists. */
@@ -223,7 +223,7 @@ export async function fountainFeedContext(
           knowledge: places.knowledge,
           settings: places.settings,
           issue: (issue) => fountainIssueLink(repository, String(issue)),
-          pull: (pull) => nativePullLink(repository, String(pull)),
+          pull: (pull) => fountainPullLink(repository, String(pull)),
         };
       },
       async applicationOrigins(signal) {
