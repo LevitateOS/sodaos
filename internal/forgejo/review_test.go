@@ -875,12 +875,15 @@ func checkMappedDeliveryMaterial(t *testing.T, identities *FountainIdentities, c
 	for _, item := range material.Comments {
 		byID[item.ID] = item
 	}
-	if byID["61"].PosterID != strconv.FormatInt(work.PRAuthorID, 10) || byID["63"].PosterID != "" || byID["41"].PosterID != strconv.FormatInt(work.ReviewerID, 10) || byID["42"].PosterID != strconv.FormatInt(int64(participant.ID), 10) || byID["41"].Content != rootBody || byID["41"].Digest != ContentDigest(rootBody) || byID["41"].ContentVersion != 2 || byID["42"].Content != replyBody {
+	if byID["61"].PosterID != strconv.FormatInt(work.PRAuthorID, 10) || byID["63"].PosterID != "" || byID["41"].PosterID != strconv.FormatInt(work.ReviewerID, 10) || byID["42"].PosterID != strconv.FormatInt(int64(participant.ID), 10) || byID["41"].Content != rootBody || byID["41"].Digest != ContentDigest(rootBody) || byID["41"].ContentVersion == nil || *byID["41"].ContentVersion != 2 || byID["42"].Content != replyBody {
 		t.Fatal("discussion bodies/native IDs or canonical participants changed", byID)
 	}
 	review, thread := material.Reviews[0], material.Threads[0]
 	if review.ActorID != strconv.FormatInt(work.ReviewerID, 10) || review.ID != "31" || review.Content != summary || review.Digest != ContentDigest(summary) || thread.RootID != "41" || thread.ResolverID != review.ActorID || !thread.Resolved || thread.Digest != conversation(false) || len(thread.Members) != 2 || thread.Members[0].ID != "41" || thread.Members[1].ID != "42" || material.Eligible || material.Blocker != extensions.MergeBlockerRequestedChanges || strings.Join(material.BlockingReviewIDs, ",") != "31" {
 		t.Fatal("canonical approval/resolver attribution changed native discussion facts", material)
+	}
+	if review.Official == nil || !*review.Official || review.Stale == nil || *review.Stale || byID["41"].Invalidated == nil || *byID["41"].Invalidated || thread.Members[1].Resolved == nil || *thread.Members[1].Resolved {
+		t.Fatal("observed native metadata became unknown or changed", material)
 	}
 	for which := int64(0); which <= 5; which++ {
 		contextCase.Store(which)

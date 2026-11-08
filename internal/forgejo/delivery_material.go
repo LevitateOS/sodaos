@@ -191,7 +191,7 @@ func deliveryMaterial(w factory.MergeWork, issue, pull NativeSnapshot, reviewBod
 			return empty, wait
 		}
 		comments[comment.ID] = comment
-		out.Comments = append(out.Comments, factory.DeliveryComment{ID: comment.ID, PosterID: comment.PosterID, ReviewID: comment.ReviewID, Type: comment.Type, Content: comment.Content, Digest: comment.ContentDigest, ContentVersion: comment.ContentVersion, Invalidated: comment.Invalidated})
+		out.Comments = append(out.Comments, factory.DeliveryComment{ID: comment.ID, PosterID: comment.PosterID, ReviewID: comment.ReviewID, Type: comment.Type, Content: comment.Content, Digest: comment.ContentDigest, ContentVersion: &comment.ContentVersion, Invalidated: &comment.Invalidated})
 	}
 	for _, review := range pull.Reviews.Items {
 		if !review.Visible || !review.Complete || review.IssueID != issue.Issue.ID || review.Type == "PENDING" {
@@ -201,7 +201,7 @@ func deliveryMaterial(w factory.MergeWork, issue, pull NativeSnapshot, reviewBod
 		if !found || ContentDigest(body) != review.ContentDigest {
 			return empty, &factory.PublicationWait{Reason: "delivery_review_body_unavailable"}
 		}
-		out.Reviews = append(out.Reviews, factory.DeliveryNativeReview{ID: review.ID, ActorID: review.ReviewerID, Type: review.Type, Commit: review.CommitID, Content: body, Digest: review.ContentDigest, Official: review.Official, Stale: review.Stale, Dismissed: review.Dismissed})
+		out.Reviews = append(out.Reviews, factory.DeliveryNativeReview{ID: review.ID, ActorID: review.ReviewerID, Type: review.Type, Commit: review.CommitID, Content: body, Digest: review.ContentDigest, Official: &review.Official, Stale: &review.Stale, Dismissed: review.Dismissed})
 	}
 	for _, thread := range pull.Threads.Items {
 		if !thread.Visible || !thread.Complete || thread.IssueID != issue.Issue.ID || len(thread.Members) != thread.MemberTotal {
@@ -213,7 +213,7 @@ func deliveryMaterial(w factory.MergeWork, issue, pull NativeSnapshot, reviewBod
 			if !ok || !member.Visible || !member.Complete || body.ContentDigest != member.ContentDigest || body.ContentVersion != member.ContentVersion || member.IssueID != issue.Issue.ID {
 				return empty, &factory.PublicationWait{Reason: "delivery_thread_body_unavailable"}
 			}
-			item.Members = append(item.Members, factory.DeliveryThreadMember{ID: member.ID, OriginalAnchor: deliveryThreadAnchor(member.OriginalAnchor), Resolved: member.Resolved})
+			item.Members = append(item.Members, factory.DeliveryThreadMember{ID: member.ID, OriginalAnchor: deliveryThreadAnchor(member.OriginalAnchor), Resolved: &member.Resolved})
 		}
 		if digest, err := item.ConversationDigest(out.Comments, false); err != nil || digest != item.Digest {
 			return empty, &factory.PublicationWait{Reason: "delivery_thread_context_changed"}
