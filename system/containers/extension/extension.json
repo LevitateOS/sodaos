@@ -10,7 +10,7 @@
       "route": "feed",
       "title": "Feed",
       "scope": "repository",
-      "permission": "read",
+      "permission": "issues",
       "entry": "soda-repository-entry.js",
       "subroutes": [
         {"pattern": "requests/{request}", "title": "Request"},
@@ -31,6 +31,7 @@
   "capabilities": [
     "native.actor.read",
     "native.repository.read",
+    "native.repository.issues.read",
     "native.repositories.owned.search",
     "native.organization.ownership",
     "native.user.public_keys.read",

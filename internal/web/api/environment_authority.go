@@ -45,7 +45,7 @@ func (s *API) nativeVisibleRepository(r *http.Request, v store.Session, id int64
 	if strings.EqualFold(owner.Login, actor.Login) {
 		owner.ID = actor.ID
 	}
-	permissions := &forgejo.RepositoryPermissions{Pull: true}
+	permissions := &forgejo.RepositoryPermissions{Pull: repository.Permission != "issues"}
 	permissions.Push = repository.Permission == "write" || repository.Permission == "admin"
 	permissions.Admin = repository.Permission == "admin" || owner.ID == actor.ID
 	return repositoryAccess{actor: actor, repository: forgejo.Repository{
