@@ -47,6 +47,27 @@ func (s *API) apiFactoryController(w http.ResponseWriter, r *http.Request, sessi
 	if !s.factoryOwner(w, r, session, repository) {
 		return
 	}
+	if r.Pattern == "POST /api/repositories/{repositoryID}/factory/controller/operations" {
+		var request sdk.ApplianceOperationAuthorization
+		decoder := json.NewDecoder(http.MaxBytesReader(w, r.Body, 4096))
+		decoder.DisallowUnknownFields()
+		var trailing any
+		if decoder.Decode(&request) != nil || decoder.Decode(&trailing) != io.EOF || !sdk.ValidApplianceOperationAuthorization(request) {
+			auth.JSONError(w, 400, "invalid_controller_command", "Choose an enrolled actor and finite operation scope.")
+			return
+		}
+		grant, err := authority.AuthorizeRuntimeOperations(r.Context(), native, request)
+		if err != nil {
+			auth.JSONError(w, 503, "controller_unconfirmed", "Authorization was not confirmed. Keep the original command and check again.")
+			return
+		}
+		if !s.extensionSessionCurrent(r.Context(), r, session) {
+			auth.JSONError(w, 409, "session_changed", "Keep the original authorization command and check its receipt.")
+			return
+		}
+		auth.JSONResponse(w, 200, grant)
+		return
+	}
 	var request sdk.ApplianceRuntimeSelection
 	decoder := json.NewDecoder(http.MaxBytesReader(w, r.Body, 4096))
 	decoder.DisallowUnknownFields()

@@ -17,7 +17,7 @@ import {fountainCommandScope, fountainRepository} from './soda-factory-feed-host
 import '@factory/product/frontend/factory/work/runtime-controller.js';
 import type {ControllerContext} from '@factory/product/frontend/factory/work/runtime-controller.js';
 
-type ControllerView={installation_id:string;runtime_id:string;can_select:boolean;placement:unknown};
+type ControllerView={installation_id:string;runtime_id:string;can_select:boolean;placement:unknown;actors:{token_id:string;actor_id:string;operations:string[]}[]};
 
 type NativeSettingsContext = {
   transport: PreparedExtensionMount;
@@ -538,6 +538,7 @@ export class SodaFactorySettings extends LitElement {
       const [raw,account]=await Promise.all([this.request(context,`/api/repositories/${context.repository}/factory/controller`),fountainCommandScope(context.transport,context.signal)]);
       const value=asObject(raw);
       if(typeof value.installation_id!=='string'||!/^[-a-f0-9]{36}$/.test(value.installation_id)||typeof value.runtime_id!=='string'||!/^[a-f0-9]{32}$/.test(value.runtime_id)||typeof value.can_select!=='boolean')throw Error('Controller is unavailable');
+      if(!Array.isArray(value.actors)||value.actors.some(raw=>{const a=asObject(raw);return typeof a.token_id!=='string'||!/^\d+$/.test(a.token_id)||typeof a.actor_id!=='string'||!/^\d+$/.test(a.actor_id)||!Array.isArray(a.operations)||a.operations.some(x=>typeof x!=='string');}))throw Error('Operation actors are unavailable');
       return {scope:`${account}:${context.repository}:${value.installation_id}:${value.runtime_id}`,view:value as ControllerView};
     }catch{return undefined;}
   }
@@ -546,8 +547,13 @@ export class SodaFactorySettings extends LitElement {
     const captured=this.view.controller;
     if(!captured||!this.activeValue||context.signal.aborted)return;
     const path=`/api/repositories/${context.repository}/factory/controller`;
-    return {scope:captured.scope,generation:context.transport.generation,destination:'this appliance',canSelect:captured.view.can_select,canAuthorize:false,request:async command=>{
-      if(command.authorization)throw Error('Operation authorization is unavailable');
+    return {scope:captured.scope,generation:context.transport.generation,destination:'this appliance',canSelect:captured.view.can_select,canAuthorize:captured.view.can_select&&captured.view.actors.length>0,actors:captured.view.actors.map(a=>({id:`${a.token_id}:${a.actor_id}`,operations:a.operations})),request:async command=>{
+      if(command.authorization){
+        const {actor_binding,...authorization}=command.authorization;
+        if(!actor_binding||!/^\d+:\d+$/.test(actor_binding))throw Error('Choose an enrolled actor');
+        const [token_id,actor_id]=actor_binding.split(':');
+        return this.request(context,`${path}/operations`,'POST',{...authorization,token_id,actor_id,installation_id:captured.view.installation_id,runtime_id:captured.view.runtime_id});
+      }
       if(command.selection)return this.request(context,path,'POST',{...command.selection,installation_id:captured.view.installation_id,runtime_id:captured.view.runtime_id});
       const latest=await this.loadController(context);
       if(!latest)throw Error('Controller is unavailable');

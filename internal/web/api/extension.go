@@ -372,6 +372,9 @@ func extensionRepositoryFactoryAction(parts []string, method string) bool {
 }
 
 func extensionRepositoryFactoryResource(parts []string, method string) bool {
+	if len(parts) == 5 && extensionProductID(parts[1]) && parts[2] == "factory" && parts[3] == "controller" && parts[4] == "operations" {
+		return method == http.MethodPost
+	}
 	if !extensionProductID(parts[1]) || parts[2] != "factory" || !extensionProductID(parts[4]) {
 		return false
 	}
