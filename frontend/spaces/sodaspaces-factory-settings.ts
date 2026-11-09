@@ -547,7 +547,8 @@ export class SodaFactorySettings extends LitElement {
     const captured=this.view.controller;
     if(!captured||!this.activeValue||context.signal.aborted)return;
     const path=`/api/repositories/${context.repository}/factory/controller`;
-    return {scope:captured.scope,generation:context.transport.generation,destination:'this appliance',canSelect:captured.view.can_select,canAuthorize:captured.view.can_select&&captured.view.actors.length>0,actors:captured.view.actors.map(a=>({id:`${a.token_id}:${a.actor_id}`,operations:a.operations})),request:async command=>{
+    const revision=asObject(this.view.status?.policy).revision;
+    return {scope:captured.scope,generation:context.transport.generation,destination:'this appliance',...(Number.isSafeInteger(revision)&&Number(revision)>0?{policyRevision:Number(revision)}:{}),canSelect:captured.view.can_select,canAuthorize:captured.view.can_select&&captured.view.actors.length>0,actors:captured.view.actors.map(a=>({id:`${a.token_id}:${a.actor_id}`,operations:a.operations})),request:async command=>{
       if(command.authorization){
         const {actor_binding,...authorization}=command.authorization;
         if(!actor_binding||!/^\d+:\d+$/.test(actor_binding))throw Error('Choose an enrolled actor');

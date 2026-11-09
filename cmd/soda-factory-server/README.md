@@ -29,12 +29,10 @@ opening and recovery share a cancellable ten-second startup budget.
 It preserves unobserved execution records and never dispatches retained work.
 Shared product routes are mounted through the same
 application owner, but refuse without a current connector/account resolver.
-The native composition also supplies the typed GitHub read handler behind its
-authenticated private IPC/instance/lifetime gates. Rust lends credentials for
-one bounded request; the Go SDK verifies the remote account before reads. This
-transport does not itself establish login, bind the product or enable work.
-Actual account/resource admission, execution observation/retirement, executor and the installed
-Tauri supervisor remain subsequent consumers.
+The native composition uses Factory's canonical product binding and observation
+handlers. Rust owns authenticated provider connectors and credential custody;
+the standalone engine has no GitHub SDK dependency. Missing admitted native
+ports leave their actions unavailable.
 macOS native execution/qualification remains deferred.
 
 ## Appliance build
@@ -84,6 +82,14 @@ The credential file is private and contains the PostgreSQL connection URL.
 Native background operation bindings, their credential files, provider access
 and repository policy must be configured before automatic work can proceed; a
 healthy unconfigured service does not claim readiness to execute an assignment.
+Appliance launches additionally capture an explicitly selected finite controller
+grant and the immutable task/source/model/runtime digest. Factory rechecks local
+policy and funding around central claim I/O; the native controller dispatches
+only a newly acquired claim. Missing replies do not authorize another launch.
+Retirement first requires native stop and sealed broker custody, including a
+stop-before-start fence when the original claim was never observed. The
+`forgejo_execution_credential_file` is separate from graph credentials and model
+funding. These source contracts do not qualify an installed appliance journey.
 See [configuration](../../docs/reference/configuration.md),
 [operator enrollment](../../docs/reference/factory.md), and
 [credentials](../../docs/reference/credentials.md).

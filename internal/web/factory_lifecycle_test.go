@@ -87,7 +87,7 @@ func lifecycleWebGrants(t *testing.T, s *Server, repository int64, paused bool) 
 		Repository: repository, GrantedBy: 1, Enabled: true, Paused: paused,
 		TargetBranch: "refs/heads/main",
 		Roles: map[string]factory.RoleSelection{
-			project.RoleCoder: {Harness: project.FactoryHarnessMuse, HarnessVers: "0.157.1", Model: "test"}, project.RoleReviewer: {Harness: project.FactoryHarnessMuse, HarnessVers: "0.157.1", Model: "test"},
+			project.RoleCoder: {Harness: project.FactoryHarnessMuse, HarnessVers: "0.157.1", Model: "test", Account: "conn-1"}, project.RoleReviewer: {Harness: project.FactoryHarnessMuse, HarnessVers: "0.157.1", Model: "test", Account: "conn-1"},
 		},
 		Checks: []string{"native-ci/build"}, MergeMethod: factory.MergeFastForward,
 		Publish:             factory.ActorBindingRef{TokenID: 11, ActorID: 12, Kind: factory.OpRefPublish},
@@ -208,8 +208,9 @@ func TestFactoryPauseAndResumeJourney(t *testing.T) {
 }
 
 // Real PostgreSQL owns the adopted namespace; an actual private Unix HTTP peer
-// captures the production host wire. The peer supplies declared run metadata,
-// not provider execution or credential acquisition.
+// captures the production host wire. Ungranted launches must send no native
+// request; historical observation and retirement remain available. The peer
+// supplies declared metadata, not provider execution or credential acquisition.
 func checkMappedApplianceLaunch(t *testing.T) {
 	ctx := t.Context()
 	admin, ok := store.TestFixtureDSN()
@@ -291,31 +292,14 @@ func checkMappedApplianceLaunch(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	expected := request.Input
-	expected.Run.Actor = 7
-	expectedWire, err := json.Marshal(expected)
-	if err != nil {
-		t.Fatal(err)
-	}
 	var calls, mode atomic.Int64
 	peer := &http.Server{Handler: http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		calls.Add(1)
 		w.Header().Set("Content-Type", "application/json")
 		if r.URL.Path == "/factory-launch" {
-			var launch project.FactoryLaunch
-			decoder := json.NewDecoder(r.Body)
-			decoder.DisallowUnknownFields()
-			if err := decoder.Decode(&launch); err != nil {
-				t.Error("invalid host wire", err)
-				w.WriteHeader(400)
-				return
-			}
-			wire, err := json.Marshal(launch)
-			if err != nil || !bytes.Equal(wire, expectedWire) {
-				t.Error("host wire differed beyond canonical-to-native actor translation", err)
-				w.WriteHeader(400)
-				return
-			}
+			t.Error("ungranted launch reached native owner")
+			w.WriteHeader(403)
+			return
 		} else if r.URL.Path == "/factory-inspect" || r.URL.Path == "/factory-stop" {
 			var address project.FactoryInspect
 			if err := json.NewDecoder(r.Body).Decode(&address); err != nil || address.ID != request.Input.Run.ID || address.Project != webTerminalProject {
@@ -350,25 +334,25 @@ func checkMappedApplianceLaunch(t *testing.T) {
 		}
 	})
 	observed, err := s.Coordinator.Host.LaunchRun(ctx, request)
-	if err != nil || !request.MatchesObservation(observed) || !observed.Live || calls.Load() != 1 {
-		t.Fatalf("mapped appliance launch failed: %+v %v calls=%d", observed, err, calls.Load())
+	if !errors.Is(err, execution.ErrLaunch) || calls.Load() != 0 {
+		t.Fatalf("ungranted launch was not refused before native I/O: %+v %v calls=%d", observed, err, calls.Load())
 	}
 	for _, wrong := range []int64{7, int64(foreign.ID), int64(actor) + 99, 0} {
 		invalid := request
 		invalid.Input.Run.Actor = wrong
-		if _, err := s.Coordinator.Host.LaunchRun(ctx, invalid); err == nil || calls.Load() != 1 {
+		if _, err := s.Coordinator.Host.LaunchRun(ctx, invalid); err == nil || calls.Load() != 0 {
 			t.Fatal("unmapped/foreign/invalid actor reached native credentials", wrong, err, calls.Load())
 		}
 	}
 	cancelled, cancel := context.WithCancel(ctx)
 	cancel()
-	if _, err := s.Coordinator.Host.LaunchRun(cancelled, request); !errors.Is(err, context.Canceled) || calls.Load() != 1 {
+	if _, err := s.Coordinator.Host.LaunchRun(cancelled, request); !errors.Is(err, execution.ErrLaunch) || calls.Load() != 0 {
 		t.Fatal("cancelled launch reached native credentials", err, calls.Load())
 	}
-	for _, refusal := range []int64{1, 2} {
+	for _, refusal := range []int64{2} {
 		mode.Store(refusal)
-		if _, err := s.Coordinator.Host.LaunchRun(ctx, request); err == nil {
-			t.Fatal("conflicting/unavailable host response became a successful launch", refusal)
+		if _, err := s.Coordinator.Host.InspectRun(ctx, request.Address()); err == nil {
+			t.Fatal("conflicting/unavailable historical observation became successful", refusal)
 		}
 	}
 	mode.Store(0)

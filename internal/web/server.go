@@ -118,15 +118,19 @@ func NewFactory(c config.Config, db *store.Store) (*Server, error) {
 		_, _ = w.Write([]byte("Soda Factory\n"))
 	})
 	client, hostClient, broker := s.Forgejo, s.Host, s.Broker
-	factoryHost := &applianceFactoryHost{HostFactory: hostClient, identities: identities}
+	nativeObserver := host.NewFactoryObserver(hostClient, broker)
+	factoryHost := &applianceFactoryHost{HostFactory: hostClient, identities: identities, store: db}
+	factoryHost.custody = nativeObserver
 	view := s.API.FactoryApplication()
-	ports := factoryservice.ApplicationPorts{Store: db, Host: factoryHost, Broker: host.NewFactoryObserver(hostClient, broker), CurrentChooser: view.Chooser, IssueEffects: view.IssueEffects}
+	ports := factoryservice.ApplicationPorts{Store: db, Host: factoryHost, Broker: nativeObserver, CurrentChooser: view.Chooser, IssueEffects: view.IssueEffects}
 	if c.TypeSafeAPIKeyFile != "" {
 		ports.Planning = &control.TypeSafePriority{APIKeyFile: c.TypeSafeAPIKeyFile, Model: c.TypeSafeModel}
 	}
 	ports.Priority = &control.TypeSafePriority{APIKeyFile: c.TypeSafeAPIKeyFile, Model: c.TypeSafeModel}
 	if c.BackgroundServiceConfigured() {
 		background := forgejo.NewServiceBackground(c.ForgejoBackgroundSocket, *c.ForgejoBackgroundHostUID, "")
+		factoryHost.controller = background
+		factoryHost.executionCredential = extensions.CredentialFile(c.ForgejoExecutionCredentialFile)
 		observer := forgejo.NewServiceObserver(c.ForgejoBackgroundSocket, *c.ForgejoBackgroundHostUID,
 			c.ForgejoBackgroundCredentialFile, client)
 		observer.Identities = identities

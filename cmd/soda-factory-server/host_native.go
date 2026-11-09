@@ -11,8 +11,9 @@ import (
 	"os/signal"
 	"syscall"
 
+	"github.com/levitateos/factory/pkg/collaboration"
 	factoryruntime "github.com/levitateos/factory/pkg/factory/runtime"
-	githubprovider "github.com/levitateos/factory/pkg/github"
+	"github.com/levitateos/factory/pkg/store"
 )
 
 func run() error {
@@ -29,5 +30,7 @@ func run() error {
 	}
 	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
 	defer stop()
-	return factoryruntime.RunNative(ctx, *config, githubprovider.NewNativeReadHandler(http.DefaultTransport))
+	return factoryruntime.RunNativeWithBinding(ctx, *config, func(profile collaboration.Profile, db *store.Store) http.Handler {
+		return factoryruntime.NewNativeObservationHandler(profile, collaboration.GitHub, "https://api.github.com", db)
+	}, factoryruntime.BindNativeProduct)
 }

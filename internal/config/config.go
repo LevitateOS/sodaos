@@ -59,6 +59,7 @@ type Config struct {
 	ForgejoBackgroundSocket         string  `json:"forgejo_background_socket"`
 	ForgejoBackgroundHostUID        *uint32 `json:"forgejo_background_host_uid"`
 	ForgejoBackgroundCredentialFile string  `json:"forgejo_background_credential_file"`
+	ForgejoExecutionCredentialFile  string  `json:"forgejo_execution_credential_file"`
 	// Optional separate native reviewer credential. It must belong to the
 	// repository policy's distinct review-only operation binding.
 	ForgejoReviewCredentialFile string `json:"forgejo_review_credential_file"`
@@ -188,6 +189,9 @@ func validateFactoryPaths(c Config) error {
 }
 
 func validateReviewCredentials(c Config) error {
+	if c.ForgejoExecutionCredentialFile != "" && (!filepath.IsAbs(c.ForgejoExecutionCredentialFile) || !c.BackgroundServiceConfigured()) {
+		return errors.New("execution credential requires an absolute path and configured background service")
+	}
 	if c.ForgejoResolveCredentialFile != "" {
 		if !filepath.IsAbs(c.ForgejoResolveCredentialFile) {
 			return errors.New("forgejo_resolve_credential_file must be an absolute path")

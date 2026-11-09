@@ -9,16 +9,14 @@ require (
 	github.com/jackc/pgx/v5 v5.12.0
 	github.com/modelcontextprotocol/go-sdk v1.8.0
 	github.com/stretchr/testify v1.12.1
-	go.yaml.in/yaml/v3 v3.0.5
+	go.yaml.in/yaml/v3 v3.0.6
 	golang.org/x/crypto v0.58.0
 	golang.org/x/sys v0.49.0
 )
 
 require (
-	github.com/google/go-github/v93 v93.0.0 // indirect
 	github.com/google/jsonschema-go v0.4.3 // indirect
 	github.com/levitateos/factory v0.0.0-20261103193842-66ff8694c1c9
-	github.com/sourcegraph/go-diff v0.9.0 // indirect
 )
 
 require (
@@ -26,8 +24,6 @@ require (
 	github.com/dicebear/schema v1.5.1 // indirect
 	github.com/fatih/color v1.13.0 // indirect
 	github.com/golang/protobuf v1.5.4 // indirect
-	github.com/google/go-cmp v0.7.0 // indirect
-	github.com/google/go-querystring v1.2.0 // indirect
 	github.com/hashicorp/go-hclog v1.6.3 // indirect
 	github.com/hashicorp/go-plugin v1.8.0 // indirect
 	github.com/hashicorp/yamux v0.1.2 // indirect

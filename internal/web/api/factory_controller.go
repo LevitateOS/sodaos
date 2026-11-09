@@ -1,12 +1,16 @@
 package api
 
 import (
+	"context"
 	"encoding/json"
+	"errors"
 	"io"
 	"net/http"
+	"slices"
 	"strconv"
 
 	sdk "forgejo.org/extension-sdk"
+	"github.com/levitateos/factory/pkg/factory"
 	"github.com/levitateos/factory/pkg/store"
 	"github.com/levitateos/sodaos/internal/web/auth"
 )
@@ -48,21 +52,36 @@ func (s *API) apiFactoryController(w http.ResponseWriter, r *http.Request, sessi
 		return
 	}
 	if r.Pattern == "POST /api/repositories/{repositoryID}/factory/controller/operations" {
-		var request sdk.ApplianceOperationAuthorization
+		var request struct {
+			sdk.ApplianceOperationAuthorization
+			PolicyRevision *int64 `json:"policy_revision,omitempty"`
+		}
 		decoder := json.NewDecoder(http.MaxBytesReader(w, r.Body, 4096))
 		decoder.DisallowUnknownFields()
 		var trailing any
-		if decoder.Decode(&request) != nil || decoder.Decode(&trailing) != io.EOF || !sdk.ValidApplianceOperationAuthorization(request) {
+		if decoder.Decode(&request) != nil || decoder.Decode(&trailing) != io.EOF || !sdk.ValidApplianceOperationAuthorization(request.ApplianceOperationAuthorization) || request.PolicyRevision != nil && *request.PolicyRevision < 1 {
 			auth.JSONError(w, 400, "invalid_controller_command", "Choose an enrolled actor and finite operation scope.")
 			return
 		}
-		grant, err := authority.AuthorizeRuntimeOperations(r.Context(), native, request)
+		grant, err := authority.AuthorizeRuntimeOperations(r.Context(), native, request.ApplianceOperationAuthorization)
 		if err != nil {
 			auth.JSONError(w, 503, "controller_unconfirmed", "Authorization was not confirmed. Keep the original command and check again.")
 			return
 		}
 		if !s.extensionSessionCurrent(r.Context(), r, session) {
 			auth.JSONError(w, 409, "session_changed", "Keep the original authorization command and check its receipt.")
+			return
+		}
+		if request.PolicyRevision != nil {
+			outcome, err := s.selectRuntimeGrant(r.Context(), r, session, repository, grant, *request.PolicyRevision)
+			if err != nil {
+				auth.JSONError(w, 503, "policy_selection_unconfirmed", "The host authorization is retained. Keep the original command to reconcile policy selection.")
+				return
+			}
+			auth.JSONResponse(w, 200, struct {
+				sdk.ApplianceOperationGrant
+				SelectionOutcome string `json:"selection_outcome"`
+			}{grant, outcome})
 			return
 		}
 		auth.JSONResponse(w, 200, grant)
@@ -86,4 +105,77 @@ func (s *API) apiFactoryController(w http.ResponseWriter, r *http.Request, sessi
 		return
 	}
 	auth.JSONResponse(w, 200, receipt)
+}
+
+// Selecting an immutable grant for new work is separate from funding. The
+// captured policy revision prevents a replay from overwriting a concurrent
+// human policy change. Already selected references prove adoption without
+// another policy write; old run admissions retain their original references.
+func (s *API) selectRuntimeGrant(ctx context.Context, r *http.Request, session store.Session, repository int64, g sdk.ApplianceOperationGrant, expected int64) (string, error) {
+	policy, err := s.Store.RepositoryPolicy(ctx, repository)
+	if err != nil {
+		return "", err
+	}
+	actor, err := s.FountainIdentities.LocalActor(ctx, g.ActorID)
+	if err != nil {
+		return "", err
+	}
+	token, err := strconv.ParseInt(g.TokenID, 10, 64)
+	if err != nil {
+		return "", err
+	}
+	selected, applicable := true, false
+	if slices.Contains(g.Operations, "execution.launch") {
+		applicable = true
+		selected = policy.Execution != nil && policy.Execution.ControllerGrantID == g.ID
+	}
+	for _, ref := range []factory.ActorBindingRef{policy.Publish, policy.Create, policy.Review, policy.Resolve, policy.Merge} {
+		if ref.ActorID == int64(actor) && ref.TokenID == token && slices.Contains(g.Operations, ref.Kind) {
+			applicable = true
+			if ref.ControllerGrantID != g.ID {
+				selected = false
+			}
+		}
+	}
+	if !applicable {
+		return "refused", nil
+	}
+	if selected {
+		return "applied", nil
+	}
+	if !g.Active || policy.Revision != expected {
+		return "refused", nil
+	}
+	if s.Coordinator == nil {
+		return "", errors.New("policy controller unavailable")
+	}
+	human, err := s.FountainIdentities.LocalActor(ctx, strconv.FormatInt(session.User.ID, 10))
+	if err != nil {
+		return "", err
+	}
+	policy.GrantedBy = int64(human)
+	if slices.Contains(g.Operations, "execution.launch") {
+		policy.Execution = &factory.ActorBindingRef{ControllerGrantID: g.ID, TokenID: token, ActorID: int64(actor), Kind: "execution.launch"}
+	}
+	for _, ref := range []*factory.ActorBindingRef{&policy.Publish, &policy.Create, &policy.Review, &policy.Resolve, &policy.Merge} {
+		if ref.ActorID == int64(actor) && ref.TokenID == token && slices.Contains(g.Operations, ref.Kind) {
+			ref.ControllerGrantID = g.ID
+		}
+	}
+	if policy.AutomationReviewer != nil && policy.AutomationReviewer.ActorID == int64(actor) && policy.AutomationReviewer.TokenID == token && slices.Contains(g.Operations, policy.AutomationReviewer.Kind) {
+		copy := *policy.AutomationReviewer
+		copy.ControllerGrantID = g.ID
+		policy.AutomationReviewer = &copy
+	}
+	if !s.extensionSessionCurrent(ctx, r, session) {
+		return "refused", nil
+	}
+	_, err = s.Coordinator.ApplyPolicy(ctx, factoryPrincipal(session), policy)
+	if errors.Is(err, store.ErrStaleRevision) {
+		return "refused", nil
+	}
+	if err != nil {
+		return "", err
+	}
+	return "applied", nil
 }
