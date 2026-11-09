@@ -14,6 +14,10 @@ import './sodaspaces-factory-work.js';
 import '@factory/product/frontend/factory/work/repair-funding.js';
 import {openProviders, providersChangedEvent} from './soda-providers-events.js';
 import {fountainCommandScope, fountainRepository} from './soda-factory-feed-host.js';
+import '@factory/product/frontend/factory/work/runtime-controller.js';
+import type {ControllerContext} from '@factory/product/frontend/factory/work/runtime-controller.js';
+
+type ControllerView={installation_id:string;runtime_id:string;can_select:boolean;placement:unknown};
 
 type NativeSettingsContext = {
   transport: PreparedExtensionMount;
@@ -33,6 +37,7 @@ type FactoryContext = NativeSettingsContext & {
 };
 
 type View = {
+	controller?:{scope:string;view:ControllerView};
   status?: Record<string, unknown>;
   preparation?: Record<string, unknown>;
   access?: FactoryAccess;
@@ -477,7 +482,7 @@ export class SodaFactorySettings extends LitElement {
     context: FactoryContext,
     retained: {sourceSelection: View['sourceSelection']; sourcePreview: View['sourcePreview']}
   ): Promise<View> {
-    const [status, preparation, access] = await Promise.all([
+    const [status, preparation, access, controller] = await Promise.all([
       this.request(context, `/api/repositories/${context.repository}/factory`),
       context.environment
         ? this.request(
@@ -489,6 +494,7 @@ export class SodaFactorySettings extends LitElement {
           )
         : Promise.resolve(undefined),
       this.loadAccess(context),
+      this.loadController(context),
     ]);
     const nextPreparation = asObject(preparation || {});
     const sourcePreview = retainPreview(retained.sourcePreview, safeText(nextPreparation.requirements));
@@ -504,6 +510,7 @@ export class SodaFactorySettings extends LitElement {
       ? this.view.selectedConnection
       : safeText(connections[0]?.id);
     return {
+      ...(controller===undefined?{}:{controller}),
       ...(status === undefined ? {} : {status: asObject(status)}),
       ...(preparation === undefined ? {} : {preparation: nextPreparation}),
       ...accessSpread(access),
@@ -524,6 +531,30 @@ export class SodaFactorySettings extends LitElement {
     } catch {
       return undefined;
     }
+  }
+
+  private async loadController(context:FactoryContext){
+    try{
+      const [raw,account]=await Promise.all([this.request(context,`/api/repositories/${context.repository}/factory/controller`),fountainCommandScope(context.transport,context.signal)]);
+      const value=asObject(raw);
+      if(typeof value.installation_id!=='string'||!/^[-a-f0-9]{36}$/.test(value.installation_id)||typeof value.runtime_id!=='string'||!/^[a-f0-9]{32}$/.test(value.runtime_id)||typeof value.can_select!=='boolean')throw Error('Controller is unavailable');
+      return {scope:`${account}:${context.repository}:${value.installation_id}:${value.runtime_id}`,view:value as ControllerView};
+    }catch{return undefined;}
+  }
+
+  private controllerContext(context:FactoryContext):ControllerContext|undefined{
+    const captured=this.view.controller;
+    if(!captured||!this.activeValue||context.signal.aborted)return;
+    const path=`/api/repositories/${context.repository}/factory/controller`;
+    return {scope:captured.scope,generation:context.transport.generation,destination:'this appliance',canSelect:captured.view.can_select,canAuthorize:false,request:async command=>{
+      if(command.authorization)throw Error('Operation authorization is unavailable');
+      if(command.selection)return this.request(context,path,'POST',{...command.selection,installation_id:captured.view.installation_id,runtime_id:captured.view.runtime_id});
+      const latest=await this.loadController(context);
+      if(!latest)throw Error('Controller is unavailable');
+      if(this.contextValue!==context||context.signal.aborted)throw Error('Controller scope changed');
+      this.view={...this.view,controller:latest};
+      return latest.view.placement;
+    }};
   }
 
   private async loadConnections(context: FactoryContext) {
@@ -994,6 +1025,7 @@ export class SodaFactorySettings extends LitElement {
       ></soda-factory-repair>
       ${context.environment ? this.renderPreparation() : html`<p>No Project exists for this repository, so preparation controls are unavailable.</p>`}
       ${this.renderCapacity(status)} ${this.renderProjectGrants(status)} ${this.renderPolicy(status)}
+      ${this.renderController(context)}
       ${this.renderProviderControls()} ${this.renderExecutionUsage()}`;
   }
 
@@ -1010,8 +1042,12 @@ export class SodaFactorySettings extends LitElement {
         .context=${this.activeValue && !context.signal.aborted ? {transport: context.transport, repository: context.repository, commandScope: (signal: AbortSignal) => fountainCommandScope(context.transport, signal)} : undefined}
       ></soda-factory-repair>
       ${context.environment ? this.renderPreparation() : html`<p>No development environment exists for this repository, so preparation controls are unavailable.</p>`}
-      ${this.renderEnvironmentGrant(status)} ${this.renderPolicy(status)} ${this.renderProviderControls()}
+      ${this.renderEnvironmentGrant(status)} ${this.renderPolicy(status)} ${this.renderProviderControls()} ${this.renderController(context)}
       ${this.renderOperatorOnly(status)}`;
+  }
+
+  private renderController(context:FactoryContext){
+    return this.view.controller?html`<soda-factory-runtime-controller .context=${this.controllerContext(context)} .disabled=${this.view.busy}></soda-factory-runtime-controller>`:html`<p>Runtime control is unavailable for this repository.</p>`;
   }
 
   private renderOperatorOnly(status: Record<string, unknown>) {

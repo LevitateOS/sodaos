@@ -37,6 +37,7 @@
     "native.contribution.authorize",
     "native.service.bridge",
     "native.background.operations",
+    "native.repository.runtime.control",
     "native.repository.issues.intake",
     "native.repository.comments.write",
     "native.repository.discussions.edit",
