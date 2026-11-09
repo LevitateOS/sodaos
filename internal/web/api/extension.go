@@ -357,6 +357,8 @@ func extensionRepositoryFactoryAction(parts []string, method string) bool {
 	switch parts[3] {
 	case "access":
 		return method == http.MethodGet
+	case "controller":
+		return method == http.MethodGet || method == http.MethodPost
 	case "activity":
 		return method == http.MethodGet || method == http.MethodPut
 	case "policy", "operator-grant", "environment-grant":
