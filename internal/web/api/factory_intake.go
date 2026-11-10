@@ -87,6 +87,7 @@ func (h IntakeHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		h.repositoryEvent(w, r, body)
 		return
 	}
+	if h.pullEvent(w,r,event,delivery,body) { return }
 	hint, ignored, ok := parseIntakeHint(w, event, delivery, body)
 	if !ok {
 		return
