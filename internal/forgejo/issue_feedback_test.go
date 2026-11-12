@@ -26,7 +26,7 @@ func TestIssueFeedbackReconcilesLostReplyWithoutEditingRequirements(t *testing.T
 	var saved, mode string
 	posts, requests, pages := 0, 0, 0
 	var beforeRepository func()
-	var origin string
+	const origin = "https://graph-fixture.test"
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		requests++
 		if r.Header.Get("Authorization") != "token synthetic-feedback-token" {
@@ -84,7 +84,6 @@ func TestIssueFeedbackReconcilesLostReplyWithoutEditingRequirements(t *testing.T
 		}
 	}))
 	defer server.Close()
-	origin = server.URL
 	credential := filepath.Join(t.TempDir(), "actor")
 	if err := os.WriteFile(credential, []byte("synthetic-feedback-token"), 0600); err != nil {
 		t.Fatal(err)

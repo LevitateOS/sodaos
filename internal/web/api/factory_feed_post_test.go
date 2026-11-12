@@ -1493,13 +1493,22 @@ func (p *postEffectsNativePeer) SubmitGraph(ctx context.Context, generation fact
 	return record, nil
 }
 
-func (p *postEffectsNativePeer) DeliverIssueFeedback(ctx context.Context, repository, issue, actor int64, marker, body string) error {
-	if repository != p.repository || issue != 55 || actor != p.actor || ctx.Err() != nil {
-		return errors.New("foreign/cancelled feedback")
+func (p *postEffectsNativePeer) FeedbackHost() collaboration.HostID {
+	return collaboration.HostID(strings.Repeat("a", 32))
+}
+
+func (p *postEffectsNativePeer) DeliverIssueFeedback(ctx context.Context, delivery factory.PostFeedbackDelivery, send bool, beforeSend func(context.Context) error) (factory.PostFeedbackDelivery, error) {
+	intent := delivery.Intent
+	if delivery.Validate() != nil || intent.Host != string(p.FeedbackHost()) || intent.Repository != p.repository || intent.Issue != 55 || intent.Actor != p.actor || !send || ctx.Err() != nil {
+		return delivery, errors.New("foreign/cancelled feedback")
+	}
+	if err := beforeSend(ctx); err != nil {
+		return delivery, err
 	}
 	p.feedback++
-	p.marker, p.body = marker, body
-	return nil
+	p.marker, p.body = intent.Marker, intent.Body
+	delivery.Complete, delivery.Receipt = true, "12"
+	return delivery, nil
 }
 
 func TestGraphPostEffectsRetainUnknownAndSourceScope(t *testing.T) {
@@ -1684,6 +1693,16 @@ func TestGraphPostEffectsRetainUnknownAndSourceScope(t *testing.T) {
 	}
 	peer.lookupHook = nil
 	peer.denied = false
+	id = save("shared-post-feedback")
+	pipe, err := db.PostIntake(ctx, id)
+	if err != nil {
+		t.Fatal(err)
+	}
+	next := pipe
+	next.Judgment, next.Route, next.Issue = factory.PostJudgmentApplied, factory.PostRouteExistingWork, 55
+	if err = db.AdvancePostIntake(ctx, pipe, next); err != nil {
+		t.Fatal(err)
+	}
 	detail, err := db.FeedPost(ctx, id)
 	if err != nil {
 		t.Fatal(err)

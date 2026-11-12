@@ -54,8 +54,12 @@ func (w *IssueGraphWriter) DeliverIssueFeedback(ctx context.Context, delivery fa
 		IssueURL string `json:"issue_url"`
 	}
 	expected := intent.Marker + "\n" + intent.Body
-	api, parseErr := url.Parse(w.rest.Base)
-	if parseErr != nil {
+	host, err := w.Identities.registry.FountainLedgerHost(ctx)
+	if err != nil || host.ID != w.Identities.HostID() || host.Provider != collaboration.Fountain {
+		return delivery, ErrInvalidResponse
+	}
+	api, parseErr := url.Parse(host.APIBase)
+	if parseErr != nil || api.Host == "" || api.User != nil {
 		return delivery, ErrInvalidResponse
 	}
 	issuePath := strings.TrimSuffix(strings.TrimSuffix(api.Path, "/"), "/api/v1") + "/" + repo.Owner.Login + "/" + repo.Name + "/issues/" + strconv.FormatInt(intent.Issue, 10)
@@ -73,7 +77,6 @@ func (w *IssueGraphWriter) DeliverIssueFeedback(ctx context.Context, delivery fa
 			delivery.Attention = "content_changed"
 			return true, errors.New("recorded feedback text changed; preserved")
 		}
-		delivery.Receipt = strconv.FormatInt(saved.ID, 10)
 		delivery.Complete = true
 		return true, nil
 	}
