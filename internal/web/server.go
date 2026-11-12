@@ -131,10 +131,8 @@ func NewFactory(c config.Config, db *store.Store) (*Server, error) {
 		background := forgejo.NewServiceBackground(c.ForgejoBackgroundSocket, *c.ForgejoBackgroundHostUID, "")
 		factoryHost.controller = background
 		factoryHost.executionCredential = extensions.CredentialFile(c.ForgejoExecutionCredentialFile)
-		observer := forgejo.NewServiceObserver(c.ForgejoBackgroundSocket, *c.ForgejoBackgroundHostUID,
-			c.ForgejoBackgroundCredentialFile, client)
+		observer := forgejo.NewServiceObserver(background, c.ForgejoBackgroundCredentialFile, client)
 		observer.Identities = identities
-		observer.ShareBackground(background)
 		if c.ForgejoGraphCredentialFile != "" && c.ForgejoGraphActorID > 0 {
 			graphActor, err := identities.LocalActor(context.Background(), strconv.FormatInt(c.ForgejoGraphActorID, 10))
 			if err != nil {

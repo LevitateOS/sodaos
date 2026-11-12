@@ -1027,7 +1027,7 @@ and current-tip qualified local capture; hidden/incomplete evidence cannot seal 
 subset. Existing private-socket and PostgreSQL integrations exercise these seams.
 
 Share one `ServiceBackground` between the observer and operation adapters using
-`observer.ShareBackground(background)`. Native bootstrap revokes the previous
+`NewServiceObserver(background, credentialFile, client)`. Native bootstrap revokes the previous
 service admission, so separate transports can invalidate each other's reads
 and operations. Snapshot observations are bound to equal idle native revisions.
 

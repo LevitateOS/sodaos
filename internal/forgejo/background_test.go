@@ -250,9 +250,8 @@ func TestServiceBackgroundNeutralGraphSources(t *testing.T) {
 		t.Fatal("source content digest drift accepted")
 	}
 	mode.Store(0)
-	observer := NewServiceObserver(socket, uint32(os.Getuid()), credential, rest)
+	observer := NewServiceObserver(background, credential, rest)
 	observer.Identities = identities
-	observer.ShareBackground(background)
 	if creator, err := db.CollaborationActorByExternalID(ctx, host.ID, "91"); err != nil || creator.ID != localActor {
 		t.Fatal("graph read and recovery disagree on creator identity", creator.ID, err)
 	}

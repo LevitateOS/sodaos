@@ -21,12 +21,9 @@ type ServiceObserver struct {
 	// Identities binds neutral creation recovery to the adopted host. Configure
 	// it before use; snapshot transport and credential custody remain native.
 	Identities     *FountainIdentities
-	socket         string
 	credentialFile string
 	rest           *Client
-	hostUID        uint32
 	mu             sync.Mutex
-	client         extensions.BackgroundClient
 	background     *ServiceBackground
 	actor          string
 	actorCall      *serviceActorCall
@@ -38,12 +35,10 @@ type serviceActorCall struct {
 	err   error
 }
 
-// NewServiceObserver builds the service observation client over the
-// operator-configured shared service callback socket, expected native
-// host peer UID, restricted PAT file and internal REST client. No I/O
-// happens before the first observation.
-func NewServiceObserver(socket string, hostUID uint32, credentialFile string, rest *Client) *ServiceObserver {
-	return &ServiceObserver{socket: socket, hostUID: hostUID, credentialFile: credentialFile, rest: rest}
+// NewServiceObserver binds the already-shared background owner, restricted
+// credential file and internal REST client. Ports cannot bootstrap independently.
+func NewServiceObserver(background *ServiceBackground, credentialFile string, rest *Client) *ServiceObserver {
+	return &ServiceObserver{background: background, credentialFile: credentialFile, rest: rest}
 }
 
 // Credential is the SDK-local restricted secret input for background
@@ -60,40 +55,13 @@ func (o *ServiceObserver) SnapshotReader() SnapshotReader {
 }
 
 func (o *ServiceObserver) ensureClient(ctx context.Context) (extensions.BackgroundClient, error) {
-	o.mu.Lock()
-	defer o.mu.Unlock()
-	if o.client != nil {
-		return o.client, nil
+	if err := ctx.Err(); err != nil {
+		return nil, err
 	}
-	if o.socket == "" || o.credentialFile == "" {
+	if o.background == nil || o.credentialFile == "" {
 		return nil, ErrUnavailable
 	}
-	o.client = o.sharedBackgroundLocked()
-	return o.client, nil
-}
-
-// sharedBackgroundLocked returns the observer's service transport,
-// building an unshared one when the server did not share. Callers hold
-// the observer mutex.
-func (o *ServiceObserver) sharedBackgroundLocked() *ServiceBackground {
-	if o.background == nil {
-		o.background = NewServiceBackground(o.socket, o.hostUID, "")
-	}
-	return o.background
-}
-
-// ShareBackground shares one service admission between snapshot readers
-// and conditional-operation publishers. The native host revokes the
-// previous service admission on every bootstrap, so splitting readers
-// and publishers across two bootstraps would invalidate each other.
-func (o *ServiceObserver) ShareBackground(background *ServiceBackground) {
-	if background == nil {
-		return
-	}
-	o.mu.Lock()
-	defer o.mu.Unlock()
-	o.background = background
-	o.client = background
+	return o.background, nil
 }
 
 func (o *ServiceObserver) ensureActor(ctx context.Context) (string, error) {

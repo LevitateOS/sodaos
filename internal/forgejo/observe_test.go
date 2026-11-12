@@ -122,7 +122,7 @@ func TestServiceObserverBootstrapsOnce(t *testing.T) {
 	fake := &fakeBackgroundServer{t: t, admission: admission}
 	socket := serveBackgroundSocket(t, fake)
 	rest := observationREST(t, 11)
-	observer := NewServiceObserver(socket, uint32(os.Getuid()), observationCredential(t, "test-pat"), rest)
+	observer := NewServiceObserver(NewServiceBackground(socket, uint32(os.Getuid()), ""), observationCredential(t, "test-pat"), rest)
 	ctx := context.Background()
 	observation, err := observer.SnapshotReader().ReadNativeRevision(ctx)
 	if err != nil || observation.Revision != 12 || !observation.Idle {
@@ -166,7 +166,7 @@ func TestServiceObserverShortRevisionCallerDoesNotWaitForActorLookup(t *testing.
 	}))
 	t.Cleanup(rest.Close)
 	fake := &fakeBackgroundServer{admission: strings.Repeat("a", 43)}
-	observer := NewServiceObserver(serveBackgroundSocket(t, fake), uint32(os.Getuid()),
+	observer := NewServiceObserver(NewServiceBackground(serveBackgroundSocket(t, fake), uint32(os.Getuid()), ""),
 		observationCredential(t, "test-pat"), New(rest.URL))
 
 	firstDone := make(chan error, 1)
@@ -321,11 +321,11 @@ func TestServiceActorLookupClonedTransportUsesHTTP1AndPreservesHTTP2Client(t *te
 
 func TestServiceObserverBootstrapFailure(t *testing.T) {
 	rest := observationREST(t, 11)
-	observer := NewServiceObserver(filepath.Join(t.TempDir(), "missing.sock"), uint32(os.Getuid()), observationCredential(t, "test-pat"), rest)
+	observer := NewServiceObserver(NewServiceBackground(filepath.Join(t.TempDir(), "missing.sock"), uint32(os.Getuid()), ""), observationCredential(t, "test-pat"), rest)
 	if _, err := observer.SnapshotReader().ReadNativeRevision(context.Background()); err == nil {
 		t.Fatal("missing socket observed")
 	}
-	unconfigured := NewServiceObserver("", 1001, "", rest)
+	unconfigured := NewServiceObserver(nil, "", rest)
 	if _, err := unconfigured.SnapshotReader().ReadNativeRevision(context.Background()); err == nil {
 		t.Fatal("unconfigured observer read")
 	}

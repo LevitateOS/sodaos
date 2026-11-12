@@ -606,7 +606,7 @@ func TestFactoryObservationAdaptersUsePrivateNativeSources(t *testing.T) {
 	})}
 	go func() { _ = peer.Serve(listener) }()
 	defer peer.Close()
-	observer := forgejo.NewServiceObserver(socket, uint32(os.Getuid()), credential, forgejo.New(rest.URL))
+	observer := forgejo.NewServiceObserver(forgejo.NewServiceBackground(socket, uint32(os.Getuid()), ""), credential, forgejo.New(rest.URL))
 	observer.Identities = identities
 	source := observation.NewServiceReadinessSource(observer, identities)
 	repo := strconv.FormatInt(int64(repository), 10)
