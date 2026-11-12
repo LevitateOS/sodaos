@@ -125,7 +125,7 @@ func (s *CompletionSnapshotSource) openCompletionPage(ctx context.Context, repos
 	// the closing 3 held here before the limit calc, never after
 	// full collection. Below 1 the source holds pending before
 	// spending a single call.
-	requestLimit := control.CompletionPageItemLimit(ctx)
+	requestLimit := control.CompletionPageItemLimit(ctx, forgejo.SnapshotPageLimit)
 	if requestLimit < 1 {
 		return empty, control.ErrReadinessPassPending
 	}

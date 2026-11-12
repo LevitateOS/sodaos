@@ -9,6 +9,7 @@ import (
 
 	extensions "forgejo.org/extension-sdk"
 
+	"github.com/levitateos/factory/pkg/collaboration"
 	"github.com/levitateos/factory/pkg/factory"
 )
 
@@ -344,8 +345,8 @@ func basePublishOutcome(operationID string, record extensions.OperationRecord) (
 	}
 	outcome := factory.OperationOutcome{
 		OperationID: record.OperationID, InstallationID: record.InstallationID, Kind: record.Kind,
-		Effect: record.EffectState, Cancellation: record.CancellationStatus,
-		Completion: record.CompletionState, Reason: record.ReasonCode,
+		Effect: collaboration.EffectState(record.EffectState), Cancellation: collaboration.CancellationState(record.CancellationStatus),
+		Completion: collaboration.CompletionState(record.CompletionState), Reason: record.ReasonCode,
 	}
 	if !factory.ValidOpEffect(outcome.Effect) {
 		return empty, errors.New("operation effect is unknown")

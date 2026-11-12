@@ -222,7 +222,7 @@ func baseMergeOutcome(id string, record extensions.OperationRecord) (factory.Ope
 	if record.Outcome == extensions.BackgroundOutcomeOperationsUnavailable {
 		return empty, &factory.PublicationWait{Reason: "operations_unavailable"}
 	}
-	o := factory.OperationOutcome{OperationID: id, InstallationID: record.InstallationID, Kind: record.Kind, Effect: record.EffectState, Cancellation: record.CancellationStatus, Completion: record.CompletionState, Reason: record.ReasonCode}
+	o := factory.OperationOutcome{OperationID: id, InstallationID: record.InstallationID, Kind: record.Kind, Effect: collaboration.EffectState(record.EffectState), Cancellation: collaboration.CancellationState(record.CancellationStatus), Completion: collaboration.CompletionState(record.CompletionState), Reason: record.ReasonCode}
 	if o.Cancellation == "" {
 		o.Cancellation = factory.OpCancelNone
 	}
