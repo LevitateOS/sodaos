@@ -27,7 +27,7 @@ func (s *API) apiFactoryWorkHTTP(w http.ResponseWriter, r *http.Request, v store
 		},
 		VisibilityError: auth.ProviderError, StatusError: factoryhttpapi.AcceptanceDecisionError,
 	}
-	if !strings.HasSuffix(r.URL.Path, "/assignment") && !strings.HasSuffix(r.URL.Path, "/plan") {
+	if !strings.HasSuffix(r.URL.Path, "/assignment") && !strings.HasSuffix(r.URL.Path, "/plan") && !strings.HasSuffix(r.URL.Path, "/issues/progress") {
 		if s.Coordinator == nil {
 			auth.JSONError(w, 500, "coordinator_unavailable", "Factory coordination is unavailable.")
 			return
